@@ -1,0 +1,18 @@
+.layout-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+app-sidebar {
+  flex: 0 0 265px;
+  background: #191e3a;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1 1 auto;
+  background: #f4f7fc;
+  min-height: 100vh;
+  padding: 4rem 2rem 2rem 2rem;
+  overflow-x: auto;
+}

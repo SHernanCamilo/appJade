@@ -1,0 +1,45 @@
+.sidebar {
+  width: 265px;
+  --tw-bg-opacity: 1
+  background-color: #111827;
+  color: #fff;
+  overflow: hidden;
+}
+
+.sidebar-logo {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-menu {
+  scrollbar-width: thin;
+  scrollbar-color: #b82121 transparent;
+}
+
+.sidebar-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-menu::-webkit-scrollbar-thumb {
+  scrollbar-color: #bd3434 transparent;;
+  border-radius: 4px;
+}
+
+.nav-link {
+  font-size: 15px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff !important;
+}
+
+.nav-link.active {
+  background-color: #2a2a3c;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.nav-item i {
+  color: #888;
+}

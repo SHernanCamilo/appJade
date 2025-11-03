@@ -25,3 +25,64 @@ Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To u
 ## Further help
 
 To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+################################################
+##################### KIRO #####################
+################################################
+
+LO QUE TE FALTA PARA TU SISTEMA DE PERMISOS JERÁRQUICO:
+
+Backend:
+
+❌ Tablas para jerarquía organizacional:
+> Empresas
+> Sucursales
+> Sedes (opcional)
+> Relación usuarios con empresas/sucursales/sedes
+
+❌ Sistema de permisos granular:
+> Permisos por módulo
+> Permisos por acción (ver, crear, editar, eliminar, exportar)
+> Permisos contextuales (empresa, sucursal, sede)
+
+❌ Controladores y API:
+> CRUD de empresas, sucursales, sedes
+> Gestión de roles y permisos
+> Asignación de permisos a usuarios
+> Middleware para validar permisos por contexto
+
+###########################################################################
+Frontend:
+
+❌ Servicios:
+> Servicio de permisos
+> Servicio de empresas/sucursales/sedes
+> Servicio de roles
+
+❌ Componentes:
+> Gestión de roles
+> Gestión de permisos
+> Asignación de permisos a usuarios
+> Selector de empresa/sucursal/sede
+
+❌ Directivas:
+> Directiva para mostrar/ocultar elementos según permisos
+> Guards para rutas con permisos específicos
+
+
+🎯 RECOMENDACIONES:
+Tu estructura actual es básica pero sólida. Para implementar el sistema que necesitas, te sugiero:
+
+1. Extender las migraciones para agregar las tablas de jerarquía organizacional
+2. Crear un sistema de permisos personalizado que extienda Spatie para manejar contextos
+3. Implementar middleware para validar permisos por empresa/sucursal/sede
+4. Crear componentes reutilizables en Angular para gestionar permisos
+
+
+¿Quieres que te ayude a implementar alguna de estas partes específicas? Puedo empezar por:
+
+* Las migraciones para empresas/sucursales/sedes
+* El sistema de permisos contextual
+* Los controladores API
+* Los servicios y componentes de Angular
+* ¿Por cuál prefieres que comience?

@@ -1,0 +1,118 @@
+<nav class="sidebar d-flex flex-column vh-100 position-fixed">
+<!-- Logo -->
+<div class="sidebar-logo d-flex align-items-center justify-content-between p-3">
+  <div class="d-flex align-items-center">
+    <img src="" alt="" height="28" class="me-2" />
+    <span class="fw-bold text-white fs-5"></span>
+  </div>
+  <button class="btn btn-sm btn-outline-light d-lg-none">
+    <i class="bi bi-x-lg"></i>
+  </button>
+</div>
+
+<div class="sidebar-menu flex-grow-1 overflow-auto mt-2">
+  <ul class="nav flex-column px-2">
+    <!-- Dashboard -->
+    <li class="nav-item">
+      <a routerLink="/dashboard" class="nav-link active d-flex align-items-center text-white">
+        <i class="bi bi-grid-fill me-3 fs-5"></i>
+        <span>Dashboard</span>
+      </a>
+    </li>
+
+    <!-- Layout Builder -->
+    <li class="nav-item">
+      <a routerLink="/layout-builder" class="nav-link d-flex align-items-center text-white-50">
+        <i class="bi bi-columns-gap me-3 fs-5"></i>
+        <span>Configuraciones</span>
+      </a>
+    </li>
+
+    <!-- Crafted -->
+    <li class="mt-4 text-uppercase small text-white-50 px-3">MODULOS</li>
+
+    <!-- Pages -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center text-white-50" data-bs-toggle="collapse" href="#pagesMenu">
+        <i class="bi bi-kanban me-3 fs-5"></i>
+        <span>Inventario</span>
+        <i class="bi bi-chevron-down ms-auto small"></i>
+      </a>
+      <ul class="collapse list-unstyled ps-5" id="pagesMenu">
+        <li><a href="#" class="nav-link text-white-50 py-1">Configuracion</a></li>
+        <li><a href="#" class="nav-link text-white-50 py-1">Martriz de obsolesncia</a></li>
+      </ul>
+    </li>
+
+    <!-- Accounts -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center text-white-50" data-bs-toggle="collapse" href="#accountsMenu">
+        <i class="bi bi-person-circle me-3 fs-5"></i>
+        <span>Accounts</span>
+        <i class="bi bi-chevron-down ms-auto small"></i>
+      </a>
+      <ul class="collapse list-unstyled ps-5" id="accountsMenu">
+        <li><a href="#" class="nav-link text-white-50 py-1">Overview</a></li>
+        <li><a href="#" class="nav-link text-white-50 py-1">Settings</a></li>
+      </ul>
+    </li>
+
+    <!-- Errors -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center text-white-50" data-bs-toggle="collapse" href="#errorsMenu">
+        <i class="bi bi-exclamation-triangle me-3 fs-5"></i>
+        <span>Errors</span>
+        <i class="bi bi-chevron-down ms-auto small"></i>
+      </a>
+      <ul class="collapse list-unstyled ps-5" id="errorsMenu">
+        <li><a href="#" class="nav-link text-white-50 py-1">404</a></li>
+        <li><a href="#" class="nav-link text-white-50 py-1">500</a></li>
+      </ul>
+    </li>
+
+    <!-- Widgets -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center text-white-50" data-bs-toggle="collapse" href="#widgetsMenu">
+        <i class="bi bi-grid-3x3-gap-fill me-3 fs-5"></i>
+        <span>Widgets</span>
+        <i class="bi bi-chevron-down ms-auto small"></i>
+      </a>
+      <ul class="collapse list-unstyled ps-5" id="widgetsMenu">
+        <li><a href="#" class="nav-link text-white-50 py-1">Stats</a></li>
+        <li><a href="#" class="nav-link text-white-50 py-1">Charts</a></li>
+      </ul>
+    </li>
+
+    <!-- Apps -->
+    <li class="mt-4 text-uppercase small text-white-50 px-3">Apps</li>
+
+    <!-- Chat -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center text-white-50" data-bs-toggle="collapse" href="#chatMenu">
+        <i class="bi bi-chat-dots me-3 fs-5"></i>
+        <span>Chat</span>
+        <i class="bi bi-chevron-down ms-auto small"></i>
+      </a>
+      <ul class="collapse list-unstyled ps-5" id="chatMenu">
+        <li><a href="#" class="nav-link text-white-50 py-1">Private</a></li>
+        <li><a href="#" class="nav-link text-white-50 py-1">Group</a></li>
+      </ul>
+    </li>
+
+    <!-- User Management -->
+    <li class="nav-item">
+      <a class="nav-link d-flex align-items-center text-white-50" data-bs-toggle="collapse" href="#userMenu">
+        <i class="bi bi-people me-3 fs-5"></i>
+        <span>User Management</span>
+        <i class="bi bi-chevron-down ms-auto small"></i>
+      </a>
+      <ul class="collapse list-unstyled ps-5" id="userMenu">
+        <li><a href="#" class="nav-link text-white-50 py-1">Users</a></li>
+        <li><a href="#" class="nav-link text-white-50 py-1">Roles</a></li>
+      </ul>
+    </li>
+  </ul>
+</div>
+</nav>
+
+
