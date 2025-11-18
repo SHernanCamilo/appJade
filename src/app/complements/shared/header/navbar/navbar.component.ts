@@ -1,34 +1,75 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostBinding } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../modules/auth/auth.service';
+import { SidebarService } from '../../sidebar/sidebar.service';
+import { ButtonModule } from 'primeng/button';
+import { AvatarModule } from 'primeng/avatar';
+import { MenuModule } from 'primeng/menu';
+import { BadgeModule } from 'primeng/badge';
+import { MenuItem } from 'primeng/api';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, ButtonModule, AvatarModule, MenuModule, BadgeModule],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css'
 })
 export class NavbarComponent implements OnInit {
   currentUser: any = null;
   isDropdownOpen = false;
+  isSidebarCollapsed = false;
+  userMenuItems: MenuItem[] = [];
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private sidebarService: SidebarService
   ) { }
 
   ngOnInit(): void {
     // Suscribirse a los cambios del usuario actual
     this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      this.initUserMenu();
+    });
+
+    // Suscribirse a los cambios del sidebar
+    this.sidebarService.isCollapsed$.subscribe(collapsed => {
+      this.isSidebarCollapsed = collapsed;
     });
 
     // Cargar usuario si no está cargado
     if (!this.currentUser && this.authService.isAuthenticated()) {
       this.loadUserData();
     }
+    
+    this.initUserMenu();
+  }
+
+  initUserMenu(): void {
+    this.userMenuItems = [
+      {
+        label: 'Mi Perfil',
+        icon: 'pi pi-user',
+        command: () => this.goToProfile()
+      },
+      {
+        label: 'Configuración',
+        icon: 'pi pi-cog',
+        command: () => this.goToSettings()
+      },
+      {
+        separator: true
+      },
+      {
+        label: 'Cerrar Sesión',
+        icon: 'pi pi-sign-out',
+        command: () => this.logout(),
+        styleClass: 'text-danger'
+      }
+    ];
   }
 
   loadUserData(): void {
@@ -83,5 +124,10 @@ export class NavbarComponent implements OnInit {
       return 'Usuario';
     }
     return this.currentUser.roles[0];
+  }
+
+  // Toggle sidebar en móvil
+  toggleMobileSidebar(): void {
+    this.sidebarService.toggleMobileSidebar();
   }
 }

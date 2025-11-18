@@ -1,0 +1,92 @@
+<div class="organizacion-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h1 class="page-title">
+      <i class="bi bi-diagram-3 me-2"></i>
+      Organización
+    </h1>
+    <p class="page-subtitle">
+      Gestiona la estructura organizacional, usuarios y servicios del sistema
+    </p>
+  </div>
+
+  <!-- Dashboard Cards con PrimeNG -->
+  <div class="dashboard-grid">
+    <p-card *ngFor="let card of dashboardCards" [styleClass]="'dashboard-card card-' + card.color">
+      <ng-template pTemplate="header">
+        <div class="card-header-custom">
+          <i class="bi {{ card.icon }}"></i>
+          <div class="header-text">
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.description }}</p>
+          </div>
+        </div>
+      </ng-template>
+      
+      <div class="menu-list">
+        <a *ngFor="let item of card.items" 
+           [routerLink]="item.route" 
+           class="menu-item"
+           pRipple>
+          <i class="bi {{ item.icon }}"></i>
+          <span>{{ item.name }}</span>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </div>
+    </p-card>
+  </div>
+
+  <!-- Quick Stats con PrimeNG -->
+  <div class="stats-section">
+    <p-card styleClass="stats-card">
+      <ng-template pTemplate="header">
+        <div class="stats-header">
+          <i class="bi bi-graph-up"></i>
+          <h5>Estadísticas Rápidas</h5>
+        </div>
+      </ng-template>
+      
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-icon bg-primary">
+            <i class="bi bi-building"></i>
+          </div>
+          <div class="stat-info">
+            <h4>12</h4>
+            <p>Empresas</p>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon bg-success">
+            <i class="bi bi-people"></i>
+          </div>
+          <div class="stat-info">
+            <h4>248</h4>
+            <p>Usuarios</p>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon bg-info">
+            <i class="bi bi-shield-check"></i>
+          </div>
+          <div class="stat-info">
+            <h4>8</h4>
+            <p>Roles</p>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon bg-warning">
+            <i class="bi bi-grid-3x3-gap"></i>
+          </div>
+          <div class="stat-info">
+            <h4>15</h4>
+            <p>Módulos</p>
+          </div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>

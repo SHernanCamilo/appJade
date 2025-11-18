@@ -19,6 +19,10 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', component: DashboardComponent },
+      { 
+        path: 'organizacion', 
+        loadChildren: () => import('./modules/organizacion/organizacion.routes').then(m => m.ORGANIZACION_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí

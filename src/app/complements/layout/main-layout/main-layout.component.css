@@ -4,15 +4,32 @@
 }
 
 app-sidebar {
-  flex: 0 0 265px;
+  flex-shrink: 0;
   background: #191e3a;
   min-height: 100vh;
+  transition: all 0.3s ease;
 }
 
 .main-content {
   flex: 1 1 auto;
   background: #f4f7fc;
   min-height: 100vh;
-  padding: 4rem 2rem 2rem 2rem;
+  padding: 2rem;
+  padding-top: 80px;
   overflow-x: auto;
+  margin-left: 265px;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.sidebar-collapsed {
+  margin-left: 70px;
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .main-content,
+  .main-content.sidebar-collapsed {
+    margin-left: 0 !important;
+    padding-top: 80px;
+  }
 }

@@ -1,13 +1,31 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { AuthService } from '../auth.service';
 import { CommonModule } from '@angular/common';
+import { InputTextModule } from 'primeng/inputtext';
+import { PasswordModule } from 'primeng/password';
+import { ButtonModule } from 'primeng/button';
+import { CheckboxModule } from 'primeng/checkbox';
+import { CardModule } from 'primeng/card';
+import { MessageModule } from 'primeng/message';
+import { DividerModule } from 'primeng/divider';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule, 
+    ReactiveFormsModule, 
+    RouterModule,
+    InputTextModule,
+    PasswordModule,
+    ButtonModule,
+    CheckboxModule,
+    CardModule,
+    MessageModule,
+    DividerModule
+  ],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
@@ -41,6 +59,13 @@ export class LoginComponent implements OnInit {
   ngOnInit(): void {
     // Obtener la URL de retorno si existe
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    
+    // Verificar si la sesión expiró
+    const reason = this.route.snapshot.queryParams['reason'];
+    if (reason === 'session_expired') {
+      this.hasError = true;
+      this.errorMsg = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+    }
   }
 
   onSubmit(): void {
@@ -57,10 +82,14 @@ export class LoginComponent implements OnInit {
     
     this.auth.login(email, password).subscribe({
       next: () => {
+        console.log('✅ Login exitoso, navegando a:', this.returnUrl);
         this.isLoading = false;
         this.hasError = false;
         // Navegar a la URL de retorno o al dashboard
-        this.router.navigateByUrl(this.returnUrl);
+        this.router.navigateByUrl(this.returnUrl).then(
+          (success) => console.log('✅ Navegación exitosa:', success),
+          (error) => console.error('❌ Error en navegación:', error)
+        );
       },
       error: (error) => {
         this.isLoading = false;

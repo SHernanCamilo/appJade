@@ -1,32 +1,101 @@
 .sidebar {
   width: 265px;
-  --tw-bg-opacity: 1
   background-color: #111827;
   color: #fff;
   overflow: hidden;
+  transition: width 0.3s ease, transform 0.3s ease;
+  z-index: 1040;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+}
+
+.sidebar.collapsed {
+  width: 70px;
 }
 
 .sidebar-logo {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 60px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.5rem;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  flex-direction: column !important;
+  justify-content: center !important;
+  padding: 0.75rem 0.5rem !important;
+}
+
+.btn-toggle {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  color: #fff !important;
+  padding: 0.5rem 0.7rem !important;
+  border-radius: 6px;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.btn-toggle:hover {
+  background: rgba(59, 130, 246, 0.4) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  transform: scale(1.05);
+}
+
+.btn-toggle:active {
+  transform: scale(0.95);
+}
+
+.btn-toggle i {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  padding: 1rem 0.5rem !important;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .sidebar-menu {
   scrollbar-width: thin;
-  scrollbar-color: #b82121 transparent;
+  scrollbar-color: #4b5563 transparent;
 }
 
 .sidebar-menu::-webkit-scrollbar {
   width: 6px;
 }
+
 .sidebar-menu::-webkit-scrollbar-thumb {
-  scrollbar-color: #bd3434 transparent;;
+  background-color: #4b5563;
   border-radius: 4px;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
 }
 
 .nav-link {
   font-size: 15px;
   border-radius: 6px;
   transition: all 0.2s;
+  padding: 0.75rem 1rem;
+  white-space: nowrap;
+  position: relative;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
 }
 
 .nav-link:hover {
@@ -35,11 +104,535 @@
 }
 
 .nav-link.active {
-  background-color: #2a2a3c;
+  background-color: #1e40af;
   color: #fff !important;
   font-weight: 600;
 }
 
 .nav-item i {
-  color: #888;
+  color: #9ca3af;
+  transition: color 0.2s;
+}
+
+.nav-link:hover i,
+.nav-link.active i {
+  color: #fff;
+}
+
+.sidebar.collapsed .nav-link span {
+  display: none;
+}
+
+.sidebar.collapsed .nav-link i {
+  margin: 0 !important;
+}
+
+/* Tooltip para items colapsados */
+.sidebar.collapsed .nav-link {
+  position: relative;
+}
+
+.sidebar.collapsed .nav-link[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1f2937;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Separadores de sección */
+.sidebar .nav .small {
+  transition: opacity 0.2s;
+}
+
+.sidebar.collapsed .nav .small {
+  opacity: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Animación suave para iconos */
+.nav-link i {
+  transition: all 0.2s ease;
+}
+
+/* Mejora visual del botón toggle */
+.btn-toggle i {
+  transition: transform 0.3s ease;
+}
+
+.sidebar.collapsed .btn-toggle i {
+  transform: rotate(180deg);
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px !important;
+    z-index: 1050;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .sidebar.collapsed {
+    width: 280px !important;
+  }
+
+  /* Botón de cerrar en móvil */
+  .d-lg-none.btn-toggle {
+    background: rgba(220, 38, 38, 0.2) !important;
+    border-color: rgba(220, 38, 38, 0.3) !important;
+  }
+
+  .d-lg-none.btn-toggle:hover {
+    background: rgba(220, 38, 38, 0.3) !important;
+    border-color: rgba(220, 38, 38, 0.4) !important;
+  }
+
+  /* Ocultar tooltips en móvil */
+  .sidebar.collapsed .nav-link[title]:hover::after {
+    display: none;
+  }
+
+  /* Ajustar padding del sidebar en móvil */
+  .sidebar-logo {
+    padding: 1rem !important;
+  }
+
+  .nav-link {
+    padding: 0.85rem 1rem;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 576px) {
+  .sidebar {
+    width: 85vw !important;
+    max-width: 300px !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .sidebar {
+    transform: translateX(0) !important;
+  }
+}
+
+/* Overlay para cerrar sidebar en móvil */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1035;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar-overlay.show {
+    display: block;
+  }
+}
+/* N
+av Link Wrapper para Organización */
+.nav-link-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.nav-link-wrapper .nav-link {
+  border-radius: 6px 0 0 6px;
+  margin-right: 0;
+}
+
+.btn-dropdown {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  padding: 0.75rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+}
+
+.btn-dropdown:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btn-dropdown i {
+  transition: transform 0.3s ease;
+  font-size: 0.875rem;
+}
+
+.btn-dropdown[aria-expanded="true"] i {
+  transform: rotate(180deg);
+}
+
+/* Submenús */
+.submenu-item {
+  margin: 0.25rem 0;
+}
+
+.submenu-item > .nav-link {
+  padding: 0.65rem 1rem;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.submenu-item > .nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff !important;
+}
+
+.submenu-item .nav-link i {
+  font-size: 1rem;
+}
+
+.submenu-item .bi-chevron-down {
+  font-size: 0.75rem;
+  transition: transform 0.3s ease;
+}
+
+.submenu-item .nav-link[aria-expanded="true"] .bi-chevron-down {
+  transform: rotate(180deg);
+}
+
+/* Items de tercer nivel */
+.submenu-item ul li {
+  margin: 0.15rem 0;
+}
+
+.submenu-item ul li .nav-link {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.submenu-item ul li .nav-link::before {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background: #6b7280;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.submenu-item ul li .nav-link:hover::before {
+  background: #3b82f6;
+  width: 6px;
+  height: 6px;
+}
+
+.submenu-item ul li .nav-link:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #fff !important;
+  padding-left: 1.75rem;
+}
+
+.submenu-item ul li .nav-link.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6 !important;
+  font-weight: 600;
+}
+
+.submenu-item ul li .nav-link.active::before {
+  background: #3b82f6;
+  width: 6px;
+  height: 6px;
+}
+
+/* Animación de collapse */
+.collapse {
+  transition: height 0.3s ease;
+}
+
+/* Ajustes para sidebar colapsado */
+.sidebar.collapsed .nav-link-wrapper {
+  flex-direction: column;
+}
+
+.sidebar.collapsed .btn-dropdown {
+  display: none;
+}
+
+/* ============================================
+   ESTILOS PRIMENG PARA SIDEBAR
+   ============================================ */
+
+/* Logo con PrimeNG */
+.logo-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.logo-content i {
+  font-size: 1.75rem;
+}
+
+.logo-text {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: white;
+}
+
+.logo-content-collapsed {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.logo-content-collapsed i {
+  font-size: 1.75rem;
+}
+
+/* Botón toggle con PrimeNG */
+::ng-deep .sidebar .btn-toggle {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  color: white !important;
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+}
+
+::ng-deep .sidebar .btn-toggle:hover {
+  background: rgba(59, 130, 246, 0.4) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+::ng-deep .sidebar .btn-toggle.p-button-danger {
+  background: rgba(220, 38, 38, 0.2) !important;
+  border-color: rgba(220, 38, 38, 0.3) !important;
+}
+
+::ng-deep .sidebar .btn-toggle.p-button-danger:hover {
+  background: rgba(220, 38, 38, 0.3) !important;
+  border-color: rgba(220, 38, 38, 0.4) !important;
+}
+
+/* PanelMenu Styles */
+::ng-deep .sidebar .p-panelmenu {
+  border: none;
+  background: transparent;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-panel {
+  margin-bottom: 0.25rem;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-header {
+  border: none;
+  background: transparent;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-header-link {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-size: 0.938rem;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-header-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-header-link:focus {
+  box-shadow: none;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-icon {
+  color: #9ca3af;
+  font-size: 1.125rem;
+  margin-right: 0.75rem;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-header-link:hover .p-panelmenu-icon {
+  color: white;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-submenu-icon {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Panel Content */
+::ng-deep .sidebar .p-panelmenu .p-panelmenu-content {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem {
+  margin: 0.15rem 0;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link {
+  padding: 0.625rem 1rem 0.625rem 2.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  position: relative;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link::before {
+  content: '';
+  position: absolute;
+  left: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background: #6b7280;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: white;
+  padding-left: 2.75rem;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link:hover::before {
+  background: #3b82f6;
+  width: 6px;
+  height: 6px;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link:focus {
+  box-shadow: none;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-icon {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin-right: 0.5rem;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link:hover .p-menuitem-icon {
+  color: #3b82f6;
+}
+
+/* Active state */
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link.router-link-active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link.router-link-active::before {
+  background: #3b82f6;
+  width: 6px;
+  height: 6px;
+}
+
+::ng-deep .sidebar .p-panelmenu .p-menuitem-link.router-link-active .p-menuitem-icon {
+  color: #3b82f6;
+}
+
+/* Separador */
+::ng-deep .sidebar .p-panelmenu .p-menuitem-separator {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin: 1rem 0;
+}
+
+::ng-deep .sidebar .menu-separator-label {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.75rem 1rem 0.5rem;
+  display: block;
+}
+
+/* Menu colapsado (solo iconos) */
+.sidebar-menu-collapsed {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.menu-icon-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s;
+  cursor: pointer;
+  position: relative;
+}
+
+.menu-icon-item i {
+  font-size: 1.25rem;
+}
+
+.menu-icon-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.menu-icon-item.has-submenu::after {
+  content: '';
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background: #9ca3af;
+  border-radius: 50%;
+}
+
+/* Ajustes responsive */
+@media (max-width: 991.98px) {
+  ::ng-deep .sidebar .p-panelmenu .p-panelmenu-header-link {
+    padding: 0.85rem 1rem;
+    font-size: 0.938rem;
+  }
+
+  ::ng-deep .sidebar .p-panelmenu .p-menuitem-link {
+    padding: 0.75rem 1rem 0.75rem 2.5rem;
+    font-size: 0.875rem;
+  }
 }

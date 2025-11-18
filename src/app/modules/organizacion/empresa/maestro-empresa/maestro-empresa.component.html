@@ -1,0 +1,303 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header">
+    <p-button 
+      label="Volver" 
+      icon="pi pi-arrow-left" 
+      [routerLink]="'/organizacion'"
+      styleClass="p-button-text p-button-secondary mb-3">
+    </p-button>
+    
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="page-title">
+          <i class="bi bi-building-fill me-2"></i>
+          Maestro de Empresas
+        </h1>
+        <p class="page-subtitle">Gestiona las empresas del sistema 1</p>
+      </div>
+      <p-button 
+        [label]="showForm ? 'Cancelar' : 'Nueva Empresa'"
+        [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
+        (onClick)="toggleForm()"
+        [severity]="showForm ? 'secondary' : 'primary'">
+      </p-button>
+    </div>
+  </div>
+
+  <p-dialog 
+    [(visible)]="showForm" 
+    [header]="editMode ? 'Editar Empresa' : 'Nueva Empresa'" 
+    [modal]="true" 
+    [style]="{width: '60vw'}"
+    [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
+    
+    <form [formGroup]="empresaForm" (ngSubmit)="onSubmit()">
+      <div class="p-fluid">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="nombre">Nombre de la Empresa *</label>
+            <input 
+              pInputText 
+              id="nombre" 
+              formControlName="nombre"
+              placeholder="Ej: Empresa ABC S.A.S"
+              [class.ng-invalid]="empresaForm.get('nombre')?.invalid && empresaForm.get('nombre')?.touched">
+            <small class="p-error" *ngIf="empresaForm.get('nombre')?.hasError('required') && empresaForm.get('nombre')?.touched">
+              El nombre es obligatorio
+            </small>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label for="prefijo">Prefijo *</label>
+            <input 
+              pInputText 
+              id="prefijo" 
+              formControlName="prefijo"
+              placeholder="Ej: ABC"
+              [class.ng-invalid]="empresaForm.get('prefijo')?.invalid && empresaForm.get('prefijo')?.touched">
+            <small class="p-error" *ngIf="empresaForm.get('prefijo')?.hasError('required') && empresaForm.get('prefijo')?.touched">
+              El prefijo es obligatorio
+            </small>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="nit">NIT *</label>
+            <p-inputNumber 
+              id="nit" 
+              formControlName="nit"
+              placeholder="900123456"
+              [useGrouping]="false"
+              [class.ng-invalid]="empresaForm.get('nit')?.invalid && empresaForm.get('nit')?.touched">
+            </p-inputNumber>
+            <small class="p-error" *ngIf="empresaForm.get('nit')?.hasError('required') && empresaForm.get('nit')?.touched">
+              El NIT es obligatorio
+            </small>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label for="telefono">Teléfono *</label>
+            <p-inputNumber 
+              id="telefono" 
+              formControlName="telefono"
+              placeholder="3001234567"
+              [useGrouping]="false"
+              [class.ng-invalid]="empresaForm.get('telefono')?.invalid && empresaForm.get('telefono')?.touched">
+            </p-inputNumber>
+            <small class="p-error" *ngIf="empresaForm.get('telefono')?.hasError('required') && empresaForm.get('telefono')?.touched">
+              El teléfono es obligatorio
+            </small>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="direccion">Dirección *</label>
+          <input 
+            pInputText 
+            id="direccion" 
+            formControlName="direccion"
+            placeholder="Ej: Calle 123 #45-67"
+            [class.ng-invalid]="empresaForm.get('direccion')?.invalid && empresaForm.get('direccion')?.touched">
+          <small class="p-error" *ngIf="empresaForm.get('direccion')?.hasError('required') && empresaForm.get('direccion')?.touched">
+            La dirección es obligatoria
+          </small>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="rep_legal">Representante Legal *</label>
+            <input 
+              pInputText 
+              id="rep_legal" 
+              formControlName="rep_legal"
+              placeholder="Nombre completo"
+              [class.ng-invalid]="empresaForm.get('rep_legal')?.invalid && empresaForm.get('rep_legal')?.touched">
+            <small class="p-error" *ngIf="empresaForm.get('rep_legal')?.hasError('required') && empresaForm.get('rep_legal')?.touched">
+              El representante legal es obligatorio
+            </small>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label for="cc_rep_legal">Cédula Representante Legal *</label>
+            <p-inputNumber 
+              id="cc_rep_legal" 
+              formControlName="cc_rep_legal"
+              placeholder="1234567890"
+              [useGrouping]="false"
+              [class.ng-invalid]="empresaForm.get('cc_rep_legal')?.invalid && empresaForm.get('cc_rep_legal')?.touched">
+            </p-inputNumber>
+            <small class="p-error" *ngIf="empresaForm.get('cc_rep_legal')?.hasError('required') && empresaForm.get('cc_rep_legal')?.touched">
+              La cédula es obligatoria
+            </small>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="logo">Logo (URL)</label>
+          <input 
+            pInputText 
+            id="logo" 
+            formControlName="logo"
+            placeholder="https://ejemplo.com/logo.png">
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <p-button 
+          label="Cancelar" 
+          icon="pi pi-times" 
+          (onClick)="toggleForm()"
+          styleClass="p-button-text">
+        </p-button>
+        <p-button 
+          [label]="editMode ? 'Actualizar' : 'Crear Empresa'" 
+          icon="pi pi-check" 
+          type="submit"
+          [disabled]="empresaForm.invalid || isSubmitting"
+          [loading]="isSubmitting">
+        </p-button>
+      </div>
+    </form>
+  </p-dialog>
+
+
+  <div class="content-card">
+    <p-table 
+      #dt
+      [value]="empresas" 
+      [paginator]="true" 
+      [rows]="10"
+      [showCurrentPageReport]="true"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [loading]="isLoading"
+      [globalFilterFields]="['nombre', 'nit', 'prefijo']"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} empresas"
+      [tableStyle]="{'min-width': '50rem'}">
+      
+      <ng-template pTemplate="caption">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-building me-2"></i>
+            Lista de Empresas
+            <p-tag [value]="empresas.length.toString()" styleClass="ml-2"></p-tag>
+          </h5>
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input 
+              pInputText 
+              type="text" 
+              (input)="onGlobalFilter($event)" 
+              placeholder="Buscar..." />
+          </span>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="nombre">
+            Empresa <p-sortIcon field="nombre"></p-sortIcon>
+          </th>
+          <th pSortableColumn="nit">
+            NIT <p-sortIcon field="nit"></p-sortIcon>
+          </th>
+          <th pSortableColumn="prefijo">
+            Prefijo <p-sortIcon field="prefijo"></p-sortIcon>
+          </th>
+          <th>Representante Legal</th>
+          <th>Contacto</th>
+          <th>Estado</th>
+          <th style="width: 150px">Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-empresa>
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <p-avatar 
+                *ngIf="!empresa.logo"
+                [label]="getInitials(empresa.nombre)" 
+                styleClass="mr-2" 
+                size="normal"
+                [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
+              </p-avatar>
+              <img 
+                *ngIf="empresa.logo" 
+                [src]="empresa.logo" 
+                [alt]="empresa.nombre"
+                style="width: 40px; height: 40px; object-fit: contain; margin-right: 8px;">
+              <span class="fw-semibold">{{ empresa.nombre }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="text-muted">{{ empresa.nit }}</span>
+          </td>
+          <td>
+            <p-tag [value]="empresa.prefijo" severity="info"></p-tag>
+          </td>
+          <td>
+            <div>
+              <div class="fw-semibold">{{ empresa.rep_legal }}</div>
+              <small class="text-muted">CC: {{ empresa.cc_rep_legal }}</small>
+            </div>
+          </td>
+          <td>
+            <div>
+              <div><i class="pi pi-phone me-1"></i>{{ empresa.telefono }}</div>
+              <small class="text-muted">{{ empresa.direccion }}</small>
+            </div>
+          </td>
+          <td>
+            <p-tag 
+              [value]="empresa.estado === 1 ? 'Activo' : 'Inactivo'" 
+              [severity]="empresa.estado === 1 ? 'success' : 'danger'">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <p-button 
+                icon="pi pi-pencil" 
+                styleClass="p-button-rounded p-button-text p-button-info"
+                (onClick)="editEmpresa(empresa)"
+                pTooltip="Editar"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                [icon]="empresa.estado === 1 ? 'pi pi-ban' : 'pi pi-check'" 
+                styleClass="p-button-rounded p-button-text p-button-warning"
+                (onClick)="toggleEstado(empresa)"
+                [pTooltip]="empresa.estado === 1 ? 'Desactivar' : 'Activar'"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-trash" 
+                styleClass="p-button-rounded p-button-text p-button-danger"
+                (onClick)="deleteEmpresa(empresa)"
+                pTooltip="Eliminar"
+                tooltipPosition="top">
+              </p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay empresas registradas</p>
+            <p-button 
+              label="Crear Primera Empresa" 
+              icon="pi pi-plus" 
+              (onClick)="toggleForm()">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
