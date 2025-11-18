@@ -1,10 +1,13 @@
 /* You can add global styles to this file, and also import other style files */
 
-/* Bootstrap Icons */
-@import "bootstrap-icons/font/bootstrap-icons.css";
+/* PrimeNG Icons */
+@import "primeicons/primeicons.css";
 
 /* Bootstrap */
 @import "bootstrap/dist/css/bootstrap.min.css";
+
+/* Bootstrap Icons (mantener para iconos) */
+@import "bootstrap-icons/font/bootstrap-icons.css";
 
 /* Global Styles */
 * {
@@ -17,6 +20,78 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: #f8f9fa;
   color: #212529;
+  font-size: 0.875rem;
+}
+
+/* Ajustar tamaños de texto globales */
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+h5 { font-size: 1rem; }
+h6 { font-size: 0.875rem; }
+
+p { font-size: 0.875rem; }
+
+/* Ajustar tamaños de Bootstrap */
+.btn {
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+}
+
+.btn-sm {
+  font-size: 0.75rem;
+  padding: 0.375rem 0.75rem;
+}
+
+.btn-lg {
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+}
+
+.form-control,
+.form-select {
+  font-size: 0.875rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+}
+
+.alert {
+  font-size: 0.875rem;
+}
+
+.card-title {
+  font-size: 1.125rem;
+}
+
+.card-text {
+  font-size: 0.875rem;
+}
+
+.nav-link {
+  font-size: 0.875rem;
+}
+
+.dropdown-item {
+  font-size: 0.875rem;
+}
+
+.table {
+  font-size: 0.875rem;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+}
+
+.modal-body {
+  font-size: 0.875rem;
 }
 
 /* Scrollbar personalizado */
@@ -47,4 +122,576 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ============================================
+   ESTILOS GLOBALES PARA PRIMENG
+   ============================================ */
+
+/* Estilos personalizados para PrimeNG Table */
+.p-datatable {
+  font-size: 0.875rem;
+}
+
+.p-datatable .p-datatable-header {
+  background: transparent;
+  border: none;
+  padding: 0.75rem 0;
+}
+
+.p-datatable .p-datatable-thead > tr > th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 0.625rem 0.75rem;
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  background: #fff;
+  transition: all 0.2s;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: #f8fafc;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.625rem 0.75rem;
+  color: #1e293b;
+}
+
+.p-datatable .p-datatable-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+.p-datatable .p-sortable-column:hover {
+  background: #f1f5f9;
+}
+
+.p-datatable .p-sortable-column.p-highlight {
+  background: #f1f5f9;
+  color: #3b82f6;
+}
+
+.p-datatable .p-sortable-column-icon {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.p-datatable .p-column-filter {
+  width: 100%;
+}
+
+.p-datatable .p-column-filter .p-inputtext {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  height: 2rem;
+}
+
+.p-datatable .p-column-filter .p-inputtext:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.p-datatable .p-paginator {
+  background: transparent;
+  border: none;
+  padding: 0.75rem 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.p-datatable .p-paginator .p-paginator-pages .p-paginator-page {
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.p-datatable .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: #3b82f6;
+  color: white;
+}
+
+.p-datatable .p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.p-datatable .p-paginator .p-dropdown {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.p-datatable .p-datatable-emptymessage > td {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+/* Estilos para Avatar de PrimeNG */
+.p-avatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* Estilos para Tag de PrimeNG */
+.p-tag {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.p-tag.p-tag-info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.p-tag.p-tag-success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.p-tag.p-tag-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.p-tag.p-tag-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Estilos para Botones de PrimeNG */
+.p-button {
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.p-button.p-button-rounded {
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+}
+
+.p-button.p-button-text {
+  background: transparent;
+}
+
+.p-button.p-button-text:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.p-button.p-button-info {
+  background: transparent;
+  color: #3b82f6;
+  border: none;
+}
+
+.p-button.p-button-info:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+.p-button.p-button-danger {
+  background: transparent;
+  color: #ef4444;
+  border: none;
+}
+
+.p-button.p-button-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.p-button.p-button-primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.p-button.p-button-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.p-button.p-button-secondary {
+  background: #b2b6bd2d;
+  border-color: #64748b;
+}
+
+.p-button.p-button-secondary:hover {
+  background: #b9c9df;
+  border-color: #475569;
+}
+
+/* Estilos para Input de búsqueda */
+.p-input-icon-left > .p-inputtext {
+  padding-left: 2.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.875rem;
+  height: 2.25rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+.p-input-icon-left > .p-inputtext:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.p-input-icon-left > i {
+  left: 0.75rem;
+  color: #94a3b8;
+}
+
+/* Estilos para InputText general */
+.p-inputtext {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  transition: all 0.2s;
+}
+
+.p-inputtext:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+.p-inputtext.ng-invalid.ng-touched {
+  border-color: #ef4444;
+}
+
+/* Estilos para Dialog */
+.p-dialog {
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.p-dialog .p-dialog-header {
+  background: #fff;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 1.5rem;
+  border-radius: 12px 12px 0 0;
+}
+
+.p-dialog .p-dialog-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.p-dialog .p-dialog-content {
+  padding: 1.5rem;
+  background: #fff;
+}
+
+.p-dialog .p-dialog-footer {
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Estilos para formulario en Dialog */
+.p-dialog .p-field label {
+  display: block;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.p-dialog .p-inputtext {
+  width: 100%;
+}
+
+.p-dialog .p-error {
+  color: #ef4444;
+  font-size: 0.813rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* Estilos para Toast */
+.p-toast {
+  opacity: 1;
+}
+
+.p-toast .p-toast-message {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.p-toast .p-toast-message.p-toast-message-success {
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.p-toast .p-toast-message.p-toast-message-success .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-success .p-toast-icon-close {
+  color: #065f46;
+}
+
+.p-toast .p-toast-message.p-toast-message-error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.p-toast .p-toast-message.p-toast-message-error .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-error .p-toast-icon-close {
+  color: #991b1b;
+}
+
+.p-toast .p-toast-message.p-toast-message-warn {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-warn .p-toast-icon-close {
+  color: #92400e;
+}
+
+.p-toast .p-toast-message.p-toast-message-info {
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.p-toast .p-toast-message.p-toast-message-info .p-toast-message-icon,
+.p-toast .p-toast-message.p-toast-message-info .p-toast-icon-close {
+  color: #1e40af;
+}
+
+/* Estilos para Confirm Dialog */
+.p-confirm-dialog {
+  border-radius: 12px;
+}
+
+.p-confirm-dialog .p-dialog-content {
+  padding: 2rem 1.5rem;
+}
+
+.p-confirm-dialog .p-confirm-dialog-message {
+  margin-left: 1rem;
+  font-size: 0.938rem;
+  color: #475569;
+}
+
+/* Estilos para Tooltip */
+.p-tooltip {
+  font-size: 0.813rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: #1e293b;
+}
+
+.p-tooltip .p-tooltip-arrow {
+  border-top-color: #1e293b;
+}
+
+.p-tooltip .p-tooltip-text {
+  background: #1e293b;
+}
+
+/* Estilos para Dropdown */
+.p-dropdown {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.p-dropdown:not(.p-disabled):hover {
+  border-color: #cbd5e1;
+}
+
+.p-dropdown:not(.p-disabled).p-focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.p-dropdown-panel {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Estilos para Checkbox */
+.p-checkbox .p-checkbox-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.p-checkbox .p-checkbox-box.p-highlight {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box:hover {
+  border-color: #3b82f6;
+}
+
+/* Estilos para Calendar/DatePicker */
+.p-calendar .p-inputtext {
+  border-radius: 8px;
+}
+
+.p-datepicker {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Estilos para MultiSelect */
+.p-multiselect {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.p-multiselect:not(.p-disabled):hover {
+  border-color: #cbd5e1;
+}
+
+.p-multiselect:not(.p-disabled).p-focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Estilos para ProgressBar */
+.p-progressbar {
+  border-radius: 8px;
+  height: 1rem;
+  background: #f1f5f9;
+}
+
+.p-progressbar .p-progressbar-value {
+  background: #3b82f6;
+  border-radius: 8px;
+}
+
+/* Estilos para Card */
+.p-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.p-card .p-card-header {
+  border-radius: 12px 12px 0 0;
+}
+
+.p-card .p-card-body {
+  padding: 1.5rem;
+}
+
+/* Estilos para Panel */
+.p-panel {
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.p-panel .p-panel-header {
+  background: #f8fafc;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem 1.25rem;
+}
+
+.p-panel .p-panel-content {
+  padding: 1.25rem;
+}
+
+/* Estilos para Accordion */
+.p-accordion .p-accordion-header .p-accordion-header-link {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.p-accordion .p-accordion-header:not(.p-disabled).p-highlight .p-accordion-header-link {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.p-accordion .p-accordion-content {
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 1.25rem;
+}
+
+/* Estilos para TabView */
+.p-tabview .p-tabview-nav {
+  background: transparent;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.p-tabview .p-tabview-nav li .p-tabview-nav-link {
+  border: none;
+  background: transparent;
+  padding: 1rem 1.5rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  color: #3b82f6;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.p-tabview .p-tabview-panels {
+  padding: 1.5rem 0;
+}
+
+/* Estilos para botones de filtro de columna */
+.p-datatable .p-column-filter-menu-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  margin-left: 0.25rem;
+}
+
+.p-datatable .p-column-filter-menu-button .p-button-icon {
+  font-size: 0.75rem;
+}
+
+.p-datatable .p-column-filter-clear-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+/* Ajustar altura de la fila de filtros */
+.p-datatable .p-datatable-thead > tr:last-child > th {
+  padding: 0.375rem 0.75rem;
+}
+
+/* Reducir espaciado entre header y filtros */
+.p-datatable .p-datatable-thead > tr > th .p-column-header-content {
+  padding: 0;
 }
