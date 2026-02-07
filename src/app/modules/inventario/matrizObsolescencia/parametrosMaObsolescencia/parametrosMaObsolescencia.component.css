@@ -1,0 +1,413 @@
+/* Estilos específicos para el componente de parámetros */
+.page-container {
+  padding: 1.5rem;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.btn-back {
+  background: none;
+  border: 1px solid #dee2e6;
+  color: #6c757d;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+  background-color: #e9ecef;
+  color: #495057;
+  text-decoration: none;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.page-subtitle {
+  color: #6c757d;
+  margin: 0.5rem 0 0 0;
+  font-size: 1rem;
+}
+
+.dashboard-content {
+  margin-top: 2rem;
+}
+
+.card {
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  background: white;
+}
+
+.card-body {
+  padding: 0;
+}
+
+.tab-content-wrapper {
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+  font-size: 0.938rem;
+}
+
+.form-text {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.813rem;
+}
+
+.text-primary {
+  color: #0d6efd !important;
+}
+
+.text-muted {
+  color: #6c757d !important;
+}
+
+.text-warning {
+  color: #ffc107 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+.text-info {
+  color: #0dcaf0 !important;
+}
+
+/* Estilos para PrimeNG TabView */
+::ng-deep .p-tabview .p-tabview-nav {
+  background: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+  padding: 0 1.5rem;
+}
+
+::ng-deep .p-tabview .p-tabview-nav li .p-tabview-nav-link {
+  border: none;
+  background: transparent;
+  padding: 1rem 1.5rem;
+  color: #6c757d;
+  font-weight: 500;
+  font-size: 0.938rem;
+  transition: all 0.2s;
+}
+
+::ng-deep .p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  color: #0d6efd;
+  border-bottom: 3px solid #0d6efd;
+  background: transparent;
+}
+
+::ng-deep .p-tabview .p-tabview-nav li:not(.p-highlight) .p-tabview-nav-link:hover {
+  color: #495057;
+  background: rgba(13, 110, 253, 0.05);
+}
+
+::ng-deep .p-tabview .p-tabview-panels {
+  padding: 0;
+  background: white;
+}
+
+/* Estilos para tabla */
+::ng-deep .p-datatable .p-datatable-thead > tr > th {
+  background: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 1rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+::ng-deep .p-datatable .p-datatable-tbody > tr > td {
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+}
+
+::ng-deep .p-datatable .p-datatable-tbody > tr:hover {
+  background: #f8f9fa;
+}
+
+/* Badges */
+.badge {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.813rem;
+  font-weight: 500;
+  border-radius: 0.375rem;
+}
+
+.bg-info {
+  background-color: #0dcaf0 !important;
+  color: #000;
+}
+
+.bg-secondary {
+  background-color: #6c757d !important;
+  color: #fff;
+}
+
+/* Dialog */
+.dialog-content {
+  padding: 1rem 0;
+}
+
+::ng-deep .p-dialog .p-dialog-content {
+  padding: 1.5rem;
+}
+
+::ng-deep .p-dialog .p-dialog-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Cards de Parámetros */
+.param-card {
+  background: white;
+  border: 2px solid #2c3c57;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.param-card-header {
+  background: #2c3c57;
+  color: white;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.param-card-header h6 {
+  font-size: 0.813rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.param-card-header .badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  font-weight: 600;
+}
+
+.param-card-body {
+  padding: 0;
+  min-height: 200px;
+}
+
+.param-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.param-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+}
+
+.param-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.param-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.param-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.param-table td.small {
+  font-size: 0.75rem;
+}
+
+.btn-edit {
+  background: transparent;
+  border: none;
+  color: #0d6efd;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 0.25rem;
+}
+
+.btn-edit:hover {
+  background: rgba(13, 110, 253, 0.1);
+  color: #0a58ca;
+}
+
+.btn-delete {
+  background: transparent;
+  border: none;
+  color: #dc3545;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 0.25rem;
+}
+
+.btn-delete:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #b02a37;
+}
+
+.param-card-footer {
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+.param-card-footer .btn {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Estilos para inputs de PrimeNG */
+::ng-deep .p-inputnumber,
+::ng-deep .p-dropdown {
+  width: 100%;
+}
+
+::ng-deep .p-inputnumber .p-inputtext,
+::ng-deep .p-dropdown {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  font-size: 0.938rem;
+  transition: all 0.2s;
+}
+
+::ng-deep .p-inputnumber .p-inputtext:focus,
+::ng-deep .p-dropdown:not(.p-disabled).p-focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+::ng-deep .p-checkbox .p-checkbox-box {
+  border: 2px solid #dee2e6;
+  border-radius: 0.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: all 0.2s;
+}
+
+::ng-deep .p-checkbox .p-checkbox-box.p-highlight {
+  background: #0d6efd;
+  border-color: #0d6efd;
+}
+
+::ng-deep .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box:hover {
+  border-color: #0d6efd;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .tab-content-wrapper {
+    padding: 1.5rem;
+  }
+
+  ::ng-deep .p-tabview .p-tabview-nav {
+    padding: 0 1rem;
+  }
+
+  ::ng-deep .p-tabview .p-tabview-nav li .p-tabview-nav-link {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+/* Estilos para el input de sincronización */
+.form-control {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.938rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #495057;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  min-height: 38px;
+}
+
+.form-control:focus {
+  color: #495057;
+  background-color: #fff;
+  border-color: #0d6efd;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.form-control::placeholder {
+  color: #6c757d;
+  opacity: 1;
+}
+
+/* Utilidades de layout */
+.d-flex {
+  display: flex !important;
+}
+
+.gap-2 {
+  gap: 0.5rem !important;
+}
+
+.align-items-center {
+  align-items: center !important;
+}
+
+/* Estilos para inputs numéricos */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Campos requeridos */
+.required::after {
+  content: " *";
+  color: #dc3545;
+}

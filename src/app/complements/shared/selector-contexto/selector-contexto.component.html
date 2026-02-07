@@ -1,0 +1,82 @@
+<div class="selector-contexto">
+  <!-- Botón para mostrar el selector -->
+  <button class="btn btn-outline-primary btn-sm" (click)="toggleSelector()" type="button">
+    <i class="bi bi-building"></i>
+    {{ getContextoTexto() }}
+    <i class="bi bi-chevron-down ms-2"></i>
+  </button>
+
+  <!-- Modal/Dropdown del selector -->
+  <div class="selector-dropdown" *ngIf="mostrarSelector">
+    <div class="selector-content">
+      <h6 class="mb-3">Seleccionar Contexto</h6>
+
+      <!-- Selector de Empresa -->
+      <div class="mb-3">
+        <label class="form-label">Empresa</label>
+        <select 
+          class="form-select form-select-sm" 
+          [(ngModel)]="empresaSeleccionada"
+          (change)="onEmpresaChange()"
+          [disabled]="cargando">
+          <option [value]="null">Seleccione una empresa</option>
+          <option *ngFor="let empresa of empresas" [value]="empresa.id">
+            {{ empresa.nombre }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Selector de Sucursal -->
+      <div class="mb-3" *ngIf="sucursales.length > 0">
+        <label class="form-label">Sucursal (Opcional)</label>
+        <select 
+          class="form-select form-select-sm" 
+          [(ngModel)]="sucursalSeleccionada"
+          (change)="onSucursalChange()"
+          [disabled]="cargando">
+          <option [value]="null">Todas las sucursales</option>
+          <option *ngFor="let sucursal of sucursales" [value]="sucursal.id">
+            {{ sucursal.nombre }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Selector de Sede -->
+      <div class="mb-3" *ngIf="sedes.length > 0">
+        <label class="form-label">Sede (Opcional)</label>
+        <select 
+          class="form-select form-select-sm" 
+          [(ngModel)]="sedeSeleccionada"
+          [disabled]="cargando">
+          <option [value]="null">Todas las sedes</option>
+          <option *ngFor="let sede of sedes" [value]="sede.id">
+            {{ sede.nombre }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="d-flex gap-2">
+        <button 
+          class="btn btn-primary btn-sm flex-grow-1" 
+          (click)="aplicarContexto()"
+          [disabled]="!empresaSeleccionada || cargando">
+          <span *ngIf="!cargando">Aplicar</span>
+          <span *ngIf="cargando">
+            <span class="spinner-border spinner-border-sm me-1"></span>
+            Aplicando...
+          </span>
+        </button>
+        <button 
+          class="btn btn-secondary btn-sm" 
+          (click)="toggleSelector()"
+          [disabled]="cargando">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div class="selector-overlay" *ngIf="mostrarSelector" (click)="toggleSelector()"></div>
+</div>

@@ -5,11 +5,16 @@ import { authGuard } from './modules/auth/auth.guard';
 import { MainLayoutComponent } from './complements/layout/main-layout/main-layout.component';
 
 export const routes: Routes = [
-  // Ruta pública - Login
+  // Rutas públicas - Auth
   { 
     path: 'login', 
     component: LoginComponent 
   },
+  {
+    path: 'auth/microsoft/callback',
+    loadComponent: () => import('./modules/auth/microsoft-callback/microsoft-callback.component').then(m => m.MicrosoftCallbackComponent)
+  },
+  
   
   // Rutas protegidas con layout
   {
@@ -23,13 +28,17 @@ export const routes: Routes = [
         path: 'organizacion', 
         loadChildren: () => import('./modules/organizacion/organizacion.routes').then(m => m.ORGANIZACION_ROUTES)
       },
+      { 
+        path: 'inventario', 
+        loadChildren: () => import('./modules/inventario/inventario.routes').then(m => m.INVENTARIO_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí
     ]
   },
-  
-  // Redirección por defecto
+
+   // Redirección por defecto
   { path: '**', redirectTo: 'login' }
 ];
 

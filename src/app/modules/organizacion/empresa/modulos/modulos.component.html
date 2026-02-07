@@ -1,0 +1,527 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  
+  <!-- Header -->
+  <div class="page-header">
+    <button class="btn btn-back mb-2" routerLink="/organizacion/empresas">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
+    
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="page-title">
+          <i class="bi bi-grid-3x3-gap me-2"></i>Gestión de Módulos
+        </h1>
+        <p class="page-subtitle">Administra los módulos del sistema y sus permisos por empresa</p>
+      </div>
+      <!-- Botón Nuevo Dominio - Solo visible en pestaña Dominios -->
+      <p-button 
+        *ngIf="activeTab === 'dominios'"
+        label="Nuevo Dominio"
+        icon="pi pi-plus"
+        (onClick)="openDomainDialog()">
+      </p-button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'modulos'"
+      (click)="activeTab = 'modulos'">
+      <i class="bi bi-grid-3x3-gap me-2"></i>Módulos
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'dominios'"
+      (click)="activeTab = 'dominios'; loadDomains()">
+      <i class="bi bi-globe me-2"></i>Dominios
+    </button>
+  </div>
+
+  <!-- Tab: Módulos -->
+  <div *ngIf="activeTab === 'modulos'" class="content-card">
+    <div class="card-header">
+      <h5 class="mb-0">Lista de Módulos</h5>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" (click)="expandAll()" title="Expandir todos">
+          <i class="bi bi-arrows-expand"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" (click)="collapseAll()" title="Colapsar todos">
+          <i class="bi bi-arrows-collapse"></i>
+        </button>
+        <button class="btn btn-primary" (click)="openModuloDialog()">
+          <i class="bi bi-plus-circle me-2"></i>Nuevo Módulo
+        </button>
+      </div>
+    </div>
+    
+    <div class="card-body">
+      <div *ngIf="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Cargando...</span>
+        </div>
+      </div>
+
+      <div *ngIf="!loading && modulos.length === 0" class="text-center py-5">
+        <i class="bi bi-inbox display-1 text-muted"></i>
+        <p class="text-muted mt-3">No hay módulos registrados</p>
+      </div>
+
+      <div *ngIf="!loading && modulos.length > 0" class="modulos-tree">
+        <!-- Usar componente recursivo para mostrar todos los niveles -->
+        <ng-container *ngFor="let modulo of modulos">
+          <ng-container *ngTemplateOutlet="moduloTemplate; context: { modulo: modulo, nivel: 0 }"></ng-container>
+        </ng-container>
+      </div>
+
+      <!-- Template recursivo para módulos -->
+      <ng-template #moduloTemplate let-modulo="modulo" let-nivel="nivel">
+        <div class="modulo-item" [class]="'nivel-' + nivel">
+          <div class="modulo-header">
+            <div class="modulo-info">
+              <!-- Botón expandir/colapsar -->
+              <button 
+                *ngIf="modulo.hijos && modulo.hijos.length > 0" 
+                class="btn-expand" 
+                (click)="toggleExpand(modulo.id)"
+                title="{{ isExpanded(modulo.id) ? 'Colapsar' : 'Expandir' }}">
+                <i [class]="isExpanded(modulo.id) ? 'bi bi-chevron-down' : 'bi bi-chevron-right'"></i>
+              </button>
+              <span *ngIf="!modulo.hijos || modulo.hijos.length === 0" class="btn-expand-placeholder"></span>
+              
+              <i [class]="'bi bi-' + (modulo.icono || (nivel === 0 ? 'folder' : nivel === 1 ? 'folder2' : 'file-earmark')) + ' me-2'"></i>
+              <span class="modulo-nombre">{{ modulo.nombre }}</span>
+              <span class="badge bg-secondary ms-2">{{ modulo.codigo }}</span>
+              <span class="badge bg-info ms-1" *ngIf="modulo.hijos && modulo.hijos.length > 0">
+                {{ modulo.hijos.length }} {{ modulo.hijos.length === 1 ? 'hijo' : 'hijos' }}
+              </span>
+            </div>
+            <div class="modulo-actions">
+              <button class="btn btn-sm btn-outline-primary" (click)="openModuloDialog(undefined, modulo.id)" title="Agregar submódulo">
+                <i class="bi bi-plus"></i> Hijo
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="openModuloDialog(modulo)" title="Editar">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" (click)="deleteModulo(modulo)" title="Eliminar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Hijos recursivos (solo si está expandido) -->
+          <div *ngIf="isExpanded(modulo.id) && modulo.hijos && modulo.hijos.length > 0" class="modulo-children">
+            <ng-container *ngFor="let hijo of modulo.hijos">
+              <ng-container *ngTemplateOutlet="moduloTemplate; context: { modulo: hijo, nivel: nivel + 1 }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+
+  <!-- Tab: Dominios -->
+  <div *ngIf="activeTab === 'dominios'" class="content-card">
+    <p-toast></p-toast>
+    
+    <p-table 
+      #dtDomains
+      [value]="domains" 
+      [paginator]="true" 
+      [rows]="10"
+      [showCurrentPageReport]="true"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [loading]="loadingDomains"
+      [globalFilterFields]="['domain', 'tenant_name', 'tenant_id']"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} dominios"
+      [tableStyle]="{'min-width': '50rem'}">
+      
+      <ng-template pTemplate="caption">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-globe me-2"></i>
+            Dominios Permitidos
+            <p-tag [value]="domains.length.toString()" styleClass="ml-2"></p-tag>
+          </h5>
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input 
+              pInputText 
+              type="text" 
+              (input)="onGlobalFilterDomains($event)" 
+              placeholder="Buscar..." />
+          </span>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="domain">
+            Dominio <p-sortIcon field="domain"></p-sortIcon>
+          </th>
+          <th pSortableColumn="tenant_id">
+            Tenant ID <p-sortIcon field="tenant_id"></p-sortIcon>
+          </th>
+          <th pSortableColumn="tenant_name">
+            Tenant Name <p-sortIcon field="tenant_name"></p-sortIcon>
+          </th>
+          <th>Empresa</th>
+          <th>Descripción</th>
+          <th>Estado</th>
+          <th style="width: 150px">Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-domain>
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <p-avatar 
+                label="&#64;" 
+                styleClass="mr-2" 
+                size="normal"
+                [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
+              </p-avatar>
+              <code class="domain-code">{{ domain.domain }}</code>
+            </div>
+          </td>
+          <td>
+            <span class="text-muted">{{ domain.tenant_id }}</span>
+          </td>
+          <td>
+            <span class="fw-semibold">{{ domain.tenant_name }}</span>
+          </td>
+          <td>
+            <p-tag 
+              *ngIf="domain.empresa" 
+              [value]="domain.empresa.nombre" 
+              severity="info">
+            </p-tag>
+            <span *ngIf="!domain.empresa" class="text-muted">Sin asignar</span>
+          </td>
+          <td>
+            <span class="text-muted">{{ domain.descripcion || '-' }}</span>
+          </td>
+          <td>
+            <p-tag 
+              [value]="domain.activo ? 'Activo' : 'Inactivo'" 
+              [severity]="domain.activo ? 'success' : 'danger'">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <p-button 
+                icon="pi pi-pencil" 
+                styleClass="p-button-rounded p-button-text p-button-info"
+                (onClick)="openDomainDialog(domain)"
+                pTooltip="Editar"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-ban" 
+                styleClass="p-button-rounded p-button-text p-button-warning"
+                (onClick)="toggleDomainStatus(domain)"
+                [pTooltip]="domain.activo ? 'Desactivar' : 'Activar'"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-trash" 
+                styleClass="p-button-rounded p-button-text p-button-danger"
+                (onClick)="deleteDomain(domain)"
+                pTooltip="Eliminar"
+                tooltipPosition="top">
+              </p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <i class="pi pi-globe" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay dominios registrados</p>
+            <p-button 
+              label="Crear Primer Dominio" 
+              icon="pi pi-plus" 
+              (onClick)="openDomainDialog()">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
+<!-- Template recursivo para submódulos -->
+<ng-template #submoduloTemplate let-hijos="hijos" let-nivel="nivel">
+  <div *ngFor="let hijo of hijos" class="submodulo-item" [style.padding-left.px]="nivel * 20">
+    <i class="bi bi-arrow-return-right"></i>
+    <span>{{ hijo.nombre }}</span>
+    <code>{{ hijo.codigo }}</code>
+    
+    <!-- Submódulos recursivos -->
+    <ng-container *ngIf="hijo.hijos && hijo.hijos.length > 0">
+      <ng-container *ngTemplateOutlet="submoduloTemplate; context: { hijos: hijo.hijos, nivel: nivel + 1 }"></ng-container>
+    </ng-container>
+  </div>
+</ng-template>
+
+<!-- Modal para crear/editar módulo -->
+<div class="modal fade" [class.show]="showModuloDialog" [style.display]="showModuloDialog ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {{ editingModulo ? 'Editar Módulo' : 'Nuevo Módulo' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModuloDialog()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="moduloForm">
+          <div class="mb-3">
+            <label class="form-label">Nombre *</label>
+            <input type="text" class="form-control" formControlName="nombre" placeholder="Ej: Organización">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Código *</label>
+            <input type="text" class="form-control" formControlName="codigo" placeholder="Ej: ORG">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <textarea class="form-control" formControlName="descripcion" rows="2"></textarea>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Icono (Bootstrap Icons)</label>
+              <input type="text" class="form-control" formControlName="icono" placeholder="Ej: building">
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Orden</label>
+              <input type="number" class="form-control" formControlName="orden" placeholder="0">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Ruta</label>
+            <input type="text" class="form-control" formControlName="ruta" placeholder="/organizacion">
+          </div>
+
+          <div class="mb-3" *ngIf="!parentModuloId">
+            <label class="form-label">Módulo Padre</label>
+            <select class="form-select" formControlName="id_modulo_padre">
+              <option [value]="null">Sin padre (Módulo raíz)</option>
+              <ng-container *ngFor="let mod of modulos">
+                <option [value]="mod.id">{{ mod.nombre }}</option>
+                <ng-container *ngIf="mod.hijos && mod.hijos.length > 0">
+                  <ng-container *ngFor="let hijo of mod.hijos">
+                    <option [value]="hijo.id">└─ {{ hijo.nombre }}</option>
+                    <ng-container *ngIf="hijo.hijos && hijo.hijos.length > 0">
+                      <ng-container *ngFor="let nieto of hijo.hijos">
+                        <option [value]="nieto.id">&nbsp;&nbsp;&nbsp;└─ {{ nieto.nombre }}</option>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </ng-container>
+            </select>
+          </div>
+          
+          <div class="mb-3" *ngIf="parentModuloId">
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              Este módulo será hijo de: <strong>{{ getModuloNombre(parentModuloId) }}</strong>
+            </div>
+          </div>
+
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" formControlName="estado" id="estadoCheck">
+            <label class="form-check-label" for="estadoCheck">
+              Activo
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeModuloDialog()">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="saveModulo()" [disabled]="!moduloForm.valid">
+          {{ editingModulo ? 'Actualizar' : 'Crear' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade" [class.show]="showModuloDialog" *ngIf="showModuloDialog"></div>
+
+<!-- Modal para asignar módulo a empresa -->
+<div class="modal fade" [class.show]="showAsignarDialog" [style.display]="showAsignarDialog ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-shield-plus me-2"></i>Agregar Autorización de Usuario
+        </h5>
+        <button type="button" class="btn-close" (click)="closeAsignarDialog()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="asignarForm">
+          <div class="mb-3">
+            <label class="form-label">Empresa *</label>
+            <select class="form-select" formControlName="id_empresa" [disabled]="preselectedEmpresaId !== null">
+              <option value="">Seleccione una empresa</option>
+              <ng-container *ngFor="let empresa of empresasList">
+                <option [value]="empresa.id">{{ empresa.nombre }}</option>
+              </ng-container>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Módulo Principal *</label>
+            <select class="form-select" formControlName="id_modulo">
+              <option value="">Seleccione un módulo</option>
+              <ng-container *ngFor="let modulo of modulos">
+                <option [value]="modulo.id">{{ modulo.nombre }} ({{ modulo.codigo }})</option>
+                <ng-container *ngIf="modulo.hijos && modulo.hijos.length > 0">
+                  <ng-container *ngFor="let hijo of modulo.hijos">
+                    <option [value]="hijo.id">└─ {{ hijo.nombre }} ({{ hijo.codigo }})</option>
+                    <ng-container *ngIf="hijo.hijos && hijo.hijos.length > 0">
+                      <ng-container *ngFor="let nieto of hijo.hijos">
+                        <option [value]="nieto.id">&nbsp;&nbsp;&nbsp;└─ {{ nieto.nombre }} ({{ nieto.codigo }})</option>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </ng-container>
+            </select>
+            <small class="form-text text-muted">
+              Selecciona el módulo principal que deseas autorizar
+            </small>
+          </div>
+
+
+
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" formControlName="hereda_hijos" id="heredaCheck">
+            <label class="form-check-label" for="heredaCheck">
+              <strong>Incluir submódulos (Recursivo)</strong>
+            </label>
+            <small class="form-text text-muted d-block">
+              Si se activa, se incluirán automáticamente todos los submódulos hijos
+            </small>
+          </div>
+
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" formControlName="activo" id="activoCheck">
+            <label class="form-check-label" for="activoCheck">
+              Activo
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeAsignarDialog()">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="saveAsignacion()" [disabled]="!asignarForm.valid">
+          <i class="bi bi-check-circle me-2"></i>Agregar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade" [class.show]="showAsignarDialog" *ngIf="showAsignarDialog"></div>
+
+<!-- Modal para crear/editar dominio -->
+<div class="modal fade" [class.show]="showDomainDialog" [style.display]="showDomainDialog ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-globe me-2"></i>{{ editingDomain ? 'Editar Dominio' : 'Nuevo Dominio' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeDomainDialog()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="domainForm">
+          <div class="mb-3">
+            <label class="form-label">Dominio *</label>
+            <div class="input-group">
+              <span class="input-group-text">&#64;</span>
+              <input 
+                type="text" 
+                class="form-control" 
+                formControlName="domain" 
+                placeholder="ejemplo.com">
+            </div>
+            <small class="form-text text-muted">
+              El dominio del correo electrónico (ej: empresa.com)
+            </small>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Tenant ID *</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                formControlName="tenant_id" 
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              <small class="form-text text-muted">
+                ID del tenant de Microsoft
+              </small>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Tenant Name *</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                formControlName="tenant_name" 
+                placeholder="Nombre del Tenant">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Empresa</label>
+            <select class="form-select" formControlName="id_empresa">
+              <option [value]="null">Sin asignar</option>
+              <ng-container *ngFor="let empresa of empresasList">
+                <option [value]="empresa.id">{{ empresa.nombre }}</option>
+              </ng-container>
+            </select>
+            <small class="form-text text-muted">
+              Opcional: Asociar este dominio a una empresa específica
+            </small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <textarea 
+              class="form-control" 
+              formControlName="descripcion" 
+              rows="2"
+              placeholder="Descripción opcional del dominio"></textarea>
+          </div>
+
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" formControlName="activo" id="domainActivoCheck">
+            <label class="form-check-label" for="domainActivoCheck">
+              Activo
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeDomainDialog()">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="saveDomain()" [disabled]="!domainForm.valid">
+          <i class="bi bi-check-circle me-2"></i>{{ editingDomain ? 'Actualizar' : 'Crear' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade" [class.show]="showDomainDialog" *ngIf="showDomainDialog"></div>

@@ -1,0 +1,791 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- Header con navegación y acciones -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-th-large me-2"></i>
+          Dashboard Matriz de Obsolescencia
+        </h1>
+        <p class="page-subtitle-modern">{{ getDescripcionPermisos() }}</p>
+      </div>
+      
+      <div class="header-actions">
+        <button class="btn-action btn-action-success" (click)="abrirMatrizCompletaTodos()">
+          <i class="pi pi-table"></i>
+          Matriz Completa
+        </button>
+        
+        <!-- Botón de sincronización o barra de progreso -->
+        <div class="sync-container" *ngIf="!isSyncing">
+          <button 
+            class="btn-action btn-action-primary"
+            (click)="iniciarSincronizacion()" 
+            [disabled]="isCalculatingValues">
+            <i class="pi pi-sync"></i>
+            Sincronizar Equipos
+          </button>
+        </div>
+        
+        <!-- Barra de progreso con botón de cancelar -->
+        <div class="sync-progress-container" *ngIf="isSyncing">
+          <div class="progress-info">
+            <span class="progress-label">{{ syncProgress.message }}</span>
+            <span class="progress-percentage">{{ syncProgress.percentage }}%</span>
+          </div>
+          <div class="progress-bar-wrapper">
+            <p-progressBar 
+              [value]="syncProgress.percentage" 
+              [showValue]="false"
+              styleClass="custom-progress-bar">
+            </p-progressBar>
+            <button 
+              class="btn-cancel-sync"
+              (click)="cancelarSincronizacion()"
+              [disabled]="isCancelling"
+              pTooltip="Cancelar sincronización">
+              <i class="pi" [ngClass]="isCancelling ? 'pi-spin pi-spinner' : 'pi-times'"></i>
+            </button>
+          </div>
+          <div class="progress-details" *ngIf="syncProgress.total > 0">
+            <small class="text-muted">
+              Procesados: {{ syncProgress.processed }} | 
+              Creados: {{ syncProgress.created }} | 
+              Actualizados: {{ syncProgress.updated }}
+              <span *ngIf="syncProgress.errors > 0" class="text-danger"> | Errores: {{ syncProgress.errors }}</span>
+            </small>
+          </div>
+        </div>
+        
+        <button class="btn-action btn-action-primary" (click)="actualizarDatosConCalculos()" [disabled]="isCalculatingValues || isSyncing">
+          <i class="pi pi-refresh" [class.pi-spin]="isCalculatingValues"></i>
+          {{ isCalculatingValues ? 'Calculando...' : 'Actualizar Datos' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content">
+    
+    <!-- Tarjetas de Estadísticas Principales -->
+    <div class="stats-cards-row mb-4">
+      <div class="stat-card stat-card-optimo">
+        <div class="stat-icon">
+          <i class="pi pi-check-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ getActivosPorEstado('optimo') }}</div>
+          <div class="stat-label">Óptimo</div>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-funcional">
+        <div class="stat-icon">
+          <i class="pi pi-info-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ getActivosPorEstado('funcional') }}</div>
+          <div class="stat-label">Funcional</div>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-potencial">
+        <div class="stat-icon">
+          <i class="pi pi-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ getActivosPorEstado('potencial') }}</div>
+          <div class="stat-label">Potencializar</div>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-obsoleto">
+        <div class="stat-icon">
+          <i class="pi pi-times-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">{{ getActivosPorEstado('obsoleto') }}</div>
+          <div class="stat-label">Obsoleto</div>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-total">
+        <div class="stat-icon">
+          <i class="pi pi-desktop"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number" *ngIf="!isLoadingStats">{{ stats.totalActivos }}</div>
+          <p-skeleton *ngIf="isLoadingStats" width="60px" height="2rem"></p-skeleton>
+          <div class="stat-label">Total de Equipos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenido Principal en Grid -->
+    <div class="main-grid">
+      
+      <!-- Panel Izquierdo: Gráficos -->
+      <div class="left-panel">
+        
+        <!-- Gráfico por Empresa/Concepto -->
+        <div class="chart-card mb-4">
+          <div class="chart-header">
+            <h3>Gráfica por empresa / concepto</h3>
+            <small class="text-muted">Distribución de equipos por estado</small>
+          </div>
+          
+          <!-- Gráfico de barras con Chart.js -->
+          <div class="bar-chart-container" *ngIf="!isLoadingBarChart && estadisticasPorUbicacion.length > 0">
+            <div class="chart-wrapper">
+              <p-chart 
+                type="bar" 
+                [data]="barChartData" 
+                [options]="barChartOptions"
+                width="100%"
+                height="300">
+              </p-chart>
+            </div>
+            
+            <!-- Total en la parte inferior -->
+            <div class="chart-total">
+              <strong>{{ getTotalEquiposUbicacion() }}</strong>
+              <small>/{{ stats.totalActivos }}</small>
+            </div>
+          </div>
+          
+          <!-- Estado de carga -->
+          <div class="bar-chart-container" *ngIf="isLoadingBarChart">
+            <div class="text-center py-4">
+              <p-skeleton width="100%" height="300px"></p-skeleton>
+              <p class="text-muted mt-2">Cargando gráfico...</p>
+            </div>
+          </div>
+          
+          <!-- Estado sin datos -->
+          <div class="bar-chart-container" *ngIf="!isLoadingBarChart && estadisticasPorUbicacion.length === 0">
+            <div class="text-center py-5">
+              <i class="pi pi-chart-bar text-muted" style="font-size: 4rem;"></i>
+              <p class="text-muted mt-3 mb-2">No hay datos por ubicación</p>
+              <small class="text-muted">Los datos aparecerán después de sincronizar activos</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Derecho: Gráfico Circular -->
+      <div class="right-panel">
+        <div class="donut-chart-card">
+          <div class="chart-header">
+            <h3>Total de equipos por tipo</h3>
+            <small class="text-muted" *ngIf="!isLoadingGrafico">
+              {{ estadisticasPorTipo.length }} tipos diferentes
+            </small>
+          </div>
+          
+          <!-- Gráfico con Chart.js -->
+          <div class="chart-container" *ngIf="!isLoadingGrafico && estadisticasPorTipo.length > 0">
+            <p-chart 
+              type="doughnut" 
+              [data]="chartData" 
+              [options]="chartOptions"
+              width="300"
+              height="300">
+            </p-chart>
+          </div>
+          
+          <!-- Estado de carga -->
+          <div class="chart-container" *ngIf="isLoadingGrafico">
+            <div class="text-center py-4">
+              <p-skeleton width="300px" height="300px" borderRadius="50%"></p-skeleton>
+              <p class="text-muted mt-3">Cargando estadísticas...</p>
+            </div>
+          </div>
+          
+          <!-- Estado sin datos -->
+          <div class="chart-container" *ngIf="!isLoadingGrafico && estadisticasPorTipo.length === 0">
+            <div class="text-center py-5">
+              <i class="pi pi-chart-pie text-muted" style="font-size: 4rem;"></i>
+              <p class="text-muted mt-3 mb-2">No hay datos disponibles</p>
+              <small class="text-muted">Los datos aparecerán después de sincronizar activos</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla de Activos - Matriz de Obsolescencia -->
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Activos - Matriz de Obsolescencia</h2>
+      </div>
+
+      <!-- Filtros y Búsqueda -->
+      <div class="table-filters mb-3">
+        <div class="row g-2">
+          <div class="col-12 col-md-6">
+            <span class="p-input-icon-left w-100">
+              <i class="pi pi-search"></i>
+              <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="searchTerm"
+                (keyup.enter)="onSearch()"
+                placeholder="Buscar por nombre, serial, agente..."
+                class="w-100">
+            </span>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="d-flex gap-2">
+              <p-button 
+                label="Buscar" 
+                icon="pi pi-search"
+                (onClick)="onSearch()"
+                styleClass="flex-grow-1">
+              </p-button>
+              <p-button 
+                label="Limpiar" 
+                icon="pi pi-times"
+                (onClick)="clearSearch()"
+                styleClass="p-button-outlined">
+              </p-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Activos -->
+      <div class="modern-table-container">
+        <p-table 
+          [value]="activos"
+          [loading]="isLoading"
+          [paginator]="true"
+          [rows]="rowsPerPage"
+          [totalRecords]="totalRecords"
+          [lazy]="true"
+          (onLazyLoad)="onPageChange($event)"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} activos"
+          styleClass="modern-table"
+          responsiveLayout="scroll">
+          
+          <ng-template pTemplate="header">
+            <tr>
+              <th class="table-header-modern">Equipo</th>
+              <th class="table-header-modern">Código ID</th>
+              <th class="table-header-modern">Ubicación</th>
+              <th class="table-header-modern">Frecuencia</th>
+              <th class="table-header-modern">Tipo</th>
+              <th class="table-header-modern">Ubicación</th>
+              <th class="table-header-modern">Estado</th>
+              <th class="table-header-modern">Puntaje</th>
+              <th class="table-header-modern">Acciones</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-activo>
+            <tr class="table-row-modern">
+              <td class="table-cell-modern">
+                <div class="equipment-info">
+                  <div class="equipment-avatar">
+                    <i class="pi pi-desktop"></i>
+                  </div>
+                  <div class="equipment-details">
+                    <div class="equipment-name">{{ activo.nombre_equipo }}</div>
+                    <div class="equipment-id">#{{ activo.id }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="table-cell-modern">
+                <span class="equipment-code">{{ activo.agente }}</span>
+              </td>
+              <td class="table-cell-modern">
+                <div class="location-info">
+                  <div class="location-name">{{ activo.empresa?.nombre || '-' }}</div>
+                  <div class="location-detail" *ngIf="activo.sucursal">{{ activo.sucursal.nombre }}</div>
+                </div>
+              </td>
+              <td class="table-cell-modern">
+                <span class="frequency-badge">{{ activo.detalle?.procesador || 'N/A' }}</span>
+              </td>
+              <td class="table-cell-modern">
+                <span class="type-badge">{{ activo.serial || '-' }}</span>
+              </td>
+              <td class="table-cell-modern">
+                <span class="price-text">{{ activo.ubicacion || '-' }}</span>
+              </td>
+              <td class="table-cell-modern">
+                <span class="status-badge" [ngClass]="'status-' + getPuntajeClass(activo.puntaje)">
+                  {{ getPuntajeEstado(activo.puntaje) }}
+                </span>
+              </td>
+              <td class="table-cell-modern">
+                <div class="score-container">
+                  <span class="score-number">{{ activo.puntaje }}%</span>
+                  <div class="score-bar">
+                    <div class="score-fill" [style.width.%]="activo.puntaje" [ngClass]="'score-' + getPuntajeClass(activo.puntaje)"></div>
+                  </div>
+                </div>
+              </td>
+              <td class="table-cell-modern">
+                <div class="action-buttons">
+                  <p-button 
+                    icon="pi pi-sync" 
+                    [text]="true" 
+                    [rounded]="true"
+                    size="small"
+                    severity="warn"
+                    pTooltip="Sincronizar equipo desde GLPI"
+                    [loading]="activo.isSyncing"
+                    [disabled]="isSyncing || activo.isSyncing"
+                    (onClick)="sincronizarActivoIndividual(activo)">
+                  </p-button>
+                  <p-button 
+                    icon="pi pi-external-link" 
+                    [text]="true" 
+                    [rounded]="true"
+                    size="small"
+                    severity="info"
+                    pTooltip="Ver matriz completa"
+                    (onClick)="verMatrizCompleta(activo)">
+                  </p-button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="9" class="text-center py-4">
+                <i class="pi pi-inbox text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-2 mb-0">No se encontraron activos</p>
+                <small class="text-muted">
+                  {{ tieneAccesoTotal() ? 'No hay activos registrados en el sistema' : 'No tienes activos asignados según tus permisos' }}
+                </small>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="loadingbody">
+            <tr *ngFor="let i of [1,2,3,4,5]">
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+            </tr>
+          </ng-template>
+
+        </p-table>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Modal para Matriz Completa -->
+  <p-dialog 
+    header="Matriz de Obsolescencia Completa" 
+    [(visible)]="mostrarMatrizCompleta" 
+    [modal]="true" 
+    [closable]="true"
+    [maximizable]="true"
+    [style]="{width: '60vw', height: '80vh'}"
+    styleClass="matriz-completa-dialog">
+    
+    <div *ngIf="activoSeleccionado" class="matriz-completa-container">
+      
+      <!-- Header con información del equipo -->
+      <div class="equipo-header mb-4">
+        <div class="d-flex align-items-center gap-3">
+          <i class="pi pi-desktop text-primary" style="font-size: 2rem;"></i>
+          <div>
+            <h3 class="mb-1">{{ activoSeleccionado.nombre_equipo }}</h3>
+            <p class="text-muted mb-0">
+              <span class="me-3">
+                <i class="pi pi-tag me-1"></i>
+                {{ activoSeleccionado.agente }}
+              </span>
+              <span class="me-3" *ngIf="activoSeleccionado.serial">
+                <i class="pi pi-barcode me-1"></i>
+                {{ activoSeleccionado.serial }}
+              </span>
+              <span *ngIf="activoSeleccionado.empresa">
+                <i class="pi pi-building me-1"></i>
+                {{ activoSeleccionado.empresa.nombre }}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Matriz Completa -->
+      <div class="matriz-table-container">
+        <p-table 
+          [value]="matrizCompleta" 
+          styleClass="p-datatable-sm matriz-detalle-table"
+          [scrollable]="true">
+          
+          <ng-template pTemplate="header">
+            <tr>
+              <th class="campo-column">Campo</th>
+              <th class="valor-column">Valor</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-item>
+            <tr [ngClass]="{'highlight-row': item.destacado}">
+              <td class="campo-cell">
+                <div class="d-flex align-items-center gap-2">
+                  <i [class]="item.icono" *ngIf="item.icono"></i>
+                  <span class="fw-semibold">{{ item.campo }}</span>
+                </div>
+              </td>
+              <td class="valor-cell">
+                <div [ngSwitch]="item.tipo">
+                  <!-- Puntaje con tag -->
+                  <p-tag 
+                    *ngSwitchCase="'puntaje'"
+                    [value]="item.valor + '%'" 
+                    [severity]="getPuntajeSeverity(item.valor)">
+                  </p-tag>
+                  
+                  <!-- Fecha formateada -->
+                  <span *ngSwitchCase="'fecha'" class="text-muted">
+                    {{ formatDate(item.valor) }}
+                  </span>
+                  
+                  <!-- Valoración con colores -->
+                  <p-tag 
+                    *ngSwitchCase="'valoracion'"
+                    [value]="item.valor" 
+                    [severity]="getValoracionSeverity(item.valor)">
+                  </p-tag>
+                  
+                  <!-- Texto normal -->
+                  <span *ngSwitchDefault [ngClass]="{'text-muted': !item.valor}">
+                    {{ item.valor || '-' }}
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+
+        </p-table>
+      </div>
+
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="text-muted">
+          <small>
+            <i class="pi pi-clock me-1"></i>
+            Última sincronización: {{ getUltimaSincronizacion() }}
+          </small>
+        </div>
+        <div class="d-flex gap-2">
+          <p-button 
+            label="Exportar PDF" 
+            icon="pi pi-file-pdf" 
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="exportarMatrizPDF()">
+          </p-button>
+          <p-button 
+            label="Cerrar" 
+            icon="pi pi-times"
+            (onClick)="cerrarMatrizCompleta()">
+          </p-button>
+        </div>
+      </div>
+    </ng-template>
+    
+  </p-dialog>
+
+  <!-- Modal para Matriz Completa de TODOS los Activos -->
+  <p-dialog 
+    header="Matriz de Obsolescencia - Todos los Activos" 
+    [(visible)]="mostrarMatrizCompletaTodos" 
+    [modal]="true" 
+    [closable]="true"
+    [maximizable]="true"
+    [style]="{width: '98vw', height: '95vh'}"
+    styleClass="matriz-completa-todos-dialog">
+    
+    <div class="matriz-todos-container">
+      
+      <!-- Filtros rápidos -->
+      <div class="filtros-rapidos mb-3">
+        <div class="row g-2">
+          <div class="col-12 col-md-4">
+            <span class="p-input-icon-left w-100">
+              <i class="pi pi-search"></i>
+              <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="searchTermTodos"
+                (keyup.enter)="buscarEnMatrizCompleta()"
+                placeholder="Buscar en matriz completa..."
+                class="w-100">
+            </span>
+          </div>
+          <div class="col-12 col-md-8">
+            <div class="d-flex gap-2 justify-content-end">
+              <p-button 
+                label="Buscar" 
+                icon="pi pi-search"
+                size="small"
+                (onClick)="buscarEnMatrizCompleta()">
+              </p-button>
+              <p-button 
+                label="Limpiar" 
+                icon="pi pi-times"
+                size="small"
+                severity="secondary"
+                [outlined]="true"
+                (onClick)="limpiarBusquedaCompleta()">
+              </p-button>
+              <p-button 
+                label="Exportar Excel" 
+                icon="pi pi-file-excel" 
+                size="small"
+                severity="success"
+                [outlined]="true"
+                (onClick)="exportarMatrizCompleta()">
+              </p-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla con todas las columnas -->
+      <div class="tabla-matriz-completa">
+        <p-table 
+          [value]="activosMatrizCompleta"
+          [loading]="isLoadingMatrizCompleta"
+          [paginator]="true"
+          [rows]="rowsPerPageCompleta"
+          [totalRecords]="totalRecordsCompleta"
+          [lazy]="true"
+          (onLazyLoad)="onPageChangeCompleta($event)"
+          [rowsPerPageOptions]="[10, 20, 50]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} activos"
+          styleClass="p-datatable-sm p-datatable-striped matriz-completa-table"
+          [scrollable]="true" 
+          scrollHeight="65vh"
+          [resizableColumns]="true">
+          
+          <ng-template pTemplate="header">
+            <tr>
+              <!-- Información Básica -->
+              <th pSortableColumn="nombre_equipo" [style]="{'min-width': '150px'}">
+                Nombre Equipo
+                <p-sortIcon field="nombre_equipo"></p-sortIcon>
+              </th>
+              <th [style]="{'min-width': '120px'}">Sucursal/Sede</th>
+              <th [style]="{'min-width': '100px'}">TAG Agente</th>
+              <th [style]="{'min-width': '120px'}">Placa</th>
+              <th [style]="{'min-width': '120px'}">Marca</th>
+              <th [style]="{'min-width': '120px'}">Tipo Equipo</th>
+              <th [style]="{'min-width': '120px'}">Referencia</th>
+              <th [style]="{'min-width': '120px'}">Serial</th>
+              <th [style]="{'min-width': '120px'}">Ubicación</th>
+              <th [style]="{'min-width': '120px'}">Tipo Unidad</th>
+              
+              <!-- Fechas y Compras -->
+              <th [style]="{'min-width': '120px'}">Fecha Compra</th>
+              <th [style]="{'min-width': '140px'}">Modalidad Compra</th>
+              <th [style]="{'min-width': '120px'}">Proveedor</th>
+              
+              <!-- Edad -->
+              <th [style]="{'min-width': '100px'}">Edad (Años)</th>
+              <th [style]="{'min-width': '120px'}">Edad Vs Vutil</th>
+              <th [style]="{'min-width': '120px'}">Valoración Edad</th>
+              
+              <!-- RAM -->
+              <th [style]="{'min-width': '100px'}">RAM (GB)</th>
+              <th [style]="{'min-width': '110px'}">MaxRAM (GB)</th>
+              <th [style]="{'min-width': '130px'}">Generación RAM</th>
+              <th [style]="{'min-width': '120px'}">Valoración RAM</th>
+              
+              <!-- Procesador -->
+              <th [style]="{'min-width': '150px'}">Procesador</th>
+              <th [style]="{'min-width': '130px'}">Número Procesador</th>
+              <th [style]="{'min-width': '140px'}">Valoración Procesador</th>
+              
+              <!-- Disco -->
+              <th [style]="{'min-width': '100px'}">Tipo Disco</th>
+              <th [style]="{'min-width': '100px'}">Disco (GB)</th>
+              <th [style]="{'min-width': '130px'}">Interfaz Conexión</th>
+              <th [style]="{'min-width': '120px'}">Valoración Disco</th>
+              
+              <!-- Finales -->
+              <th [style]="{'min-width': '140px'}">#Incidencias 6 Meses</th>
+              <th pSortableColumn="puntaje" [style]="{'min-width': '100px'}">
+                Puntaje
+                <p-sortIcon field="puntaje"></p-sortIcon>
+              </th>
+              <th [style]="{'min-width': '200px'}">Concepto</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-activo>
+            <tr>
+              <!-- Información Básica -->
+              <td>
+                <div class="fw-semibold text-primary">{{ activo.nombre_equipo }}</div>
+              </td>
+              <td>
+                <div *ngIf="activo.empresa">
+                  <div class="fw-semibold">{{ activo.empresa.nombre }}</div>
+                  <small class="text-muted" *ngIf="activo.sucursal">
+                    {{ activo.sucursal.nombre }}
+                  </small>
+                </div>
+              </td>
+              <td>
+                <p-tag [value]="activo.agente" severity="info" [style]="{'font-size': '0.75rem'}"></p-tag>
+              </td>
+              <td>{{ activo.placa || '-' }}</td>
+              <td>{{ activo.detalle?.marca || '-' }}</td>
+              <td>{{ activo.detalle?.tipo || '-' }}</td>
+              <td>{{ activo.detalle?.referencia || '-' }}</td>
+              <td>{{ activo.serial || '-' }}</td>
+              <td>{{ activo.ubicacion || '-' }}</td>
+              <td>{{ getDetalleValueOrDefault(activo, 'tipo_unidad', ' - ') }}</td>
+              
+              <!-- Fechas y Compras -->
+              <td>{{ getDetalleProperty(activo, 'fecha_compra') ? formatDate(getDetalleProperty(activo, 'fecha_compra')) : '-' }}</td>
+              <td>{{ getDetalleValueOrDefault(activo, 'modalidad', ' - ') }}</td>
+              <td>{{ getDetalleValueOrDefault(activo, 'proveedor', ' - ') }}</td>
+              
+              <!-- Edad -->
+              <td>{{ getDetalleProperty(activo, 'edad') !== null ? getDetalleProperty(activo, 'edad') + ' año(s)' : '-' }}</td>
+              <td>{{ formatEdadVsVutil(getDetalleProperty(activo, 'edad_v_util')) }}</td>
+              <td>
+                <p-tag 
+                  [value]="getDetalleProperty(activo, 'valoracion_edad') || getValoracionEdad(activo.created_at)" 
+                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_edad') || getValoracionEdad(activo.created_at))"
+                  [style]="{'font-size': '0.75rem'}">
+                </p-tag>
+              </td>
+              
+              <!-- RAM -->
+              <td>{{ activo.detalle?.tamano_ram ? activo.detalle.tamano_ram + ' GB' : '-' }}</td>
+              <td>{{ activo.detalle?.tamano_ram ? (activo.detalle.tamano_ram * 2) + ' GB' : '-' }}</td>
+              <td>{{ activo.detalle?.generacion_ram || '-' }}</td>
+              <td>
+                <p-tag 
+                  [value]="getDetalleProperty(activo, 'valoracion_ram') || getValoracionRAM(activo.detalle?.tamano_ram || null)" 
+                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_ram') || getValoracionRAM(activo.detalle?.tamano_ram || null))"
+                  [style]="{'font-size': '0.75rem'}">
+                </p-tag>
+              </td>
+              
+              <!-- Procesador -->
+              <td>{{ activo.detalle?.procesador || '-' }}</td>
+              <td>{{ activo.detalle?.numero_procesador || '-' }}</td>
+              <td>
+                <p-tag 
+                  [value]="getDetalleProperty(activo, 'valoracion_procesador') || getValoracionProcesador(activo.detalle?.procesador || null)" 
+                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_procesador') || getValoracionProcesador(activo.detalle?.procesador || null))"
+                  [style]="{'font-size': '0.75rem'}">
+                </p-tag>
+              </td>
+              
+              <!-- Disco -->
+              <td>{{ activo.detalle?.tipo_disco || '-' }}</td>
+              <td>{{ activo.detalle?.tamano_disco ? activo.detalle.tamano_disco + ' GB' : '-' }}</td>
+              <td>{{ activo.detalle?.interfaz_conexion || '-' }}</td>
+              <td>
+                <p-tag 
+                  [value]="getDetalleProperty(activo, 'valoracion_disco') || getValoracionDisco(activo.detalle?.tipo_disco || null)" 
+                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_disco') || getValoracionDisco(activo.detalle?.tipo_disco || null))"
+                  [style]="{'font-size': '0.75rem'}">
+                </p-tag>
+              </td>
+              
+              <!-- Finales -->
+              <td class="text-center">{{ getDetalleValueOrDefault(activo, 'incidencias_6_meses', 0) }}</td>
+              <td>
+                <p-tag 
+                  [value]="activo.puntaje + '%'" 
+                  [severity]="getPuntajeSeverity(activo.puntaje)">
+                </p-tag>
+              </td>
+              <td>
+                <small>{{ getConceptoPuntaje(activo.puntaje) }}</small>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="29" class="text-center py-4">
+                <i class="pi pi-inbox text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-2 mb-0">No se encontraron activos</p>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="loadingbody">
+            <tr *ngFor="let i of [1,2,3,4,5]">
+              <td *ngFor="let j of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]">
+                <p-skeleton></p-skeleton>
+              </td>
+            </tr>
+          </ng-template>
+
+        </p-table>
+      </div>
+
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="text-muted">
+          <small>
+            <i class="pi pi-info-circle me-1"></i>
+            Total de activos: {{ totalRecordsCompleta }}
+          </small>
+        </div>
+        <div class="d-flex gap-2">
+          <p-button 
+            label="Exportar Todo" 
+            icon="pi pi-download" 
+            severity="success"
+            [outlined]="true"
+            (onClick)="exportarTodosLosActivos()">
+          </p-button>
+          <p-button 
+            label="Cerrar" 
+            icon="pi pi-times"
+            (onClick)="cerrarMatrizCompletaTodos()">
+          </p-button>
+        </div>
+      </div>
+    </ng-template>
+    
+  </p-dialog>
+
+</div>

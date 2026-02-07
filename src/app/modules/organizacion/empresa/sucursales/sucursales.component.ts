@@ -1,9 +1,11 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { SucursalService, Sucursal, CreateSucursalRequest } from '../services/sucursal.service';
 import { EmpresaService, Empresa } from '../services/empresa.service';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
 // PrimeNG Imports
 import { TableModule, Table } from 'primeng/table';
@@ -33,7 +35,8 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     ToastModule,
     ConfirmDialogModule,
     TagModule,
-    TooltipModule
+    TooltipModule,
+    HasPermissionDirective
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './sucursales.component.html',
@@ -41,6 +44,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 })
 export class SucursalesComponent implements OnInit {
   @ViewChild('dt') dt!: Table;
+  @ViewChild('globalFilter') globalFilter!: ElementRef;
   
   sucursales: Sucursal[] = [];
   sucursalesFiltered: Sucursal[] = [];
@@ -58,9 +62,31 @@ export class SucursalesComponent implements OnInit {
     private sucursalService: SucursalService,
     private empresaService: EmpresaService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public permissionService: PermissionService
   ) {
     this.initForm();
+  }
+
+  // Métodos de verificación de permisos
+  canCreate(): boolean {
+    return this.permissionService.hasPermission('org-suc-crear');
+  }
+
+  canEdit(): boolean {
+    return this.permissionService.hasPermission('org-suc-editar');
+  }
+
+  canDelete(): boolean {
+    return this.permissionService.hasPermission('org-suc-eliminar');
+  }
+
+  canView(): boolean {
+    return this.permissionService.hasPermission('org-suc-ver');
+  }
+
+  canSearch(): boolean {
+    return this.permissionService.hasPermission('org-suc-buscar');
   }
 
   ngOnInit(): void {
@@ -224,15 +250,47 @@ export class SucursalesComponent implements OnInit {
   }
 
   filterByEmpresa(event: any): void {
+    this.selectedEmpresaFilter = event.value;
+    
     if (event.value) {
       this.sucursalesFiltered = this.sucursales.filter(s => s.id_Empresa === event.value);
     } else {
-      this.sucursalesFiltered = this.sucursales;
+      this.sucursalesFiltered = [...this.sucursales];
+    }
+    
+    // Limpiar el filtro global cuando se cambia el filtro de empresa
+    if (this.dt) {
+      this.dt.clear();
+    }
+  }
+
+  clearFilters(): void {
+    this.selectedEmpresaFilter = null;
+    this.sucursalesFiltered = [...this.sucursales];
+    
+    // Limpiar el input de búsqueda global usando ViewChild
+    if (this.globalFilter && this.globalFilter.nativeElement) {
+      this.globalFilter.nativeElement.value = '';
     }
   }
 
   onGlobalFilter(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.dt.filterGlobal(input.value, 'contains');
+    const value = input.value;
+    
+    if (value) {
+      // Aplicar filtro global sobre los datos ya filtrados por empresa
+      let dataToFilter = this.selectedEmpresaFilter 
+        ? this.sucursales.filter(s => s.id_Empresa === this.selectedEmpresaFilter)
+        : this.sucursales;
+      
+      this.sucursalesFiltered = dataToFilter.filter(sucursal => 
+        sucursal.nombre.toLowerCase().includes(value.toLowerCase()) ||
+        (sucursal.empresa?.nombre || '').toLowerCase().includes(value.toLowerCase())
+      );
+    } else {
+      // Si no hay texto de búsqueda, mostrar según filtro de empresa
+      this.filterByEmpresa({ value: this.selectedEmpresaFilter });
+    }
   }
 }

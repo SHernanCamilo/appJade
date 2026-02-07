@@ -33,3 +33,18 @@ app-sidebar {
     padding-top: 80px;
   }
 }
+
+/* Cuando hay banner de personificación activo */
+.personificando-activo .main-content {
+  padding-top: 140px; /* 60px banner + 60px navbar + 20px padding */
+}
+
+.personificando-activo app-sidebar {
+  padding-top: 60px; /* Altura del banner */
+}
+
+@media (max-width: 991.98px) {
+  .personificando-activo .main-content {
+    padding-top: 140px;
+  }
+}

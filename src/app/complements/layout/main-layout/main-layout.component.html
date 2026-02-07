@@ -1,7 +1,10 @@
-<app-navbar></app-navbar>
-<div class="layout-container">
-  <app-sidebar></app-sidebar>
-  <main class="main-content" [class.sidebar-collapsed]="isSidebarCollapsed">
-    <router-outlet></router-outlet>
-  </main>
+<div [class.personificando-activo]="isPersonificando">
+  <app-personificar-banner></app-personificar-banner>
+  <app-navbar></app-navbar>
+  <div class="layout-container">
+    <app-sidebar></app-sidebar>
+    <main class="main-content" [class.sidebar-collapsed]="isSidebarCollapsed">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
 </div>

@@ -1,116 +1,119 @@
 <div class="login-container">
-  <p-card styleClass="login-card">
-    <!-- Header -->
-    <ng-template pTemplate="header">
-      <div class="login-header">
-        <h1 class="login-title">Sara-tech</h1>
-        <p class="login-subtitle">Bienvenido a la plataforma de soluciones tech para empresa</p>
-      </div>
-    </ng-template>
-
-    <!-- Content -->
-    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-      <!-- Error Message -->
-      <p-message 
-        *ngIf="hasError" 
-        severity="error" 
-        [text]="errorMsg || 'Los datos de inicio de sesión son incorrectos.'"
-        styleClass="w-full mb-4">
-      </p-message>
-
-      <!-- Microsoft Login Button -->
-      <p-button 
-        label="Iniciar sesión con Microsoft"
-        icon="pi pi-microsoft"
-        styleClass="w-full mb-3"
-        severity="secondary"
-        [outlined]="true"
-        [loading]="isMicrosoftLoading"
-        (onClick)="loginWithMicrosoft()">
-      </p-button>
-
-      <!-- Divider -->
-      <p-divider align="center">
-        <span class="divider-text">O</span>
-      </p-divider>
-
-      <!-- Email Field -->
-      <div class="field mb-4">
-        <label for="email" class="block mb-2">Correo electrónico</label>
-        <input 
-          pInputText 
-          id="email" 
-          type="email"
-          formControlName="email"
-          placeholder="usuario@ejemplo.com"
-          (input)="clearError()"
-          class="w-full"
-          [class.ng-invalid]="loginForm.controls['email'].invalid && loginForm.controls['email'].touched"
-          [class.ng-dirty]="loginForm.controls['email'].dirty" />
-        <small 
-          class="p-error block mt-1" 
-          *ngIf="loginForm.controls['email'].hasError('required') && loginForm.controls['email'].touched">
-          El correo electrónico es obligatorio
-        </small>
-        <small 
-          class="p-error block mt-1" 
-          *ngIf="loginForm.controls['email'].hasError('email') && loginForm.controls['email'].touched">
-          El formato del correo electrónico no es válido
-        </small>
-      </div>
-
-      <!-- Password Field -->
-      <div class="field mb-4">
-        <label for="password" class="block mb-2">Contraseña</label>
-        <p-password 
-          formControlName="password"
-          [toggleMask]="true"
-          [feedback]="false"
-          placeholder="Ingresa tu contraseña"
-          (onInput)="clearError()"
-          styleClass="w-full"
-          [inputStyleClass]="'w-full'"
-          [class.ng-invalid]="loginForm.controls['password'].invalid && loginForm.controls['password'].touched">
-        </p-password>
-        <small 
-          class="p-error block mt-1" 
-          *ngIf="loginForm.controls['password'].hasError('required') && loginForm.controls['password'].touched">
-          La contraseña es obligatoria
-        </small>
-        <small 
-          class="p-error block mt-1" 
-          *ngIf="loginForm.controls['password'].hasError('minlength') && loginForm.controls['password'].touched">
-          La contraseña debe tener al menos 6 caracteres
-        </small>
-      </div>
-
-      <!-- Remember Me & Forgot Password -->
-      <div class="flex justify-content-between align-items-center mb-4">
-        <div class="flex align-items-center">
-          <p-checkbox 
-            formControlName="rememberMe" 
-            [binary]="true" 
-            inputId="rememberMe">
-          </p-checkbox>
-          <label for="rememberMe" class="ml-2 cursor-pointer">Recordarme</label>
+  <div class="hero__overlay"></div>
+  <div class="hero__content">
+    <p-card styleClass="login-card">
+      <!-- Header -->
+      <ng-template pTemplate="header">
+        <div class="login-header">
+          <h1 class="login-title">Atlaxioma-Tech</h1>
+          <p class="login-subtitle">Bienvenido a la plataforma de soluciones tech para empresa</p>
         </div>
-        <a routerLink="/auth/forgot-password" class="text-primary">¿Olvidaste tu contraseña?</a>
-      </div>
+      </ng-template>
 
-      <!-- Submit Button -->
-      <p-button 
-        label="Continuar"
-        type="submit"
-        styleClass="w-full mb-3"
-        [loading]="isLoading"
-        [disabled]="loginForm.invalid || isLoading">
-      </p-button>
+      <!-- Content -->
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <!-- Error Message -->
+        <p-message 
+          *ngIf="hasError" 
+          severity="error" 
+          [text]="errorMsg || 'Los datos de inicio de sesión son incorrectos.'"
+          styleClass="w-full mb-4">
+        </p-message>
 
-      <!-- Register Link -->
-      <div class="text-center">
-        <span class="text-600">¿Deseas registrarte?</span>
-        <a routerLink="/auth/registration" class="text-primary ml-2">Registrarte</a>
-      </div>
-    </form>
-  </p-card>
+        <!-- Microsoft Login Button -->
+        <p-button 
+          label="Iniciar sesión con Microsoft"
+          icon="pi pi-microsoft"
+          styleClass="w-full mb-3"
+          severity="secondary"
+          [outlined]="true"
+          [loading]="isMicrosoftLoading"
+          (onClick)="loginWithMicrosoft()">
+        </p-button>
+
+        <!-- Divider -->
+        <p-divider align="center">
+          <span class="divider-text">O</span>
+        </p-divider>
+
+        <!-- Email Field -->
+        <div class="field mb-4">
+          <label for="email" class="block mb-2">Correo electrónico</label>
+          <input 
+            pInputText 
+            id="email" 
+            type="email"
+            formControlName="email"
+            placeholder="usuario@ejemplo.com"
+            (input)="clearError()"
+            class="w-full"
+            [class.ng-invalid]="loginForm.controls['email'].invalid && loginForm.controls['email'].touched"
+            [class.ng-dirty]="loginForm.controls['email'].dirty" />
+          <small 
+            class="p-error block mt-1" 
+            *ngIf="loginForm.controls['email'].hasError('required') && loginForm.controls['email'].touched">
+            El correo electrónico es obligatorio
+          </small>
+          <small 
+            class="p-error block mt-1" 
+            *ngIf="loginForm.controls['email'].hasError('email') && loginForm.controls['email'].touched">
+            El formato del correo electrónico no es válido
+          </small>
+        </div>
+
+        <!-- Password Field -->
+        <div class="field mb-4">
+          <label for="password" class="block mb-2">Contraseña</label>
+          <p-password 
+            formControlName="password"
+            [toggleMask]="true"
+            [feedback]="false"
+            placeholder="Ingresa tu contraseña"
+            (onInput)="clearError()"
+            styleClass="w-full"
+            [inputStyleClass]="'w-full'"
+            [class.ng-invalid]="loginForm.controls['password'].invalid && loginForm.controls['password'].touched">
+          </p-password>
+          <small 
+            class="p-error block mt-1" 
+            *ngIf="loginForm.controls['password'].hasError('required') && loginForm.controls['password'].touched">
+            La contraseña es obligatoria
+          </small>
+          <small 
+            class="p-error block mt-1" 
+            *ngIf="loginForm.controls['password'].hasError('minlength') && loginForm.controls['password'].touched">
+            La contraseña debe tener al menos 6 caracteres
+          </small>
+        </div>
+
+        <!-- Remember Me & Forgot Password -->
+        <div class="flex justify-content-between align-items-center mb-4">
+          <div class="flex align-items-center">
+            <p-checkbox 
+              formControlName="rememberMe" 
+              [binary]="true" 
+              inputId="rememberMe">
+            </p-checkbox>
+            <label for="rememberMe" class="ml-2 cursor-pointer">Recordarme</label>
+          </div>
+          <a routerLink="/auth/forgot-password" class="text-primary">¿Olvidaste tu contraseña?</a>
+        </div>
+
+        <!-- Submit Button -->
+        <p-button 
+          label="Continuar"
+          type="submit"
+          styleClass="w-full mb-3"
+          [loading]="isLoading"
+          [disabled]="loginForm.invalid || isLoading">
+        </p-button>
+
+        <!-- Register Link -->
+        <div class="text-center">
+          <span class="text-600">¿Deseas registrarte?</span>
+          <a routerLink="/auth/registration" class="text-primary ml-2">Registrarte</a>
+        </div>
+      </form>
+    </p-card>
+  </div>
 </div>

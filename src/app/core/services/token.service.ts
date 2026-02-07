@@ -72,7 +72,6 @@ export class TokenService {
       const token = localStorage.getItem('token');
       
       if (!token) {
-        console.log('🔒 No hay token, deteniendo verificación');
         this.stopTokenCheck();
         return;
       }
@@ -83,16 +82,12 @@ export class TokenService {
         onExpired();
       } else {
         const timeRemaining = this.getTimeUntilExpiration(token);
-        console.log(`✅ Token válido. Expira en ${Math.floor(timeRemaining / 60)} minutos`);
-        
         // Advertir si queda menos de 5 minutos
         if (timeRemaining < 300 && timeRemaining > 0) {
           console.warn(`⏰ El token expirará en ${Math.floor(timeRemaining / 60)} minutos`);
         }
       }
     }, checkIntervalMs);
-
-    console.log('🔄 Verificación de token iniciada');
   }
 
   /**
@@ -102,7 +97,6 @@ export class TokenService {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
-      console.log('⏹️ Verificación de token detenida');
     }
   }
 

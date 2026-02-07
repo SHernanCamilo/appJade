@@ -1,0 +1,383 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header">
+    <button class="btn btn-back mb-2" routerLink="/organizacion">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
+    
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="page-title">
+          <i class="bi-shield-lock-fill me-2"></i>
+          Gestión de Permisos
+        </h1>
+        <p class="page-subtitle">Configura las acciones disponibles en cada módulo del sistema</p>
+      </div>
+      <p-button 
+        label="Nuevo Permiso"
+        icon="pi pi-plus"
+        (onClick)="openPermisoDialog()"
+        severity="primary">
+      </p-button>
+    </div>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="stat-card stat-primary">
+        <div class="stat-icon">
+          <i class="bi bi-grid-3x3"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Total Módulos</div>
+          <div class="stat-value">{{ modulosConPermisos.length }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="stat-card stat-success">
+        <div class="stat-icon">
+          <i class="bi bi-shield-check"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Total Permisos</div>
+          <div class="stat-value">{{ getTotalPermisos() }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="stat-card stat-info">
+        <div class="stat-icon">
+          <i class="bi bi-toggle-on"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Activos</div>
+          <div class="stat-value">{{ getPermisosActivos() }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="stat-card stat-warning">
+        <div class="stat-icon">
+          <i class="bi bi-toggle-off"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Inactivos</div>
+          <div class="stat-value">{{ getTotalPermisos() - getPermisosActivos() }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="text-center py-5">
+    <p-progressSpinner></p-progressSpinner>
+    <p class="text-muted mt-3">Cargando permisos...</p>
+  </div>
+
+  <!-- Sin módulos -->
+  <div *ngIf="!loading && modulosConPermisos.length === 0" class="empty-state">
+    <i class="bi bi-inbox"></i>
+    <p>No hay módulos registrados</p>
+  </div>
+
+  <!-- Módulos con diseño minimalista -->
+  <div *ngIf="!loading && modulosConPermisos.length > 0" class="modulos-tree">
+    <ng-container *ngFor="let modulo of modulosConPermisos">
+      <ng-container *ngTemplateOutlet="moduloCardTemplate; context: { modulo: modulo, nivel: 0 }"></ng-container>
+    </ng-container>
+  </div>
+</div>
+
+<!-- Template para tarjeta de módulo -->
+<ng-template #moduloCardTemplate let-modulo="modulo" let-nivel="nivel">
+  <div class="module-card" [class]="'level-' + nivel" [class.expanded]="modulo.expanded">
+    <!-- Header del módulo -->
+    <div class="module-header" (click)="toggleModulo(modulo)">
+      <div class="module-left">
+        <!-- Botón expandir/colapsar -->
+        <button 
+          *ngIf="modulo.permisos.length > 0 || (modulo.hijos && modulo.hijos.length > 0)" 
+          class="expand-btn" 
+          (click)="$event.stopPropagation()">
+          <i [class]="modulo.expanded ? 'bi bi-chevron-down' : 'bi bi-chevron-right'"></i>
+        </button>
+        <div *ngIf="modulo.permisos.length === 0 && (!modulo.hijos || modulo.hijos.length === 0)" class="expand-placeholder"></div>
+        
+        <div class="module-icon" [class]="'level-' + nivel">
+          <i [class]="'bi bi-' + (modulo.icono || (nivel === 0 ? 'folder-fill' : nivel === 1 ? 'folder2' : 'file-earmark-text'))"></i>
+        </div>
+        
+        <div class="module-info">
+          <div class="module-name">
+            {{ modulo.nombre }}
+            <span class="status-badge" [class.active]="modulo.estado" [class.inactive]="!modulo.estado">
+              <i [class]="modulo.estado ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i>
+              {{ modulo.estado ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+          <div class="module-meta">
+            <span class="module-code">{{ modulo.codigo }}</span>
+            <span class="module-stat">
+              <i class="bi bi-shield-check"></i>
+              {{ getTotalPermisosConHijos(modulo) }} permisos
+            </span>
+            <span class="module-stat active">
+              <i class="bi bi-toggle-on"></i>
+              {{ getPermisosActivosConHijos(modulo) }} activos
+            </span>
+            <span class="module-children" *ngIf="modulo.hijos && modulo.hijos.length > 0">
+              <i class="bi bi-diagram-3"></i>
+              {{ modulo.hijos.length }} submódulos
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="module-actions" (click)="$event.stopPropagation()">
+        <button class="action-btn add" (click)="openPermisoDialog(modulo)" title="Agregar permiso">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenido expandible -->
+    <div *ngIf="modulo.expanded" class="module-content">
+      <!-- Sin permisos -->
+      <div *ngIf="modulo.permisos.length === 0 && (!modulo.hijos || modulo.hijos.length === 0)" class="empty-state-small">
+        <i class="bi bi-inbox"></i>
+        <p>No hay permisos configurados</p>
+        <button class="btn-add-first" (click)="openPermisoDialog(modulo)">
+          <i class="bi bi-plus-lg"></i>
+          Agregar Primer Permiso
+        </button>
+      </div>
+
+      <!-- Tabla de permisos minimalista -->
+      <div *ngIf="modulo.permisos.length > 0" class="permisos-table">
+        <div class="table-header">
+          <div class="th orden">Orden</div>
+          <div class="th nombre">Nombre</div>
+          <div class="th codigo">Código</div>
+          <div class="th tipo">Tipo</div>
+          <div class="th icono">Icono</div>
+          <div class="th estado">Estado</div>
+          <div class="th acciones">Acciones</div>
+        </div>
+        
+        <div class="table-row" *ngFor="let permiso of modulo.permisos">
+          <div class="td orden">
+            <span class="orden-badge">{{ permiso.orden }}</span>
+          </div>
+          <div class="td nombre">
+            <div class="permiso-nombre">{{ permiso.nombre }}</div>
+          </div>
+          <div class="td codigo">
+            <code class="code-badge">{{ permiso.codigo }}</code>
+          </div>
+          <div class="td tipo">
+            <span class="tipo-badge" [class]="'tipo-' + permiso.tipo">
+              <i [class]="'bi bi-' + (permiso.tipo === 'boton' ? 'hand-pointer' : permiso.tipo === 'accion' ? 'lightning' : 'list')"></i>
+              {{ permiso.tipo }}
+            </span>
+          </div>
+          <div class="td icono">
+            <i *ngIf="permiso.icono" [class]="'bi bi-' + permiso.icono" class="permiso-icon"></i>
+            <span *ngIf="!permiso.icono" class="text-muted">-</span>
+          </div>
+          <div class="td estado">
+            <label class="switch">
+              <input type="checkbox" [(ngModel)]="permiso.estado" (change)="toggleEstado(permiso)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="td acciones">
+            <button class="action-btn-sm edit" (click)="openPermisoDialog(modulo, permiso)" title="Editar">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="action-btn-sm delete" (click)="deletePermiso(permiso, $event)" title="Eliminar">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submódulos recursivos -->
+      <div *ngIf="modulo.hijos && modulo.hijos.length > 0" class="submodulos-container">
+        <ng-container *ngFor="let hijo of modulo.hijos">
+          <ng-container *ngTemplateOutlet="moduloCardTemplate; context: { modulo: hijo, nivel: nivel + 1 }"></ng-container>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<!-- Dialog de Permiso - Grande -->
+<p-dialog 
+  [(visible)]="showPermisoDialog" 
+  [header]="(editingPermiso ? 'Editar Permiso' : 'Nuevo Permiso')"
+  [modal]="true"
+  [style]="{width: '800px'}"
+  [breakpoints]="{'960px': '90vw'}"
+  [maximizable]="true">
+  
+  <form [formGroup]="permisoForm" (ngSubmit)="savePermiso()">
+    <div class="p-fluid">
+      <div class="row">
+        <!-- Módulo - Ancho completo -->
+        <div class="col-12 mb-3">
+          <label for="modulo" class="fw-bold">Módulo *</label>
+          <p-dropdown 
+            inputId="modulo"
+            formControlName="id_modulo"
+            [options]="modulosParaDropdown"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Seleccione un módulo"
+            [showClear]="true"
+            [filter]="true"
+            filterBy="nombreOriginal,codigo"
+            [style]="{'width': '100%'}">
+            <ng-template pTemplate="selectedItem" let-option>
+              <div *ngIf="option">
+                <span>{{ option.nombreOriginal }}</span>
+                <small class="text-muted ms-2">({{ option.codigo }})</small>
+              </div>
+            </ng-template>
+            <ng-template pTemplate="item" let-option>
+              <div [style.padding-left.px]="option.nivel * 20">
+                <span>{{ option.nombre }}</span>
+                <small class="text-muted ms-2">({{ option.codigo }})</small>
+              </div>
+            </ng-template>
+          </p-dropdown>
+          <small class="text-muted">Los módulos se muestran con su jerarquía completa</small>
+        </div>
+
+        <!-- Nombre -->
+        <div class="col-md-8 mb-3">
+          <label for="nombre" class="fw-bold">Nombre del Permiso *</label>
+          <input 
+            id="nombre"
+            type="text"
+            pInputText 
+            formControlName="nombre"
+            (blur)="generarCodigo()"
+            placeholder="Ej: Crear Usuario"
+            class="w-100">
+          <small class="text-muted">Nombre descriptivo de la acción</small>
+        </div>
+
+        <!-- Tipo -->
+        <div class="col-md-4 mb-3">
+          <label for="tipo" class="fw-bold">Tipo *</label>
+          <p-dropdown 
+            inputId="tipo"
+            formControlName="tipo"
+            [options]="tiposPermiso"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Tipo">
+          </p-dropdown>
+          <small class="text-muted">Categoría del permiso</small>
+        </div>
+
+        <!-- Código -->
+        <div class="col-md-8 mb-3">
+          <label for="codigo" class="fw-bold">Código Único *</label>
+          <input 
+            id="codigo"
+            type="text"
+            pInputText 
+            formControlName="codigo"
+            placeholder="crear-usuario"
+            class="w-100">
+          <small class="text-muted">Se genera automáticamente del nombre</small>
+        </div>
+
+        <!-- Orden -->
+        <div class="col-md-4 mb-3">
+          <label for="orden" class="fw-bold">Orden</label>
+          <p-inputNumber 
+            inputId="orden"
+            formControlName="orden"
+            [showButtons]="true"
+            [min]="0"
+            placeholder="0">
+          </p-inputNumber>
+          <small class="text-muted">Posición en la lista</small>
+        </div>
+
+        <!-- Icono -->
+        <div class="col-md-6 mb-3">
+          <label for="icono" class="fw-bold">Icono (Bootstrap Icons)</label>
+          <div class="p-inputgroup">
+            <span class="p-inputgroup-addon">
+              <i [class]="'bi bi-' + (permisoForm.get('icono')?.value || 'question-circle')" style="font-size: 1.2rem;"></i>
+            </span>
+            <input 
+              id="icono"
+              type="text"
+              pInputText 
+              formControlName="icono"
+              placeholder="plus-circle">
+          </div>
+          <small class="text-muted">
+            <a href="https://icons.getbootstrap.com/" target="_blank" class="text-primary">
+              Ver iconos disponibles <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+          </small>
+        </div>
+
+        <!-- Estado -->
+        <div class="col-md-6 mb-3">
+          <label class="fw-bold d-block">Estado</label>
+          <div class="d-flex align-items-center mt-2">
+            <p-inputSwitch 
+              formControlName="estado"
+              inputId="estadoCheck">
+            </p-inputSwitch>
+            <label for="estadoCheck" class="ms-3 mb-0">
+              <span class="fw-bold">{{ permisoForm.get('estado')?.value ? 'Activo' : 'Inactivo' }}</span>
+            </label>
+          </div>
+          <small class="text-muted d-block mt-1">Los permisos inactivos no se pueden asignar</small>
+        </div>
+
+        <!-- Descripción -->
+        <div class="col-12 mb-3">
+          <label for="descripcion" class="fw-bold">Descripción</label>
+          <textarea 
+            id="descripcion"
+            pInputTextarea 
+            formControlName="descripcion"
+            rows="3"
+            placeholder="Descripción detallada del permiso y su función en el sistema"
+            class="w-100">
+          </textarea>
+          <small class="text-muted">Opcional: Explica qué hace este permiso</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <p-button 
+        label="Cancelar" 
+        [text]="true"
+        severity="secondary"
+        (onClick)="closePermisoDialog()">
+      </p-button>
+      <p-button 
+        [label]="editingPermiso ? 'Actualizar' : 'Crear'" 
+        type="submit"
+        [disabled]="permisoForm.invalid">
+      </p-button>
+    </div>
+  </form>
+</p-dialog>

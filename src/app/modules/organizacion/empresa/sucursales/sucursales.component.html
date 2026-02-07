@@ -3,12 +3,10 @@
   <p-confirmDialog></p-confirmDialog>
 
   <div class="page-header">
-    <p-button 
-      label="Volver" 
-      icon="pi pi-arrow-left" 
-      [routerLink]="'/organizacion'"
-      styleClass="p-button-text p-button-secondary mb-3">
-    </p-button>
+    
+    <button class="btn btn-back mb-2" routerLink="/organizacion">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
     
     <div class="d-flex justify-content-between align-items-center">
       <div>
@@ -18,7 +16,9 @@
         </h1>
         <p class="page-subtitle">Administra las sucursales de cada empresa</p>
       </div>
+      <!-- Botón Crear Sucursal - Solo visible con permiso -->
       <p-button 
+        *hasPermission="'org-suc-crear'"
         [label]="showForm ? 'Cancelar' : 'Nueva Sucursal'"
         [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
         (onClick)="toggleForm()"
@@ -36,36 +36,42 @@
     
     <form [formGroup]="sucursalForm" (ngSubmit)="onSubmit()">
       <div class="p-fluid">
-        <div class="mb-3">
-          <label for="nombre">Nombre de la Sucursal *</label>
-          <input 
-            pInputText 
-            id="nombre" 
-            formControlName="nombre"
-            placeholder="Ej: Sucursal Norte"
-            [class.ng-invalid]="sucursalForm.get('nombre')?.invalid && sucursalForm.get('nombre')?.touched">
-          <small class="p-error" *ngIf="sucursalForm.get('nombre')?.hasError('required') && sucursalForm.get('nombre')?.touched">
-            El nombre es obligatorio
-          </small>
-        </div>
+        <h6 class="section-subtitle">
+          <i class="bi bi-shop me-2"></i>
+          Información de la Sucursal
+        </h6>
+        <div class="form-card-assignment">
+          <div class="mb-3">
+            <label for="nombre">Nombre de la Sucursal *</label>
+            <input 
+              pInputText 
+              id="nombre" 
+              formControlName="nombre"
+              placeholder="Ej: Sucursal Norte"
+              [class.ng-invalid]="sucursalForm.get('nombre')?.invalid && sucursalForm.get('nombre')?.touched">
+            <small class="p-error" *ngIf="sucursalForm.get('nombre')?.hasError('required') && sucursalForm.get('nombre')?.touched">
+              El nombre es obligatorio
+            </small>
+          </div>
 
-        <div class="mb-3">
-          <label for="id_Empresa">Empresa *</label>
-          <p-dropdown 
-            id="id_Empresa"
-            formControlName="id_Empresa"
-            [options]="empresas"
-            optionLabel="nombre"
-            optionValue="id"
-            placeholder="Seleccione una empresa"
-            [filter]="true"
-            filterBy="nombre"
-            [showClear]="true"
-            [class.ng-invalid]="sucursalForm.get('id_Empresa')?.invalid && sucursalForm.get('id_Empresa')?.touched">
-          </p-dropdown>
-          <small class="p-error" *ngIf="sucursalForm.get('id_Empresa')?.hasError('required') && sucursalForm.get('id_Empresa')?.touched">
-            Debe seleccionar una empresa
-          </small>
+          <div class="mb-3">
+            <label for="id_Empresa">Empresa *</label>
+            <p-dropdown 
+              id="id_Empresa"
+              formControlName="id_Empresa"
+              [options]="empresas"
+              optionLabel="nombre"
+              optionValue="id"
+              placeholder="Seleccione una empresa"
+              [filter]="true"
+              filterBy="nombre"
+              [showClear]="true"
+              [class.ng-invalid]="sucursalForm.get('id_Empresa')?.invalid && sucursalForm.get('id_Empresa')?.touched">
+            </p-dropdown>
+            <small class="p-error" *ngIf="sucursalForm.get('id_Empresa')?.hasError('required') && sucursalForm.get('id_Empresa')?.touched">
+              Debe seleccionar una empresa
+            </small>
+          </div>
         </div>
       </div>
 
@@ -90,7 +96,7 @@
   <div class="content-card">
     <p-table 
       #dt
-      [value]="sucursales" 
+      [value]="sucursalesFiltered" 
       [paginator]="true" 
       [rows]="10"
       [showCurrentPageReport]="true"
@@ -105,7 +111,7 @@
           <h5 class="mb-0">
             <i class="bi bi-shop me-2"></i>
             Lista de Sucursales
-            <p-tag [value]="sucursales.length.toString()" styleClass="ml-2"></p-tag>
+            <p-tag [value]="sucursalesFiltered.length.toString()" styleClass="ml-2"></p-tag>
           </h5>
           <div class="d-flex gap-2">
             <p-dropdown 
@@ -117,9 +123,19 @@
               [showClear]="true"
               (onChange)="filterByEmpresa($event)">
             </p-dropdown>
-            <span class="p-input-icon-left">
+            <!-- Botón limpiar filtros -->
+            <p-button 
+              icon="pi pi-filter-slash" 
+              styleClass="p-button-outlined p-button-secondary"
+              (onClick)="clearFilters()"
+              pTooltip="Limpiar filtros"
+              tooltipPosition="top">
+            </p-button>
+            <!-- Buscador - Solo visible con permiso -->
+            <span class="p-input-icon-left" *hasPermission="'org-suc-buscar'">
               <i class="pi pi-search"></i>
               <input 
+                #globalFilter
                 pInputText 
                 type="text" 
                 (input)="onGlobalFilter($event)" 
@@ -163,14 +179,18 @@
           </td>
           <td>
             <div class="d-flex gap-2">
+              <!-- Botón Editar - Solo visible con permiso -->
               <p-button 
+                *hasPermission="'org-suc-editar'"
                 icon="pi pi-pencil" 
                 styleClass="p-button-rounded p-button-text p-button-info"
                 (onClick)="editSucursal(sucursal)"
                 pTooltip="Editar"
                 tooltipPosition="top">
               </p-button>
+              <!-- Botón Eliminar - Solo visible con permiso -->
               <p-button 
+                *hasPermission="'org-suc-eliminar'"
                 icon="pi pi-trash" 
                 styleClass="p-button-rounded p-button-text p-button-danger"
                 (onClick)="deleteSucursal(sucursal)"
@@ -187,11 +207,18 @@
           <td colspan="4" class="text-center py-5">
             <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
             <p class="text-muted mt-3">No hay sucursales registradas</p>
+            <!-- Botón crear primera sucursal - Solo visible con permiso -->
             <p-button 
+              *hasPermission="'org-suc-crear'"
               label="Crear Primera Sucursal" 
               icon="pi pi-plus" 
               (onClick)="toggleForm()">
             </p-button>
+            <!-- Mensaje si no tiene permiso para crear -->
+            <p *ngIf="!canCreate()" class="text-muted mt-2">
+              <i class="pi pi-lock me-1"></i>
+              No tienes permisos para crear sucursales
+            </p>
           </td>
         </tr>
       </ng-template>

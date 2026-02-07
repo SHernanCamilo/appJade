@@ -1,0 +1,734 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <button class="btn btn-back mb-2" routerLink="/inventario">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
+    
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="page-title">
+          <i class="bi bi-sliders me-2"></i>
+          Parámetros de Matriz de Obsolescencia
+        </h1>
+        <p class="page-subtitle">Configuración de parámetros para el análisis de obsolescencia</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenido de Parámetros con Pestañas -->
+  <div class="dashboard-content">
+    <div class="card">
+      <div class="card-body p-0">
+        <p-tabView>
+          <!-- Pestaña: Parámetros Generales -->
+          <p-tabPanel header="Parámetros Generales">
+            <div class="tab-content-wrapper">
+              <div class="row g-3 mb-4">
+                <!-- Fila Superior -->
+                <!-- Card 1: Rangos Edad -->
+                <div class="col-md-6">
+                  <div class="param-card">
+                    <div class="param-card-header">
+                      <h6 class="mb-0">RANGOS EDAD (Años)</h6>
+                      <span class="badge bg-primary">PUNTAJE</span>
+                    </div>
+                    <div class="param-card-body">
+                      <table class="param-table">
+                        <tbody>
+                          <tr *ngFor="let rango of rangosEdad">
+                            <td class="text-start">{{ rango.rango }}</td>
+                            <td class="text-center fw-bold">{{ rango.puntaje }}</td>
+                            <td class="text-end">
+                              <button class="btn-edit me-1" (click)="editarRangoEdad(rango)" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                              </button>
+                              <button class="btn-delete" (click)="eliminarRangoEdad(rango)" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="param-card-footer">
+                      <!-- <p-button 
+                        label="Agregar Rango Edad" 
+                        icon="pi pi-plus"
+                        (onClick)="agregarRangoEdad()"
+                        styleClass="p-button-success w-100">
+                      </p-button> -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 2: Características Mínimas -->
+                <div class="col-md-6">
+                  <div class="param-card">
+                    <div class="param-card-header">
+                      <h6 class="mb-0">CARACTERÍSTICAS MÍNIMAS PARA UN COMPUTADOR</h6>
+                    </div>
+                    <div class="param-card-body">
+                      <table class="param-table">
+                        <tbody>
+                          <tr *ngFor="let caract of caracteristicasMinimas">
+                            <td class="text-start small">{{ caract.nombre }}</td>
+                            <td class="text-center fw-bold">{{ caract.valor }}</td>
+                            <td class="text-end">
+                              <button class="btn-edit me-1" (click)="editarCaracteristica(caract)" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                              </button>
+                              <button class="btn-delete" (click)="eliminarCaracteristica(caract)" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="param-card-footer">
+                      <!-- <p-button 
+                        label="Agregar Característica" 
+                        icon="pi pi-plus"
+                        (onClick)="agregarCaracteristica()"
+                        styleClass="p-button-success w-100">
+                      </p-button> -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Fila Inferior -->
+                <!-- Card 3: Rangos Funcional de Matriz -->
+                <div class="col-md-6">
+                  <div class="param-card">
+                    <div class="param-card-header">
+                      <h6 class="mb-0">RANGOS FUNCIONAL DE MATRIZ</h6>
+                    </div>
+                    <div class="param-card-body">
+                      <table class="param-table">
+                        <tbody>
+                          <tr *ngFor="let concepto of conceptosPuntaje">
+                            <td class="text-center fw-bold">{{ concepto.puntaje }}</td>
+                            <td class="text-center" [style.background-color]="concepto.color" [style.color]="concepto.textColor">
+                              <strong>{{ concepto.concepto }}</strong>
+                            </td>
+                            <td class="text-end">
+                              <button class="btn-edit me-1" (click)="editarConcepto(concepto)" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                              </button>
+                              <button class="btn-delete" (click)="eliminarConcepto(concepto)" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="param-card-footer">
+                      <!-- <p-button 
+                        label="Agregar Concepto" 
+                        icon="pi pi-plus"
+                        (onClick)="agregarConcepto()"
+                        styleClass="p-button-success w-100">
+                      </p-button> -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 4: Vida Útil por Tipo de Equipo -->
+                <div class="col-md-6">
+                  <div class="param-card">
+                    <div class="param-card-header">
+                      <h6 class="mb-0">VIDA ÚTIL POR TIPO DE EQUIPO</h6>
+                    </div>
+                    <div class="param-card-body">
+                      <table class="param-table">
+                        <tbody>
+                          <tr *ngFor="let equipo of tiposEquipos">
+                            <td class="text-start small">{{ equipo.tipo }}</td>
+                            <td class="text-center fw-bold">{{ equipo.vidaUtil }} años</td>
+                            <td class="text-end">
+                              <button class="btn-edit me-1" (click)="editarEquipo(equipo)" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                              </button>
+                              <button class="btn-delete" (click)="eliminarEquipo(equipo)" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="param-card-footer">
+                      <!-- <p-button 
+                        label="Agregar Tipo Equipo" 
+                        icon="pi pi-plus"
+                        (onClick)="nuevoEquipo()"
+                        styleClass="p-button-success w-100">
+                      </p-button> -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Botón para ejecutar cálculos automáticos -->
+              <div class="mb-3 d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-1">
+                    <i class="bi bi-calculator me-2 text-primary"></i>
+                    Cálculos Automáticos 
+                  </h5>
+                  <p class="text-muted mb-0 small">
+                    Ejecutar cálculos de edad, valoraciones y puntajes para todos los activos
+                  </p>
+                </div>
+                <div class="d-flex gap-2">
+                  <p-button 
+                    label="Solo Nuevos" 
+                    icon="pi pi-plus"
+                    (onClick)="ejecutarCalculos(true)"
+                    styleClass="p-button-outlined p-button-info"
+                    [loading]="calculandoValores">
+                  </p-button>
+                  <p-button 
+                    label="Recalcular Todo" 
+                    icon="pi pi-refresh"
+                    (onClick)="ejecutarCalculos(false)"
+                    styleClass="p-button-success"
+                    [loading]="calculandoValores">
+                  </p-button>
+                </div>
+              </div>
+
+              <!-- Información sobre los cálculos -->
+              <div class="alert alert-info">
+                <strong><i class="bi bi-info-circle me-2"></i>Información sobre cálculos automáticos:</strong>
+                <ul class="mb-0 mt-2 small">
+                  <li><strong>Solo Nuevos:</strong> Calcula valores únicamente para activos que no tienen cálculos previos</li>
+                  <li><strong>Recalcular Todo:</strong> Recalcula todos los valores para todos los activos (puede tomar más tiempo)</li>
+                  <li><strong>Valores calculados:</strong> Edad, vida útil, valoraciones de RAM/procesador/disco, y puntaje general</li>
+                  <li><strong>Fórmulas utilizadas:</strong> Basadas en los parámetros configurados arriba</li>
+                </ul>
+              </div>
+
+
+            </div>
+          </p-tabPanel>
+
+          <!-- Pestaña: Parámetros Agentes -->
+          <p-tabPanel header="Parámetros Agentes">
+            <div class="tab-content-wrapper">
+              <div class="row g-4">
+                <!-- Sincronización de equipos -->
+                <div class="col-12">
+                  <div class="form-group">
+                    <label class="form-label">
+                      <i class="bi bi-arrow-repeat me-2 text-primary"></i>
+                      Sincronización de equipos
+                    </label>
+                    <div class="d-flex gap-2 align-items-center">
+                      <input 
+                        type="number"
+                        [(ngModel)]="valorSincronizacion"
+                        min="1"
+                        max="168"
+                        class="form-control"
+                        style="flex: 1; max-width: 200px;">
+                      <span class="text-muted">Dias</span>
+                      <p-button 
+                        label="Guardar" 
+                        icon="pi pi-save"
+                        (onClick)="guardarSincronizacion()"
+                        styleClass="p-button-success">
+                      </p-button>
+                    </div>
+                    <small class="form-text text-muted">
+                      Configuración del parámetro de sincronización de equipos cada cuantos dias
+                    </small>
+                  </div>
+                </div>
+
+                <!-- Tabla de Agentes -->
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-body p-0">
+                      <!-- Header personalizado -->
+                      <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                        <div class="d-flex align-items-center">
+                          <i class="bi bi-people me-2 text-muted"></i>
+                          <span class="fw-semibold">Gestión de Agentes GLPI</span>
+                          <span class="badge bg-secondary ms-2">{{ agentes.length }}</span>
+                        </div>
+                        <p-button 
+                          label="Agregar Agente" 
+                          icon="pi pi-plus"
+                          (onClick)="agregarAgente()"
+                          styleClass="p-button-success p-button-sm">
+                        </p-button>
+                      </div>
+
+                      <!-- Tabla con estilos globales de PrimeNG -->
+                      <p-table 
+                        [value]="agentes" 
+                        [paginator]="true" 
+                        [rows]="10"
+                        [showCurrentPageReport]="true"
+                        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} agentes"
+                        [rowsPerPageOptions]="[10, 25, 50]"
+                        styleClass="p-datatable-sm">
+                        
+                        <ng-template pTemplate="header">
+                          <tr>
+                            <th>TAG</th>
+                            <th>EMPRESA</th>
+                            <th>SUCURSAL</th>
+                            <th>SEDE</th>
+                            <th>FECHA CREACIÓN</th>
+                            <th>ACCIONES</th>
+                          </tr>
+                        </ng-template>
+                        
+                        <ng-template pTemplate="body" let-agente>
+                          <tr>
+                            <td>
+                              <p-avatar 
+                                [label]="agente.tag" 
+                                [style]="{'background-color': getTagColor(agente.tag), 'color': 'white'}"
+                                size="normal"
+                                shape="square">
+                              </p-avatar>
+                            </td>
+                            <td>
+                              <div>
+                                <div class="fw-semibold text-dark">{{ agente.empresa?.nombre || 'N/A' }}</div>
+                                <small class="text-muted">{{ agente.empresa?.nit || '' }}</small>
+                              </div>
+                            </td>
+                            <td>{{ agente.sucursal?.nombre || 'N/A' }}</td>
+                            <td>{{ agente.sede?.nombre || 'N/A' }}</td>
+                            <td>{{ agente.created_at | date:'dd/MM/yyyy' }}</td>
+                            <td>
+                              <div class="d-flex gap-1">
+                                <p-button 
+                                  icon="pi pi-pencil" 
+                                  (onClick)="editarAgente(agente)"
+                                  styleClass="p-button-rounded p-button-text p-button-info p-button-sm"
+                                  pTooltip="Editar agente">
+                                </p-button>
+                                <p-button 
+                                  icon="pi pi-trash" 
+                                  (onClick)="eliminarAgente(agente)"
+                                  styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
+                                  pTooltip="Eliminar agente">
+                                </p-button>
+                              </div>
+                            </td>
+                          </tr>
+                        </ng-template>
+                        
+                        <ng-template pTemplate="emptymessage">
+                          <tr>
+                            <td colspan="6" class="text-center py-5">
+                              <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                              <p class="text-muted mt-3 mb-1">No hay agentes configurados</p>
+                              <small class="text-muted">Haz clic en "Agregar Agente" para comenzar</small>
+                            </td>
+                          </tr>
+                        </ng-template>
+                      </p-table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </p-tabPanel>
+        </p-tabView>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog para Agregar/Editar Tipo de Equipo -->
+<p-dialog 
+  [(visible)]="displayDialog" 
+  [header]="esNuevo ? 'Agregar Tipo de Equipo' : 'Editar Tipo de Equipo'"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="dialog-content">
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-laptop me-2"></i>
+        Tipo de Equipo
+      </label>
+      <input 
+        type="text" 
+        pInputText 
+        [(ngModel)]="equipoSeleccionado.tipo"
+        placeholder="Ej: Computadora de Escritorio"
+        class="w-100" />
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-calendar-check me-2"></i>
+        Vida Útil (años)
+      </label>
+      <p-inputNumber 
+        [(ngModel)]="equipoSeleccionado.vidaUtil"
+        [min]="1"
+        [max]="20"
+        suffix=" años"
+        styleClass="w-100">
+      </p-inputNumber>
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-arrow-repeat me-2"></i>
+        Frecuencia de Revisión
+      </label>
+      <p-dropdown 
+        [(ngModel)]="equipoSeleccionado.frecuencia"
+        [options]="frecuenciaEquipoOpciones"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccione frecuencia"
+        styleClass="w-100">
+      </p-dropdown>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button 
+      label="Cancelar" 
+      icon="pi pi-times" 
+      (onClick)="cancelarDialog()"
+      styleClass="p-button-text">
+    </p-button>
+    <p-button 
+      label="Guardar" 
+      icon="pi pi-check" 
+      (onClick)="guardarEquipo()"
+      styleClass="p-button-success">
+    </p-button>
+  </ng-template>
+</p-dialog>
+
+
+<!-- Dialog para Agregar/Editar Rango de Edad -->
+<p-dialog 
+  [(visible)]="displayDialogRango" 
+  [header]="esNuevo ? 'Agregar Rango de Edad' : 'Editar Rango de Edad'"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="dialog-content">
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-calendar-range me-2"></i>
+        Rango (ej: <= 5 Años, > 5 Años <= 8 Años)
+      </label>
+      <input 
+        type="text" 
+        pInputText 
+        [(ngModel)]="rangoSeleccionado.rango"
+        placeholder="Ej: <= 5 Años"
+        class="w-100" />
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-star me-2"></i>
+        Puntaje
+      </label>
+      <p-inputNumber 
+        [(ngModel)]="rangoSeleccionado.puntaje"
+        [min]="0"
+        [max]="100"
+        styleClass="w-100">
+      </p-inputNumber>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button 
+      label="Cancelar" 
+      icon="pi pi-times" 
+      (onClick)="displayDialogRango = false"
+      styleClass="p-button-text">
+    </p-button>
+    <p-button 
+      label="Guardar" 
+      icon="pi pi-check" 
+      (onClick)="guardarRangoEdad()"
+      styleClass="p-button-success">
+    </p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog para Agregar/Editar Característica Mínima -->
+<p-dialog 
+  [(visible)]="displayDialogCaracteristica" 
+  [header]="esNuevo ? 'Agregar Característica' : 'Editar Característica'"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="dialog-content">
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-tag me-2"></i>
+        Nombre de la Característica
+      </label>
+      <input 
+        type="text" 
+        pInputText 
+        [(ngModel)]="caracteristicaSeleccionada.nombre"
+        placeholder="Ej: Capacidad Mínima Memoria RAM (GB)"
+        class="w-100" />
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-123 me-2"></i>
+        Valor
+      </label>
+      <input 
+        type="text" 
+        pInputText 
+        [(ngModel)]="caracteristicaSeleccionada.valor"
+        placeholder="Ej: 12"
+        class="w-100" />
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button 
+      label="Cancelar" 
+      icon="pi pi-times" 
+      (onClick)="displayDialogCaracteristica = false"
+      styleClass="p-button-text">
+    </p-button>
+    <p-button 
+      label="Guardar" 
+      icon="pi pi-check" 
+      (onClick)="guardarCaracteristica()"
+      styleClass="p-button-success">
+    </p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog para Agregar/Editar Concepto de Puntaje -->
+<p-dialog 
+  [(visible)]="displayDialogConcepto" 
+  [header]="esNuevo ? 'Agregar Concepto' : 'Editar Concepto'"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="dialog-content">
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-hash me-2"></i>
+        Puntaje (ej: 0, > 0 < 60, >= 60 < 100, 100)
+      </label>
+      <input 
+        type="text" 
+        pInputText 
+        [(ngModel)]="conceptoSeleccionado.puntaje"
+        placeholder="Ej: > 0 < 60"
+        class="w-100" />
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label">
+        <i class="bi bi-tag me-2"></i>
+        Concepto
+      </label>
+      <input 
+        type="text" 
+        pInputText 
+        [(ngModel)]="conceptoSeleccionado.concepto"
+        placeholder="Ej: FUNCIONAL"
+        class="w-100" />
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group mb-3">
+          <label class="form-label">
+            <i class="bi bi-palette me-2"></i>
+            Color de Fondo
+          </label>
+          <input 
+            type="color" 
+            class="form-control form-control-color w-100" 
+            [(ngModel)]="conceptoSeleccionado.color" />
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group mb-3">
+          <label class="form-label">
+            <i class="bi bi-fonts me-2"></i>
+            Color de Texto
+          </label>
+          <input 
+            type="color" 
+            class="form-control form-control-color w-100" 
+            [(ngModel)]="conceptoSeleccionado.textColor" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group mb-3">
+      <label class="form-label">Vista Previa</label>
+      <div class="text-center p-3" [style.background-color]="conceptoSeleccionado.color" [style.color]="conceptoSeleccionado.textColor">
+        <strong>{{ conceptoSeleccionado.concepto || 'CONCEPTO' }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button 
+      label="Cancelar" 
+      icon="pi pi-times" 
+      (onClick)="displayDialogConcepto = false"
+      styleClass="p-button-text">
+    </p-button>
+    <p-button 
+      label="Guardar" 
+      icon="pi pi-check" 
+      (onClick)="guardarConcepto()"
+      styleClass="p-button-success">
+    </p-button>
+  </ng-template>
+</p-dialog>
+<!-- Dialog para Agregar/Editar Agente -->
+<p-dialog 
+  [(visible)]="displayDialogAgente" 
+  [header]="esNuevo ? 'Agregar Agente' : 'Editar Agente'"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="form-container">
+    <div class="row g-3">
+      <!-- Tag del Agente -->
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label required">
+            <i class="bi bi-tag me-2"></i>
+            Tag del Agente
+          </label>
+          <input 
+            type="text"
+            class="form-control"
+            [(ngModel)]="agenteSeleccionado.tag"
+            placeholder="Ingrese el tag del agente GLPI"
+            required>
+          <small class="form-text text-muted">
+            Identificador único del agente en GLPI
+          </small>
+        </div>
+      </div>
+
+      <!-- Empresa -->
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label required">
+            <i class="bi bi-building me-2"></i>
+            Empresa
+          </label>
+          <p-dropdown 
+            [(ngModel)]="agenteSeleccionado.id_empresa"
+            [options]="empresasOptions"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Seleccione una empresa"
+            styleClass="w-100"
+            [required]="true"
+            (onChange)="onEmpresaChange($event)">
+          </p-dropdown>
+          <small class="form-text text-muted">
+            Seleccione la empresa asociada al agente
+          </small>
+        </div>
+      </div>
+
+      <!-- Sucursal -->
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label required">
+            <i class="bi bi-geo-alt me-2"></i>
+            Sucursal
+          </label>
+          <p-dropdown 
+            [(ngModel)]="agenteSeleccionado.id_sucursal"
+            [options]="sucursalesOptions"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Seleccione una sucursal"
+            styleClass="w-100"
+            [required]="true"
+            [disabled]="!agenteSeleccionado.id_empresa"
+            (onChange)="onSucursalChange($event)">
+          </p-dropdown>
+          <small class="form-text text-muted">
+            Seleccione la sucursal asociada al agente
+          </small>
+        </div>
+      </div>
+
+      <!-- Sede (Opcional) -->
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-pin-map me-2"></i>
+            Sede (Opcional)
+          </label>
+          <p-dropdown 
+            [(ngModel)]="agenteSeleccionado.id_sede"
+            [options]="sedesOptions"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Seleccione una sede (opcional)"
+            styleClass="w-100"
+            [disabled]="!agenteSeleccionado.id_sucursal"
+            [showClear]="true">
+          </p-dropdown>
+          <small class="form-text text-muted">
+            Seleccione la sede asociada (campo opcional)
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button 
+      label="Cancelar" 
+      icon="pi pi-times" 
+      (onClick)="cancelarDialogAgente()"
+      styleClass="p-button-text">
+    </p-button>
+    <p-button 
+      label="Guardar" 
+      icon="pi pi-check" 
+      (onClick)="guardarAgente()"
+      styleClass="p-button-success"
+      [disabled]="!agenteSeleccionado.tag || !agenteSeleccionado.id_empresa || !agenteSeleccionado.id_sucursal">
+    </p-button>
+  </ng-template>
+</p-dialog>
+
+

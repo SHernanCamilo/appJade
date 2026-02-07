@@ -49,23 +49,25 @@
           [popup]="true"
           [appendTo]="'body'"
           styleClass="user-menu">
-          <ng-template pTemplate="start">
-            <div class="user-menu-header">
-              <p-avatar 
-                [label]="getUserInitials()" 
-                size="large"
-                shape="circle"
-                styleClass="user-avatar-large">
-              </p-avatar>
-              <div class="user-menu-info">
-                <div class="user-menu-name">{{ currentUser?.name || 'Usuario' }}</div>
-                <div class="user-menu-email">{{ currentUser?.email }}</div>
-                <p-badge [value]="getUserRole()" severity="info"></p-badge>
-              </div>
-            </div>
-          </ng-template>
         </p-menu>
       </div>
     </div>
   </div>
 </nav>
+
+<!-- Modal de Personificación -->
+<p-dialog 
+  [(visible)]="showPersonificarModal"
+  header="Personificar Usuario"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{width: '90vw', maxWidth: '1200px', height: '80vh'}"
+  [breakpoints]="{'960px': '95vw'}"
+  styleClass="personificar-dialog"
+  (onHide)="closePersonificarModal()">
+  <app-personificar-simple 
+    (onClose)="closePersonificarModal()">
+  </app-personificar-simple>
+</p-dialog>

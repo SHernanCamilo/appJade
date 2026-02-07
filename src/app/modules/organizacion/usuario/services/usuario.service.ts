@@ -6,10 +6,14 @@ import { environment } from '../../../../environments/environment';
 export interface Usuario {
   id: number;
   name: string;
+  cargo?: string;
   email: string;
+  estado?: boolean;
   created_at?: string;
-  roles?: string[];
+  roles?: any[];
   permissions?: string[];
+  empresa?: any;
+  empresas?: any[];
 }
 
 export interface CreateUsuarioRequest {
@@ -52,5 +56,27 @@ export class UsuarioService {
   // Eliminar usuario
   deleteUsuario(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  // Cambiar estado del usuario (activar/inactivar)
+  cambiarEstadoUsuario(id: number, estado: boolean): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/${id}/cambiar-estado`, { estado });
+  }
+
+  // Obtener usuarios del tenant de Microsoft
+  obtenerUsuariosTenant(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/tenant/obtener`);
+  }
+
+  // Verificar si un email ya existe
+  checkEmailExists(email: string): Observable<{exists: boolean}> {
+    return this.http.post<{exists: boolean}>(`${this.apiUrl}/check-email`, { email });
+  }
+
+  // Sincronizar usuarios seleccionados del tenant
+  sincronizarUsuariosTenant(usuarios: any[]): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tenant/sincronizar`, {
+      usuarios
+    });
   }
 }

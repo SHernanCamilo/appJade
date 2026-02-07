@@ -1,0 +1,479 @@
+<div class="page-container">
+  <!-- Toast para notificaciones -->
+  <p-toast></p-toast>
+  
+  <!-- Confirm Dialog -->
+  <p-confirmDialog></p-confirmDialog>
+  
+  <button class="btn btn-back mb-2" routerLink="/organizacion">
+    <i class="bi bi-arrow-left me-2"></i>Volver
+  </button>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-title">
+        <h1>
+          <i class="bi-person-badge me-2"></i>
+          Gestión de Perfiles</h1>
+        <p>Administra los perfiles de permisos del sistema</p>
+      </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="stats-cards">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <i class="bi bi-person-badge"></i>
+        </div>
+        <div class="stat-info">
+          <div class="stat-label">Total Perfiles</div>
+          <div class="stat-value">{{ getTotalPerfiles() }}</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon active">
+          <i class="bi bi-toggle-on"></i>
+        </div>
+        <div class="stat-info">
+          <div class="stat-label">Activos</div>
+          <div class="stat-value">{{ getPerfilesActivos() }}</div>
+        </div>
+      </div>
+    </div>
+    <p-button 
+      [label]="showForm ? 'Cancelar' : 'Nuevo Perfil'"
+      [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
+      (onClick)="toggleForm()"
+      [severity]="showForm ? 'secondary' : 'primary'">
+    </p-button>
+  </div>
+
+  <!-- Tabla de Perfiles con PrimeNG -->
+  <div class="content-card">
+    <p-table 
+      [value]="perfiles" 
+      [paginator]="true" 
+      [rows]="10"
+      [showCurrentPageReport]="true"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [loading]="isLoading"
+      [globalFilterFields]="['nombre', 'codigo', 'descripcion']"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} perfiles"
+      [tableStyle]="{'min-width': '50rem'}">
+      
+      <ng-template pTemplate="caption">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-person-badge me-2"></i>
+            Lista de Perfiles
+            <p-tag [value]="perfiles.length.toString()" styleClass="ml-2"></p-tag>
+          </h5>
+          <span class="p-input-icon-left">
+            <input 
+              pInputText 
+              type="text" 
+              (input)="onGlobalFilter($event)" 
+              placeholder="Buscar..." />
+          </span>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="nombre">
+            Perfil <p-sortIcon field="nombre"></p-sortIcon>
+          </th>
+          <th>Módulo</th>
+          <th>Permisos</th>
+          <th pSortableColumn="estado">
+            Estado <p-sortIcon field="estado"></p-sortIcon>
+          </th>
+          <th style="width: 150px">Acciones</th>
+        </tr>
+        <tr>
+          <th>
+            <!-- <p-columnFilter type="text" field="nombre" placeholder="Buscar por nombre"></p-columnFilter> -->
+          </th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th></th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-perfil>
+        <tr>
+          <td>
+            <div class="perfil-info">
+              <div class="fw-semibold">{{ perfil.nombre }}</div>
+              <code class="text-muted small">{{ perfil.codigo }}</code>
+              <div class="text-muted small mt-1" *ngIf="perfil.descripcion">{{ perfil.descripcion }}</div>
+            </div>
+          </td>
+          <td>
+            <p-tag 
+              [value]="getModuloNombre(perfil.id_modulo)" 
+              severity="info"
+              icon="pi pi-folder">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <p-tag 
+                *ngIf="perfil.permisos && perfil.permisos.length > 0"
+                [value]="perfil.permisos.length + ' permisos'" 
+                severity="success"
+                icon="pi pi-shield">
+              </p-tag>
+              <span class="text-muted" *ngIf="!perfil.permisos || perfil.permisos.length === 0">
+                <i class="pi pi-info-circle me-1"></i>
+                Sin permisos asignados
+              </span>
+            </div>
+          </td>
+          <td>
+            <p-tag 
+              [value]="perfil.estado ? 'Activo' : 'Inactivo'" 
+              [severity]="perfil.estado ? 'success' : 'danger'"
+              [icon]="perfil.estado ? 'pi pi-check' : 'pi pi-times'">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <p-button 
+                icon="pi pi-eye" 
+                styleClass="p-button-rounded p-button-text p-button-info"
+                (onClick)="openPermisosModal(perfil)"
+                pTooltip="Ver permisos"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-pencil" 
+                styleClass="p-button-rounded p-button-text p-button-warn"
+                (onClick)="editPerfil(perfil)"
+                pTooltip="Editar"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-trash" 
+                styleClass="p-button-rounded p-button-text p-button-danger"
+                (onClick)="deletePerfil(perfil)"
+                pTooltip="Eliminar"
+                tooltipPosition="top">
+              </p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="text-center py-5">
+            <i class="pi pi-users" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay perfiles registrados</p>
+            <p-button 
+              label="Crear Primer Perfil" 
+              icon="pi pi-plus" 
+              (onClick)="toggleForm()">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
+<!-- Modal de Crear/Editar Perfil -->
+<p-dialog 
+  [(visible)]="showForm" 
+  [header]="editMode ? 'Editar Perfil' : 'Nuevo Perfil'" 
+  [modal]="true" 
+  [style]="{width: '95vw', maxWidth: '1400px', height: '90vh'}"
+  [breakpoints]="{'960px': '98vw'}"
+  [contentStyle]="{height: 'calc(90vh - 120px)', overflow: 'hidden', padding: '0'}">
+  
+  <form [formGroup]="perfilForm" (ngSubmit)="onSubmit()" class="perfil-form-layout">
+    <!-- Layout de dos columnas -->
+    <div class="perfil-form-container">
+      
+      <!-- Columna Izquierda: Formulario Básico -->
+      <div class="perfil-form-left">
+        <div class="form-section">
+          <h3 class="section-title">Información Básica</h3>
+          
+          <div class="form-group">
+            <label for="nombre" class="form-label">Nombre del Perfil *</label>
+            <input 
+              pInputText 
+              id="nombre" 
+              formControlName="nombre"
+              placeholder="Ej: Crear empresa"
+              class="w-100">
+            <small class="p-error" *ngIf="perfilForm.get('nombre')?.hasError('required') && perfilForm.get('nombre')?.touched">
+              El nombre es obligatorio
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="codigo" class="form-label">Código</label>
+            <input 
+              pInputText 
+              id="codigo" 
+              formControlName="codigo"
+              placeholder="crear-empresa"
+              class="w-100">
+          </div>
+
+
+
+          <div class="form-group">
+            <label for="descripcion" class="form-label">Descripción</label>
+            <textarea 
+              pInputText 
+              id="descripcion" 
+              formControlName="descripcion"
+              rows="3"
+              placeholder="Describe los permisos de este perfil"
+              class="w-100">
+            </textarea>
+          </div>
+
+          <div class="form-group">
+            <div class="estado-checkbox">
+              <p-checkbox 
+                formControlName="estado"
+                [binary]="true"
+                inputId="estado">
+              </p-checkbox>
+              <label for="estado" class="form-label mb-0">Activo</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Matriz de Permisos -->
+      <div class="perfil-form-right">
+        <div class="permisos-section">
+          <div class="permisos-header">
+            <div class="permisos-header-left">
+              <h3 class="section-title">Permisos del Perfil</h3>
+              <small class="text-muted" *ngIf="permisosDisponibles.length > 0">
+                <i class="bi bi-check-circle me-1"></i>
+                <strong>{{ (perfilForm.get('permisos_ids')?.value || []).length }}</strong> de {{ permisosDisponibles.length }} seleccionados
+              </small>
+            </div>
+            <div class="permisos-header-actions" *ngIf="permisosDisponibles.length > 0">
+              <button type="button" class="btn-collapse" (click)="seleccionarTodosPermisos()" title="Seleccionar todos">
+                <i class="bi bi-check-all"></i>
+              </button>
+              <button type="button" class="btn-collapse" (click)="deseleccionarTodosPermisos()" title="Deseleccionar todos">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Selector de Módulo para filtrar -->
+          <div class="modulo-filter-section mb-3">
+            <label for="modulo_filter" class="form-label">Filtrar por Módulo</label>
+            <p-dropdown 
+              id="modulo_filter"
+              [(ngModel)]="moduloFiltroId"
+              [ngModelOptions]="{standalone: true}"
+              [options]="modulosParaFiltro"
+              optionLabel="nombre"
+              optionValue="id"
+              placeholder="Todos los módulos"
+              [filter]="true"
+              filterBy="nombre,codigo"
+              [showClear]="true"
+              (onChange)="onModuloFiltroChange()"
+              [style]="{'width': '100%'}">
+              <ng-template pTemplate="selectedItem" let-option>
+                <div *ngIf="option">
+                  <i class="bi bi-folder2-open me-2"></i>
+                  <span>{{ option.nombre }}</span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="item" let-option>
+                <div [style.padding-left.px]="option.nivel * 16">
+                  <span class="modulo-icono" *ngIf="option.nivel === 0">📁</span>
+                  <span class="modulo-icono" *ngIf="option.nivel === 1">📂</span>
+                  <span class="modulo-icono" *ngIf="option.nivel > 1">📄</span>
+                  <span>{{ option.nombre }}</span>
+                  <span class="badge-count ms-2">{{ option.permisos_count || 0 }}</span>
+                </div>
+              </ng-template>
+            </p-dropdown>
+          </div>
+
+          <div *ngIf="permisosDisponibles.length === 0" class="empty-permisos">
+            <i class="bi bi-inbox"></i>
+            <p>Cargando permisos...</p>
+          </div>
+
+          <!-- Lista de permisos filtrados -->
+          <div *ngIf="permisosDisponibles.length > 0" class="permisos-list-wrapper">
+            <div class="permisos-count-info mb-2">
+              <span class="text-muted">
+                Mostrando <strong>{{ getPermisosFiltrados().length }}</strong> permisos
+                <span *ngIf="moduloFiltroId"> del módulo seleccionado</span>
+              </span>
+            </div>
+
+            <div class="permisos-list-scroll">
+              <div class="permisos-grid">
+                <div class="permiso-card" 
+                     *ngFor="let permiso of getPermisosFiltrados()"
+                     [class.selected]="isPermisoSeleccionado(permiso)"
+                     (click)="togglePermisoMatriz(permiso)">
+                  <div class="permiso-card-header">
+                    <div class="permiso-card-checkbox">
+                      <p-checkbox 
+                        [binary]="true"
+                        [ngModel]="isPermisoSeleccionado(permiso)"
+                        [ngModelOptions]="{standalone: true}">
+                      </p-checkbox>
+                    </div>
+                    <div class="permiso-card-info">
+                      <div class="permiso-nombre">{{ permiso.nombre }}</div>
+                    </div>
+                  </div>
+                  <div class="permiso-card-footer">
+                    <span class="modulo-badge">
+                      <i class="bi bi-folder2"></i>
+                      {{ getModuloNombreCorto(permiso.id_modulo) }}
+                    </span>
+                    <span class="tipo-badge" [class]="'tipo-' + permiso.tipo">
+                      {{ permiso.tipo }}
+                    </span>
+                    <span class="estado-badge" [class.active]="permiso.estado">
+                      <i [class]="permiso.estado ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer con botones -->
+    <div class="perfil-form-footer">
+      <p-button 
+        label="Cancelar" 
+        [text]="true"
+        severity="secondary"
+        (onClick)="toggleForm()">
+      </p-button>
+      <p-button 
+        [label]="editMode ? 'Actualizar' : 'Crear'" 
+        type="submit"
+        [disabled]="perfilForm.invalid || isSubmitting"
+        [loading]="isSubmitting">
+      </p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Modal de Permisos por Módulo -->
+<p-dialog 
+  [(visible)]="showPermisosModal" 
+  [header]="'Permisos de: ' + currentPerfil?.nombre" 
+  [modal]="true" 
+  [style]="{width: '900px'}"
+  [breakpoints]="{'960px': '95vw'}">
+  
+  <div class="permisos-modal-content">
+    <div class="mb-4">
+      <label for="modulo_selector" class="fw-bold d-block mb-2">Seleccionar Módulo</label>
+      <p-dropdown 
+        id="modulo_selector"
+        [(ngModel)]="selectedModuloId"
+        [options]="modulosParaDropdown"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona un módulo para ver sus permisos"
+        [filter]="true"
+        filterBy="nombreOriginal,codigo"
+        (onChange)="onModuloChange($event)"
+        [style]="{'width': '100%'}">
+        <ng-template pTemplate="selectedItem" let-option>
+          <div *ngIf="option">
+            <span>{{ option.nombreOriginal }}</span>
+          </div>
+        </ng-template>
+        <ng-template pTemplate="item" let-option>
+          <div>
+            <span>{{ option.nombre }}</span>
+          </div>
+        </ng-template>
+      </p-dropdown>
+    </div>
+
+    <div *ngIf="!selectedModuloId" class="empty-state-small">
+      <i class="bi bi-folder-open"></i>
+      <p>Selecciona un módulo para ver sus permisos disponibles</p>
+    </div>
+
+    <div *ngIf="selectedModuloId && permisosDelModulo.length === 0" class="empty-state-small">
+      <i class="bi bi-inbox"></i>
+      <p>Este módulo no tiene permisos configurados</p>
+    </div>
+
+    <div *ngIf="selectedModuloId && permisosDelModulo.length > 0" class="permisos-list">
+      <h6 class="mb-3">Permisos Disponibles ({{ permisosDelModulo.length }})</h6>
+      
+      <!-- Agrupar permisos por módulo -->
+      <ng-container *ngFor="let moduloGrupo of getPermisosAgrupadosPorModulo()">
+        <div class="modulo-grupo mb-4">
+          <div class="modulo-grupo-header">
+            <i class="bi bi-folder2-open me-2"></i>
+            <strong>{{ moduloGrupo.modulo_nombre }}</strong>
+            <span class="badge bg-secondary ms-2">{{ moduloGrupo.permisos.length }}</span>
+          </div>
+          
+          <div class="permisos-grupo-content">
+            <div class="permiso-item" *ngFor="let permiso of moduloGrupo.permisos">
+              <div class="permiso-item-left">
+                <p-checkbox 
+                  [binary]="true"
+                  (onChange)="togglePermisoEnPerfil(permiso)">
+                </p-checkbox>
+                <div class="permiso-item-info">
+                  <div class="permiso-item-nombre">{{ permiso.nombre }}</div>
+                  <div class="permiso-item-meta">
+                    <code>{{ permiso.codigo }}</code>
+                    <span class="tipo-badge" [class]="'tipo-' + permiso.tipo">
+                      {{ permiso.tipo }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="permiso-item-right">
+                <i *ngIf="permiso.icono" [class]="'bi bi-' + permiso.icono" class="permiso-icon"></i>
+                <span class="status-badge" [class.active]="permiso.estado" [class.inactive]="!permiso.estado">
+                  {{ permiso.estado ? 'Activo' : 'Inactivo' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <p-button 
+      label="Cerrar" 
+      severity="secondary"
+      (onClick)="closePermisosModal()">
+    </p-button>
+    <p-button 
+      label="Guardar Cambios" 
+      icon="pi pi-check">
+    </p-button>
+  </div>
+</p-dialog>

@@ -7,12 +7,9 @@
 
   <!-- Header -->
   <div class="page-header">
-    <p-button 
-      label="Volver" 
-      icon="pi pi-arrow-left" 
-      [routerLink]="'/organizacion'"
-      styleClass="p-button-text p-button-secondary mb-3">
-    </p-button>
+    <button class="btn btn-back mb-2" routerLink="/organizacion">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
     
     <div class="d-flex justify-content-between align-items-center">
       <div>
@@ -20,92 +17,468 @@
           <i class="bi bi-person-plus-fill me-2"></i>
           Gestión de Usuarios
         </h1>
-        <p class="page-subtitle">Crea y administra usuarios del sistema PrimeNG</p>
+        <p class="page-subtitle">Crea y administra usuarios del sistema</p>
       </div>
-      <p-button 
-        [label]="showForm ? 'Cancelar' : 'Nuevo Usuario'"
-        [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
-        (onClick)="toggleForm()"
-        [severity]="showForm ? 'secondary' : 'primary'">
-      </p-button>
+      <div class="d-flex gap-2">
+        <p-button 
+          [label]="showForm ? 'Cancelar' : 'Nuevo Usuario'"
+          [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
+          (onClick)="toggleForm()"
+          [severity]="showForm ? 'secondary' : 'primary'">
+        </p-button>
+        <p-button 
+          label="Sincronizar Tenant"
+          icon="pi pi-cloud-download"
+          (onClick)="abrirSincronizarTenant()"
+          styleClass="p-button-outlined p-button-info">
+        </p-button>
+      </div>
     </div>
   </div>
 
-  <!-- Formulario de Creación con Dialog -->
+  <!-- Formulario de Creación con Dialog Grande y Pestañas -->
   <p-dialog 
     [(visible)]="showForm" 
-    [header]="'Nuevo Usuario'" 
+    [header]="editMode ? 'Editar Usuario' : 'Nuevo Usuario'" 
     [modal]="true" 
-    [style]="{width: '50vw'}"
-    [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
+    [style]="{width: '90vw', maxWidth: '1200px'}"
+    [breakpoints]="{'960px': '95vw'}"
+    [contentStyle]="{height: '70vh', overflow: 'auto'}">
     
-    <form [formGroup]="usuarioForm" (ngSubmit)="onSubmit()">
-      <div class="p-fluid">
-        <div class="p-field mb-3">
-          <label for="name">Nombre Completo *</label>
-          <input 
-            pInputText 
-            id="name" 
-            formControlName="name"
-            placeholder="Ej: Juan Pérez"
-            [class.ng-invalid]="usuarioForm.get('name')?.invalid && usuarioForm.get('name')?.touched">
-          <small class="p-error" *ngIf="usuarioForm.get('name')?.hasError('required') && usuarioForm.get('name')?.touched">
-            El nombre es obligatorio
-          </small>
-        </div>
+    <form [formGroup]="usuarioForm" (ngSubmit)="onSubmit()" autocomplete="off">
+      <!-- TabView con dos pestañas -->
+      <p-tabView [(activeIndex)]="activeTabIndex">
+        
+        <!-- Pestaña 1: Información del Usuario -->
+        <p-tabPanel header="Información Usuario">
+          <div class="p-fluid">
+            <!-- Nombre Completo -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="name">Nombre Completo *</label>
+                <input 
+                  pInputText 
+                  id="name" 
+                  formControlName="name"
+                  placeholder="Ej: Juan Pérez"
+                  [class.ng-invalid]="usuarioForm.get('name')?.invalid && usuarioForm.get('name')?.touched">
+                <small class="p-error" *ngIf="usuarioForm.get('name')?.hasError('required') && usuarioForm.get('name')?.touched">
+                  El nombre es obligatorio
+                </small>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="cargo">Cargo del Usuario *</label>
+                <input 
+                  pInputText 
+                  id="cargo" 
+                  formControlName="cargo"
+                  placeholder="Ej: Administrador"
+                  autocomplete="off"
+                  [class.ng-invalid]="usuarioForm.get('cargo')?.invalid && usuarioForm.get('cargo')?.touched">
+                <small class="p-error" *ngIf="usuarioForm.get('cargo')?.hasError('required') && usuarioForm.get('cargo')?.touched">
+                  El cargo del usuario es obligatorio
+                </small>
+              </div>
+            </div>
 
-        <div class="p-field mb-3">
-          <label for="email">Correo Electrónico *</label>
-          <input 
-            pInputText 
-            id="email" 
-            type="email"
-            formControlName="email"
-            placeholder="usuario@ejemplo.com"
-            [class.ng-invalid]="usuarioForm.get('email')?.invalid && usuarioForm.get('email')?.touched">
-          <small class="p-error" *ngIf="usuarioForm.get('email')?.hasError('required') && usuarioForm.get('email')?.touched">
-            El correo es obligatorio
-          </small>
-          <small class="p-error" *ngIf="usuarioForm.get('email')?.hasError('email') && usuarioForm.get('email')?.touched">
-            El formato del correo no es válido
-          </small>
-        </div>
+            <!-- Tipo de Identificacion y Numero  -->
+            <div class="row">
+              <div class="col-md-3 mb-3">
+                <label for="tipo_identificacion">Tipo de Identificación *</label>
+                <p-dropdown 
+                  id="tipo_identificacion"
+                  formControlName="tipo_identificacion"
+                  [options]="tiposIdentificacion"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Seleccionar"
+                  [style]="{'width': '100%'}"
+                  [class.ng-invalid]="usuarioForm.get('tipo_identificacion')?.invalid && usuarioForm.get('tipo_identificacion')?.touched">
+                </p-dropdown>
+                <small class="p-error" *ngIf="usuarioForm.get('tipo_identificacion')?.hasError('required') && usuarioForm.get('tipo_identificacion')?.touched">
+                  El tipo de identificación es obligatorio
+                </small>
+              </div>
+              <div class="col-md-3 mb-3">
+                <label for="numero_identificacion">Número de Identificación *</label>
+                <input 
+                  pInputText 
+                  id="numero_identificacion" 
+                  formControlName="numero_identificacion"
+                  placeholder="Ej: 1234567890"
+                  [class.ng-invalid]="usuarioForm.get('numero_identificacion')?.invalid && usuarioForm.get('numero_identificacion')?.touched">
+                <small class="p-error" *ngIf="usuarioForm.get('numero_identificacion')?.hasError('required') && usuarioForm.get('numero_identificacion')?.touched">
+                  El número de identificación es obligatorio
+                </small>
+              </div>
+              <div class="col-md-3 mb-3">
+                <label for="password">Contraseña {{ editMode ? '' : '*' }}</label>
+                <input 
+                  pInputText 
+                  id="password" 
+                  type="password"
+                  formControlName="password"
+                  autocomplete="new-password"
+                  [placeholder]="editMode ? 'Dejar vacío para mantener la actual' : 'Mínimo 6 caracteres'"
+                  [class.ng-invalid]="usuarioForm.get('password')?.invalid && usuarioForm.get('password')?.touched">
+                <small class="text-muted" *ngIf="editMode">Dejar vacío si no deseas cambiar la contraseña</small>
+                <small class="p-error" *ngIf="!editMode && usuarioForm.get('password')?.hasError('required') && usuarioForm.get('password')?.touched">
+                  La contraseña es obligatoria
+                </small>
+              </div>
 
-        <div class="p-field mb-3">
-          <label for="password">Contraseña *</label>
-          <input 
-            pInputText 
-            id="password" 
-            type="password"
-            formControlName="password"
-            placeholder="Mínimo 6 caracteres"
-            [class.ng-invalid]="usuarioForm.get('password')?.invalid && usuarioForm.get('password')?.touched">
-          <small class="p-error" *ngIf="usuarioForm.get('password')?.hasError('required') && usuarioForm.get('password')?.touched">
-            La contraseña es obligatoria
-          </small>
-        </div>
+              <div class="col-md-3 mb-3">
+                <label for="password_confirmation">Confirmar Contraseña {{ editMode ? '' : '*' }}</label>
+                <input 
+                  pInputText 
+                  id="password_confirmation" 
+                  type="password"
+                  formControlName="password_confirmation"
+                  autocomplete="new-password"
+                  placeholder="Repite la contraseña"
+                  [class.ng-invalid]="usuarioForm.get('password_confirmation')?.invalid && usuarioForm.get('password_confirmation')?.touched">
+              </div>
+            </div>
 
-        <div class="p-field mb-3">
-          <label for="password_confirmation">Confirmar Contraseña *</label>
-          <input 
-            pInputText 
-            id="password_confirmation" 
-            type="password"
-            formControlName="password_confirmation"
-            placeholder="Repite la contraseña"
-            [class.ng-invalid]="usuarioForm.get('password_confirmation')?.invalid && usuarioForm.get('password_confirmation')?.touched">
-        </div>
-      </div>
+            <!-- Dirección y Teléfono -->
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="direccion">Dirección *</label>
+                <input 
+                  pInputText 
+                  id="direccion" 
+                  formControlName="direccion"
+                  placeholder="Ej: Calle 123 #45-67"
+                  [class.ng-invalid]="usuarioForm.get('direccion')?.invalid && usuarioForm.get('direccion')?.touched">
+                <small class="p-error" *ngIf="usuarioForm.get('direccion')?.hasError('required') && usuarioForm.get('direccion')?.touched">
+                  La dirección es obligatoria
+                </small>
+              </div>
 
-      <div class="d-flex justify-content-end gap-2 mt-4">
+              <div class="col-md-4 mb-3">
+                <label for="telefono">Teléfono *</label>
+                <input 
+                  pInputText 
+                  id="telefono" 
+                  formControlName="telefono"
+                  placeholder="Ej: 3001234567"
+                  [class.ng-invalid]="usuarioForm.get('telefono')?.invalid && usuarioForm.get('telefono')?.touched">
+                <small class="p-error" *ngIf="usuarioForm.get('telefono')?.hasError('required') && usuarioForm.get('telefono')?.touched">
+                  El teléfono es obligatorio
+                </small>
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label for="email">Correo Electrónico *</label>
+                <input 
+                  pInputText 
+                  id="email" 
+                  type="email"
+                  formControlName="email"
+                  autocomplete="off"
+                  placeholder="usuario@ejemplo.com"
+                  [class.ng-invalid]="usuarioForm.get('email')?.invalid && usuarioForm.get('email')?.touched">
+                <small class="p-error" *ngIf="usuarioForm.get('email')?.hasError('required') && usuarioForm.get('email')?.touched">
+                  El correo es obligatorio
+                </small>
+                <small class="p-error" *ngIf="usuarioForm.get('email')?.hasError('email') && usuarioForm.get('email')?.touched">
+                  El formato del correo no es válido
+                </small>
+                <small class="p-error" *ngIf="usuarioForm.get('email')?.hasError('emailExists') && usuarioForm.get('email')?.touched">
+                  Este correo electrónico ya está registrado
+                </small>
+              </div>
+            </div>
+
+            <!-- Multi-Empresa, Multi-Sucursal, Multi-Sede -->
+            <div class="empresa-assignment-section">
+              <h6 class="section-subtitle">
+                <i class="pi pi-building me-2"></i>
+                Asignación de Empresas
+              </h6>
+              
+              <!-- Formulario para agregar empresa -->
+              <div class="empresa-form-card">
+                <div class="row">
+                  <div class="col-md-3 mb-3">
+                    <label for="temp_empresa">
+                      Empresa *
+                      <i class="pi pi-spin pi-spinner ms-2" *ngIf="isLoadingEmpresas"></i>
+                    </label>
+                    <p-dropdown 
+                      id="temp_empresa"
+                      [(ngModel)]="tempEmpresa"
+                      [ngModelOptions]="{standalone: true}"
+                      [options]="empresas"
+                      optionLabel="nombre"
+                      optionValue="id"
+                      placeholder="Seleccionar empresa"
+                      [style]="{'width': '100%'}"
+                      [disabled]="isLoadingEmpresas"
+                      [loading]="isLoadingEmpresas"
+                      (onChange)="onTempEmpresaChange($event.value)">
+                    </p-dropdown>
+                  </div>
+
+                  <div class="col-md-3 mb-3">
+                    <label for="temp_sucursal">
+                      Sucursal
+                      <i class="pi pi-spin pi-spinner ms-2" *ngIf="isLoadingSucursales"></i>
+                    </label>
+                    <p-dropdown 
+                      id="temp_sucursal"
+                      [(ngModel)]="tempSucursal"
+                      [ngModelOptions]="{standalone: true}"
+                      [options]="sucursales"
+                      optionLabel="nombre"
+                      optionValue="id"
+                      placeholder="Seleccionar sucursal"
+                      [style]="{'width': '100%'}"
+                      [disabled]="!tempEmpresa || sucursales.length === 0"
+                      [loading]="isLoadingSucursales"
+                      (onChange)="onTempSucursalChange($event.value)">
+                    </p-dropdown>
+                  </div>
+
+                  <div class="col-md-3 mb-3">
+                    <label for="temp_sede">
+                      Sede
+                      <i class="pi pi-spin pi-spinner ms-2" *ngIf="isLoadingSedes"></i>
+                    </label>
+                    <p-dropdown 
+                      id="temp_sede"
+                      [(ngModel)]="tempSede"
+                      [ngModelOptions]="{standalone: true}"
+                      [options]="sedes"
+                      optionLabel="nombre"
+                      optionValue="id"
+                      placeholder="Seleccionar sede"
+                      [style]="{'width': '100%'}"
+                      [disabled]="!tempSucursal || sedes.length === 0"
+                      [loading]="isLoadingSedes"
+                      (onChange)="onTempSedeChange($event.value)">
+                    </p-dropdown>
+                  </div>
+
+                  <div class="col-md-3 mb-3">
+                    <label>&nbsp;</label>
+                    <div class="d-flex flex-column gap-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <input 
+                          type="checkbox"
+                          id="temp_recursivo"
+                          [checked]="tempRecursivo"
+                          (change)="tempRecursivo = $any($event.target).checked"
+                          class="form-check-input">
+                        <label for="temp_recursivo" class="mb-0">Recursivo</label>
+                      </div>
+                      <p-button 
+                        label="Agregar"
+                        icon="pi pi-plus"
+                        (onClick)="agregarEmpresaAsignacion()"
+                        [disabled]="!tempEmpresa"
+                        size="small">
+                      </p-button>
+                    </div>
+                  </div>
+                </div>
+
+                <small class="text-muted">
+                  <strong>Recursivo:</strong><br>
+                  • <strong>Empresa + Recursivo:</strong> Acceso a todas las sucursales y sedes de la empresa<br>
+                  • <strong>Empresa + Sucursal + Recursivo:</strong> Acceso a todas las sedes de esa sucursal<br>
+                  • <strong>Sin Recursivo:</strong> Acceso solo a la empresa/sucursal/sede específica seleccionada
+                </small>
+              </div>
+
+              <!-- Tabla de empresas asignadas -->
+              <div class="empresas-asignadas-table" *ngIf="empresasAsignadas.length > 0">
+                <h6 class="mb-3">Empresas Asignadas ({{ empresasAsignadas.length }})</h6>
+                <p-table 
+                  [value]="empresasAsignadas"
+                  [tableStyle]="{'min-width': '50rem'}"
+                  styleClass="p-datatable-sm">
+                  
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th>Empresa</th>
+                      <th>Sucursal</th>
+                      <th>Sede</th>
+                      <th>Recursivo</th>
+                      <th style="width: 80px">Acciones</th>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="body" let-asignacion let-i="rowIndex">
+                    <tr>
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <i class="pi pi-building text-primary"></i>
+                          <span class="fw-semibold">{{ getEmpresaNombre(asignacion.empresa_id) }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span *ngIf="asignacion.sucursal_id" class="text-muted">
+                          {{ getSucursalNombre(asignacion.sucursal_id) }}
+                        </span>
+                        <span *ngIf="!asignacion.sucursal_id && asignacion.recursivo" class="text-success">
+                          <i class="pi pi-check-circle me-1"></i>Todas las sucursales
+                        </span>
+                        <span *ngIf="!asignacion.sucursal_id && !asignacion.recursivo" class="text-muted">-</span>
+                      </td>
+                      <td>
+                        <span *ngIf="asignacion.sede_id" class="text-muted">
+                          {{ getSedeNombre(asignacion.sede_id) }}
+                        </span>
+                        <span *ngIf="!asignacion.sede_id && asignacion.recursivo && asignacion.sucursal_id" class="text-success">
+                          <i class="pi pi-check-circle me-1"></i>Todas las sedes
+                        </span>
+                        <span *ngIf="!asignacion.sede_id && asignacion.recursivo && !asignacion.sucursal_id" class="text-success">
+                          <i class="pi pi-check-circle me-1"></i>Todas las sedes
+                        </span>
+                        <span *ngIf="!asignacion.sede_id && !asignacion.recursivo" class="text-muted">-</span>
+                      </td>
+                      <td>
+                        <p-tag 
+                          [value]="asignacion.recursivo ? 'Sí' : 'No'"
+                          [severity]="asignacion.recursivo ? 'success' : 'secondary'">
+                          <i [class]="asignacion.recursivo ? 'pi pi-check' : 'pi pi-times'"></i>
+                        </p-tag>
+                      </td>
+                      <td>
+                        <p-button 
+                          icon="pi pi-trash"
+                          styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
+                          (onClick)="eliminarEmpresaAsignacion(i)"
+                          pTooltip="Eliminar">
+                        </p-button>
+                      </td>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="5" class="text-center py-3">
+                        <i class="pi pi-building" style="font-size: 2rem; color: #94a3b8;"></i>
+                        <p class="text-muted mt-2 mb-0">No hay empresas asignadas</p>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+            </div>
+          </div>
+        </p-tabPanel>
+
+        <!-- Pestaña 2: Roles y Permisos -->
+        <p-tabPanel header="Roles y Permisos">
+          <div class="p-fluid">
+            <div class="mb-4">
+              <h5 class="mb-3">
+                <i class="pi pi-shield me-2"></i>
+                Asignación de Roles
+                <i class="pi pi-spin pi-spinner ms-2" *ngIf="isLoadingRoles"></i>
+                <span *ngIf="empresasAsignadas.length === 1" class="badge bg-info ms-2">
+                  Filtrado por {{ getEmpresaNombre(empresasAsignadas[0].empresa_id) }}
+                </span>
+                <span *ngIf="empresasAsignadas.length > 1" class="badge bg-info ms-2">
+                  Filtrado por {{ empresasAsignadas.length }} empresas
+                </span>
+              </h5>
+              
+              <!-- Alerta informativa cuando hay empresas asignadas -->
+              <div class="alert alert-info mb-3" *ngIf="empresasAsignadas.length > 0">
+                <i class="pi pi-info-circle me-2"></i>
+                <strong>Roles disponibles:</strong> 
+                <span *ngIf="empresasAsignadas.length === 1">
+                  Se muestran los roles para <strong>{{ getEmpresaNombre(empresasAsignadas[0].empresa_id) }}</strong>.
+                </span>
+                <span *ngIf="empresasAsignadas.length > 1">
+                  Se muestran los roles para las empresas asignadas:
+                  <strong>{{ getEmpresasNombres() }}</strong>.
+                </span>
+                <!-- <span class="d-block mt-1 small" *ngIf="isCurrentUserAdmin()">
+                  <i class="pi pi-shield me-1"></i>
+                  Como administrador, tienes acceso a todos los roles del sistema.
+                </span> -->
+                <span class="d-block mt-1 small" *ngIf="!isCurrentUserAdmin()">
+                  <i class="pi pi-filter me-1"></i>
+                  Solo se muestran roles de módulos donde estas empresas tienen permisos.
+                </span>
+              </div>
+              
+              <!-- Alerta cuando no hay empresas asignadas -->
+              <div class="alert alert-warning mb-3" *ngIf="empresasAsignadas.length === 0">
+                <i class="pi pi-exclamation-triangle me-2"></i>
+                <strong>Asigna una empresa primero:</strong> Los roles se filtrarán automáticamente según los módulos donde la empresa tenga permisos.
+              </div>
+              
+              <p-multiSelect 
+                id="roles"
+                formControlName="roles"
+                [options]="roles"
+                optionLabel="nombre"
+                optionValue="id"
+                placeholder="Seleccionar roles"
+                [showToggleAll]="true"
+                display="chip"
+                [disabled]="empresasAsignadas.length === 0 || isLoadingRoles"
+                [loading]="isLoadingRoles"
+                [style]="{'width': '100%'}">
+              </p-multiSelect>
+              <small class="text-muted">
+                <span *ngIf="empresasAsignadas.length > 0 && isCurrentUserAdmin()">
+                  Como administrador, puedes asignar cualquier rol del sistema.
+                </span>
+                <span *ngIf="empresasAsignadas.length === 1 && !isCurrentUserAdmin()">
+                  Roles disponibles para los módulos donde {{ getEmpresaNombre(empresasAsignadas[0].empresa_id) }} tiene permisos.
+                </span>
+                <span *ngIf="empresasAsignadas.length > 1 && !isCurrentUserAdmin()">
+                  Roles disponibles para los módulos donde las empresas asignadas tienen permisos.
+                </span>
+                <span *ngIf="empresasAsignadas.length === 0">
+                  Primero asigna una empresa en la pestaña "Información Usuario" para ver los roles disponibles.
+                </span>
+              </small>
+            </div>
+
+            <!-- Información de roles seleccionados -->
+            <div class="roles-info mt-4" *ngIf="usuarioForm.get('roles')?.value?.length > 0">
+              <h6 class="mb-3">Roles Seleccionados:</h6>
+              <div class="row">
+                <div class="col-md-6 mb-3" *ngFor="let rolId of usuarioForm.get('roles')?.value">
+                  <div class="role-card p-3 border rounded">
+                    <div class="d-flex align-items-center">
+                      <i class="pi pi-shield text-primary me-2" style="font-size: 1.5rem;"></i>
+                      <div>
+                        <strong>{{ getRoleName(rolId) }}</strong>
+                        <p class="text-muted mb-0 small">{{ getRoleDescription(rolId) }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mensaje si no hay roles -->
+            <div class="alert alert-info mt-4" *ngIf="!usuarioForm.get('roles')?.value || usuarioForm.get('roles')?.value?.length === 0">
+              <i class="pi pi-info-circle me-2"></i>
+              No se han asignado roles a este usuario. Selecciona al menos un rol para otorgar permisos.
+            </div>
+          </div>
+        </p-tabPanel>
+      </p-tabView>
+
+      <!-- Botones de acción fuera de las pestañas -->
+      <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
         <p-button 
           label="Cancelar" 
           icon="pi pi-times" 
           (onClick)="toggleForm()"
-          styleClass="p-button-text">
+          styleClass="p-button-text p-button-secondary">
         </p-button>
         <p-button 
-          label="Crear Usuario" 
+          [label]="editMode ? 'Actualizar Usuario' : 'Crear Usuario'" 
           icon="pi pi-check" 
           type="submit"
           [disabled]="usuarioForm.invalid || isSubmitting"
@@ -115,9 +488,10 @@
     </form>
   </p-dialog>
 
-  <!-- Tabla de Usuarios con PrimeNG -->
+  <!-- Tabla de Usuarios con PrimeNG --> 
   <div class="content-card">
     <p-table 
+      #dt
       [value]="usuarios" 
       [paginator]="true" 
       [rows]="10"
@@ -136,12 +510,11 @@
             <p-tag [value]="usuarios.length.toString()" styleClass="ml-2"></p-tag>
           </h5>
           <span class="p-input-icon-left">
-            <i class="pi pi-search"></i>
             <input 
               pInputText 
               type="text" 
-              (input)="onGlobalFilter($event)" 
-              placeholder="Buscar..." />
+              (input)="dt.filterGlobal($any($event.target).value, 'contains')" 
+              placeholder="Buscar por nombre o email..." />
           </span>
         </div>
       </ng-template>
@@ -154,19 +527,23 @@
           <th pSortableColumn="email">
             Email <p-sortIcon field="email"></p-sortIcon>
           </th>
+          <th>Estado</th>
+          <th>Empresas</th>
           <th>Roles</th>
           <th pSortableColumn="created_at">
             Fecha de Registro <p-sortIcon field="created_at"></p-sortIcon>
           </th>
-          <th style="width: 150px">Acciones</th>
+          <th style="width: 200px">Acciones</th>
         </tr>
         <tr>
           <th>
-            <p-columnFilter type="text" field="name" placeholder="Buscar por nombre"></p-columnFilter>
+            <!-- <p-columnFilter type="text" field="name" placeholder="Buscar por nombre"></p-columnFilter> -->
           </th>
           <th>
-            <p-columnFilter type="text" field="email" placeholder="Buscar por email"></p-columnFilter>
+            <!-- <p-columnFilter type="text" field="email" placeholder="Buscar por email"></p-columnFilter> -->
           </th>
+          <th></th>
+          <th></th>
           <th></th>
           <th></th>
           <th></th>
@@ -191,11 +568,44 @@
           </td>
           <td>
             <p-tag 
-              *ngFor="let role of usuario.roles" 
-              [value]="role" 
-              severity="info"
-              styleClass="mr-1">
+              [value]="usuario.estado ? 'Activo' : 'Inactivo'"
+              [severity]="usuario.estado ? 'success' : 'danger'">
+              <i [class]="usuario.estado ? 'pi pi-check' : 'pi pi-times'"></i>
+              {{ usuario.estado ? 'Activo' : 'Inactivo' }}
             </p-tag>
+          </td>
+          <td>
+            <ng-container *ngIf="usuario.empresas && usuario.empresas.length > 0">
+              <p-tag 
+                [value]="usuario.empresas[0].nombre" 
+                severity="success"
+                styleClass="mr-1">
+              </p-tag>
+              <p-tag 
+                *ngIf="usuario.empresas.length > 1"
+                [value]="'+' + (usuario.empresas.length - 1)" 
+                severity="success"
+                [style]="{'background-color': '#10b981', 'opacity': '0.7'}">
+              </p-tag>
+            </ng-container>
+            <span class="text-muted" *ngIf="!usuario.empresas || usuario.empresas.length === 0">
+              Sin empresas
+            </span>
+          </td>
+          <td>
+            <ng-container *ngIf="usuario.roles && usuario.roles.length > 0">
+              <p-tag 
+                [value]="usuario.roles[0].nombre || usuario.roles[0]" 
+                severity="info"
+                styleClass="mr-1">
+              </p-tag>
+              <p-tag 
+                *ngIf="usuario.roles.length > 1"
+                [value]="'+' + (usuario.roles.length - 1)" 
+                severity="info"
+                [style]="{'background-color': '#3b82f6', 'opacity': '0.7'}">
+              </p-tag>
+            </ng-container>
             <span class="text-muted" *ngIf="!usuario.roles || usuario.roles.length === 0">
               Sin roles
             </span>
@@ -206,8 +616,18 @@
           <td>
             <div class="d-flex gap-2">
               <p-button 
+                [icon]="usuario.estado ? 'pi pi-times' : 'pi pi-check'"
+                [styleClass]="'p-button-rounded p-button-text ' + (usuario.estado ? 'p-button-warning' : 'p-button-success')"
+                (onClick)="cambiarEstadoUsuario(usuario)"
+                [pTooltip]="usuario.estado ? 'Inactivar' : 'Activar'"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
                 icon="pi pi-pencil" 
                 styleClass="p-button-rounded p-button-text p-button-info"
+                (onClick)="editUsuario(usuario)"
+                [loading]="isLoadingForEdit && currentUsuarioId === usuario.id"
+                [disabled]="isLoadingForEdit"
                 pTooltip="Editar"
                 tooltipPosition="top">
               </p-button>
@@ -225,7 +645,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="5" class="text-center py-5">
+          <td colspan="7" class="text-center py-5">
             <i class="pi pi-users" style="font-size: 3rem; color: #94a3b8;"></i>
             <p class="text-muted mt-3">No hay usuarios registrados</p>
             <p-button 
@@ -238,4 +658,10 @@
       </ng-template>
     </p-table>
   </div>
+
+  <!-- Modal de Sincronización con Tenant -->
+  <app-sincronizar-tenant
+    [(visible)]="showSincronizarTenant"
+    (usuariosSincronizados)="onUsuariosSincronizados($event)">
+  </app-sincronizar-tenant>
 </div>

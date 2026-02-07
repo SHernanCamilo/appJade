@@ -3,12 +3,10 @@
   <p-confirmDialog></p-confirmDialog>
 
   <div class="page-header">
-    <p-button 
-      label="Volver" 
-      icon="pi pi-arrow-left" 
-      [routerLink]="'/organizacion'"
-      styleClass="p-button-text p-button-secondary mb-3">
-    </p-button>
+    
+    <button class="btn btn-back mb-2" routerLink="/organizacion">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
     
     <div class="d-flex justify-content-between align-items-center">
       <div>
@@ -19,6 +17,7 @@
         <p class="page-subtitle">Administra las sedes de cada sucursal</p>
       </div>
       <p-button 
+        *hasPermission="'org-sede-crear'"
         [label]="showForm ? 'Cancelar' : 'Nueva Sede'"
         [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
         (onClick)="toggleForm()"
@@ -36,54 +35,62 @@
     
     <form [formGroup]="sedeForm" (ngSubmit)="onSubmit()">
       <div class="p-fluid">
-        <div class="mb-3">
-          <label for="nombre">Nombre de la Sede *</label>
-          <input 
-            pInputText 
-            id="nombre" 
-            formControlName="nombre"
-            placeholder="Ej: Sede Principal - Piso 1"
-            [class.ng-invalid]="sedeForm.get('nombre')?.invalid && sedeForm.get('nombre')?.touched">
-          <small class="p-error" *ngIf="sedeForm.get('nombre')?.hasError('required') && sedeForm.get('nombre')?.touched">
-            El nombre es obligatorio
-          </small>
-        </div>
+        <h6 class="section-subtitle">
+          <i class="bi bi-geo-alt-fill me-2"></i>
+          Información de la Sede
+        </h6>
+        <div class="form-card-assignment">
+          <div class="mb-3">
+            <label for="nombre">Nombre de la Sede *</label>
+            <input 
+              pInputText 
+              id="nombre" 
+              formControlName="nombre"
+              placeholder="Ej: Sede Principal - Piso 1"
+              [class.ng-invalid]="sedeForm.get('nombre')?.invalid && sedeForm.get('nombre')?.touched">
+            <small class="p-error" *ngIf="sedeForm.get('nombre')?.hasError('required') && sedeForm.get('nombre')?.touched">
+              El nombre es obligatorio
+            </small>
+          </div>
 
-        <div class="mb-3">
-          <label for="id_Empresa">Empresa *</label>
-          <p-dropdown 
-            id="id_Empresa"
-            [(ngModel)]="selectedEmpresa"
-            [ngModelOptions]="{standalone: true}"
-            [options]="empresas"
-            optionLabel="nombre"
-            optionValue="id"
-            placeholder="Seleccione una empresa"
-            [filter]="true"
-            filterBy="nombre"
-            [showClear]="true"
-            (onChange)="onEmpresaChange($event)">
-          </p-dropdown>
-        </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="id_Empresa">Empresa *  </label>
+              <p-dropdown 
+                id="id_Empresa"
+                [(ngModel)]="selectedEmpresa"
+                [ngModelOptions]="{standalone: true}"
+                [options]="empresas"
+                optionLabel="nombre"
+                optionValue="id"
+                placeholder="Seleccione una empresa"
+                [filter]="true"
+                filterBy="nombre"
+                [showClear]="true"
+                (onChange)="onEmpresaChange($event)">
+              </p-dropdown>
+            </div>
 
-        <div class="mb-3">
-          <label for="id_Sucursal">Sucursal *</label>
-          <p-dropdown 
-            id="id_Sucursal"
-            formControlName="id_Sucursal"
-            [options]="sucursalesFiltered"
-            optionLabel="nombre"
-            optionValue="id"
-            placeholder="Seleccione una sucursal"
-            [filter]="true"
-            filterBy="nombre"
-            [showClear]="true"
-            [disabled]="!selectedEmpresa"
-            [class.ng-invalid]="sedeForm.get('id_Sucursal')?.invalid && sedeForm.get('id_Sucursal')?.touched">
-          </p-dropdown>
-          <small class="p-error" *ngIf="sedeForm.get('id_Sucursal')?.hasError('required') && sedeForm.get('id_Sucursal')?.touched">
-            Debe seleccionar una sucursal
-          </small>
+            <div class="col-md-6 mb-3">
+              <label for="id_Sucursal">Sucursal *  </label>
+              <p-dropdown 
+                id="id_Sucursal"
+                formControlName="id_Sucursal"
+                [options]="sucursalesFiltered"
+                optionLabel="nombre"
+                optionValue="id"
+                placeholder="Seleccione una sucursal"
+                [filter]="true"
+                filterBy="nombre"
+                [showClear]="true"
+                [disabled]="!selectedEmpresa"
+                [class.ng-invalid]="sedeForm.get('id_Sucursal')?.invalid && sedeForm.get('id_Sucursal')?.touched">
+              </p-dropdown>
+              <small class="p-error" *ngIf="sedeForm.get('id_Sucursal')?.hasError('required') && sedeForm.get('id_Sucursal')?.touched">
+                Debe seleccionar una sucursal
+              </small>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -108,7 +115,7 @@
   <div class="content-card">
     <p-table 
       #dt
-      [value]="sedes" 
+      [value]="sedesFiltered" 
       [paginator]="true" 
       [rows]="10"
       [showCurrentPageReport]="true"
@@ -123,7 +130,7 @@
           <h5 class="mb-0">
             <i class="bi bi-geo-alt me-2"></i>
             Lista de Sedes
-            <p-tag [value]="sedes.length.toString()" styleClass="ml-2"></p-tag>
+            <p-tag [value]="sedesFiltered.length.toString()" styleClass="ml-2"></p-tag>
           </h5>
           <div class="d-flex gap-2">
             <p-dropdown 
@@ -135,9 +142,19 @@
               [showClear]="true"
               (onChange)="filterByEmpresa($event)">
             </p-dropdown>
-            <span class="p-input-icon-left">
+            <!-- Botón limpiar filtros -->
+            <p-button 
+              icon="pi pi-filter-slash" 
+              styleClass="p-button-outlined p-button-secondary"
+              (onClick)="clearFilters()"
+              pTooltip="Limpiar filtros"
+              tooltipPosition="top">
+            </p-button>
+            <!-- Buscador - Solo visible con permiso -->
+            <span class="p-input-icon-left" *hasPermission="'org-sede-buscar'">
               <i class="pi pi-search"></i>
               <input 
+                #globalFilter
                 pInputText 
                 type="text" 
                 (input)="onGlobalFilter($event)" 
@@ -188,6 +205,7 @@
           <td>
             <div class="d-flex gap-2">
               <p-button 
+                *hasPermission="'org-sede-editar'"
                 icon="pi pi-pencil" 
                 styleClass="p-button-rounded p-button-text p-button-info"
                 (onClick)="editSede(sede)"
@@ -195,6 +213,7 @@
                 tooltipPosition="top">
               </p-button>
               <p-button 
+                *hasPermission="'org-sede-eliminar'"
                 icon="pi pi-trash" 
                 styleClass="p-button-rounded p-button-text p-button-danger"
                 (onClick)="deleteSede(sede)"

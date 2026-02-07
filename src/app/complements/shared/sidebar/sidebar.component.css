@@ -12,7 +12,7 @@
 }
 
 .sidebar.collapsed {
-  width: 70px;
+  width: 70px !important;
 }
 
 .sidebar-logo {
@@ -84,6 +84,11 @@
   background-color: #6b7280;
 }
 
+.nav-item {
+  width: 100%;
+  overflow: hidden;
+}
+
 .nav-link {
   font-size: 15px;
   border-radius: 6px;
@@ -91,6 +96,8 @@
   padding: 0.75rem 1rem;
   white-space: nowrap;
   position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar.collapsed .nav-link {
@@ -120,7 +127,10 @@
 }
 
 .sidebar.collapsed .nav-link span {
-  display: none;
+  display: none !important;
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
 }
 
 .sidebar.collapsed .nav-link i {
@@ -170,10 +180,6 @@
 /* Mejora visual del botón toggle */
 .btn-toggle i {
   transition: transform 0.3s ease;
-}
-
-.sidebar.collapsed .btn-toggle i {
-  transform: rotate(180deg);
 }
 
 /* Responsive */
@@ -250,17 +256,19 @@
     display: block;
   }
 }
-/* N
-av Link Wrapper para Organización */
+/* Nav Link Wrapper para Organización */
 .nav-link-wrapper {
   display: flex;
   align-items: center;
   gap: 0;
+  width: 100%;
 }
 
 .nav-link-wrapper .nav-link {
   border-radius: 6px 0 0 6px;
   margin-right: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .btn-dropdown {
@@ -274,6 +282,7 @@ av Link Wrapper para Organización */
   align-items: center;
   justify-content: center;
   min-width: 40px;
+  flex-shrink: 0;
 }
 
 .btn-dropdown:hover {
@@ -300,6 +309,9 @@ av Link Wrapper para Organización */
   font-weight: 500;
   border-radius: 6px;
   transition: all 0.2s;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 .submenu-item > .nav-link:hover {
@@ -309,11 +321,13 @@ av Link Wrapper para Organización */
 
 .submenu-item .nav-link i {
   font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .submenu-item .bi-chevron-down {
   font-size: 0.75rem;
   transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
 .submenu-item .nav-link[aria-expanded="true"] .bi-chevron-down {
@@ -332,6 +346,9 @@ av Link Wrapper para Organización */
   transition: all 0.2s;
   position: relative;
   padding-left: 1.5rem;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 .submenu-item ul li .nav-link::before {
@@ -635,4 +652,11 @@ av Link Wrapper para Organización */
     padding: 0.75rem 1rem 0.75rem 2.5rem;
     font-size: 0.875rem;
   }
+}
+
+
+/* Cuando hay banner de personificación activo */
+:host-context(.personificando-activo) .sidebar {
+  top: 60px;
+  height: calc(100vh - 60px);
 }

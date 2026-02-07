@@ -3,16 +3,21 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../modules/auth/auth.service';
 import { SidebarService } from '../../sidebar/sidebar.service';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { PersonificarService } from '../../../../services/personificar.service';
 import { ButtonModule } from 'primeng/button';
 import { AvatarModule } from 'primeng/avatar';
 import { MenuModule } from 'primeng/menu';
 import { BadgeModule } from 'primeng/badge';
+import { DialogModule } from 'primeng/dialog';
 import { MenuItem } from 'primeng/api';
+import { PersonificarSimpleComponent } from '../../../../components/personificar-simple/personificar-simple.component';
+import { PersonificarBannerComponent } from '../../../../components/personificar-banner/personificar-banner.component';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, RouterModule, ButtonModule, AvatarModule, MenuModule, BadgeModule],
+  imports: [CommonModule, RouterModule, ButtonModule, AvatarModule, MenuModule, BadgeModule, DialogModule, PersonificarSimpleComponent],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css'
 })
@@ -21,11 +26,14 @@ export class NavbarComponent implements OnInit {
   isDropdownOpen = false;
   isSidebarCollapsed = false;
   userMenuItems: MenuItem[] = [];
+  showPersonificarModal = false;
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private sidebarService: SidebarService
+    private sidebarService: SidebarService,
+    private permissionService: PermissionService,
+    private personificarService: PersonificarService
   ) { }
 
   ngOnInit(): void {
@@ -49,7 +57,7 @@ export class NavbarComponent implements OnInit {
   }
 
   initUserMenu(): void {
-    this.userMenuItems = [
+    const menuItems: MenuItem[] = [
       {
         label: 'Mi Perfil',
         icon: 'pi pi-user',
@@ -59,7 +67,23 @@ export class NavbarComponent implements OnInit {
         label: 'Configuración',
         icon: 'pi pi-cog',
         command: () => this.goToSettings()
-      },
+      }
+    ];
+
+    // Agregar opción de personificar si tiene permisos
+    if (this.canPersonificar()) {
+      menuItems.push({
+        separator: true
+      });
+      menuItems.push({
+        label: 'Personificar Usuario',
+        icon: 'pi pi-user-edit',
+        command: () => this.openPersonificarModal(),
+        styleClass: 'text-warning'
+      });
+    }
+
+    menuItems.push(
       {
         separator: true
       },
@@ -69,7 +93,9 @@ export class NavbarComponent implements OnInit {
         command: () => this.logout(),
         styleClass: 'text-danger'
       }
-    ];
+    );
+
+    this.userMenuItems = menuItems;
   }
 
   loadUserData(): void {
@@ -92,9 +118,7 @@ export class NavbarComponent implements OnInit {
   }
 
   logout(): void {
-    console.log('🔴 Navbar: Botón logout clickeado');
     this.closeDropdown();
-    console.log('🔴 Navbar: Dropdown cerrado, llamando authService.logout()');
     this.authService.logout();
   }
 
@@ -129,5 +153,36 @@ export class NavbarComponent implements OnInit {
   // Toggle sidebar en móvil
   toggleMobileSidebar(): void {
     this.sidebarService.toggleMobileSidebar();
+  }
+
+  // Verificar si puede personificar usuarios
+  canPersonificar(): boolean {
+    // Verificar si es administrador
+    if (this.isCurrentUserAdmin()) {
+      return true;
+    }
+    
+    // Verificar si tiene el permiso específico
+    return this.permissionService.hasPermission('org-personificar');
+  }
+
+  // Verificar si el usuario actual es administrador
+  private isCurrentUserAdmin(): boolean {
+    const currentUser = this.authService.currentUser;
+    if (!currentUser || !currentUser.roles) {
+      return false;
+    }
+    
+    return currentUser.roles.some((rol: any) => rol.es_admin === true);
+  }
+
+  // Abrir modal de personificación
+  openPersonificarModal(): void {
+    this.showPersonificarModal = true;
+  }
+
+  // Cerrar modal de personificación
+  closePersonificarModal(): void {
+    this.showPersonificarModal = false;
   }
 }

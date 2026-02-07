@@ -1,0 +1,382 @@
+<div class="page-container">
+  <!-- Toast para notificaciones -->
+  <p-toast></p-toast>
+  
+  <!-- Confirm Dialog -->
+  <p-confirmDialog></p-confirmDialog>
+  
+  <button class="btn btn-back mb-2" routerLink="/organizacion">
+    <i class="bi bi-arrow-left me-2"></i>Volver
+  </button>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="header-title">
+        <h1>
+          <i class="bi bi-shield-check me-2"></i>
+          Gestión de Roles
+        </h1>
+        <p>Administra los roles y asigna perfiles del sistema</p>
+      </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="stats-cards">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <i class="bi bi-shield-check"></i>
+        </div>
+        <div class="stat-info">
+          <div class="stat-label">Total Roles</div>
+          <div class="stat-value">{{ getTotalRoles() }}</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon active">
+          <i class="bi bi-toggle-on"></i>
+        </div>
+        <div class="stat-info">
+          <div class="stat-label">Activos</div>
+          <div class="stat-value">{{ getRolesActivos() }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <p-button 
+      [label]="showForm ? 'Cancelar' : 'Nuevo Rol'"
+      [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
+      (onClick)="toggleForm()"
+      [severity]="showForm ? 'secondary' : 'primary'">
+    </p-button>
+  </div>
+
+  
+  <!-- Tabla de Roles con PrimeNG -->
+  <div class="content-card">
+    <p-table 
+      [value]="roles" 
+      [paginator]="true" 
+      [rows]="10"
+      [showCurrentPageReport]="true"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      [loading]="isLoading"
+      [globalFilterFields]="['nombre', 'codigo', 'descripcion']"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} roles"
+      [tableStyle]="{'min-width': '50rem'}">
+      
+      <ng-template pTemplate="caption">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-shield-check me-2"></i>
+            Lista de Roles
+            <p-tag [value]="roles.length.toString()" styleClass="ml-2"></p-tag>
+          </h5>
+          <span class="p-input-icon-left">
+            <input 
+              pInputText 
+              type="text" 
+              (input)="onGlobalFilter($event)" 
+              placeholder="Buscar..." />
+          </span>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="nombre">
+            Rol <p-sortIcon field="nombre"></p-sortIcon>
+          </th>
+          <th>Tipo</th>
+          <th>Empresa</th>
+          <th>Perfiles</th>
+          <th pSortableColumn="estado">
+            Estado <p-sortIcon field="estado"></p-sortIcon>
+          </th>
+          <th style="width: 150px">Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-rol>
+        <tr>
+          <td>
+            <div class="rol-info">
+              <div class="d-flex align-items-center gap-2">
+                <i class="pi pi-shield text-primary" *ngIf="rol.es_admin"></i>
+                <span class="fw-semibold">{{ rol.nombre }}</span>
+              </div>
+              <code class="text-muted small">{{ rol.codigo }}</code>
+              <div class="text-muted small mt-1" *ngIf="rol.descripcion">{{ rol.descripcion }}</div>
+            </div>
+          </td>
+          <td>
+            <p-tag 
+              [value]="getRolType(rol)" 
+              [severity]="getRolTypeSeverity(rol)"
+              [icon]="rol.es_admin ? 'pi pi-star-fill' : rol.id_empresa ? 'pi pi-building' : 'pi pi-globe'">
+            </p-tag>
+          </td>
+          <td>
+            <p-tag 
+              *ngIf="rol.empresa"
+              [value]="rol.empresa.nombre" 
+              severity="info"
+              icon="pi pi-building">
+            </p-tag>
+            <span class="text-muted" *ngIf="!rol.empresa">
+              <i class="pi pi-globe me-1"></i>Global
+            </span>
+          </td>
+          <td>
+            <p-tag 
+              *ngIf="getPerfilesCount(rol) > 0"
+              [value]="getPerfilesCount(rol) + ' perfiles'" 
+              severity="secondary"
+              icon="pi pi-users">
+            </p-tag>
+            <span class="text-muted" *ngIf="getPerfilesCount(rol) === 0">
+              Sin perfiles
+            </span>
+          </td>
+          <td>
+            <p-tag 
+              [value]="rol.estado ? 'Activo' : 'Inactivo'" 
+              [severity]="rol.estado ? 'success' : 'danger'"
+              [icon]="rol.estado ? 'pi pi-check' : 'pi pi-times'">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <p-button 
+                icon="pi pi-users" 
+                styleClass="p-button-rounded p-button-text p-button-info"
+                (onClick)="openPerfilesDialog(rol)"
+                pTooltip="Asignar perfiles"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-pencil" 
+                styleClass="p-button-rounded p-button-text p-button-warn"
+                (onClick)="editRol(rol)"
+                pTooltip="Editar"
+                tooltipPosition="top">
+              </p-button>
+              <p-button 
+                icon="pi pi-trash" 
+                styleClass="p-button-rounded p-button-text p-button-danger"
+                (onClick)="deleteRol(rol)"
+                [disabled]="getUsuariosCount(rol) > 0"
+                pTooltip="Eliminar"
+                tooltipPosition="top">
+              </p-button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <i class="pi pi-shield" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay roles registrados</p>
+            <p-button 
+              label="Crear Primer Rol" 
+              icon="pi pi-plus" 
+              (onClick)="toggleForm()">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
+<!-- Modal de Crear/Editar Rol -->
+<p-dialog 
+  [(visible)]="showForm" 
+  [header]="editMode ? 'Editar Rol' : 'Nuevo Rol'" 
+  [modal]="true" 
+  [style]="{width: '600px'}"
+  [breakpoints]="{'960px': '90vw'}">
+  
+  <form [formGroup]="rolForm" (ngSubmit)="onSubmit()">
+    <div class="p-fluid">
+      <div class="row">
+        <div class="col-md-8 mb-3">
+          <label for="nombre" class="fw-bold">Nombre del Rol *</label>
+          <input 
+            pInputText 
+            id="nombre" 
+            formControlName="nombre"
+            placeholder="Ej: Administrador de Ventas"
+            class="w-100">
+          <small class="p-error" *ngIf="rolForm.get('nombre')?.hasError('required') && rolForm.get('nombre')?.touched">
+            El nombre es obligatorio
+          </small>
+        </div>
+
+        <div class="col-md-4 mb-3">
+          <label for="codigo" class="fw-bold">Código</label>
+          <input 
+            pInputText 
+            id="codigo" 
+            formControlName="codigo"
+            placeholder="admin-ven"
+            class="w-100">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label for="id_empresa" class="fw-bold">Empresa</label>
+        <p-dropdown 
+          id="id_empresa"
+          formControlName="id_empresa"
+          [options]="empresas"
+          optionLabel="nombre"
+          optionValue="id"
+          placeholder="Seleccionar empresa (dejar vacío para rol global)"
+          [showClear]="true"
+          [style]="{'width': '100%'}">
+        </p-dropdown>
+        <small class="text-muted">Dejar vacío para crear un rol global</small>
+      </div>
+
+      <div class="mb-3">
+        <label for="descripcion" class="fw-bold">Descripción</label>
+        <textarea 
+          pInputText 
+          id="descripcion" 
+          formControlName="descripcion"
+          rows="2"
+          placeholder="Describe las responsabilidades de este rol"
+          class="w-100">
+        </textarea>
+      </div>
+
+      <div class="mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <p-checkbox 
+            formControlName="es_admin"
+            [binary]="true"
+            inputId="es_admin">
+          </p-checkbox>
+          <label for="es_admin" class="mb-0 fw-bold">
+            <i class="bi bi-star-fill me-1"></i>
+            Es Administrador
+          </label>
+        </div>
+        <small class="text-muted d-block mt-1">Los roles administradores tienen acceso completo</small>
+      </div>
+
+      <div class="mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <p-checkbox 
+            formControlName="estado"
+            [binary]="true"
+            inputId="estado">
+          </p-checkbox>
+          <label for="estado" class="mb-0 fw-bold">Activo</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <p-button 
+        label="Cancelar" 
+        [text]="true"
+        severity="secondary"
+        (onClick)="toggleForm()">
+      </p-button>
+      <p-button 
+        [label]="editMode ? 'Actualizar' : 'Crear'" 
+        type="submit"
+        [disabled]="rolForm.invalid || isSubmitting"
+        [loading]="isSubmitting">
+      </p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Modal de Asignación de Perfiles -->
+<p-dialog 
+  [(visible)]="showPerfilesDialog" 
+  [header]="'Asignar Perfiles a: ' + (currentRolForPerfiles?.nombre || '')" 
+  [modal]="true" 
+  [style]="{width: '900px'}"
+  [breakpoints]="{'960px': '95vw'}">
+  
+  <div class="perfiles-modal-content">
+    <div class="mb-4">
+      <div class="selection-summary">
+        <div class="summary-item">
+          <i class="bi bi-check-circle-fill"></i>
+          <span>{{ perfilesSeleccionados.length }} perfiles seleccionados</span>
+        </div>
+        <div class="summary-item">
+          <i class="bi bi-person-badge"></i>
+          <span>{{ todosLosPerfiles.length }} perfiles disponibles</span>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="isLoadingPerfiles" class="loading-state-small">
+      <div class="spinner-small"></div>
+      <p>Cargando perfiles...</p>
+    </div>
+
+    <div *ngIf="!isLoadingPerfiles && todosLosPerfiles.length === 0" class="empty-state-small">
+      <i class="bi bi-inbox"></i>
+      <p>No hay perfiles disponibles para asignar</p>
+    </div>
+
+    <div *ngIf="!isLoadingPerfiles && todosLosPerfiles.length > 0" class="perfiles-list-simple">
+      <div class="perfil-item" *ngFor="let perfil of todosLosPerfiles" [class.selected]="isPerfilSelected(perfil.id)">
+        <div class="perfil-item-left">
+          <p-checkbox 
+            [binary]="true"
+            [ngModel]="isPerfilSelected(perfil.id)"
+            (onChange)="onPerfilChange(perfil.id, $event)"
+            [inputId]="'perfil-' + perfil.id">
+          </p-checkbox>
+          <div class="perfil-item-info">
+            <div class="perfil-item-nombre">{{ perfil.nombre }}</div>
+            <div class="perfil-item-meta">
+              <code>{{ perfil.codigo }}</code>
+              <span class="modulo-mini">
+                <i class="bi bi-folder"></i>
+                Módulo: {{ getModuloNombre(perfil.id_modulo) }}
+              </span>
+              <div class="permisos-crud-mini">
+                <span class="permiso-mini" *ngIf="perfil.puede_crear" title="Crear">C</span>
+                <span class="permiso-mini" *ngIf="perfil.puede_leer" title="Leer">R</span>
+                <span class="permiso-mini" *ngIf="perfil.puede_editar" title="Editar">U</span>
+                <span class="permiso-mini" *ngIf="perfil.puede_eliminar" title="Eliminar">D</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="perfil-item-right">
+          <span class="status-badge" [class.active]="perfil.estado" [class.inactive]="!perfil.estado">
+            {{ perfil.estado ? 'Activo' : 'Inactivo' }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2 mt-4">
+    <p-button 
+      label="Cancelar" 
+      severity="secondary"
+      (onClick)="cancelarAsignacion()">
+    </p-button>
+    <p-button 
+      label="Guardar Perfiles" 
+      icon="pi pi-check"
+      (onClick)="guardarPerfiles()"
+      [disabled]="isSubmitting"
+      [loading]="isSubmitting">
+    </p-button>
+  </div>
+</p-dialog>

@@ -1,0 +1,485 @@
+/* Variables de color */
+:root {
+  --c1: #0f172a;
+  --c2: #1e293b;
+  --c3: #22c55e;
+  --c4: #06b6d4;
+}
+
+/* Contenedor principal con animación */
+:host {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0f;
+}
+
+/* Capa adicional de gradiente base */
+:host::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(99, 102, 241, 0.15) 0%,
+    transparent 70%
+  );
+  z-index: 0;
+  animation: pulse 8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+/* Mesh Gradient Animado - Múltiples puntos de color */
+:host::before {
+  content: "";
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  background: 
+    radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 40%),
+    radial-gradient(circle at 80% 20%, #ec4899 0%, transparent 40%),
+    radial-gradient(circle at 40% 80%, #8b5cf6 0%, transparent 40%),
+    radial-gradient(circle at 60% 30%, #06b6d4 0%, transparent 40%),
+    radial-gradient(circle at 90% 70%, #f59e0b 0%, transparent 40%),
+    radial-gradient(circle at 10% 10%, #10b981 0%, transparent 40%);
+  filter: blur(80px);
+  opacity: 0.8;
+  animation: meshMove 15s ease-in-out infinite;
+  z-index: 0;
+  will-change: transform;
+}
+
+.login-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 650px;
+  padding: 0 1rem;
+}
+
+/* Capa de "brillo" adicional para profundidad */
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05), transparent 70%),
+    radial-gradient(circle at 30% 70%, rgba(99,102,241,0.15), transparent 60%),
+    radial-gradient(circle at 70% 30%, rgba(236,72,153,0.15), transparent 60%);
+  mix-blend-mode: overlay;
+  opacity: 0.7;
+  animation: overlayPulse 10s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 1;
+  will-change: opacity, transform;
+}
+
+/* Contenido (login) por encima */
+.hero__content {
+  position: relative;
+  z-index: 2;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+/* Animación de entrada para el card */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animaciones */
+@keyframes meshMove {
+  0% { 
+    transform: translate(0, 0) scale(1) rotate(0deg); 
+  }
+  25% { 
+    transform: translate(-8%, 8%) scale(1.15) rotate(10deg); 
+  }
+  50% { 
+    transform: translate(8%, -8%) scale(0.85) rotate(-10deg); 
+  }
+  75% { 
+    transform: translate(-5%, -5%) scale(1.1) rotate(5deg); 
+  }
+  100% { 
+    transform: translate(0, 0) scale(1) rotate(0deg); 
+  }
+}
+
+@keyframes overlayPulse {
+  0%, 100% { 
+    opacity: 0.5; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.8; 
+    transform: scale(1.05);
+  }
+}
+
+/* Card Styles con efecto glassmorphism mejorado */
+::ng-deep .login-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 0 80px rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+::ng-deep .login-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 0 100px rgba(99, 102, 241, 0.2);
+}
+
+::ng-deep .login-card .p-card-header {
+  padding: 2rem 2.2rem 0.75rem 2.2rem !important;
+  background: white;
+  border-radius: 15px 15px 0 0;
+}
+
+::ng-deep .login-card .p-card-body {
+  padding: 0.75rem 2.2rem 2rem 2.2rem !important;
+}
+
+::ng-deep .login-card .p-card-content {
+  padding: 0 !important;
+}
+
+/* Header */
+.login-header {
+  text-align: center;
+}
+
+.login-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1976d2;
+  margin: 0 0 0.2rem 0;
+}
+
+.login-subtitle {
+  color: #737c84;
+  font-size: 0.938rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Form Fields */
+.field {
+  margin-bottom: 1rem;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #263859;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* Input Text */
+::ng-deep .p-inputtext {
+  width: 100%;
+  border: 1px solid #dbe8fc;
+  background: #f4f8fb;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  color: #1e283d;
+  transition: border 0.2s;
+}
+
+::ng-deep .p-inputtext:enabled:focus {
+  border-color: #1976d2;
+  outline: none;
+  box-shadow: none;
+}
+
+::ng-deep .p-inputtext.ng-invalid.ng-dirty {
+  border-color: #e74c3c;
+}
+
+/* Password Field */
+::ng-deep .p-password {
+  width: 100%;
+  position: relative;
+}
+
+::ng-deep .p-password input {
+  width: 100%;
+  border: 1px solid #dbe8fc;
+  background: #f4f8fb;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  color: #1e283d;
+}
+
+::ng-deep .p-password input:enabled:focus {
+  border-color: #1976d2;
+  outline: none;
+  box-shadow: none;
+}
+
+::ng-deep .p-password .p-password-toggle-icon {
+  color: #6c757d;
+}
+
+::ng-deep .p-password .p-icon-field-right {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+}
+
+::ng-deep .p-password button {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+}
+
+::ng-deep .p-password button:hover {
+  background: transparent;
+}
+
+/* Checkbox */
+::ng-deep .p-checkbox {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+::ng-deep .p-checkbox .p-checkbox-box {
+  border-radius: 4px;
+  border: 1px solid #dbe8fc;
+  background: #f4f8fb;
+}
+
+::ng-deep .p-checkbox .p-checkbox-box.p-highlight {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+  font-size: 0.95rem;
+  user-select: none;
+  color: #263859;
+}
+
+/* Buttons */
+::ng-deep .p-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  padding: 0.9rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.16s;
+}
+
+::ng-deep .p-button:not(.p-button-secondary) {
+  background: #1976d2;
+  border-color: #1976d2;
+  color: #fff;
+}
+
+::ng-deep .p-button:not(.p-button-secondary):hover:enabled {
+  background: #125499;
+  border-color: #125499;
+}
+
+::ng-deep .p-button.p-button-secondary {
+  background: #f4f8fb;
+  color: #263859;
+  border: 1.6px solid #1976d2;
+}
+
+::ng-deep .p-button.p-button-secondary:hover:enabled {
+  background: #dde9f8;
+  color: #1976d2;
+}
+
+::ng-deep .p-button .p-button-icon {
+  font-size: 1.25rem;
+}
+
+/* Divider */
+::ng-deep .p-divider {
+  margin: 1.5rem 0;
+}
+
+::ng-deep .p-divider::before,
+::ng-deep .p-divider::after {
+  border-top: 1.5px solid #e9eefa;
+}
+
+::ng-deep .p-divider .p-divider-content {
+  background: #fff;
+  padding: 0 0.9rem;
+}
+
+.divider-text {
+  color: #979fad;
+  font-weight: 500;
+  font-size: 0.86rem;
+}
+
+/* Error Messages */
+::ng-deep .p-message {
+  border-radius: 8px;
+  border: none;
+  margin-bottom: 1rem;
+}
+
+::ng-deep .p-message.p-message-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+::ng-deep .p-message .p-message-icon {
+  font-size: 1.125rem;
+}
+
+.p-error {
+  color: #e74c3c;
+  font-size: 0.92rem;
+  margin-top: 0.1rem;
+  line-height: 1.2;
+}
+
+/* Links */
+.text-primary {
+  color: #1976d2;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.text-primary:hover {
+  color: #0d47a1;
+}
+
+.text-600 {
+  color: #737c84;
+  font-weight: 600;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* Spacing */
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.mb-3 {
+  margin-bottom: 0.75rem;
+}
+
+.mt-1 {
+  margin-top: 0.25rem;
+}
+
+.ml-2 {
+  margin-left: 0.5rem;
+}
+
+/* Flex utilities */
+.flex {
+  display: flex;
+}
+
+.justify-content-between {
+  justify-content: space-between;
+}
+
+.align-items-center {
+  align-items: center;
+}
+
+.block {
+  display: block;
+}
+
+.w-full {
+  width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  :host::before {
+    filter: blur(30px);
+    opacity: 0.35;
+  }
+
+  .login-container {
+    padding: 0;
+    max-width: 100%;
+  }
+
+  ::ng-deep .login-card {
+    width: 100vw;
+    height: 100vh;
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  ::ng-deep .login-card .p-card-header {
+    padding: 24px 3vw !important;
+    border-radius: 0;
+  }
+
+  ::ng-deep .login-card .p-card-body {
+    padding: 0 3vw 24px 3vw !important;
+  }
+
+  .flex.justify-content-between {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+}

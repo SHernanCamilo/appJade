@@ -12,7 +12,6 @@
 /* Global Styles */
 * {
   margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
@@ -24,12 +23,10 @@ body {
 }
 
 /* Ajustar tamaños de texto globales */
-h1 { font-size: 1.75rem; }
-h2 { font-size: 1.5rem; }
-h3 { font-size: 1.25rem; }
-h4 { font-size: 1.125rem; }
-h5 { font-size: 1rem; }
-h6 { font-size: 0.875rem; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1rem; }
+h4 { font-size: 0.938rem; }
 
 p { font-size: 0.875rem; }
 
@@ -382,6 +379,37 @@ p { font-size: 0.875rem; }
   border-color: #ef4444;
 }
 
+/* Estilos para InputNumber */
+.p-inputnumber {
+  display: block !important;
+  width: 100% !important;
+}
+
+.p-inputnumber .p-inputtext {
+  width: 100% !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  transition: all 0.2s;
+}
+
+.p-inputnumber .p-inputtext:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+.p-inputnumber.ng-invalid .p-inputtext {
+  border-color: #ef4444;
+}
+
+/* Asegurar que p-inputNumber en formularios tenga layout vertical */
+.p-fluid .p-inputnumber {
+  display: block !important;
+  width: 100% !important;
+}
+
 /* Estilos para Dialog */
 .p-dialog {
   border-radius: 12px;
@@ -389,8 +417,8 @@ p { font-size: 0.875rem; }
 }
 
 .p-dialog .p-dialog-header {
-  background: #fff;
-  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-bottom: 1px solid #475569;
   padding: 1.5rem;
   border-radius: 12px 12px 0 0;
 }
@@ -398,7 +426,26 @@ p { font-size: 0.875rem; }
 .p-dialog .p-dialog-title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: #ffffff;
+}
+
+.p-dialog .p-dialog-header .p-dialog-header-icon {
+  color: #ffffff;
+}
+
+.p-dialog .p-dialog-header .p-dialog-header-close {
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.p-dialog .p-dialog-header .p-dialog-header-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .p-dialog .p-dialog-content {
@@ -694,4 +741,128 @@ p { font-size: 0.875rem; }
 /* Reducir espaciado entre header y filtros */
 .p-datatable .p-datatable-thead > tr > th .p-column-header-content {
   padding: 0;
+}
+
+/* Estilos para la sección de asignación de empresas */
+.card-assignment-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.form-card-assignment {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  margin-bottom: 1.5rem;
+}
+
+/* ========================================
+   ESTILOS PARA BANNER DE PERSONIFICACIÓN
+   ======================================== */
+
+/* Ajustar el contenido principal cuando el banner está visible */
+.personificar-activa .main-content {
+  margin-top: 60px; /* Altura del banner */
+}
+
+/* Asegurar que el banner se vea correctamente */
+app-personificar-banner {
+  display: block;
+}
+
+
+/* ========================================
+   FIX: ELIMINAR SUBRAYADOS DEL MENÚ DE USUARIO
+   ======================================== */
+
+/* Reset completo de estilos de enlace para el menú */
+.p-menu.user-menu .p-menuitem-link,
+.p-menu.user-menu .p-menuitem-link *,
+.p-menu.user-menu a,
+.p-menu.user-menu a *,
+.p-menu .p-menuitem-link,
+.p-menu a.p-menuitem-link,
+.user-menu .p-menuitem-link,
+.user-menu a {
+  text-decoration: none !important;
+  -webkit-text-decoration: none !important;
+}
+
+/* Estilos específicos para los items del menú */
+.p-menu .p-menuitem-link {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.5rem 1rem !important;
+  color: #212529 !important;
+  text-decoration: none !important;
+  background: transparent !important;
+  border: none !important;
+  width: 100% !important;
+  cursor: pointer !important;
+}
+
+.p-menu .p-menuitem-link:hover {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
+  text-decoration: none !important;
+}
+
+.p-menu .p-menuitem-link:focus,
+.p-menu .p-menuitem-link:active {
+  text-decoration: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Iconos del menú */
+.p-menu .p-menuitem-icon {
+  color: #6c757d !important;
+  margin-right: 0.5rem !important;
+  font-size: 1rem !important;
+}
+
+/* Texto del menú */
+.p-menu .p-menuitem-text {
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
+/* Items especiales */
+.p-menu .text-danger .p-menuitem-link,
+.p-menu .text-danger .p-menuitem-link * {
+  color: #dc3545 !important;
+  text-decoration: none !important;
+}
+
+.p-menu .text-danger .p-menuitem-link:hover {
+  background-color: #f8d7da !important;
+}
+
+.p-menu .text-warning .p-menuitem-link,
+.p-menu .text-warning .p-menuitem-link * {
+  color: #fd7e14 !important;
+  text-decoration: none !important;
+}
+
+.p-menu .text-warning .p-menuitem-link:hover {
+  background-color: #fff3cd !important;
+}
+
+/* Separador */
+.p-menu .p-menuitem-separator {
+  border-top: 1px solid #dee2e6 !important;
+  margin: 0.5rem 0 !important;
 }

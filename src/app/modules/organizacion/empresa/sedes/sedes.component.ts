@@ -1,6 +1,8 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { SedeService, Sede, CreateSedeRequest } from '../services/sede.service';
 import { SucursalService, Sucursal } from '../services/sucursal.service';
@@ -23,6 +25,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
   standalone: true,
   imports: [
     CommonModule, 
+    HasPermissionDirective,
     RouterModule, 
     ReactiveFormsModule,
     FormsModule,
@@ -42,8 +45,10 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 })
 export class SedesComponent implements OnInit {
   @ViewChild('dt') dt!: Table;
+  @ViewChild('globalFilter') globalFilter!: ElementRef;
   
   sedes: Sede[] = [];
+  sedesFiltered: Sede[] = [];
   empresas: Empresa[] = [];
   sucursales: Sucursal[] = [];
   sucursalesFiltered: Sucursal[] = [];
@@ -62,10 +67,31 @@ export class SedesComponent implements OnInit {
     private sucursalService: SucursalService,
     private empresaService: EmpresaService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public permissionService: PermissionService
   ) {
     this.initForm();
   }
+
+  canCreate(): boolean {
+    return this.permissionService.hasPermission('org-sede-crear');
+  }
+
+  canEdit(): boolean {
+    return this.permissionService.hasPermission('org-sede-editar');
+  }
+
+  canDelete(): boolean {
+    return this.permissionService.hasPermission('org-sede-eliminar');
+  }
+
+  canSearch(): boolean {
+    return this.permissionService.hasPermission('org-sede-buscar');
+  }
+
+
+
+  
 
   ngOnInit(): void {
     this.loadEmpresas();
@@ -113,6 +139,7 @@ export class SedesComponent implements OnInit {
     this.sedeService.getSedes().subscribe({
       next: (sedes) => {
         this.sedes = sedes;
+        this.sedesFiltered = [...sedes]; // Inicializar el array filtrado
         this.isLoading = false;
       },
       error: (error) => {
@@ -124,6 +151,7 @@ export class SedesComponent implements OnInit {
         });
         this.isLoading = false;
         this.sedes = [];
+        this.sedesFiltered = [];
       }
     });
   }
@@ -260,22 +288,48 @@ export class SedesComponent implements OnInit {
   }
 
   filterByEmpresa(event: any): void {
+    this.selectedEmpresaFilter = event.value;
+    
     if (event.value) {
-      this.sedeService.getSedesPorEmpresa(event.value).subscribe({
-        next: (sedes) => {
-          this.sedes = sedes;
-        },
-        error: (error) => {
-          console.error('Error filtrando sedes:', error);
-        }
-      });
+      this.sedesFiltered = this.sedes.filter(s => s.sucursal?.id_Empresa === event.value);
     } else {
-      this.loadSedes();
+      this.sedesFiltered = [...this.sedes];
+    }
+    
+    // Limpiar el filtro global cuando se cambia el filtro de empresa
+    if (this.dt) {
+      this.dt.clear();
+    }
+  }
+
+  clearFilters(): void {
+    this.selectedEmpresaFilter = null;
+    this.sedesFiltered = [...this.sedes];
+    
+    // Limpiar el input de búsqueda global usando ViewChild
+    if (this.globalFilter && this.globalFilter.nativeElement) {
+      this.globalFilter.nativeElement.value = '';
     }
   }
 
   onGlobalFilter(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.dt.filterGlobal(input.value, 'contains');
+    const value = input.value;
+    
+    if (value) {
+      // Aplicar filtro global sobre los datos ya filtrados por empresa
+      let dataToFilter = this.selectedEmpresaFilter 
+        ? this.sedes.filter(s => s.sucursal?.id_Empresa === this.selectedEmpresaFilter)
+        : this.sedes;
+      
+      this.sedesFiltered = dataToFilter.filter(sede => 
+        sede.nombre.toLowerCase().includes(value.toLowerCase()) ||
+        (sede.sucursal?.nombre || '').toLowerCase().includes(value.toLowerCase()) ||
+        (sede.sucursal?.empresa?.nombre || '').toLowerCase().includes(value.toLowerCase())
+      );
+    } else {
+      // Si no hay texto de búsqueda, mostrar según filtro de empresa
+      this.filterByEmpresa({ value: this.selectedEmpresaFilter });
+    }
   }
 }

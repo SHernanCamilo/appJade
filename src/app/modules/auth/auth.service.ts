@@ -6,12 +6,14 @@ import { throwError, BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PermissionService } from '../../core/services/permission.service';
 import { TokenService } from '../../core/services/token.service';
+import { SidebarService, ModuloSidebar } from '../../complements/shared/sidebar/sidebar.service';
 
 interface LoginResponse {
   access_token: string;
   token_type: string;
   expires_in: number;
   user?: any;
+  sidebar?: ModuloSidebar[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -24,7 +26,8 @@ export class AuthService {
     private http: HttpClient,
     private router: Router,
     private permissionService: PermissionService,
-    private tokenService: TokenService
+    private tokenService: TokenService,
+    private sidebarService: SidebarService
   ) {
     // Cargar usuario si existe token y es válido
     if (this.token) {
@@ -52,6 +55,17 @@ export class AuthService {
             this.permissionService.setPermissions(resp.user.permissions);
           }
         }
+
+        // Cargar módulos del sidebar si vienen en la respuesta
+        if (resp.sidebar && resp.sidebar.length > 0) {
+          console.log('✅ Módulos del sidebar recibidos en login:', resp.sidebar);
+          this.sidebarService.cargarModulosDesdeLogin(resp.sidebar);
+        } else {
+          console.log('⚠️ No se recibieron módulos en login, cargando con endpoint separado');
+          // Si no vienen en el login, cargarlos con endpoint separado
+          this.loadSidebarModules();
+        }
+
         // Iniciar validación de token
         this.startTokenValidation();
         // Iniciar validación de sesión máxima (8 horas)
@@ -59,7 +73,6 @@ export class AuthService {
         
         // Mostrar información del token
         const tokenInfo = this.tokenService.getTokenInfo(resp.access_token);
-        console.log('✅ Login exitoso. Token expira en:', Math.floor(tokenInfo.timeRemaining! / 60), 'minutos');
       }),
       catchError(error => {
         console.error('Error en login:', error);
@@ -84,6 +97,24 @@ export class AuthService {
       alert('Tu sesión ha alcanzado el tiempo máximo de 8 horas. Por favor, inicia sesión nuevamente.');
       this.clearSession();
     }, maxSessionTime);
+  }
+
+  /**
+   * Carga los módulos del sidebar con permisos básicos
+   * Se ejecuta si no vienen en el login
+   */
+  private loadSidebarModules(): void {
+    this.http.get<any>(`${this.apiUrl}/sidebar-modules`).subscribe({
+      next: (response) => {
+        if (response.data || response.sidebar) {
+          const modulos = response.data || response.sidebar;
+          this.sidebarService.cargarModulosDesdeLogin(modulos);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error cargando módulos del sidebar:', error);
+      }
+    });
   }
 
   logout(): void {
@@ -111,10 +142,13 @@ export class AuthService {
     // Limpiar localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('sidebar_modules');
     // Actualizar el subject
     this.currentUserSubject.next(null);
     // Limpiar permisos
     this.permissionService.clearPermissions();
+    // Limpiar sidebar
+    this.sidebarService.limpiarModulos();
     this.router.navigate(['/login']);
   }
 
@@ -137,9 +171,21 @@ export class AuthService {
         if (user.permissions) {
           this.permissionService.setPermissions(user.permissions);
         }
+        // Cargar módulos del sidebar
+        this.loadSidebarModules();
       } catch (e) {
         console.error('Error parsing user data:', e);
       }
+    } else {
+      // Si no hay usuario en localStorage, obtenerlo del backend
+      this.me().subscribe({
+        next: () => {
+          this.loadSidebarModules();
+        },
+        error: (error) => {
+          console.error('❌ Error obteniendo usuario:', error);
+        }
+      });
     }
   }
 

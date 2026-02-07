@@ -21,7 +21,8 @@ export class OrganizacionComponent {
       items: [
         { name: 'Maestro de Empresas', route: '/organizacion/empresa/maestro', icon: 'bi-building-fill' },
         { name: 'Sucursales', route: '/organizacion/empresa/sucursales', icon: 'bi-shop' },
-        { name: 'Sedes', route: '/organizacion/empresa/sedes', icon: 'bi-geo-alt-fill' }
+        { name: 'Sedes', route: '/organizacion/empresa/sedes', icon: 'bi-geo-alt-fill' },
+        { name: 'Módulos', route: '/organizacion/empresa/modulos', icon: 'bi-grid-3x3-gap' }
       ]
     },
     {
@@ -32,7 +33,8 @@ export class OrganizacionComponent {
       items: [
         { name: 'Creación de Usuario', route: '/organizacion/usuario/crear', icon: 'bi-person-plus-fill' },
         { name: 'Roles', route: '/organizacion/usuario/roles', icon: 'bi-shield-check' },
-        { name: 'Perfiles', route: '/organizacion/usuario/perfiles', icon: 'bi-person-badge' }
+        { name: 'Perfiles', route: '/organizacion/usuario/perfiles', icon: 'bi-person-badge' },
+        { name: 'Permiso', route: '/organizacion/usuario/permisos', icon: 'bi-shield-lock-fill' }
       ]
     },
     {
@@ -41,7 +43,6 @@ export class OrganizacionComponent {
       description: 'Configuración de módulos y reportes',
       color: 'info',
       items: [
-        { name: 'Módulos', route: '/organizacion/servicios/modulos', icon: 'bi-grid-3x3-gap' },
         { name: 'Reportes', route: '/organizacion/servicios/reportes', icon: 'bi-file-earmark-bar-graph' },
         { name: 'Configuración', route: '/organizacion/servicios/configuracion', icon: 'bi-sliders' }
       ]

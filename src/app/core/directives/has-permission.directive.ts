@@ -3,15 +3,15 @@ import { PermissionService } from '../services/permission.service';
 import { Subscription } from 'rxjs';
 
 @Directive({
-  selector: '[appHasPermission]',
+  selector: '[hasPermission]',
   standalone: true
 })
 export class HasPermissionDirective implements OnInit, OnDestroy {
-  private permissions: string[] = [];
+  private permission: string = '';
   private subscription?: Subscription;
 
-  @Input() set appHasPermission(permissions: string | string[]) {
-    this.permissions = Array.isArray(permissions) ? permissions : [permissions];
+  @Input() set hasPermission(permission: string) {
+    this.permission = permission;
     this.updateView();
   }
 
@@ -21,20 +21,27 @@ export class HasPermissionDirective implements OnInit, OnDestroy {
     private permissionService: PermissionService
   ) {}
 
-  ngOnInit(): void {
+  ngOnInit() {
+    // Suscribirse a cambios en los permisos
     this.subscription = this.permissionService.permissions$.subscribe(() => {
       this.updateView();
     });
   }
 
-  ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
+  ngOnDestroy() {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
   }
 
-  private updateView(): void {
-    if (this.permissionService.hasAnyPermission(this.permissions)) {
-      this.viewContainer.createEmbeddedView(this.templateRef);
+  private updateView() {
+    if (this.permissionService.hasPermission(this.permission)) {
+      // Mostrar el elemento
+      if (this.viewContainer.length === 0) {
+        this.viewContainer.createEmbeddedView(this.templateRef);
+      }
     } else {
+      // Ocultar el elemento
       this.viewContainer.clear();
     }
   }

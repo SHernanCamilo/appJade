@@ -1,29 +1,202 @@
+/* ============================================
+   ANIMACIÓN DE FONDO - BURBUJAS FLOTANTES
+   ============================================ */
+
+/* Contenedor principal */
 :host {
+  position: relative;
   min-height: 100vh;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #243B55, #141E30 100%);
+  background: #0a0a1a;
 }
 
+/* Burbuja 1 - Azul/Morado (Arriba Izquierda) */
+:host::before {
+  content: "";
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  top: -15%;
+  left: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #6366f1 0%, #8b5cf6 50%, transparent 70%);
+  filter: blur(80px);
+  opacity: 0.8;
+  animation: float1 20s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Burbuja 2 - Rosa/Rojo (Abajo Derecha) */
+:host::after {
+  content: "";
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  bottom: -10%;
+  right: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ec4899 0%, #f43f5e 50%, transparent 70%);
+  filter: blur(80px);
+  opacity: 0.7;
+  animation: float2 18s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Contenedor del formulario */
 .login-container {
+  position: relative;
+  z-index: 2;
   width: 100%;
   max-width: 650px;
   padding: 0 1rem;
 }
 
-/* Card Styles */
+/* Overlay para burbujas adicionales */
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Burbuja 3 - Cyan (Centro Derecha) */
+.hero__overlay::before {
+  content: "";
+  position: absolute;
+  width: 450px;
+  height: 450px;
+  top: 30%;
+  right: -5%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #06b6d4 0%, #0ea5e9 50%, transparent 70%);
+  filter: blur(90px);
+  opacity: 0.6;
+  animation: float3 22s ease-in-out infinite;
+}
+
+/* Burbuja 4 - Verde (Centro Izquierda) */
+.hero__overlay::after {
+  content: "";
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  bottom: 25%;
+  left: -5%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #10b981 0%, #22c55e 50%, transparent 70%);
+  filter: blur(85px);
+  opacity: 0.5;
+  animation: float4 19s ease-in-out infinite;
+}
+
+/* Contenido del card */
+.hero__content {
+  position: relative;
+  z-index: 3;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+/* ============================================
+   ANIMACIONES
+   ============================================ */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float1 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1); 
+    opacity: 0.8;
+  }
+  33% { 
+    transform: translate(30%, 20%) scale(1.2); 
+    opacity: 0.9;
+  }
+  66% { 
+    transform: translate(-20%, 30%) scale(1.1); 
+    opacity: 0.7;
+  }
+}
+
+@keyframes float2 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1); 
+    opacity: 0.7;
+  }
+  33% { 
+    transform: translate(-30%, -20%) scale(1.3); 
+    opacity: 0.8;
+  }
+  66% { 
+    transform: translate(20%, -30%) scale(1.15); 
+    opacity: 0.6;
+  }
+}
+
+@keyframes float3 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1); 
+    opacity: 0.6;
+  }
+  50% { 
+    transform: translate(-25%, 25%) scale(1.25); 
+    opacity: 0.8;
+  }
+}
+
+@keyframes float4 {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1); 
+    opacity: 0.5;
+  }
+  50% { 
+    transform: translate(30%, -20%) scale(1.2); 
+    opacity: 0.7;
+  }
+}
+
+/* ============================================
+   CARD STYLES - GLASSMORPHISM
+   ============================================ */
+
 ::ng-deep .login-card {
-  background: #fff;
-  border-radius: 15px;
-  box-shadow: 0 8px 28px rgba(46,66,114,0.08);
-  border: none !important;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+    0 0 100px rgba(99, 102, 241, 0.2),
+    0 0 60px rgba(236, 72, 153, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+::ng-deep .login-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 16px 56px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+    0 0 120px rgba(99, 102, 241, 0.3),
+    0 0 80px rgba(236, 72, 153, 0.15);
 }
 
 ::ng-deep .login-card .p-card-header {
   padding: 2rem 2.2rem 0.75rem 2.2rem !important;
-  background: white;
-  border-radius: 15px 15px 0 0;
+  background: transparent;
+  border-radius: 24px 24px 0 0;
 }
 
 ::ng-deep .login-card .p-card-body {
@@ -34,7 +207,10 @@
   padding: 0 !important;
 }
 
-/* Header */
+/* ============================================
+   HEADER
+   ============================================ */
+
 .login-header {
   text-align: center;
 }
@@ -53,7 +229,10 @@
   margin: 0;
 }
 
-/* Form Fields */
+/* ============================================
+   FORM FIELDS
+   ============================================ */
+
 .field {
   margin-bottom: 1rem;
 }
@@ -114,23 +293,11 @@
   color: #6c757d;
 }
 
-::ng-deep .p-password .p-icon-field-right {
-  position: absolute;
-  top: 50%;
-  right: 1rem;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-}
-
 ::ng-deep .p-password button {
   position: absolute;
   top: 50%;
   right: 0.75rem;
   transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: transparent;
   border: none;
   padding: 0.25rem;
@@ -165,7 +332,10 @@
   color: #263859;
 }
 
-/* Buttons */
+/* ============================================
+   BUTTONS
+   ============================================ */
+
 ::ng-deep .p-button {
   display: flex;
   align-items: center;
@@ -206,7 +376,10 @@
   font-size: 1.25rem;
 }
 
-/* Divider */
+/* ============================================
+   DIVIDER
+   ============================================ */
+
 ::ng-deep .p-divider {
   margin: 1.5rem 0;
 }
@@ -227,7 +400,10 @@
   font-size: 0.86rem;
 }
 
-/* Error Messages */
+/* ============================================
+   ERROR MESSAGES
+   ============================================ */
+
 ::ng-deep .p-message {
   border-radius: 8px;
   border: none;
@@ -250,7 +426,10 @@
   line-height: 1.2;
 }
 
-/* Links */
+/* ============================================
+   LINKS
+   ============================================ */
+
 .text-primary {
   color: #1976d2;
   text-decoration: underline;
@@ -271,48 +450,33 @@
   text-align: center;
 }
 
-/* Spacing */
-.mb-4 {
-  margin-bottom: 1rem;
-}
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
 
-.mb-3 {
-  margin-bottom: 0.75rem;
-}
+.mb-4 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mt-1 { margin-top: 0.25rem; }
+.ml-2 { margin-left: 0.5rem; }
 
-.mt-1 {
-  margin-top: 0.25rem;
-}
+.flex { display: flex; }
+.justify-content-between { justify-content: space-between; }
+.align-items-center { align-items: center; }
+.block { display: block; }
+.w-full { width: 100%; }
 
-.ml-2 {
-  margin-left: 0.5rem;
-}
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 
-/* Flex utilities */
-.flex {
-  display: flex;
-}
-
-.justify-content-between {
-  justify-content: space-between;
-}
-
-.align-items-center {
-  align-items: center;
-}
-
-.block {
-  display: block;
-}
-
-.w-full {
-  width: 100%;
-}
-
-/* Responsive */
 @media (max-width: 600px) {
-  :host {
-    background: linear-gradient(135deg, #7da5d3, #4776cc 100%);
+  /* Reducir blur en móviles para mejor performance */
+  :host::before,
+  :host::after,
+  .hero__overlay::before,
+  .hero__overlay::after {
+    filter: blur(40px);
+    opacity: 0.5;
   }
 
   .login-container {
@@ -323,10 +487,6 @@
   ::ng-deep .login-card {
     width: 100vw;
     height: 100vh;
-    min-width: 0;
-    min-height: 0;
-    max-width: none;
-    max-height: none;
     border-radius: 0;
     margin: 0;
     display: flex;
@@ -335,12 +495,12 @@
   }
 
   ::ng-deep .login-card .p-card-header {
-    padding: 24px 3vw !important;
+    padding: 1.5rem 1rem 0.75rem 1rem !important;
     border-radius: 0;
   }
 
   ::ng-deep .login-card .p-card-body {
-    padding: 0 3vw 24px 3vw !important;
+    padding: 0.75rem 1rem 1.5rem 1rem !important;
   }
 
   .flex.justify-content-between {

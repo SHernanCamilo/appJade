@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { EmpresaService, Empresa, CreateEmpresaRequest } from '../services/empresa.service';
+import { AllowedDomainService, AllowedDomain } from '../services/allowed-domain.service';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
 // PrimeNG Imports
 import { TableModule, Table } from 'primeng/table';
@@ -15,6 +18,8 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TagModule } from 'primeng/tag';
 import { AvatarModule } from 'primeng/avatar';
 import { TooltipModule } from 'primeng/tooltip';
+import { DropdownModule } from 'primeng/dropdown';
+import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService, ConfirmationService } from 'primeng/api';
 
 @Component({
@@ -33,7 +38,10 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     ConfirmDialogModule,
     TagModule,
     AvatarModule,
-    TooltipModule
+    TooltipModule,
+    DropdownModule,
+    CheckboxModule,
+    HasPermissionDirective
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './maestro-empresa.component.html',
@@ -41,6 +49,9 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 })
 export class MaestroEmpresaComponent implements OnInit {
   @ViewChild('dt') dt!: Table;
+  @ViewChild('dtDomains') dtDomains!: Table;
+  
+  activeTab: 'empresas' | 'dominios' = 'empresas';
   
   empresas: Empresa[] = [];
   empresaForm!: FormGroup;
@@ -50,13 +61,52 @@ export class MaestroEmpresaComponent implements OnInit {
   editMode = false;
   currentEmpresaId?: number;
 
+  // Dominios
+  domains: AllowedDomain[] = [];
+  loadingDomains = false;
+  showDomainDialog = false;
+  editingDomain: AllowedDomain | null = null;
+  domainForm!: FormGroup;
+
   constructor(
     private fb: FormBuilder,
     private empresaService: EmpresaService,
+    private allowedDomainService: AllowedDomainService,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    public permissionService: PermissionService
   ) {
     this.initForm();
+    this.initDomainForm();
+  }
+
+  // Métodos de verificación de permisos
+  canCreate(): boolean {
+    return this.permissionService.hasPermission('org-emp-crear');
+  }
+
+  canEdit(): boolean {
+    return this.permissionService.hasPermission('org-emp-editar');
+  }
+
+  canDelete(): boolean {
+    return this.permissionService.hasPermission('org-emp-eliminar');
+  }
+
+  canToggleStatus(): boolean {
+    return this.permissionService.hasPermission('org-emp-toggle-estado');
+  }
+
+  canView(): boolean {
+    return this.permissionService.hasPermission('org-emp-ver');
+  }
+
+  canExport(): boolean {
+    return this.permissionService.hasPermission('org-emp-exportar');
+  }
+
+  canSearch(): boolean {
+    return this.permissionService.hasPermission('org-emp-buscar');
   }
 
   ngOnInit(): void {
@@ -74,6 +124,17 @@ export class MaestroEmpresaComponent implements OnInit {
       cc_rep_legal: [null, [Validators.required]],
       logo: [''],
       estado: [1]
+    });
+  }
+
+  initDomainForm(): void {
+    this.domainForm = this.fb.group({
+      domain: ['', [Validators.required, Validators.pattern(/^@?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)]],
+      tenant_id: ['', Validators.required],
+      tenant_name: ['', [Validators.required, Validators.maxLength(255)]],
+      id_empresa: [null],
+      descripcion: [''],
+      activo: [true]
     });
   }
 
@@ -246,5 +307,191 @@ export class MaestroEmpresaComponent implements OnInit {
   onGlobalFilter(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.dt.filterGlobal(input.value, 'contains');
+  }
+
+  reloadPermissions(): void {
+    console.log('🔄 Recargando permisos manualmente...');
+    this.permissionService.reloadPermissions();
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Recargando',
+      detail: 'Revisa la consola para ver los logs'
+    });
+  }
+
+  // ========== GESTIÓN DE DOMINIOS ==========
+
+  loadDomains(): void {
+    this.loadingDomains = true;
+    this.allowedDomainService.getAll().subscribe({
+      next: (response) => {
+        console.log('Dominios cargados:', response);
+        this.domains = response.domains || [];
+        this.loadingDomains = false;
+      },
+      error: (error) => {
+        console.error('Error al cargar dominios:', error);
+        this.loadingDomains = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Error al cargar los dominios permitidos'
+        });
+      }
+    });
+  }
+
+  onGlobalFilterDomains(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.dtDomains.filterGlobal(input.value, 'contains');
+  }
+
+  openDomainDialog(domain?: AllowedDomain): void {
+    this.editingDomain = domain || null;
+
+    if (domain) {
+      // Editar dominio existente
+      this.domainForm.patchValue({
+        domain: domain.domain,
+        tenant_id: domain.tenant_id,
+        tenant_name: domain.tenant_name,
+        id_empresa: domain.id_empresa,
+        descripcion: domain.descripcion,
+        activo: domain.activo
+      });
+    } else {
+      // Nuevo dominio
+      this.domainForm.reset({
+        activo: true
+      });
+    }
+
+    this.showDomainDialog = true;
+  }
+
+  closeDomainDialog(): void {
+    this.showDomainDialog = false;
+    this.editingDomain = null;
+    this.domainForm.reset();
+  }
+
+  saveDomain(): void {
+    if (this.domainForm.invalid) {
+      this.domainForm.markAllAsTouched();
+      return;
+    }
+
+    const domainData = this.domainForm.value;
+
+    // Asegurar que el dominio tenga @
+    if (domainData.domain && !domainData.domain.startsWith('@')) {
+      domainData.domain = '@' + domainData.domain;
+    }
+
+    if (this.editingDomain) {
+      // Actualizar
+      this.allowedDomainService.update(this.editingDomain.id, domainData).subscribe({
+        next: (response) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: 'Dominio actualizado exitosamente'
+          });
+          this.closeDomainDialog();
+          this.loadDomains();
+        },
+        error: (error) => {
+          console.error('Error al actualizar dominio:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.error?.message || 'Error al actualizar el dominio'
+          });
+        }
+      });
+    } else {
+      // Crear
+      this.allowedDomainService.create(domainData).subscribe({
+        next: (response) => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: 'Dominio creado exitosamente'
+          });
+          this.closeDomainDialog();
+          this.loadDomains();
+        },
+        error: (error) => {
+          console.error('Error al crear dominio:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.error?.message || 'Error al crear el dominio'
+          });
+        }
+      });
+    }
+  }
+
+  deleteDomain(domain: AllowedDomain): void {
+    this.confirmationService.confirm({
+      message: `¿Estás seguro de eliminar el dominio "${domain.domain}"?`,
+      header: 'Confirmar Eliminación',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.allowedDomainService.delete(domain.id).subscribe({
+          next: (response) => {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Éxito',
+              detail: 'Dominio eliminado exitosamente'
+            });
+            this.loadDomains();
+          },
+          error: (error) => {
+            console.error('Error al eliminar dominio:', error);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: error.error?.message || 'Error al eliminar el dominio'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  toggleDomainStatus(domain: AllowedDomain): void {
+    this.confirmationService.confirm({
+      message: `¿Estás seguro de ${domain.activo ? 'desactivar' : 'activar'} el dominio "${domain.domain}"?`,
+      header: 'Confirmar Cambio de Estado',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, continuar',
+      rejectLabel: 'Cancelar',
+      accept: () => {
+        this.allowedDomainService.toggleStatus(domain.id).subscribe({
+          next: (response) => {
+            const status = !domain.activo ? 'activado' : 'desactivado';
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Éxito',
+              detail: `Dominio ${status} exitosamente`
+            });
+            this.loadDomains();
+          },
+          error: (error) => {
+            console.error('Error al cambiar estado del dominio:', error);
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: 'Error al cambiar el estado del dominio'
+            });
+          }
+        });
+      }
+    });
   }
 }
