@@ -82,6 +82,16 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   selectedSucursal: number | null = null;
   selectedSede: number | null = null;
   
+  // Filter options
+  empresasOptions: any[] = [];
+  sucursalesOptions: any[] = [];
+  sedesOptions: any[] = [];
+  
+  // Data for filters
+  empresasList: any[] = [];
+  sucursalesList: any[] = [];
+  sedesList: any[] = [];
+  
   // Stats
   stats = {
     totalActivos: 0,
@@ -158,13 +168,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadUserPermissions();
     this.loadActivos();
-    this.loadStats();
-    
-    // Cargar estadísticas después de un pequeño delay para asegurar que Chart.js esté disponible
-    setTimeout(() => {
-      this.loadEstadisticasPorTipo();
-      this.loadEstadisticasPorUbicacion();
-    }, 100);
+    this.loadStats(); // Esto carga todo incluyendo las empresas para los filtros
   }
 
   /**
@@ -356,9 +360,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('👤 Usuario actual:', currentUser);
-    console.log('🏢 Empresas del usuario:', currentUser.empresas);
-
     // Extraer permisos de empresas
     if (currentUser.empresas && Array.isArray(currentUser.empresas)) {
       this.empresasPermisos = currentUser.empresas.map((empresa: any) => {
@@ -371,25 +372,10 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         };
       });
 
-      console.log('✅ Permisos de empresas cargados:', this.empresasPermisos);
-      
-      // Si no tiene empresas asignadas, tiene acceso a todo
       if (this.empresasPermisos.length === 0) {
-        console.log('⚠️ Usuario sin empresas asignadas - Acceso total');
         this.showInfo('Tienes acceso a todos los activos del sistema');
-      } else {
-        const empresasRecursivas = this.empresasPermisos.filter(p => p.recursivo && !p.sucursal_id).length;
-        const sucursalesRecursivas = this.empresasPermisos.filter(p => p.recursivo && p.sucursal_id).length;
-        const asignacionesEspecificas = this.empresasPermisos.filter(p => !p.recursivo).length;
-        
-        console.log(`📊 Resumen de permisos:
-          - Empresas completas (recursivo): ${empresasRecursivas}
-          - Sucursales recursivas: ${sucursalesRecursivas}
-          - Asignaciones específicas: ${asignacionesEspecificas}
-        `);
       }
     } else {
-      console.log('⚠️ Usuario sin empresas asignadas - Acceso total');
       this.empresasPermisos = [];
     }
   }
@@ -398,7 +384,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Cargar activos según permisos
    */
   loadActivos(): void {
-    console.log('🚀 === INICIO CARGA ACTIVOS PRINCIPALES ===');
     this.isLoading = true;
 
     const filtros: FiltrosActivos = {
@@ -422,50 +407,14 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       filtros.sede_id = this.selectedSede;
     }
 
-    console.log('🔍 Cargando activos principales con filtros:', filtros);
-
     this.activosService.getActivosPorPermisos(filtros).subscribe({
       next: (response) => {
-        console.log('✅ === RESPUESTA ACTIVOS PRINCIPALES ===');
-        console.log('📊 Respuesta RAW:', response);
-        console.log('📋 Datos procesados:', {
-          success: response.success,
-          total: response.total,
-          current_page: response.current_page,
-          data_length: response.data?.length || 0
-        });
-
-        // DEBUG: Verificar estructura de cada activo
-        if (response.data && response.data.length > 0) {
-          console.log('🔍 === ANÁLISIS ACTIVOS PRINCIPALES ===');
-          response.data.forEach((activo, index) => {
-            if (index < 2) { // Solo los primeros 2
-              console.log(`📋 Activo Principal ${index + 1}:`, {
-                id: activo.id,
-                nombre_equipo: activo.nombre_equipo,
-                agente: activo.agente,
-                empresa: activo.empresa?.nombre || 'NULL',
-                detalles: activo.detalle ? 'TIENE DETALLES' : 'SIN DETALLES',
-                detalles_raw: activo.detalle
-              });
-            }
-          });
-        }
-
         this.activos = response.data;
         this.totalRecords = response.total;
         this.isLoading = false;
-        
-        console.log('✅ Activos principales cargados:', {
-          total: response.total,
-          pagina: response.current_page,
-          registros: response.data.length,
-          this_activos_length: this.activos.length
-        });
-        console.log('🏁 === FIN CARGA ACTIVOS PRINCIPALES ===');
       },
       error: (error) => {
-        console.error('❌ Error cargando activos principales:', error);
+        console.error('Error cargando activos:', error);
         this.showError('Error al cargar los activos');
         this.isLoading = false;
         this.activos = [];
@@ -478,42 +427,39 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   loadStats(): void {
     this.isLoadingStats = true;
-
-    this.activosService.getEstadisticas().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.stats = {
-            totalActivos: response.data.total_activos || 0,
-            activosRecientes: response.data.activos_recientes || 0,
-            empresasConAcceso: response.data.empresas_con_acceso || 0,
-            promedioObsolescencia: response.data.promedio_obsolescencia || 0
-          };
-        }
-        this.isLoadingStats = false;
-        
-        // Cargar estadísticas por estado
-        this.loadEstadisticasPorEstado();
-      },
-      error: (error) => {
-        console.error('Error cargando estadísticas:', error);
-        this.isLoadingStats = false;
-      }
-    });
+    
+    // Cargar estadísticas por estado (que ahora calcula todo)
+    this.loadEstadisticasPorEstado();
+    
+    this.isLoadingStats = false;
   }
 
   /**
    * Cargar estadísticas por estado de obsolescencia
    */
   private loadEstadisticasPorEstado(): void {
-    // Obtener todos los activos sin paginación para calcular estadísticas
     const filtros: FiltrosActivos = {
-      per_page: 9999 // Un número muy alto para obtener todos
+      per_page: 9999
     };
+
+    if (this.selectedEmpresa) {
+      filtros.empresa_id = this.selectedEmpresa;
+    }
+    if (this.selectedSucursal) {
+      filtros.sucursal_id = this.selectedSucursal;
+    }
+    if (this.selectedSede) {
+      filtros.sede_id = this.selectedSede;
+    }
 
     this.activosService.getActivosPorPermisos(filtros).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           const activos = response.data;
+          
+          if (!this.selectedEmpresa && !this.selectedSucursal && !this.selectedSede) {
+            this.cargarEmpresasDesdeActivos(activos);
+          }
           
           this.estadisticasPorEstado = {
             optimo: activos.filter(a => a.puntaje >= 80).length,
@@ -522,115 +468,155 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
             obsoleto: activos.filter(a => a.puntaje < 40).length
           };
           
-          console.log('📊 Estadísticas por estado calculadas:', this.estadisticasPorEstado);
+          this.stats.totalActivos = activos.length;
+          this.calcularEstadisticasPorTipo(activos);
+          this.calcularEstadisticasPorUbicacion(activos);
         }
       },
       error: (error) => {
-        console.error('Error cargando estadísticas por estado:', error);
-        // Mantener valores por defecto
+        console.error('Error cargando estadísticas:', error);
         this.estadisticasPorEstado = {
           optimo: 0,
           funcional: 0,
           potencial: 0,
           obsoleto: 0
         };
+        this.stats.totalActivos = 0;
       }
     });
   }
 
   /**
-   * Cargar estadísticas por tipo de equipo
+   * Cargar empresas desde los activos (para los dropdowns de filtros)
    */
-  loadEstadisticasPorTipo(): void {
+  private cargarEmpresasDesdeActivos(activos: ActivoMatriz[]): void {
+    const empresasMap = new Map<number, { id: number; nombre: string }>();
+    
+    activos.forEach(activo => {
+      if (activo.empresa && activo.id_empresa) {
+        if (!empresasMap.has(activo.id_empresa)) {
+          empresasMap.set(activo.id_empresa, {
+            id: activo.id_empresa,
+            nombre: activo.empresa.nombre
+          });
+        }
+      }
+    });
+    
+    this.empresasList = Array.from(empresasMap.values())
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    
+    this.empresasOptions = this.empresasList.map(emp => ({
+      label: emp.nombre,
+      value: emp.id
+    }));
+  }
+
+  /**
+   * Calcular estadísticas por tipo de equipo localmente
+   */
+  private calcularEstadisticasPorTipo(activos: ActivoMatriz[]): void {
     this.isLoadingGrafico = true;
 
-    this.parametrosService.getEstadisticasPorTipo().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.estadisticasPorTipo = response.data.tipos || [];
-          this.promedioGeneral = response.data.resumen?.promedio_general || 0;
-          
-          // Actualizar datos del gráfico
-          this.updateChartData();
-          
-          console.log('📊 Estadísticas por tipo cargadas:', {
-            tipos: this.estadisticasPorTipo.length,
-            promedio: this.promedioGeneral,
-            datos: this.estadisticasPorTipo
-          });
-        }
-        this.isLoadingGrafico = false;
-      },
-      error: (error) => {
-        console.error('Error cargando estadísticas por tipo:', error);
-        this.isLoadingGrafico = false;
-        this.estadisticasPorTipo = [];
-        this.chartData = {};
+    const tipoMap = new Map<string, { total: number; optimo: number; funcional: number; potencial: number; obsoleto: number }>();
+    
+    activos.forEach(activo => {
+      const tipo = activo.detalle?.tipo || 'Sin tipo';
+      
+      if (!tipoMap.has(tipo)) {
+        tipoMap.set(tipo, { total: 0, optimo: 0, funcional: 0, potencial: 0, obsoleto: 0 });
       }
+      
+      const stats = tipoMap.get(tipo)!;
+      stats.total++;
+      
+      if (activo.puntaje >= 80) stats.optimo++;
+      else if (activo.puntaje >= 60) stats.funcional++;
+      else if (activo.puntaje >= 40) stats.potencial++;
+      else stats.obsoleto++;
     });
+    
+    this.estadisticasPorTipo = Array.from(tipoMap.entries()).map(([tipo, stats]) => ({
+      tipo,
+      total: stats.total,
+      optimo: stats.optimo,
+      funcional: stats.funcional,
+      potencial: stats.potencial,
+      obsoleto: stats.obsoleto
+    }));
+    
+    this.estadisticasPorTipo.sort((a, b) => b.total - a.total);
+    this.updateChartData();
+    this.isLoadingGrafico = false;
   }
 
   /**
-   * Cargar estadísticas por ubicación
+   * Calcular estadísticas por ubicación localmente
    */
-  loadEstadisticasPorUbicacion(): void {
+  private calcularEstadisticasPorUbicacion(activos: ActivoMatriz[]): void {
     this.isLoadingBarChart = true;
 
-    this.parametrosService.getEstadisticasPorUbicacion().subscribe({
-      next: (response) => {
-        console.log('📊 Respuesta estadísticas por ubicación:', response);
-        
-        if (response.success && response.data) {
-          this.estadisticasPorUbicacion = response.data.ubicaciones || [];
-          
-          // Actualizar datos del gráfico de barras
-          this.updateBarChartData();
-          
-          console.log('📊 Estadísticas por ubicación cargadas:', {
-            ubicaciones: this.estadisticasPorUbicacion.length,
-            datos: this.estadisticasPorUbicacion
-          });
-          
-          if (this.estadisticasPorUbicacion.length === 0) {
-            console.log('⚠️ No se encontraron datos de ubicación');
-          }
-        } else {
-          console.log('❌ Respuesta sin éxito o sin datos:', response);
-          this.estadisticasPorUbicacion = [];
+    const ubicacionMap = new Map<string, { total: number; optimo: number; funcional: number; potencial: number; obsoleto: number }>();
+    
+    activos.forEach(activo => {
+      let ubicacion = 'Sin empresa';
+      
+      if (activo.empresa) {
+        ubicacion = activo.empresa.nombre;
+        if (activo.sucursal) {
+          ubicacion += ` - ${activo.sucursal.nombre}`;
         }
-        this.isLoadingBarChart = false;
-      },
-      error: (error) => {
-        console.error('❌ Error cargando estadísticas por ubicación:', error);
-        console.error('Detalles del error:', {
-          status: error.status,
-          statusText: error.statusText,
-          message: error.message,
-          error_body: error.error
-        });
-        
-        this.isLoadingBarChart = false;
-        this.estadisticasPorUbicacion = [];
-        this.barChartData = {};
-        
-        // Mostrar mensaje de error al usuario
-        this.showError('Error al cargar estadísticas por ubicación: ' + (error.error?.message || error.message));
       }
+      
+      if (!ubicacionMap.has(ubicacion)) {
+        ubicacionMap.set(ubicacion, { total: 0, optimo: 0, funcional: 0, potencial: 0, obsoleto: 0 });
+      }
+      
+      const stats = ubicacionMap.get(ubicacion)!;
+      stats.total++;
+      
+      if (activo.puntaje >= 80) stats.optimo++;
+      else if (activo.puntaje >= 60) stats.funcional++;
+      else if (activo.puntaje >= 40) stats.potencial++;
+      else stats.obsoleto++;
     });
+    
+    this.estadisticasPorUbicacion = Array.from(ubicacionMap.entries()).map(([ubicacion, stats]) => ({
+      ubicacion,
+      total: stats.total,
+      distribucion: {
+        optimo: stats.optimo,
+        funcional: stats.funcional,
+        potencial: stats.potencial,
+        obsoleto: stats.obsoleto
+      }
+    }));
+    
+    this.estadisticasPorUbicacion.sort((a, b) => b.total - a.total);
+    this.updateBarChartData();
+    this.isLoadingBarChart = false;
+  }
+
+  /**
+   * Cargar estadísticas por tipo de equipo (stub - ahora se calcula localmente)
+   */
+  loadEstadisticasPorTipo(): void {
+    // Delegado a calcularEstadisticasPorTipo
+  }
+
+  /**
+   * Cargar estadísticas por ubicación (stub - ahora se calcula localmente)
+   */
+  loadEstadisticasPorUbicacion(): void {
+    // Delegado a calcularEstadisticasPorUbicacion
   }
 
   /**
    * Manejar cambio de página (lazy loading)
    */
   onPageChange(event: any): void {
-    console.log('📄 Evento de paginación:', event);
-    
-    // Para lazy loading, el evento tiene una estructura diferente
     this.currentPage = Math.floor(event.first / event.rows) + 1;
     this.rowsPerPage = event.rows;
-    
-    console.log('📄 Nueva página:', this.currentPage, 'Filas por página:', this.rowsPerPage);
-    
     this.loadActivos();
   }
 
@@ -760,25 +746,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Abrir matriz completa de todos los activos
    */
   abrirMatrizCompletaTodos(): void {
-    console.log('🎯 === ABRIENDO MATRIZ COMPLETA TODOS ===');
-    console.log('📊 Estado antes de abrir:', {
-      mostrarMatrizCompletaTodos: this.mostrarMatrizCompletaTodos,
-      currentPageCompleta: this.currentPageCompleta,
-      searchTermTodos: this.searchTermTodos,
-      activosMatrizCompleta_length: this.activosMatrizCompleta.length
-    });
-
     this.mostrarMatrizCompletaTodos = true;
     this.currentPageCompleta = 1;
     this.searchTermTodos = '';
-    
-    console.log('📊 Estado después de configurar:', {
-      mostrarMatrizCompletaTodos: this.mostrarMatrizCompletaTodos,
-      currentPageCompleta: this.currentPageCompleta,
-      searchTermTodos: this.searchTermTodos
-    });
-    
-    console.log('🚀 Llamando a loadActivosMatrizCompleta...');
     this.loadActivosMatrizCompleta();
   }
 
@@ -786,15 +756,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Cargar activos para matriz completa
    */
   loadActivosMatrizCompleta(): void {
-    console.log('🚀 === INICIO CARGA MATRIZ COMPLETA ===');
-    console.log('📊 Estado actual:', {
-      isLoadingMatrizCompleta: this.isLoadingMatrizCompleta,
-      currentPageCompleta: this.currentPageCompleta,
-      rowsPerPageCompleta: this.rowsPerPageCompleta,
-      searchTermTodos: this.searchTermTodos,
-      totalRecordsCompleta: this.totalRecordsCompleta
-    });
-
     this.isLoadingMatrizCompleta = true;
 
     const filtros: FiltrosActivos = {
@@ -806,156 +767,17 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       filtros.search = this.searchTermTodos;
     }
 
-    console.log('🔍 Filtros enviados al servicio:', filtros);
-    console.log('🌐 URL del servicio:', this.activosService);
-
-    // Log del usuario actual y permisos
-    const currentUser = this.authService.currentUser;
-    console.log('👤 Usuario actual para matriz completa:', {
-      id: currentUser?.id,
-      name: currentUser?.name,
-      empresas: currentUser?.empresas?.length || 0,
-      tieneAccesoTotal: this.tieneAccesoTotal()
-    });
-
-    console.log('📡 Llamando a getActivosPorPermisos...');
-    const startTime = performance.now();
-
     this.activosService.getActivosPorPermisos(filtros).subscribe({
       next: (response) => {
-        const endTime = performance.now();
-        const duration = endTime - startTime;
-
-        console.log('✅ === RESPUESTA EXITOSA MATRIZ COMPLETA ===');
-        console.log('⏱️  Tiempo de respuesta:', duration.toFixed(2) + 'ms');
-        console.log('📊 Respuesta completa RAW:', response);
-        console.log('📊 Tipo de response:', typeof response);
-        console.log('📊 Es array response.data?:', Array.isArray(response.data));
-        console.log('📋 Estructura de datos:', {
-          success: response.success,
-          total: response.total,
-          per_page: response.per_page,
-          current_page: response.current_page,
-          last_page: response.last_page,
-          data_length: response.data?.length || 0,
-          data_type: typeof response.data,
-          first_item: response.data?.[0] || null
-        });
-
-        // DEBUG DETALLADO: Verificar cada propiedad de la respuesta
-        console.log('🔬 === ANÁLISIS DETALLADO DE LA RESPUESTA ===');
-        console.log('🔍 response.success:', response.success, typeof response.success);
-        console.log('🔍 response.data:', response.data);
-        console.log('🔍 response.data es null?:', response.data === null);
-        console.log('🔍 response.data es undefined?:', response.data === undefined);
-        console.log('🔍 response.data.length:', response.data?.length);
-
-        // Verificar si los activos tienen detalles
-        if (response.data && response.data.length > 0) {
-          console.log('🔍 === ANÁLISIS COMPLETO DE ACTIVOS ===');
-          response.data.forEach((activo, index) => {
-            console.log(`\n📋 ACTIVO ${index + 1} (ID: ${activo.id}):`);
-            console.log('  📝 Datos básicos:', {
-              id: activo.id,
-              nombre_equipo: activo.nombre_equipo,
-              agente: activo.agente,
-              placa: activo.placa,
-              serial: activo.serial,
-              ubicacion: activo.ubicacion,
-              puntaje: activo.puntaje,
-              id_empresa: activo.id_empresa,
-              id_sucursal: activo.id_sucursal,
-              id_sede: activo.id_sede
-            });
-            
-            console.log('  🏢 Relaciones:', {
-              empresa: activo.empresa ? {
-                id: activo.empresa.id,
-                nombre: activo.empresa.nombre
-              } : 'NULL',
-              sucursal: activo.sucursal ? {
-                id: activo.sucursal.id,
-                nombre: activo.sucursal.nombre
-              } : 'NULL',
-              sede: activo.sede ? {
-                id: activo.sede.id,
-                nombre: activo.sede.nombre
-              } : 'NULL'
-            });
-            
-            console.log('  🔧 Detalles técnicos:', {
-              tiene_detalles: !!activo.detalle,
-              detalles_raw: activo.detalle,
-              detalles_procesados: activo.detalle ? {
-                marca: activo.detalle.marca,
-                tipo: activo.detalle.tipo,
-                referencia: activo.detalle.referencia,
-                tamano_ram: activo.detalle.tamano_ram,
-                generacion_ram: activo.detalle.generacion_ram,
-                procesador: activo.detalle.procesador,
-                numero_procesador: activo.detalle.numero_procesador,
-                tipo_disco: activo.detalle.tipo_disco,
-                tamano_disco: activo.detalle.tamano_disco,
-                interfaz_conexion: activo.detalle.interfaz_conexion
-              } : 'NO HAY DETALLES'
-            });
-            
-            console.log('  📅 Fechas:', {
-              created_at: activo.created_at,
-              updated_at: activo.updated_at,
-              date_u_sincronizacion: activo.date_u_sincronizacion,
-              usuario_modificacion: activo.usuario_modificacion
-            });
-          });
-        } else {
-          console.log('⚠️ NO HAY DATOS EN response.data');
-          console.log('🔍 response.data valor:', response.data);
-          console.log('🔍 response completo:', JSON.stringify(response, null, 2));
-        }
-
-        // ASIGNACIÓN CON DEBUG
-        console.log('📝 === ASIGNANDO DATOS AL COMPONENTE ===');
-        console.log('🔄 Antes de asignar:');
-        console.log('  - this.activosMatrizCompleta.length:', this.activosMatrizCompleta.length);
-        console.log('  - this.totalRecordsCompleta:', this.totalRecordsCompleta);
-        console.log('  - this.isLoadingMatrizCompleta:', this.isLoadingMatrizCompleta);
-
         this.activosMatrizCompleta = response.data || [];
         this.totalRecordsCompleta = response.total || 0;
         this.isLoadingMatrizCompleta = false;
-        
-        console.log('🔄 Después de asignar:');
-        console.log('  - this.activosMatrizCompleta.length:', this.activosMatrizCompleta.length);
-        console.log('  - this.totalRecordsCompleta:', this.totalRecordsCompleta);
-        console.log('  - this.isLoadingMatrizCompleta:', this.isLoadingMatrizCompleta);
-        console.log('  - this.activosMatrizCompleta[0]:', this.activosMatrizCompleta[0]);
-        
-        console.log('🏁 === FIN CARGA MATRIZ COMPLETA ===');
       },
       error: (error) => {
-        const endTime = performance.now();
-        const duration = endTime - startTime;
-
-        console.error('❌ === ERROR EN MATRIZ COMPLETA ===');
-        console.error('⏱️  Tiempo hasta error:', duration.toFixed(2) + 'ms');
-        console.error('🚨 Error completo:', error);
-        console.error('📊 Detalles del error:', {
-          status: error.status,
-          statusText: error.statusText,
-          message: error.message,
-          url: error.url,
-          error_body: error.error
-        });
-
+        console.error('Error cargando matriz completa:', error);
         this.showError('Error al cargar los activos para la matriz completa');
         this.isLoadingMatrizCompleta = false;
         this.activosMatrizCompleta = [];
-        
-        console.log('💥 Estado después del error:', {
-          activosMatrizCompleta_length: this.activosMatrizCompleta.length,
-          isLoadingMatrizCompleta: this.isLoadingMatrizCompleta
-        });
-        console.log('🏁 === FIN ERROR MATRIZ COMPLETA ===');
       }
     });
   }
@@ -964,14 +786,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Manejar cambio de página en matriz completa
    */
   onPageChangeCompleta(event: any): void {
-    console.log('📄 Evento de paginación matriz completa:', event);
-    
-    // Para lazy loading, calcular la página desde first y rows
     this.currentPageCompleta = Math.floor(event.first / event.rows) + 1;
     this.rowsPerPageCompleta = event.rows;
-    
-    console.log('📄 Nueva página matriz completa:', this.currentPageCompleta, 'Filas por página:', this.rowsPerPageCompleta);
-    
     this.loadActivosMatrizCompleta();
   }
 
@@ -1022,8 +838,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.activoSeleccionado = activo;
     this.generarMatrizCompleta(activo);
     this.mostrarMatrizCompleta = true;
-    console.log('🔍 Matriz completa para:', activo.nombre_equipo);
-    console.log('📋 Datos generados:', this.matrizCompleta);
   }
 
   /**
@@ -1393,11 +1207,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Iniciar sincronización de equipos desde GLPI
    */
   iniciarSincronizacion(): void {
-    console.log('🔄 Iniciando sincronización de equipos desde GLPI...');
     this.isSyncing = true;
     this.isCancelling = false;
     
-    // Resetear progreso
     this.syncProgress = {
       percentage: 0,
       current: 0,
@@ -1411,14 +1223,10 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
     this.parametrosService.sincronizarEquipos().subscribe({
       next: (response) => {
-        console.log('✅ Respuesta de sincronización:', response);
         if (response.success && response.data) {
           this.currentSyncId = response.data.sync_id;
           this.syncProgress.message = 'Sincronización en progreso...';
-          
-          // Iniciar polling para verificar el estado y progreso
           this.startSyncStatusPolling();
-          
           this.showInfo('Sincronización iniciada. Puede tomar varios minutos...');
         } else {
           this.isSyncing = false;
@@ -1427,7 +1235,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.isSyncing = false;
-        console.error('❌ Error en sincronización:', error);
+        console.error('Error en sincronización:', error);
         this.handleSyncError(error);
       }
     });
@@ -1438,13 +1246,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   private handleSyncError(error: any, customMessage?: string): void {
     let errorMessage = customMessage || 'Error al iniciar la sincronización';
-    
-    console.log('🔍 Detalles del error:', {
-      status: error.status,
-      statusText: error.statusText,
-      url: error.url,
-      error: error.error
-    });
     
     if (error.status === 404) {
       errorMessage = 'La ruta de sincronización no fue encontrada. URL: ' + error.url;
@@ -1470,7 +1271,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('⏹️ Cancelando sincronización...');
     this.isCancelling = true;
 
     this.parametrosService.cancelarSincronizacion(this.currentSyncId).subscribe({
@@ -1481,8 +1281,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           this.isSyncing = false;
           this.isCancelling = false;
           this.currentSyncId = null;
-          
-          // Recargar datos
           this.loadActivos();
           this.loadStats();
         } else {
@@ -1502,7 +1300,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Iniciar polling para verificar el estado de la sincronización
    */
   private startSyncStatusPolling(): void {
-    // Verificar cada 5 segundos
     this.syncCheckInterval = setInterval(() => {
       if (this.currentSyncId) {
         this.checkSyncStatus();
@@ -1532,7 +1329,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           const status = response.data.status;
           const progress = response.data.progress;
           
-          // Actualizar progreso
           if (progress) {
             this.syncProgress = {
               percentage: progress.percentage || 0,
@@ -1551,30 +1347,24 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
             this.stopSyncStatusPolling();
             this.isSyncing = false;
             this.currentSyncId = null;
-            
-            // Recargar todos los datos
             this.loadActivos();
             this.loadStats();
             this.loadEstadisticasPorTipo();
             this.loadEstadisticasPorUbicacion();
-            
           } else if (status === 'cancelled') {
             this.stopSyncStatusPolling();
             this.isSyncing = false;
             this.currentSyncId = null;
-            
           } else if (status === 'error') {
             this.showError('La sincronización finalizó con errores');
             this.stopSyncStatusPolling();
             this.isSyncing = false;
             this.currentSyncId = null;
           }
-          // Si status === 'running', continuar polling
         }
       },
       error: (error) => {
         console.error('Error verificando estado de sincronización:', error);
-        // No detener el polling por un error puntual
       }
     });
   }
@@ -1600,6 +1390,221 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Cargar lista de empresas desde los activos disponibles
+   */
+  loadEmpresas(): void {
+    const filtros: FiltrosActivos = {
+      per_page: 9999
+    };
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const activos = response.data;
+          const empresasMap = new Map<number, { id: number; nombre: string }>();
+          
+          activos.forEach(activo => {
+            if (activo.empresa && activo.id_empresa) {
+              if (!empresasMap.has(activo.id_empresa)) {
+                empresasMap.set(activo.id_empresa, {
+                  id: activo.id_empresa,
+                  nombre: activo.empresa.nombre
+                });
+              }
+            }
+          });
+          
+          this.empresasList = Array.from(empresasMap.values())
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          this.empresasOptions = this.empresasList.map(emp => ({
+            label: emp.nombre,
+            value: emp.id
+          }));
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando empresas:', error);
+        this.showError('Error al cargar las empresas');
+      }
+    });
+  }
+
+  /**
+   * Cargar sucursales por empresa desde los activos disponibles
+   */
+  loadSucursalesPorEmpresa(empresaId: number): void {
+    const filtros: FiltrosActivos = {
+      per_page: 9999,
+      empresa_id: empresaId
+    };
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const activos = response.data;
+          const sucursalesMap = new Map<number, { id: number; nombre: string }>();
+          
+          activos.forEach(activo => {
+            if (activo.sucursal && activo.id_sucursal) {
+              if (!sucursalesMap.has(activo.id_sucursal)) {
+                sucursalesMap.set(activo.id_sucursal, {
+                  id: activo.id_sucursal,
+                  nombre: activo.sucursal.nombre
+                });
+              }
+            }
+          });
+          
+          this.sucursalesList = Array.from(sucursalesMap.values())
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          this.sucursalesOptions = this.sucursalesList.map(suc => ({
+            label: suc.nombre,
+            value: suc.id
+          }));
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando sucursales:', error);
+        this.showError('Error al cargar las sucursales');
+      }
+    });
+  }
+
+  /**
+   * Cargar sedes por sucursal desde los activos disponibles
+   */
+  loadSedesPorSucursal(sucursalId: number): void {
+    const filtros: FiltrosActivos = {
+      per_page: 9999,
+      empresa_id: this.selectedEmpresa!,
+      sucursal_id: sucursalId
+    };
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const activos = response.data;
+          const sedesMap = new Map<number, { id: number; nombre: string }>();
+          
+          activos.forEach(activo => {
+            if (activo.sede && activo.id_sede) {
+              if (!sedesMap.has(activo.id_sede)) {
+                sedesMap.set(activo.id_sede, {
+                  id: activo.id_sede,
+                  nombre: activo.sede.nombre
+                });
+              }
+            }
+          });
+          
+          this.sedesList = Array.from(sedesMap.values())
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          this.sedesOptions = this.sedesList.map(sede => ({
+            label: sede.nombre,
+            value: sede.id
+          }));
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando sedes:', error);
+        this.showError('Error al cargar las sedes');
+      }
+    });
+  }
+
+  /**
+   * Manejar cambio de empresa
+   */
+  onEmpresaChange(): void {
+    this.selectedSucursal = null;
+    this.selectedSede = null;
+    this.sucursalesOptions = [];
+    this.sedesOptions = [];
+    this.sucursalesList = [];
+    this.sedesList = [];
+
+    if (this.selectedEmpresa) {
+      this.loadSucursalesPorEmpresa(this.selectedEmpresa);
+    }
+
+    this.aplicarFiltros();
+  }
+
+  /**
+   * Manejar cambio de sucursal
+   */
+  onSucursalChange(): void {
+    this.selectedSede = null;
+    this.sedesOptions = [];
+    this.sedesList = [];
+
+    if (this.selectedSucursal) {
+      this.loadSedesPorSucursal(this.selectedSucursal);
+    }
+
+    this.aplicarFiltros();
+  }
+
+  /**
+   * Manejar cambio de sede
+   */
+  onSedeChange(): void {
+    this.aplicarFiltros();
+  }
+
+  /**
+   * Aplicar filtros y recargar datos
+   */
+  aplicarFiltros(): void {
+    this.currentPage = 1;
+    this.currentPageCompleta = 1;
+    this.loadActivos();
+    this.loadStats();
+  }
+
+  /**
+   * Limpiar todos los filtros
+   */
+  limpiarFiltros(): void {
+    this.selectedEmpresa = null;
+    this.selectedSucursal = null;
+    this.selectedSede = null;
+    this.sucursalesOptions = [];
+    this.sedesOptions = [];
+    this.sucursalesList = [];
+    this.sedesList = [];
+    
+    this.aplicarFiltros();
+  }
+
+  /**
+   * Obtener nombre de empresa por ID
+   */
+  getEmpresaName(empresaId: number): string {
+    const empresa = this.empresasList.find(e => e.id === empresaId);
+    return empresa ? empresa.nombre : '';
+  }
+
+  /**
+   * Obtener nombre de sucursal por ID
+   */
+  getSucursalName(sucursalId: number): string {
+    const sucursal = this.sucursalesList.find(s => s.id === sucursalId);
+    return sucursal ? sucursal.nombre : '';
+  }
+
+  /**
+   * Obtener nombre de sede por ID
+   */
+  getSedeName(sedeId: number): string {
+    const sede = this.sedesList.find(s => s.id === sedeId);
+    return sede ? sede.nombre : '';
+  }
+
+  /**
    * Sincronizar un activo individual
    */
   sincronizarActivoIndividual(activo: ActivoMatriz): void {
@@ -1607,10 +1612,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       this.showError('Este activo no tiene ID de GLPI asociado');
       return;
     }
-
-    console.log('🔄 Sincronizando activo individual:', activo.id_activo_glpi);
     
-    // Marcar el activo como sincronizando
     activo.isSyncing = true;
 
     this.parametrosService.sincronizarActivoEspecifico(activo.id_activo_glpi).subscribe({
@@ -1619,22 +1621,19 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         
         if (response.success) {
           this.showSuccess(`Activo "${activo.nombre_equipo}" sincronizado correctamente`);
-          
-          // Recargar la lista de activos para mostrar los datos actualizados
           setTimeout(() => {
             this.loadActivos();
             this.loadStats();
             this.loadEstadisticasPorTipo();
             this.loadEstadisticasPorUbicacion();
           }, 1000);
-          
         } else {
           this.showError(response.message || 'Error al sincronizar el activo');
         }
       },
       error: (error) => {
         activo.isSyncing = false;
-        console.error('Error sincronizando activo individual:', error);
+        console.error('Error sincronizando activo:', error);
         
         let errorMessage = 'Error al sincronizar el activo';
         if (error.status === 404) {

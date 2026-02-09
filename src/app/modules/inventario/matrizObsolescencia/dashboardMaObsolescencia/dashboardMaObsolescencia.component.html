@@ -80,6 +80,106 @@
   <!-- Dashboard Content -->
   <div class="dashboard-content">
     
+    <!-- Card de Filtros -->
+    <div class="filters-card mb-4">
+      <div class="filters-header">
+        <h3>
+          <i class="pi pi-filter me-2"></i>
+          Filtros
+        </h3>
+        <button 
+          class="btn-clear-filters" 
+          (click)="limpiarFiltros()"
+          *ngIf="selectedEmpresa || selectedSucursal || selectedSede">
+          <i class="pi pi-times me-1"></i>
+          Limpiar Filtros
+        </button>
+      </div>
+      
+      <div class="filters-body">
+        <div class="row g-3">
+          <!-- Filtro Empresa -->
+          <div class="col-12 col-md-4">
+            <label class="filter-label">
+              <i class="pi pi-building me-1"></i>
+              Empresa
+            </label>
+            <p-dropdown
+              [options]="empresasOptions"
+              [(ngModel)]="selectedEmpresa"
+              (onChange)="onEmpresaChange()"
+              placeholder="Seleccionar empresa"
+              [showClear]="true"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100">
+            </p-dropdown>
+          </div>
+          
+          <!-- Filtro Sucursal -->
+          <div class="col-12 col-md-4">
+            <label class="filter-label">
+              <i class="pi pi-map-marker me-1"></i>
+              Sucursal
+            </label>
+            <p-dropdown
+              [options]="sucursalesOptions"
+              [(ngModel)]="selectedSucursal"
+              (onChange)="onSucursalChange()"
+              placeholder="Seleccionar sucursal"
+              [showClear]="true"
+              [disabled]="!selectedEmpresa"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100">
+            </p-dropdown>
+          </div>
+          
+          <!-- Filtro Sede -->
+          <div class="col-12 col-md-4">
+            <label class="filter-label">
+              <i class="pi pi-home me-1"></i>
+              Sede
+            </label>
+            <p-dropdown
+              [options]="sedesOptions"
+              [(ngModel)]="selectedSede"
+              (onChange)="onSedeChange()"
+              placeholder="Seleccionar sede"
+              [showClear]="true"
+              [disabled]="!selectedSucursal"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100">
+            </p-dropdown>
+          </div>
+        </div>
+        
+        <!-- Indicador de filtros activos -->
+        <div class="active-filters mt-3" *ngIf="selectedEmpresa || selectedSucursal || selectedSede">
+          <small class="text-muted">
+            <i class="pi pi-info-circle me-1"></i>
+            Filtros activos:
+            <span class="filter-tag" *ngIf="selectedEmpresa">
+              Empresa: {{ getEmpresaName(selectedEmpresa) }}
+            </span>
+            <span class="filter-tag" *ngIf="selectedSucursal">
+              Sucursal: {{ getSucursalName(selectedSucursal) }}
+            </span>
+            <span class="filter-tag" *ngIf="selectedSede">
+              Sede: {{ getSedeName(selectedSede) }}
+            </span>
+          </small>
+        </div>
+      </div>
+    </div>
+    
     <!-- Tarjetas de Estadísticas Principales -->
     <div class="stats-cards-row mb-4">
       <div class="stat-card stat-card-optimo">

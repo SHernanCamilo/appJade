@@ -64,8 +64,8 @@ export class UsuarioService {
   }
 
   // Obtener usuarios del tenant de Microsoft
-  obtenerUsuariosTenant(): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/tenant/obtener`);
+  obtenerUsuariosTenant(tenantType: 'medilaser' | 'jersalud' = 'medilaser'): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/tenant/obtener?tenant=${tenantType}`);
   }
 
   // Verificar si un email ya existe

@@ -52,23 +52,40 @@ interface UsuarioTenant {
       (onHide)="onClose()">
       
       <div class="p-fluid">
-        <!-- Botón para cargar usuarios -->
+        <!-- Botones para cargar usuarios de cada tenant -->
         <div class="row mb-4">
-          <div class="col-12 d-flex justify-content-center">
-            <p-button 
-              label="Cargar Usuarios del Tenant"
-              icon="pi pi-refresh"
-              (onClick)="cargarUsuariosTenant()"
-              [loading]="isLoadingUsers"
-              size="large">
-            </p-button>
+          <div class="col-12">
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+              <p-button 
+                label="Cargar Usuarios de Medilaser"
+                icon="pi pi-refresh"
+                (onClick)="cargarUsuariosTenant('medilaser')"
+                [loading]="isLoadingUsers && currentTenant === 'medilaser'"
+                [disabled]="isLoadingUsers"
+                styleClass="p-button-primary"
+                size="large">
+              </p-button>
+              
+              <p-button 
+                label="Cargar Usuarios de Jersalud"
+                icon="pi pi-refresh"
+                (onClick)="cargarUsuariosTenant('jersalud')"
+                [loading]="isLoadingUsers && currentTenant === 'jersalud'"
+                [disabled]="isLoadingUsers"
+                styleClass="p-button-success"
+                size="large">
+              </p-button>
+            </div>
           </div>
         </div>
 
         <!-- Loading spinner -->
         <div class="text-center py-5" *ngIf="isLoadingUsers">
           <p-progressSpinner></p-progressSpinner>
-          <p class="mt-3 text-muted">Obteniendo usuarios del tenant...</p>
+          <p class="mt-3 text-muted">
+            Obteniendo usuarios del tenant de 
+            <strong>{{ currentTenant === 'medilaser' ? 'Medilaser' : 'Jersalud' }}</strong>...
+          </p>
         </div>
 
         <!-- Tabla de usuarios del tenant -->
@@ -89,7 +106,7 @@ interface UsuarioTenant {
                 <div class="d-flex align-items-center gap-2">
                   <h6 class="mb-0">
                     <i class="pi pi-users me-2"></i>
-                    Usuarios Disponibles ({{ usuariosTenant.length }})
+                    Usuarios de {{ tenantInfo?.tenant_name || 'Tenant' }} ({{ usuariosTenant.length }})
                   </h6>
                   <span class="badge bg-success">Todos cargados</span>
                 </div>
@@ -122,12 +139,6 @@ interface UsuarioTenant {
             
             <ng-template pTemplate="header">
               <tr>
-                <th style="width: 50px">
-                  <p-checkbox 
-                    [(ngModel)]="selectAll"
-                    (onChange)="onSelectAllChange($event)">
-                  </p-checkbox>
-                </th>
                 <th pSortableColumn="name">Usuario <p-sortIcon field="name"></p-sortIcon></th>
                 <th pSortableColumn="email">Email <p-sortIcon field="email"></p-sortIcon></th>
                 <th pSortableColumn="job_title">Cargo <p-sortIcon field="job_title"></p-sortIcon></th>
@@ -137,13 +148,10 @@ interface UsuarioTenant {
             </ng-template>
 
             <ng-template pTemplate="body" let-usuario>
-              <tr>
-                <td>
-                  <p-checkbox 
-                    [(ngModel)]="usuario.selected"
-                    (onChange)="onUserSelectionChange()">
-                  </p-checkbox>
-                </td>
+              <tr 
+                [class.selected-row]="usuario.selected"
+                (click)="toggleUsuarioSelection(usuario)"
+                style="cursor: pointer;">
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <i class="pi pi-user text-primary"></i>
@@ -170,7 +178,7 @@ interface UsuarioTenant {
 
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="6" class="text-center py-4">
+                <td colspan="5" class="text-center py-4">
                   <i class="pi pi-users" style="font-size: 2rem; color: #94a3b8;"></i>
                   <p class="text-muted mt-2 mb-0">No hay usuarios disponibles para sincronizar</p>
                 </td>
@@ -278,6 +286,39 @@ interface UsuarioTenant {
       background-color: #3b82f6 !important;
       color: #ffffff;
     }
+
+    .gap-3 {
+      gap: 1rem;
+    }
+
+    .flex-wrap {
+      flex-wrap: wrap;
+    }
+
+    /* Estilos para filas seleccionadas */
+    .selected-row {
+      background-color: #e0f2fe !important;
+      transition: background-color 0.2s ease;
+      cursor: pointer;
+    }
+
+    .selected-row:hover {
+      background-color: #bae6fd !important;
+    }
+
+    /* Cursor pointer para todas las filas */
+    ::ng-deep .p-datatable .p-datatable-tbody > tr {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    ::ng-deep .p-datatable .p-datatable-tbody > tr:hover {
+      background-color: #f8fafc !important;
+    }
+
+    ::ng-deep .p-datatable .p-datatable-tbody > tr.selected-row:hover {
+      background-color: #bae6fd !important;
+    }
   `]
 })
 export class SincronizarTenantComponent {
@@ -290,6 +331,7 @@ export class SincronizarTenantComponent {
   isLoadingUsers = false;
   isSyncing = false;
   tenantInfo: any = null;
+  currentTenant: 'medilaser' | 'jersalud' = 'medilaser';
   
   constructor(
     private usuarioService: UsuarioService,
@@ -306,18 +348,21 @@ export class SincronizarTenantComponent {
     this.selectAll = totalVisible > 0 && totalSeleccionados === totalVisible;
   }
 
-  cargarUsuariosTenant(): void {
+  cargarUsuariosTenant(tenantType: 'medilaser' | 'jersalud' = 'medilaser'): void {
     this.isLoadingUsers = true;
     this.usuariosTenant = [];
     this.tenantInfo = null;
+    this.currentTenant = tenantType;
 
     // Cargar todos los usuarios del tenant (el backend ahora trae todos)
-    this.usuarioService.obtenerUsuariosTenant().subscribe({
+    this.usuarioService.obtenerUsuariosTenant(tenantType).subscribe({
       next: (response) => {
         this.isLoadingUsers = false;
         this.usuariosTenant = response.available_users || [];
         this.tenantInfo = {
           tenant_id: response.tenant_id,
+          tenant_name: response.tenant_name,
+          tenant_type: response.tenant_type,
           total_tenant_users: response.total_tenant_users,
           total_available: response.total_available,
           total_loaded: this.usuariosTenant.length
@@ -327,13 +372,13 @@ export class SincronizarTenantComponent {
           this.messageService.add({
             severity: 'info',
             summary: 'Sin usuarios nuevos',
-            detail: 'No hay usuarios nuevos para sincronizar del tenant'
+            detail: `No hay usuarios nuevos para sincronizar del tenant de ${response.tenant_name}`
           });
         } else {
           this.messageService.add({
             severity: 'success',
             summary: 'Usuarios cargados',
-            detail: `Se cargaron ${this.usuariosTenant.length} usuarios disponibles del tenant`
+            detail: `Se cargaron ${this.usuariosTenant.length} usuarios disponibles de ${response.tenant_name}`
           });
         }
       },
@@ -361,6 +406,11 @@ export class SincronizarTenantComponent {
   }
 
   onUserSelectionChange(): void {
+    this.updateSelectAllState();
+  }
+
+  toggleUsuarioSelection(usuario: UsuarioTenant): void {
+    usuario.selected = !usuario.selected;
     this.updateSelectAllState();
   }
 
