@@ -1,0 +1,696 @@
+/* Layout Principal */
+.page-container {
+  background: #f5f7fa;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.dashboard-content {
+  padding: 0 2rem 2rem 2rem;
+}
+
+/* Header Moderno */
+.page-header-modern {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.header-top {
+  margin-bottom: 1rem;
+}
+
+.btn-back-modern {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  transition: color 0.2s ease;
+}
+
+.btn-back-modern:hover {
+  color: #1f2937;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title-section {
+  flex: 1;
+}
+
+.page-title-modern {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-subtitle-modern {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Botones */
+.btn-action {
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-action-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-action-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-action-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-action-success:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-action-icon.btn-action-primary {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.btn-action-icon.btn-action-primary:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-action-icon.btn-action-success {
+  background: #d1fae5;
+  color: #10b981;
+}
+
+.btn-action-icon.btn-action-success:hover {
+  background: #10b981;
+  color: white;
+}
+
+/* Filtros */
+.filters-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #f3f4f6;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.filters-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.btn-clear-filters {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.btn-clear-filters:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.filters-body {
+  padding: 0;
+}
+
+.filter-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.filter-label i {
+  color: #6b7280;
+}
+
+/* Tabla */
+.table-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #f3f4f6;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.table-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.modern-table-container {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+::ng-deep .modern-table {
+  width: 100%;
+}
+
+::ng-deep .modern-table .p-datatable-thead > tr > th {
+  background: #f9fafb !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  padding: 0.875rem 1rem !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  font-size: 0.875rem !important;
+}
+
+::ng-deep .modern-table .p-datatable-tbody > tr {
+  transition: background-color 0.2s ease;
+}
+
+::ng-deep .modern-table .p-datatable-tbody > tr:hover {
+  background-color: #f9fafb !important;
+}
+
+::ng-deep .modern-table .p-datatable-tbody > tr > td {
+  padding: 1rem !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  vertical-align: middle !important;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 0 1rem 1rem 1rem;
+  }
+  
+  .page-header-modern {
+    padding: 1rem;
+  }
+  
+  .filters-card, .table-section {
+    padding: 1rem;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn-action {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Estilos para PrimeNG */
+:host ::ng-deep .p-dropdown {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+:host ::ng-deep .p-inputtext {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep .p-inputtext:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+
+/* Modal Nueva Solicitud */
+.solicitud-form-container {
+  padding: 0.5rem 0;
+  margin: 1.0rem;
+}
+
+.form-section {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 0.938rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.section-title i {
+  font-size: 0.875rem;
+}
+
+.subsection-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.813rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.375rem;
+}
+
+.form-label-readonly {
+  display: block;
+  font-size: 0.688rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.form-value {
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: #1f2937;
+  padding: 0.375rem 0;
+}
+
+/* Usuario Info Card */
+.usuario-info-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.875rem;
+}
+
+/* Botones de Motivo */
+.motivo-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-motivo {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  font-size: 0.938rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-motivo i {
+  font-size: 0.875rem;
+}
+
+.btn-motivo:hover {
+  border-color: #a855f7;
+  color: #a855f7;
+  background: #faf5ff;
+}
+
+.btn-motivo.active {
+  border-color: #a855f7;
+  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+  color: white;
+}
+
+/* Formulario Viaje - Diseño Compacto */
+.concepto-compacto {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.625rem;
+}
+
+.concepto-label-compact {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.375rem;
+}
+
+/* Control de cantidad personalizado con botones en línea */
+.cantidad-control {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  background: white;
+  height: 1.75rem;
+}
+
+.btn-cantidad {
+  background: #f3f4f6;
+  border: none;
+  width: 24px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+  padding: 0;
+}
+
+.btn-cantidad:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-cantidad:active {
+  background: #d1d5db;
+}
+
+.btn-cantidad i {
+  font-size: 0.625rem;
+}
+
+.input-cantidad {
+  border: none;
+  text-align: center;
+  width: 45px;
+  height: 100%;
+  font-size: 0.813rem;
+  font-weight: 500;
+  color: #1f2937;
+  padding: 0 0.25rem;
+  outline: none;
+  background: white;
+}
+
+.input-cantidad:focus {
+  outline: none;
+}
+
+/* Remove arrows from number input */
+.input-cantidad::-webkit-outer-spin-button,
+.input-cantidad::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input-cantidad[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Total compacto */
+.total-viaje-compacto {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.total-label {
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.total-amount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+/* Labels compactos para campos adicionales */
+.form-label-compact {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.313rem;
+}
+
+/* Botones de Moneda */
+.moneda-buttons {
+  display: flex;
+  gap: 0.625rem;
+}
+
+.btn-moneda {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  border-radius: 6px;
+  border: 2px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  font-size: 0.813rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-moneda:hover {
+  border-color: #10b981;
+  color: #10b981;
+  background: #f0fdf4;
+}
+
+.btn-moneda.active {
+  border-color: #10b981;
+  background: #10b981;
+  color: white;
+}
+
+/* Adjuntos */
+.adjuntos-section {
+  margin-top: 0.75rem;
+}
+
+.file-upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 1.5rem;
+  text-align: center;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.file-upload-area:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.btn-upload {
+  background: white;
+  border: 1px solid #d1d5db;
+  padding: 0.625rem 1.25rem;
+  border-radius: 6px;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.btn-upload:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.archivos-lista {
+  text-align: left;
+}
+
+.archivo-item {
+  padding: 0.5rem 0.875rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  font-size: 0.813rem;
+  color: #374151;
+  display: flex;
+  align-items: center;
+}
+
+/* Responsive Modal */
+@media (max-width: 768px) {
+  .concepto-compacto {
+    margin-bottom: 0.75rem;
+  }
+
+  .motivo-buttons {
+    flex-direction: column;
+  }
+
+  .btn-motivo {
+    min-width: 100%;
+  }
+
+  .moneda-buttons {
+    flex-direction: column;
+  }
+  
+  .total-viaje-compacto {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}
+
+/* Estilos adicionales para PrimeNG en el modal */
+:host ::ng-deep .nueva-solicitud-dialog .p-dialog-content {
+  padding: 1rem;
+}
+
+:host ::ng-deep .p-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+:host ::ng-deep .p-checkbox-label {
+  margin-left: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep .p-inputnumber {
+  width: 100%;
+}
+
+:host ::ng-deep .p-calendar {
+  width: 100%;
+}
+
+:host ::ng-deep .p-calendar.p-disabled {
+  opacity: 0.6;
+}
+
+:host ::ng-deep .p-calendar.p-disabled .p-inputtext {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+:host ::ng-deep textarea.p-inputtext {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.813rem;
+  padding: 0.5rem;
+}

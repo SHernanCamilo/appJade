@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -15,6 +17,7 @@ import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { AvatarModule } from 'primeng/avatar';
+import { SkeletonModule } from 'primeng/skeleton';
 import { FormsModule } from '@angular/forms';
 
 // Services
@@ -68,7 +71,9 @@ interface ConceptoPuntaje {
     TableModule,
     DialogModule,
     TooltipModule,
-    AvatarModule
+    AvatarModule,
+    SkeletonModule,
+    HasPermissionDirective
   ],
   providers: [MessageService],
   templateUrl: './parametrosMaObsolescencia.component.html',
@@ -113,6 +118,10 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
 
   // Estado de cálculos
   calculandoValores: boolean = false;
+  
+  // Estados de carga
+  isLoadingParametros: boolean = false;
+  isLoadingAgentes: boolean = false;
 
   // Opciones para dropdowns de agentes
   empresasOptions: Empresa[] = [];
@@ -161,8 +170,25 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
     private agentesService: MatrizObsAgentesService,
     private empresaService: EmpresaService,
     private sucursalService: SucursalService,
-    private sedeService: SedeService
+    private sedeService: SedeService,
+    public permissionService: PermissionService
   ) {}
+
+  // Métodos de verificación de permisos
+  canRecalcularSoloNuevos(): boolean {
+    return this.permissionService.hasPermission('inv-matriz-paramatriz-recalculando-solo-nuevos');
+  }
+  // Métodos de verificación de permisos
+  canRecalcularTodos(): boolean {
+    return this.permissionService.hasPermission('inv-matriz-paramatriz-recalculando-todos');
+  }
+  canParametrosActivosEditar(): boolean {
+    return this.permissionService.hasPermission('inv-matriz-parametros-de-activos-editar');
+  }
+  canParametrosActivosEliminar(): boolean {
+    return this.permissionService.hasPermission('inv-matriz-paramatriz-activos-eliminar');
+  }
+
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -175,11 +201,14 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
    * Cargar todos los datos desde el backend
    */
   cargarDatos(): void {
+    this.isLoadingParametros = true;
+    
     this.matrizService.getGrupos().subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.procesarGrupos(response.data);
         }
+        this.isLoadingParametros = false;
       },
       error: (error) => {
         console.error('Error al cargar datos:', error);
@@ -189,6 +218,7 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
           detail: 'No se pudieron cargar los parámetros',
           life: 3000
         });
+        this.isLoadingParametros = false;
       }
     });
   }
@@ -797,11 +827,14 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
    * Cargar todos los agentes
    */
   cargarAgentes(): void {
+    this.isLoadingAgentes = true;
+    
     this.agentesService.getAgentes().subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.agentes = response.data;
         }
+        this.isLoadingAgentes = false;
       },
       error: (error) => {
         console.error('Error al cargar agentes:', error);
@@ -811,6 +844,7 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
           detail: 'No se pudieron cargar los agentes',
           life: 3000
         });
+        this.isLoadingAgentes = false;
       }
     });
   }

@@ -1,0 +1,295 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-sync me-2"></i>
+          Dashboard Fracttal-GLPI
+        </h1>
+        <p class="page-subtitle-modern">Sincronización de equipos entre Fracttal y GLPI</p>
+      </div>
+      
+      <div class="header-actions">
+        <button 
+          class="btn-action btn-action-primary"
+          (click)="sincronizarEquipos()">
+          <i class="pi pi-refresh"></i>
+          Sincronizar Equipos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content">
+    
+    <!-- Tarjetas de Estadísticas -->
+    <div class="stats-cards-row mb-4">
+      <!-- Spinner de carga -->
+      <ng-container *ngIf="isLoadingStats">
+        <div class="stat-card" *ngFor="let i of [1,2,3,4]">
+          <div class="stat-icon" style="background: #e5e7eb;">
+            <p-skeleton shape="circle" size="3rem"></p-skeleton>
+          </div>
+          <div class="stat-content">
+            <p-skeleton width="4rem" height="2rem" styleClass="mb-2"></p-skeleton>
+            <p-skeleton width="6rem" height="1rem"></p-skeleton>
+          </div>
+        </div>
+      </ng-container>
+      
+      <!-- Tarjetas con datos -->
+      <ng-container *ngIf="!isLoadingStats">
+        <div class="stat-card stat-card-total">
+          <div class="stat-icon">
+            <i class="pi pi-desktop"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.totalEquipos }}</div>
+            <div class="stat-label">Total de Equipos</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-optimo">
+          <div class="stat-icon">
+            <i class="pi pi-check-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.sincronizados }}</div>
+            <div class="stat-label">Sincronizados</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-potencial">
+          <div class="stat-icon">
+            <i class="pi pi-clock"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.pendientes }}</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-obsoleto">
+          <div class="stat-icon">
+            <i class="pi pi-times-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.errores }}</div>
+            <div class="stat-label">Errores</div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <!-- Grid Principal -->
+    <div class="main-grid">
+      
+      <!-- Panel Izquierdo: Gráfico -->
+      <div class="left-panel">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Estado de Sincronización</h3>
+            <small class="text-muted">Distribución de equipos por estado</small>
+          </div>
+          
+          <!-- Gráfico -->
+          <div class="chart-container" *ngIf="!isLoadingChart">
+            <p-chart 
+              type="doughnut" 
+              [data]="chartData" 
+              [options]="chartOptions"
+              width="300"
+              height="300">
+            </p-chart>
+          </div>
+          
+          <!-- Skeleton de carga -->
+          <div class="chart-container" *ngIf="isLoadingChart">
+            <div class="text-center py-4">
+              <p-skeleton width="300px" height="300px" borderRadius="50%"></p-skeleton>
+              <p class="text-muted mt-3">Cargando estadísticas...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Derecho: Filtros -->
+      <div class="right-panel">
+        <div class="filters-card">
+          <div class="filters-header">
+            <h3>
+              <i class="pi pi-filter me-2"></i>
+              Filtros
+            </h3>
+            <button 
+              class="btn-clear-filters" 
+              (click)="limpiarFiltros()"
+              *ngIf="selectedEstado || selectedFecha || searchTerm">
+              <i class="pi pi-times me-1"></i>
+              Limpiar
+            </button>
+          </div>
+          
+          <div class="filters-body">
+            <div class="mb-3">
+              <label class="filter-label">
+                <i class="pi pi-tag me-1"></i>
+                Estado
+              </label>
+              <p-dropdown
+                [options]="estadosOptions"
+                [(ngModel)]="selectedEstado"
+                placeholder="Seleccionar estado"
+                [showClear]="true"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-100">
+              </p-dropdown>
+            </div>
+            
+            <div class="mb-3">
+              <label class="filter-label">
+                <i class="pi pi-calendar me-1"></i>
+                Fecha
+              </label>
+              <p-calendar
+                [(ngModel)]="selectedFecha"
+                placeholder="Seleccionar fecha"
+                [showIcon]="true"
+                dateFormat="dd/mm/yy"
+                styleClass="w-100">
+              </p-calendar>
+            </div>
+            
+            <div class="mb-3">
+              <label class="filter-label">
+                <i class="pi pi-search me-1"></i>
+                Buscar
+              </label>
+              <input 
+                type="text"
+                pInputText
+                [(ngModel)]="searchTerm"
+                placeholder="Buscar equipo..."
+                class="w-100">
+            </div>
+            
+            <button 
+              class="btn-action btn-action-primary w-100"
+              (click)="aplicarFiltros()">
+              <i class="pi pi-filter"></i>
+              Aplicar Filtros
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabla de Equipos -->
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Equipos Sincronizados</h2>
+      </div>
+
+      <!-- Skeleton de carga -->
+      <div *ngIf="isLoadingTable" class="p-4">
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p class="text-muted text-center mt-3">Cargando equipos...</p>
+      </div>
+
+      <!-- Tabla -->
+      <div class="modern-table-container" *ngIf="!isLoadingTable">
+        <p-table 
+          [value]="equipos" 
+          [paginator]="true" 
+          [rows]="10"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} equipos"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          styleClass="modern-table">
+          
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th>ID GLPI</th>
+              <th>ID Fracttal</th>
+              <th>Fecha Sincronización</th>
+              <th>Acciones</th>
+            </tr>
+          </ng-template>
+          
+          <ng-template pTemplate="body" let-equipo>
+            <tr>
+              <td>
+                <div class="equipment-info">
+                  <div class="equipment-avatar">
+                    <i class="pi pi-desktop"></i>
+                  </div>
+                  <div class="equipment-details">
+                    <div class="equipment-name">{{ equipo.nombre }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>{{ equipo.tipo }}</td>
+              <td>
+                <p-tag 
+                  [value]="getEstadoLabel(equipo.estado)" 
+                  [severity]="getSeverity(equipo.estado)">
+                </p-tag>
+              </td>
+              <td>{{ equipo.glpiId || 'N/A' }}</td>
+              <td>{{ equipo.fracttalId || 'N/A' }}</td>
+              <td>
+                <span *ngIf="equipo.fechaSincronizacion">{{ equipo.fechaSincronizacion | date:'dd/MM/yyyy HH:mm' }}</span>
+                <span *ngIf="!equipo.fechaSincronizacion">N/A</span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button 
+                    class="btn-action-icon btn-action-primary"
+                    pTooltip="Ver detalles"
+                    tooltipPosition="top">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button 
+                    class="btn-action-icon btn-action-success"
+                    pTooltip="Sincronizar"
+                    tooltipPosition="top">
+                    <i class="pi pi-sync"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="7" class="text-center py-4">
+                <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                <p class="text-muted mt-2">No hay equipos para mostrar</p>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+
+  </div>
+</div>

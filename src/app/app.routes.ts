@@ -32,6 +32,10 @@ export const routes: Routes = [
         path: 'inventario', 
         loadChildren: () => import('./modules/inventario/inventario.routes').then(m => m.INVENTARIO_ROUTES)
       },
+      { 
+        path: 'financiera', 
+        loadChildren: () => import('./modules/financiera/financiera.routes').then(m => m.FINANCIERA_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí

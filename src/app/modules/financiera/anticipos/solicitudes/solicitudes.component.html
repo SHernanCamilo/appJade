@@ -1,0 +1,589 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- Header con navegación y acciones -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/financiera">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-file-edit me-2"></i>
+          Solicitudes de Anticipos
+        </h1>
+        <p class="page-subtitle-modern">Gestión de solicitudes de anticipos de empleados</p>
+      </div>
+      
+      <div class="header-actions">
+        <button 
+          class="btn-action btn-action-primary"
+          (click)="abrirNuevaSolicitud()">
+          <i class="pi pi-plus"></i>
+          Nueva Solicitud
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content">
+    
+    <!-- Card de Filtros -->
+    <div class="filters-card mb-4">
+      <div class="filters-header">
+        <h3>
+          <i class="pi pi-filter me-2"></i>
+          Filtros
+        </h3>
+        <button 
+          class="btn-clear-filters" 
+          (click)="limpiarFiltros()"
+          *ngIf="selectedEstado || searchTerm">
+          <i class="pi pi-times me-1"></i>
+          Limpiar Filtros
+        </button>
+      </div>
+      
+      <div class="filters-body">
+        <div class="row g-3">
+          <!-- Filtro Estado -->
+          <div class="col-12 col-md-4">
+            <label class="filter-label">
+              <i class="pi pi-tag me-1"></i>
+              Estado
+            </label>
+            <p-dropdown
+              [options]="estadosOptions"
+              [(ngModel)]="selectedEstado"
+              (onChange)="aplicarFiltros()"
+              placeholder="Seleccionar estado"
+              [showClear]="true"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-100">
+            </p-dropdown>
+          </div>
+          
+          <!-- Búsqueda -->
+          <div class="col-12 col-md-8">
+            <label class="filter-label">
+              <i class="pi pi-search me-1"></i>
+              Buscar
+            </label>
+            <div class="d-flex gap-2">
+              <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="searchTerm"
+                (keyup.enter)="aplicarFiltros()"
+                placeholder="Buscar por empleado, código..."
+                class="flex-grow-1">
+              <button 
+                class="btn-action btn-action-primary"
+                (click)="aplicarFiltros()">
+                <i class="pi pi-search"></i>
+                Buscar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de Solicitudes -->
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Solicitudes de Anticipos</h2>
+      </div>
+
+      <!-- Tabla -->
+      <div class="modern-table-container">
+        <p-table 
+          [value]="solicitudes" 
+          [loading]="isLoading"
+          [paginator]="true" 
+          [rows]="10"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} solicitudes"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          styleClass="modern-table">
+          
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Código</th>
+              <th>Empleado</th>
+              <th>Monto</th>
+              <th>Fecha Solicitud</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </ng-template>
+          
+          <ng-template pTemplate="body" let-solicitud>
+            <tr>
+              <td>{{ solicitud.codigo }}</td>
+              <td>{{ solicitud.empleado }}</td>
+              <td>{{ solicitud.monto | currency }}</td>
+              <td>{{ solicitud.fecha | date:'dd/MM/yyyy' }}</td>
+              <td>
+                <p-tag 
+                  [value]="solicitud.estado" 
+                  [severity]="getSeverity(solicitud.estado)">
+                </p-tag>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button 
+                    class="btn-action-icon btn-action-primary"
+                    pTooltip="Ver detalles"
+                    tooltipPosition="top">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button 
+                    class="btn-action-icon btn-action-success"
+                    pTooltip="Editar"
+                    tooltipPosition="top">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="6" class="text-center py-5">
+                <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                <p class="text-muted mt-3 mb-1">No hay solicitudes registradas</p>
+                <small class="text-muted">Las solicitudes aparecerán aquí una vez creadas</small>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="loadingbody">
+            <tr *ngFor="let i of [1,2,3,4,5]">
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+              <td><p-skeleton></p-skeleton></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal Nueva Solicitud -->
+  <p-dialog 
+    header="Nueva Solicitud de Anticipo" 
+    [(visible)]="displayNuevaSolicitud" 
+    [modal]="true" 
+    [closable]="true"
+    [maximizable]="true"
+    [style]="{width: '1000px'}"
+    styleClass="nueva-solicitud-dialog">
+    
+    <div class="solicitud-form-container">
+      
+      <!-- Checkbox: El anticipo es para mi -->
+      <div class="form-section mb-3">
+        <p-checkbox 
+          [(ngModel)]="esParaMi" 
+          [binary]="true"
+          (onChange)="onEsParaMiChange()"
+          inputId="esParaMi"
+          label="El anticipo es para mi">
+        </p-checkbox>
+      </div>
+
+      <!-- 1. Responsable del Anticipo -->
+      <div class="form-section mb-3">
+        <h3 class="section-title">
+          <i class="pi pi-user me-2"></i>
+          1. Responsable del Anticipo
+        </h3>
+        
+        <!-- Si NO es para mi: Buscar por cédula -->
+        <div *ngIf="!esParaMi" class="mb-2">
+          <label class="form-label">Cédula</label>
+          <div class="d-flex gap-2">
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="cedulaBusqueda"
+              placeholder="Ingrese número de cédula"
+              class="flex-grow-1"
+              (keyup.enter)="buscarUsuarioPorCedula()">
+            <button 
+              class="btn-action btn-action-primary"
+              (click)="buscarUsuarioPorCedula()"
+              [disabled]="isLoadingUsuario">
+              <i class="pi" [ngClass]="isLoadingUsuario ? 'pi-spin pi-spinner' : 'pi-search'"></i>
+              Buscar
+            </button>
+          </div>
+        </div>
+
+        <!-- Información del usuario seleccionado -->
+        <div *ngIf="usuarioSeleccionado" class="usuario-info-card">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label-readonly">Nombre</label>
+              <div class="form-value">{{ usuarioSeleccionado.nombre }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-readonly">Cargo</label>
+              <div class="form-value">{{ usuarioSeleccionado.cargo }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-readonly">Cédula</label>
+              <div class="form-value">{{ usuarioSeleccionado.cedula }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-readonly">Área/Unidad</label>
+              <div class="form-value">{{ usuarioSeleccionado.area }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Motivo del Anticipo -->
+      <div class="form-section mb-3" *ngIf="usuarioSeleccionado">
+        <h3 class="section-title">
+          <i class="pi pi-file-edit me-2"></i>
+          2. Motivo del Anticipo
+        </h3>
+        
+        <div class="motivo-buttons">
+          <button 
+            class="btn-motivo"
+            [class.active]="motivoSeleccionado === 'viaje'"
+            (click)="seleccionarMotivo('viaje')">
+            <i class="pi pi-map-marker me-2"></i>
+            Viaje
+          </button>
+          <button 
+            class="btn-motivo"
+            [class.active]="motivoSeleccionado === 'otros'"
+            (click)="seleccionarMotivo('otros')">
+            <i class="pi pi-list me-2"></i>
+            Otros Conceptos
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulario VIAJE -->
+      <div *ngIf="motivoSeleccionado === 'viaje'" class="form-section mb-2">
+        <h4 class="subsection-title mb-2">Detalles del Viaje</h4>
+        
+        <!-- Grid compacto de 2 columnas -->
+        <div class="row g-2 mb-2">
+          <!-- Pasaje Intermunicipal -->
+          <div class="col-md-6">
+            <div class="concepto-compacto">
+              <label class="concepto-label-compact">Pasaje Intermunicipal</label>
+              <div class="d-flex gap-2">
+                <div style="flex: 0 0 110px;">
+                  <small class="text-muted d-block mb-1">Cant.</small>
+                  <div class="cantidad-control">
+                    <button class="btn-cantidad" (click)="decrementarCantidad('pasajeIntermunicipal')">
+                      <i class="pi pi-minus"></i>
+                    </button>
+                    <input 
+                      type="number" 
+                      [(ngModel)]="formularioViaje.pasajeIntermunicipal.cantidad"
+                      [min]="1"
+                      class="input-cantidad"
+                      readonly>
+                    <button class="btn-cantidad" (click)="incrementarCantidad('pasajeIntermunicipal')">
+                      <i class="pi pi-plus"></i>
+                    </button>
+                  </div>
+                </div>
+                <div style="flex: 1;">
+                  <small class="text-muted d-block mb-1">Valor</small>
+                  <p-inputNumber 
+                    [(ngModel)]="formularioViaje.pasajeIntermunicipal.valor"
+                    mode="currency"
+                    currency="COP"
+                    locale="es-CO"
+                    [inputStyle]="{'padding': '0.4rem'}">
+                  </p-inputNumber>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transporte Interno -->
+          <div class="col-md-6">
+            <div class="concepto-compacto">
+              <label class="concepto-label-compact">Transporte Interno</label>
+              <div class="d-flex gap-2">
+                <div style="flex: 0 0 110px;">
+                  <small class="text-muted d-block mb-1">Cant.</small>
+                  <div class="cantidad-control">
+                    <button class="btn-cantidad" (click)="decrementarCantidad('transporteInterno')">
+                      <i class="pi pi-minus"></i>
+                    </button>
+                    <input 
+                      type="number" 
+                      [(ngModel)]="formularioViaje.transporteInterno.cantidad"
+                      [min]="1"
+                      class="input-cantidad"
+                      readonly>
+                    <button class="btn-cantidad" (click)="incrementarCantidad('transporteInterno')">
+                      <i class="pi pi-plus"></i>
+                    </button>
+                  </div>
+                </div>
+                <div style="flex: 1;">
+                  <small class="text-muted d-block mb-1">Valor</small>
+                  <p-inputNumber 
+                    [(ngModel)]="formularioViaje.transporteInterno.valor"
+                    mode="currency"
+                    currency="COP"
+                    locale="es-CO"
+                    [inputStyle]="{'padding': '0.4rem'}">
+                  </p-inputNumber>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alimentación -->
+          <div class="col-md-6">
+            <div class="concepto-compacto">
+              <label class="concepto-label-compact">Alimentación</label>
+              <div class="d-flex gap-2">
+                <div style="flex: 0 0 110px;">
+                  <small class="text-muted d-block mb-1">Cant.</small>
+                  <div class="cantidad-control">
+                    <button class="btn-cantidad" (click)="decrementarCantidad('alimentacion')">
+                      <i class="pi pi-minus"></i>
+                    </button>
+                    <input 
+                      type="number" 
+                      [(ngModel)]="formularioViaje.alimentacion.cantidad"
+                      [min]="1"
+                      class="input-cantidad"
+                      readonly>
+                    <button class="btn-cantidad" (click)="incrementarCantidad('alimentacion')">
+                      <i class="pi pi-plus"></i>
+                    </button>
+                  </div>
+                </div>
+                <div style="flex: 1;">
+                  <small class="text-muted d-block mb-1">Valor</small>
+                  <p-inputNumber 
+                    [(ngModel)]="formularioViaje.alimentacion.valor"
+                    mode="currency"
+                    currency="COP"
+                    locale="es-CO"
+                    [inputStyle]="{'padding': '0.4rem'}">
+                  </p-inputNumber>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hospedaje -->
+          <div class="col-md-6">
+            <div class="concepto-compacto">
+              <label class="concepto-label-compact">Hospedaje</label>
+              <div class="d-flex gap-2">
+                <div style="flex: 0 0 110px;">
+                  <small class="text-muted d-block mb-1">Cant.</small>
+                  <div class="cantidad-control">
+                    <button class="btn-cantidad" (click)="decrementarCantidad('hospedaje')">
+                      <i class="pi pi-minus"></i>
+                    </button>
+                    <input 
+                      type="number" 
+                      [(ngModel)]="formularioViaje.hospedaje.cantidad"
+                      [min]="1"
+                      class="input-cantidad"
+                      readonly>
+                    <button class="btn-cantidad" (click)="incrementarCantidad('hospedaje')">
+                      <i class="pi pi-plus"></i>
+                    </button>
+                  </div>
+                </div>
+                <div style="flex: 1;">
+                  <small class="text-muted d-block mb-1">Valor</small>
+                  <p-inputNumber 
+                    [(ngModel)]="formularioViaje.hospedaje.valor"
+                    mode="currency"
+                    currency="COP"
+                    locale="es-CO"
+                    [inputStyle]="{'padding': '0.4rem'}">
+                  </p-inputNumber>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total compacto -->
+        <div class="total-viaje-compacto mb-2">
+          <span class="total-label">Total:</span>
+          <span class="total-amount">{{ calcularTotalViaje() | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+        </div>
+
+        <!-- Motivo, Destino y Fechas -->
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label-compact">Motivo</label>
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="formularioViaje.motivo"
+              placeholder="Ej: REUNIÓN NACIONAL"
+              class="w-100"
+              style="padding: 0.5rem;">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-compact">Destino</label>
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="formularioViaje.destino"
+              placeholder="Ej: BOGOTÁ"
+              class="w-100"
+              style="padding: 0.5rem;">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-compact">Fecha Salida</label>
+            <p-calendar 
+              [(ngModel)]="formularioViaje.fechaSalida"
+              (onSelect)="onFechaSalidaChange()"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              placeholder="dd/mm/aaaa"
+              styleClass="w-100"
+              [inputStyle]="{'padding': '0.5rem'}">
+            </p-calendar>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-compact">Fecha Regreso</label>
+            <p-calendar 
+              [(ngModel)]="formularioViaje.fechaRegreso"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              placeholder="dd/mm/aaaa"
+              styleClass="w-100"
+              [inputStyle]="{'padding': '0.5rem'}"
+              [disabled]="!formularioViaje.fechaSalida"
+              [minDate]="formularioViaje.fechaSalida">
+            </p-calendar>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario OTROS CONCEPTOS -->
+      <div *ngIf="motivoSeleccionado === 'otros'" class="form-section mb-2">
+        <h4 class="subsection-title mb-2">Detalles del Anticipo</h4>
+        
+        <!-- Moneda -->
+        <div class="moneda-buttons mb-3">
+          <button 
+            class="btn-moneda"
+            [class.active]="formularioOtros.moneda === 'pesos'"
+            (click)="formularioOtros.moneda = 'pesos'">
+            Pesos
+          </button>
+          <button 
+            class="btn-moneda"
+            [class.active]="formularioOtros.moneda === 'dolares'"
+            (click)="formularioOtros.moneda = 'dolares'">
+            Dólares
+          </button>
+          <button 
+            class="btn-moneda"
+            [class.active]="formularioOtros.moneda === 'euros'"
+            (click)="formularioOtros.moneda = 'euros'">
+            Euros
+          </button>
+        </div>
+
+        <!-- Valor y Descripción -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Valor</label>
+            <p-inputNumber 
+              [(ngModel)]="formularioOtros.valor"
+              mode="currency"
+              [currency]="formularioOtros.moneda === 'pesos' ? 'COP' : formularioOtros.moneda === 'dolares' ? 'USD' : 'EUR'"
+              [locale]="formularioOtros.moneda === 'pesos' ? 'es-CO' : 'en-US'"
+              styleClass="w-100">
+            </p-inputNumber>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Descripción</label>
+            <textarea 
+              pInputText
+              [(ngModel)]="formularioOtros.descripcion"
+              rows="3"
+              placeholder="DESCRIPCIÓN DETALLADA DEL MOTIVO DE LA SOLICITUD"
+              class="w-100"
+              style="resize: vertical;">
+            </textarea>
+          </div>
+        </div>
+
+        <!-- Agregar Adjuntos -->
+        <div class="adjuntos-section">
+          <label class="form-label">Agregar Adjuntos</label>
+          <div class="file-upload-area">
+            <input 
+              type="file" 
+              #fileInput
+              (change)="onFileSelect($event)"
+              multiple
+              style="display: none;">
+            <button 
+              class="btn-upload"
+              (click)="fileInput.click()">
+              <i class="pi pi-cloud-upload me-2"></i>
+              Arrastre sus archivos
+            </button>
+            <div *ngIf="formularioOtros.archivos.length > 0" class="archivos-lista mt-3">
+              <div *ngFor="let archivo of formularioOtros.archivos" class="archivo-item">
+                <i class="pi pi-file me-2"></i>
+                {{ archivo.name }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-end gap-2">
+        <p-button 
+          label="Cancelar" 
+          icon="pi pi-times"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="cerrarNuevaSolicitud()">
+        </p-button>
+        <p-button 
+          label="Guardar Solicitud" 
+          icon="pi pi-check"
+          severity="success"
+          (onClick)="guardarSolicitud()"
+          [disabled]="!usuarioSeleccionado || !motivoSeleccionado">
+        </p-button>
+      </div>
+    </ng-template>
+    
+  </p-dialog>
+</div>

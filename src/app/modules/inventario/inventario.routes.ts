@@ -13,14 +13,25 @@ export const INVENTARIO_ROUTES: Routes = [
       {
         path: 'dashboardMaObsolescencia',
         loadComponent: () => import('./matrizObsolescencia/dashboardMaObsolescencia/dashboardMaObsolescencia.component').then(m => m.DashboardMaObsolescenciaComponent),
-        // canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
-        // data: { moduleCode: 'INV-MATRIX-DAHSBOARD' }
+        canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
+        data: { moduleCode: 'INV-MATRIX-DAHSBOARD' }
       },
       {
         path: 'parametrosMaObsolescencia',
         loadComponent: () => import('./matrizObsolescencia/parametrosMaObsolescencia/parametrosMaObsolescencia.component').then(m => m.ParametrosMaObsolescenciaComponent),
-        // canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
-        // data: { moduleCode: 'INV-MATRIX-PARMATRIZ' }
+        canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
+        data: { moduleCode: 'INV-MATRIX-PARMATRIZ' }
+      }
+    ]
+  },
+  {
+    path: 'interfazFracttal',
+    children: [
+      {
+        path: 'dashboardFracttal',
+        loadComponent: () => import('./interfazFracttal/dashboardFracttal/dashboardFracttal.component').then(m => m.DashboardFracttalComponent),
+        canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
+        data: { moduleCode: 'INV-FRACTTAL-GLPI' }
       }
     ]
   }

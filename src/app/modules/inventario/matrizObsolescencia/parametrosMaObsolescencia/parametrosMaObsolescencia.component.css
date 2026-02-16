@@ -1,12 +1,68 @@
 /* Estilos específicos para el componente de parámetros */
 .page-container {
-  padding: 1.5rem;
+  padding: 0;
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: #f5f7fa;
 }
 
+/* Header Moderno */
+.page-header-modern {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.header-top {
+  margin-bottom: 1rem;
+}
+
+.btn-back-modern {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  transition: color 0.2s ease;
+}
+
+.btn-back-modern:hover {
+  color: #1f2937;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title-section {
+  flex: 1;
+}
+
+.page-title-modern {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-subtitle-modern {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Estilos antiguos mantenidos para compatibilidad */
 .page-header {
   margin-bottom: 2rem;
+  padding: 0 2rem;
 }
 
 .btn-back {
@@ -41,7 +97,8 @@
 }
 
 .dashboard-content {
-  margin-top: 2rem;
+  margin-top: 0;
+  padding: 0 2rem 2rem 2rem;
 }
 
 .card {

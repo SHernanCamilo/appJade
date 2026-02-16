@@ -321,4 +321,14 @@ export class MatrizObsActivosService {
       responseType: 'blob' 
     }).pipe(catchError(this.handleError.bind(this)));
   }
+
+  /**
+   * Actualizar campos editables de un activo
+   */
+  actualizarActivo(datos: any): Observable<{ success: boolean; message?: string; data?: ActivoMatriz }> {
+    return this.http.put<{ success: boolean; message?: string; data?: ActivoMatriz }>(
+      `${this.apiUrl}/${datos.id}`, 
+      datos
+    ).pipe(catchError(this.handleError.bind(this)));
+  }
 }

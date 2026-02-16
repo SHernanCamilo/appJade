@@ -1,9 +1,6 @@
 <div class="page-container">
   <p-toast></p-toast>
 
-<div class="page-container">
-  <p-toast></p-toast>
-
   <!-- Header con navegación y acciones -->
   <div class="page-header-modern">
     <div class="header-top">
@@ -182,56 +179,71 @@
     
     <!-- Tarjetas de Estadísticas Principales -->
     <div class="stats-cards-row mb-4">
-      <div class="stat-card stat-card-optimo">
-        <div class="stat-icon">
-          <i class="pi pi-check-circle"></i>
+      <!-- Spinner de carga para todas las tarjetas -->
+      <ng-container *ngIf="isLoadingCards">
+        <div class="stat-card" *ngFor="let i of [1,2,3,4,5]">
+          <div class="stat-icon" style="background: #e5e7eb;">
+            <p-skeleton shape="circle" size="3rem"></p-skeleton>
+          </div>
+          <div class="stat-content">
+            <p-skeleton width="4rem" height="2rem" styleClass="mb-2"></p-skeleton>
+            <p-skeleton width="6rem" height="1rem"></p-skeleton>
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ getActivosPorEstado('optimo') }}</div>
-          <div class="stat-label">Óptimo</div>
+      </ng-container>
+      
+      <!-- Tarjetas con datos -->
+      <ng-container *ngIf="!isLoadingCards">
+        <div class="stat-card stat-card-optimo">
+          <div class="stat-icon">
+            <i class="pi pi-check-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ getActivosPorEstado('optimo') }}</div>
+            <div class="stat-label">Óptimo</div>
+          </div>
         </div>
-      </div>
 
-      <div class="stat-card stat-card-funcional">
-        <div class="stat-icon">
-          <i class="pi pi-info-circle"></i>
+        <div class="stat-card stat-card-funcional">
+          <div class="stat-icon">
+            <i class="pi pi-info-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ getActivosPorEstado('funcional') }}</div>
+            <div class="stat-label">Funcional</div>
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ getActivosPorEstado('funcional') }}</div>
-          <div class="stat-label">Funcional</div>
-        </div>
-      </div>
 
-      <div class="stat-card stat-card-potencial">
-        <div class="stat-icon">
-          <i class="pi pi-exclamation-triangle"></i>
+        <div class="stat-card stat-card-potencial">
+          <div class="stat-icon">
+            <i class="pi pi-exclamation-triangle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ getActivosPorEstado('potencial') }}</div>
+            <div class="stat-label">Potencializar</div>
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ getActivosPorEstado('potencial') }}</div>
-          <div class="stat-label">Potencializar</div>
-        </div>
-      </div>
 
-      <div class="stat-card stat-card-obsoleto">
-        <div class="stat-icon">
-          <i class="pi pi-times-circle"></i>
+        <div class="stat-card stat-card-obsoleto">
+          <div class="stat-icon">
+            <i class="pi pi-times-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ getActivosPorEstado('obsoleto') }}</div>
+            <div class="stat-label">Obsoleto</div>
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-number">{{ getActivosPorEstado('obsoleto') }}</div>
-          <div class="stat-label">Obsoleto</div>
-        </div>
-      </div>
 
-      <div class="stat-card stat-card-total">
-        <div class="stat-icon">
-          <i class="pi pi-desktop"></i>
+        <div class="stat-card stat-card-total">
+          <div class="stat-icon">
+            <i class="pi pi-desktop"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.totalActivos }}</div>
+            <div class="stat-label">Total de Equipos</div>
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-number" *ngIf="!isLoadingStats">{{ stats.totalActivos }}</div>
-          <p-skeleton *ngIf="isLoadingStats" width="60px" height="2rem"></p-skeleton>
-          <div class="stat-label">Total de Equipos</div>
-        </div>
-      </div>
+      </ng-container>
     </div>
 
     <!-- Contenido Principal en Grid -->
@@ -261,7 +273,7 @@
             
             <!-- Total en la parte inferior -->
             <div class="chart-total">
-              <strong>{{ getTotalEquiposUbicacion() }}</strong>
+              <small>{{ getTotalEquiposUbicacion() }}</small>
               <small>/{{ stats.totalActivos }}</small>
             </div>
           </div>
@@ -537,8 +549,13 @@
         </div>
       </div>
 
-      <!-- Tabla de Matriz Completa -->
+      <!-- Tabla de Matriz Completa (Solo Lectura) -->
       <div class="matriz-table-container">
+        <h5 class="mb-3 px-2">
+          <i class="pi pi-list me-2"></i>
+          Información Completa del Equipo
+        </h5>
+        
         <p-table 
           [value]="matrizCompleta" 
           styleClass="p-datatable-sm matriz-detalle-table"
@@ -592,11 +609,92 @@
         </p-table>
       </div>
 
+      <!-- Formulario de Campos Editables -->
+      <div class="campos-editables-section mb-4 py-4">
+        <h5 class="mb-3">
+          <i class="pi pi-pencil me-2"></i>
+          Campos Editables
+        </h5>
+        
+        <div class="row g-3">
+          <!-- UBICACIÓN -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold">
+              <i class="pi pi-map-marker me-1"></i>
+              UBICACIÓN
+            </label>
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="camposEditables.ubicacion"
+              placeholder="Ingrese ubicación"
+              class="w-100">
+          </div>
+          
+          <!-- TIPO DE UNIDAD -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold">
+              <i class="pi pi-box me-1"></i>
+              TIPO DE UNIDAD
+            </label>
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="camposEditables.tipo_unidad"
+              placeholder="Ingrese tipo de unidad"
+              class="w-100">
+          </div>
+          
+          <!-- FECHA DE COMPRA -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold">
+              <i class="pi pi-calendar me-1"></i>
+              FECHA DE COMPRA
+            </label>
+            <p-calendar 
+              [(ngModel)]="camposEditables.fecha_compra"
+              dateFormat="yy-mm-dd"
+              [showIcon]="true"
+              placeholder="Seleccione fecha"
+              styleClass="w-100"
+              inputStyleClass="w-100">
+            </p-calendar>
+          </div>
+          
+          <!-- MODALIDAD DE COMPRA -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold">
+              <i class="pi pi-shopping-cart me-1"></i>
+              MODALIDAD DE COMPRA
+            </label>
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="camposEditables.modalidad"
+              placeholder="Ingrese modalidad de compra"
+              class="w-100">
+          </div>
+          
+          <!-- PROVEEDOR -->
+          <div class="col-12">
+            <label class="form-label fw-semibold">
+              <i class="pi pi-users me-1"></i>
+              PROVEEDOR
+            </label>
+            <input 
+              type="text" 
+              pInputText 
+              [(ngModel)]="camposEditables.proveedor"
+              placeholder="Ingrese proveedor"
+              class="w-100">
+          </div>
+        </div>
+      </div>
     </div>
 
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-between align-items-center">
-        <div class="text-muted">
+        <div class="text-muted px-2">
           <small>
             <i class="pi pi-clock me-1"></i>
             Última sincronización: {{ getUltimaSincronizacion() }}
@@ -604,15 +702,28 @@
         </div>
         <div class="d-flex gap-2">
           <p-button 
-            label="Exportar PDF" 
-            icon="pi pi-file-pdf" 
+            label="Ver en GLPI" 
+            icon="pi pi-external-link" 
             severity="secondary"
             [outlined]="true"
-            (onClick)="exportarMatrizPDF()">
+            *ngIf="activoSeleccionado?.id_activo_glpi"
+            (onClick)="abrirEnGLPI(activoSeleccionado?.id_activo_glpi!)"
+            pTooltip="Abrir equipo en GLPI">
+          </p-button>
+          <p-button 
+            label="Guardar" 
+            icon="pi pi-save" 
+            severity="success"
+            [loading]="isSavingMatriz"
+            [disabled]="isSavingMatriz"
+            (onClick)="guardarMatrizCompleta()"
+            pTooltip="Guardar cambios">
           </p-button>
           <p-button 
             label="Cerrar" 
             icon="pi pi-times"
+            severity="secondary"
+            [outlined]="true"
             (onClick)="cerrarMatrizCompleta()">
           </p-button>
         </div>
@@ -665,12 +776,12 @@
                 (onClick)="limpiarBusquedaCompleta()">
               </p-button>
               <p-button 
-                label="Exportar Excel" 
+                label="Exportar Todo" 
                 icon="pi pi-file-excel" 
                 size="small"
                 severity="success"
                 [outlined]="true"
-                (onClick)="exportarMatrizCompleta()">
+                (onClick)="exportarTodosLosActivos()">
               </p-button>
             </div>
           </div>
@@ -863,20 +974,20 @@
 
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-between align-items-center">
-        <div class="text-muted">
+        <div class="text-muted px-2">
           <small>
             <i class="pi pi-info-circle me-1"></i>
             Total de activos: {{ totalRecordsCompleta }}
           </small>
         </div>
         <div class="d-flex gap-2">
-          <p-button 
+          <!-- <p-button 
             label="Exportar Todo" 
             icon="pi pi-download" 
             severity="success"
             [outlined]="true"
             (onClick)="exportarTodosLosActivos()">
-          </p-button>
+          </p-button> -->
           <p-button 
             label="Cerrar" 
             icon="pi pi-times"

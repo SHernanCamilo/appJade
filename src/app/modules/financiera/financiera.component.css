@@ -1,4 +1,4 @@
-.inventario-container {
+.financiera-container {
   padding: 2rem;
   max-width: 100%;
   margin: 1px auto;
@@ -175,7 +175,7 @@
 
 /* Responsive */
 @media (max-width: 991.98px) {
-  .inventario-container {
+  .financiera-container {
     padding: 1.5rem;
   }
 
@@ -185,7 +185,7 @@
 }
 
 @media (max-width: 576px) {
-  .inventario-container {
+  .financiera-container {
     padding: 1rem;
   }
 

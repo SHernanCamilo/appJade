@@ -1,18 +1,22 @@
 <div class="page-container">
   <p-toast></p-toast>
 
-  <div class="page-header">
-    <button class="btn btn-back mb-2" routerLink="/inventario">
-      <i class="bi bi-arrow-left me-2"></i>Volver
-    </button>
+  <!-- Header con navegación y acciones -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
     
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="page-title">
-          <i class="bi bi-sliders me-2"></i>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-sliders-h me-2"></i>
           Parámetros de Matriz de Obsolescencia
         </h1>
-        <p class="page-subtitle">Configuración de parámetros para el análisis de obsolescencia</p>
+        <p class="page-subtitle-modern">Configuración de parámetros para el análisis de obsolescencia</p>
       </div>
     </div>
   </div>
@@ -35,16 +39,33 @@
                       <span class="badge bg-primary">PUNTAJE</span>
                     </div>
                     <div class="param-card-body">
-                      <table class="param-table">
+                      <!-- Skeleton de carga -->
+                      <div *ngIf="isLoadingParametros" class="text-center py-4">
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p class="text-muted mt-2 small">Cargando rangos...</p>
+                      </div>
+                      
+                      <!-- Tabla con datos -->
+                      <table class="param-table" *ngIf="!isLoadingParametros">
                         <tbody>
                           <tr *ngFor="let rango of rangosEdad">
                             <td class="text-start">{{ rango.rango }}</td>
                             <td class="text-center fw-bold">{{ rango.puntaje }}</td>
                             <td class="text-end">
-                              <button class="btn-edit me-1" (click)="editarRangoEdad(rango)" title="Editar">
+                              <button 
+                                class="btn-edit me-1" 
+                                (click)="editarRangoEdad(rango)" 
+                                title="Editar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-editar'">
                                 <i class="bi bi-pencil"></i>
                               </button>
-                              <button class="btn-delete" (click)="eliminarRangoEdad(rango)" title="Eliminar">
+                              <button 
+                                class="btn-delete" 
+                                (click)="eliminarRangoEdad(rango)" 
+                                title="Eliminar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-eliminar'">
                                 <i class="bi bi-trash"></i>
                               </button>
                             </td>
@@ -70,16 +91,33 @@
                       <h6 class="mb-0">CARACTERÍSTICAS MÍNIMAS PARA UN COMPUTADOR</h6>
                     </div>
                     <div class="param-card-body">
-                      <table class="param-table">
+                      <!-- Skeleton de carga -->
+                      <div *ngIf="isLoadingParametros" class="text-center py-4">
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p class="text-muted mt-2 small">Cargando características...</p>
+                      </div>
+                      
+                      <!-- Tabla con datos -->
+                      <table class="param-table" *ngIf="!isLoadingParametros">
                         <tbody>
                           <tr *ngFor="let caract of caracteristicasMinimas">
                             <td class="text-start small">{{ caract.nombre }}</td>
                             <td class="text-center fw-bold">{{ caract.valor }}</td>
                             <td class="text-end">
-                              <button class="btn-edit me-1" (click)="editarCaracteristica(caract)" title="Editar">
+                              <button 
+                                class="btn-edit me-1" 
+                                (click)="editarCaracteristica(caract)" 
+                                title="Editar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-editar'">
                                 <i class="bi bi-pencil"></i>
                               </button>
-                              <button class="btn-delete" (click)="eliminarCaracteristica(caract)" title="Eliminar">
+                              <button 
+                                class="btn-delete" 
+                                (click)="eliminarCaracteristica(caract)" 
+                                title="Eliminar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-eliminar'">
                                 <i class="bi bi-trash"></i>
                               </button>
                             </td>
@@ -106,7 +144,16 @@
                       <h6 class="mb-0">RANGOS FUNCIONAL DE MATRIZ</h6>
                     </div>
                     <div class="param-card-body">
-                      <table class="param-table">
+                      <!-- Skeleton de carga -->
+                      <div *ngIf="isLoadingParametros" class="text-center py-4">
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p class="text-muted mt-2 small">Cargando rangos...</p>
+                      </div>
+                      
+                      <!-- Tabla con datos -->
+                      <table class="param-table" *ngIf="!isLoadingParametros">
                         <tbody>
                           <tr *ngFor="let concepto of conceptosPuntaje">
                             <td class="text-center fw-bold">{{ concepto.puntaje }}</td>
@@ -114,10 +161,18 @@
                               <strong>{{ concepto.concepto }}</strong>
                             </td>
                             <td class="text-end">
-                              <button class="btn-edit me-1" (click)="editarConcepto(concepto)" title="Editar">
+                              <button 
+                                class="btn-edit me-1" 
+                                (click)="editarConcepto(concepto)" 
+                                title="Editar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-editar'">
                                 <i class="bi bi-pencil"></i>
                               </button>
-                              <button class="btn-delete" (click)="eliminarConcepto(concepto)" title="Eliminar">
+                              <button 
+                                class="btn-delete" 
+                                (click)="eliminarConcepto(concepto)" 
+                                title="Eliminar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-eliminar'">
                                 <i class="bi bi-trash"></i>
                               </button>
                             </td>
@@ -143,16 +198,33 @@
                       <h6 class="mb-0">VIDA ÚTIL POR TIPO DE EQUIPO</h6>
                     </div>
                     <div class="param-card-body">
-                      <table class="param-table">
+                      <!-- Skeleton de carga -->
+                      <div *ngIf="isLoadingParametros" class="text-center py-4">
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="100%" height="40px" styleClass="mb-2"></p-skeleton>
+                        <p class="text-muted mt-2 small">Cargando tipos de equipo...</p>
+                      </div>
+                      
+                      <!-- Tabla con datos -->
+                      <table class="param-table" *ngIf="!isLoadingParametros">
                         <tbody>
                           <tr *ngFor="let equipo of tiposEquipos">
                             <td class="text-start small">{{ equipo.tipo }}</td>
                             <td class="text-center fw-bold">{{ equipo.vidaUtil }} años</td>
                             <td class="text-end">
-                              <button class="btn-edit me-1" (click)="editarEquipo(equipo)" title="Editar">
+                              <button 
+                                class="btn-edit me-1" 
+                                (click)="editarEquipo(equipo)" 
+                                title="Editar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-editar'">
                                 <i class="bi bi-pencil"></i>
                               </button>
-                              <button class="btn-delete" (click)="eliminarEquipo(equipo)" title="Eliminar">
+                              <button 
+                                class="btn-delete" 
+                                (click)="eliminarEquipo(equipo)" 
+                                title="Eliminar"
+                                *hasPermission="'inv-matriz-parametros-de-activos-eliminar'">
                                 <i class="bi bi-trash"></i>
                               </button>
                             </td>
@@ -184,7 +256,8 @@
                   </p>
                 </div>
                 <div class="d-flex gap-2">
-                  <p-button 
+                  <p-button
+                    *hasPermission="'inv-matriz-paramatriz-recalculando-solo-nuevos'" 
                     label="Solo Nuevos" 
                     icon="pi pi-plus"
                     (onClick)="ejecutarCalculos(true)"
@@ -192,6 +265,7 @@
                     [loading]="calculandoValores">
                   </p-button>
                   <p-button 
+                    *hasPermission="'inv-matriz-paramatriz-recalculando-todos'"
                     label="Recalcular Todo" 
                     icon="pi pi-refresh"
                     (onClick)="ejecutarCalculos(false)"
@@ -268,8 +342,20 @@
                         </p-button>
                       </div>
 
+                      <!-- Skeleton de carga -->
+                      <div *ngIf="isLoadingAgentes" class="p-4">
+                        <div class="text-center py-4">
+                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+                          <p class="text-muted mt-3">Cargando agentes...</p>
+                        </div>
+                      </div>
+
                       <!-- Tabla con estilos globales de PrimeNG -->
                       <p-table 
+                        *ngIf="!isLoadingAgentes"
                         [value]="agentes" 
                         [paginator]="true" 
                         [rows]="10"
@@ -311,12 +397,14 @@
                             <td>
                               <div class="d-flex gap-1">
                                 <p-button 
+                                  *hasPermission="'inv-matriz-parametros-de-activos-editar'"
                                   icon="pi pi-pencil" 
                                   (onClick)="editarAgente(agente)"
                                   styleClass="p-button-rounded p-button-text p-button-info p-button-sm"
                                   pTooltip="Editar agente">
                                 </p-button>
                                 <p-button 
+                                  *hasPermission="'inv-matriz-parametros-de-activos-eliminar'"
                                   icon="pi pi-trash" 
                                   (onClick)="eliminarAgente(agente)"
                                   styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"

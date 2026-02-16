@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../auth/auth.service';
 import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../services/matriz-obs-activos.service';
 import { MatrizObsParametrosService } from '../services/matriz-obs-parametros.service';
+import { ExcelExportService, ExcelColumn } from '../../../../core/services/excel-export.service';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -20,6 +21,7 @@ import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { ChartModule } from 'primeng/chart';
 import { ProgressBarModule } from 'primeng/progressbar';
+import { CalendarModule } from 'primeng/calendar';
 
 interface EmpresaPermiso {
   empresa_id: number;
@@ -54,7 +56,8 @@ interface MatrizItem {
     DialogModule,
     TooltipModule,
     ChartModule,
-    ProgressBarModule
+    ProgressBarModule,
+    CalendarModule
   ],
   providers: [MessageService],
   templateUrl: './dashboardMaObsolescencia.component.html',
@@ -69,6 +72,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   // Loading states
   isLoading = false;
   isLoadingStats = false;
+  isLoadingCards = false;
   isCalculatingValues = false;
   
   // Pagination
@@ -127,6 +131,18 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   mostrarMatrizCompleta = false;
   activoSeleccionado: ActivoMatriz | null = null;
   matrizCompleta: MatrizItem[] = [];
+  
+  // Campos editables del modal
+  camposEditables = {
+    ubicacion: '',
+    tipo_unidad: '',
+    fecha_compra: '',
+    modalidad: '',
+    proveedor: ''
+  };
+  
+  // Estado de guardado
+  isSavingMatriz = false;
 
   // Modal Matriz Completa Todos
   mostrarMatrizCompletaTodos = false;
@@ -159,7 +175,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private activosService: MatrizObsActivosService,
     private messageService: MessageService,
-    private parametrosService: MatrizObsParametrosService
+    private parametrosService: MatrizObsParametrosService,
+    private excelExportService: ExcelExportService
   ) {
     this.initChartOptions();
     this.initBarChartOptions();
@@ -427,6 +444,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   loadStats(): void {
     this.isLoadingStats = true;
+    this.isLoadingCards = true;
     
     // Cargar estadísticas por estado (que ahora calcula todo)
     this.loadEstadisticasPorEstado();
@@ -471,6 +489,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           this.stats.totalActivos = activos.length;
           this.calcularEstadisticasPorTipo(activos);
           this.calcularEstadisticasPorUbicacion(activos);
+          
+          // Marcar como cargado
+          this.isLoadingCards = false;
         }
       },
       error: (error) => {
@@ -482,6 +503,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           obsoleto: 0
         };
         this.stats.totalActivos = 0;
+        this.isLoadingCards = false;
       }
     });
   }
@@ -679,7 +701,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     
     const totalEquipos = this.estadisticasPorTipo.reduce((sum, tipo) => sum + tipo.total, 0);
     const equiposBienUtilizados = this.estadisticasPorTipo.reduce((sum, tipo) => 
-      sum + tipo.distribucion.optimo + tipo.distribucion.funcional, 0);
+      sum + tipo.optimo + tipo.funcional, 0);
     
     return totalEquipos > 0 ? Math.round((equiposBienUtilizados / totalEquipos) * 100) : 0;
   }
@@ -825,10 +847,144 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Exportar todos los activos (placeholder)
+   * Exportar todos los activos a Excel
    */
   exportarTodosLosActivos(): void {
-    this.showInfo('Funcionalidad de exportación de todos los activos en desarrollo');
+    // Mostrar indicador de carga
+    this.showInfo('Preparando exportación...');
+    
+    // Obtener todos los activos sin paginación
+    const filtros: FiltrosActivos = {
+      per_page: 9999 // Obtener todos
+    };
+
+    // Aplicar filtros actuales
+    if (this.selectedEmpresa) {
+      filtros.empresa_id = this.selectedEmpresa;
+    }
+    if (this.selectedSucursal) {
+      filtros.sucursal_id = this.selectedSucursal;
+    }
+    if (this.selectedSede) {
+      filtros.sede_id = this.selectedSede;
+    }
+    if (this.searchTermTodos) {
+      filtros.search = this.searchTermTodos;
+    }
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data && response.data.length > 0) {
+          this.generarExcel(response.data);
+          this.showSuccess(`Se exportaron ${response.data.length} activos correctamente`);
+        } else {
+          this.showWarn('No hay datos para exportar');
+        }
+      },
+      error: (error) => {
+        console.error('Error exportando activos:', error);
+        this.showError('Error al exportar los activos');
+      }
+    });
+  }
+
+  /**
+   * Generar archivo Excel con los datos de activos
+   */
+  /**
+   * Generar archivo Excel con los datos de activos usando el servicio
+   */
+  private async generarExcel(activos: ActivoMatriz[]): Promise<void> {
+    // Definir las columnas
+    const columns: ExcelColumn[] = [
+      { header: 'NOMBRE EQUIPO', key: 'nombreEquipo', width: 25 },
+      { header: 'SUCURSAL/SEDE', key: 'sucursalSede', width: 30 },
+      { header: 'TAG AGENTE', key: 'tagAgente', width: 15 },
+      { header: 'PLACA', key: 'placa', width: 15 },
+      { header: 'MARCA', key: 'marca', width: 15 },
+      { header: 'TIPO EQUIPO', key: 'tipoEquipo', width: 15 },
+      { header: 'REFERENCIA', key: 'referencia', width: 20 },
+      { header: 'SERIAL', key: 'serial', width: 20 },
+      { header: 'UBICACIÓN', key: 'ubicacion', width: 20 },
+      { header: 'TIPO UNIDAD', key: 'tipoUnidad', width: 15 },
+      { header: 'FECHA COMPRA', key: 'fechaCompra', width: 15 },
+      { header: 'MODALIDAD COMPRA', key: 'modalidadCompra', width: 18 },
+      { header: 'PROVEEDOR', key: 'proveedor', width: 20 },
+      { header: 'EDAD (Años)', key: 'edad', width: 12 },
+      { header: 'EDAD VS VUTIL', key: 'edadVsVutil', width: 15 },
+      { header: 'VALORACIÓN EDAD', key: 'valoracionEdad', width: 18 },
+      { header: 'RAM (GB)', key: 'ram', width: 12 },
+      { header: 'MAX RAM (GB)', key: 'maxRam', width: 12 },
+      { header: 'GENERACIÓN RAM', key: 'generacionRam', width: 15 },
+      { header: 'VALORACIÓN RAM', key: 'valoracionRam', width: 18 },
+      { header: 'PROCESADOR', key: 'procesador', width: 25 },
+      { header: 'NÚMERO PROCESADOR', key: 'numeroProcesador', width: 18 },
+      { header: 'VALORACIÓN PROCESADOR', key: 'valoracionProcesador', width: 22 },
+      { header: 'TIPO DISCO', key: 'tipoDisco', width: 15 },
+      { header: 'DISCO (GB)', key: 'disco', width: 12 },
+      { header: 'INTERFAZ CONEXIÓN', key: 'interfazConexion', width: 18 },
+      { header: 'VALORACIÓN DISCO', key: 'valoracionDisco', width: 18 },
+      { header: '#INCIDENCIAS 6 MESES', key: 'incidencias', width: 20 },
+      { header: 'PUNTAJE', key: 'puntaje', width: 10 },
+      { header: 'CONCEPTO', key: 'concepto', width: 35 }
+    ];
+
+    // Transformar los datos al formato requerido
+    const excelData = activos.map(activo => {
+      const detalle = activo.detalle as any;
+      const empresa = activo.empresa?.nombre || '-';
+      const sucursal = activo.sucursal?.nombre || '';
+      const ubicacionEmpresa = sucursal ? `${empresa} - ${sucursal}` : empresa;
+
+      return {
+        nombreEquipo: activo.nombre_equipo || '-',
+        sucursalSede: ubicacionEmpresa,
+        tagAgente: activo.agente || '-',
+        placa: activo.placa || '-',
+        marca: detalle?.marca || '-',
+        tipoEquipo: detalle?.tipo || '-',
+        referencia: detalle?.referencia || '-',
+        serial: activo.serial || '-',
+        ubicacion: activo.ubicacion || '-',
+        tipoUnidad: detalle?.tipo_unidad || '-',
+        fechaCompra: detalle?.fecha_compra || '-',
+        modalidadCompra: detalle?.modalidad || '-',
+        proveedor: detalle?.proveedor || '-',
+        edad: detalle?.edad !== null && detalle?.edad !== undefined ? detalle.edad : '-',
+        edadVsVutil: detalle?.edad_v_util !== null && detalle?.edad_v_util !== undefined ? `${detalle.edad_v_util}%` : '-',
+        valoracionEdad: detalle?.valoracion_edad || '-',
+        ram: detalle?.tamano_ram !== null && detalle?.tamano_ram !== undefined ? detalle.tamano_ram : '-',
+        maxRam: detalle?.tamano_ram !== null && detalle?.tamano_ram !== undefined ? detalle.tamano_ram * 2 : '-',
+        generacionRam: detalle?.generacion_ram || '-',
+        valoracionRam: detalle?.valoracion_ram || '-',
+        procesador: detalle?.procesador || '-',
+        numeroProcesador: detalle?.numero_procesador !== null && detalle?.numero_procesador !== undefined ? detalle.numero_procesador : '-',
+        valoracionProcesador: detalle?.valoracion_procesador || '-',
+        tipoDisco: detalle?.tipo_disco || '-',
+        disco: detalle?.tamano_disco !== null && detalle?.tamano_disco !== undefined ? detalle.tamano_disco : '-',
+        interfazConexion: detalle?.interfaz_conexion || '-',
+        valoracionDisco: detalle?.valoracion_disco || '-',
+        incidencias: detalle?.incidencias_6_meses !== null && detalle?.incidencias_6_meses !== undefined ? detalle.incidencias_6_meses : '0',
+        puntaje: activo.puntaje || 0,
+        concepto: this.getConceptoPuntaje(activo.puntaje)
+      };
+    });
+
+    // Usar el servicio para exportar
+    await this.excelExportService.exportToExcel(
+      excelData,
+      columns,
+      'Matriz Obsolescencia',
+      'Matriz_Obsolescencia',
+      {
+        headerBackgroundColor: 'FF4472C4', // Azul
+        headerFontColor: 'FFFFFFFF', // Blanco
+        headerFontSize: 11,
+        headerHeight: 20,
+        dataBorderColor: 'FFD3D3D3', // Gris claro
+        applyBorders: true
+      }
+    );
   }
 
   /**
@@ -836,6 +992,16 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   verMatrizCompleta(activo: ActivoMatriz): void {
     this.activoSeleccionado = activo;
+    
+    // Cargar campos editables con los valores actuales
+    this.camposEditables = {
+      ubicacion: activo.ubicacion || '',
+      tipo_unidad: (activo.detalle as any)?.tipo_unidad || '',
+      fecha_compra: (activo.detalle as any)?.fecha_compra || '',
+      modalidad: (activo.detalle as any)?.modalidad || '',
+      proveedor: (activo.detalle as any)?.proveedor || ''
+    };
+    
     this.generarMatrizCompleta(activo);
     this.mostrarMatrizCompleta = true;
   }
@@ -1012,10 +1178,143 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Exportar matriz a PDF (placeholder)
+   * Abrir equipo en GLPI en nueva pestaña
    */
-  exportarMatrizPDF(): void {
-    this.showInfo('Funcionalidad de exportación en desarrollo');
+  abrirEnGLPI(idActivoGlpi: number): void {
+    if (!idActivoGlpi) {
+      this.showError('Este activo no tiene ID de GLPI asociado');
+      return;
+    }
+    
+    const url = `http://aqsolutions.tech/front/computer.form.php?id=${idActivoGlpi}`;
+    window.open(url, '_blank');
+  }
+
+  /**
+   * Guardar cambios de la matriz completa
+   */
+  guardarMatrizCompleta(): void {
+    if (!this.activoSeleccionado) {
+      this.showError('No hay activo seleccionado');
+      return;
+    }
+
+    this.isSavingMatriz = true;
+
+    // Preparar datos para actualizar
+    const datosActualizar = {
+      id: this.activoSeleccionado.id,
+      ubicacion: this.camposEditables.ubicacion,
+      detalle: {
+        tipo_unidad: this.camposEditables.tipo_unidad,
+        fecha_compra: this.camposEditables.fecha_compra,
+        modalidad: this.camposEditables.modalidad,
+        proveedor: this.camposEditables.proveedor
+      }
+    };
+
+    // Llamar al servicio para actualizar
+    this.activosService.actualizarActivo(datosActualizar).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          this.showSuccess('Activo actualizado correctamente. Recalculando valores...');
+          
+          // Actualizar el activo seleccionado con los nuevos valores
+          if (this.activoSeleccionado) {
+            this.activoSeleccionado.ubicacion = this.camposEditables.ubicacion;
+            if (this.activoSeleccionado.detalle) {
+              (this.activoSeleccionado.detalle as any).tipo_unidad = this.camposEditables.tipo_unidad;
+              (this.activoSeleccionado.detalle as any).fecha_compra = this.camposEditables.fecha_compra;
+              (this.activoSeleccionado.detalle as any).modalidad = this.camposEditables.modalidad;
+              (this.activoSeleccionado.detalle as any).proveedor = this.camposEditables.proveedor;
+            }
+          }
+          
+          // Recalcular solo este activo
+          this.recalcularActivo(this.activoSeleccionado!.id);
+        } else {
+          this.isSavingMatriz = false;
+          this.showError(response.message || 'Error al actualizar el activo');
+        }
+      },
+      error: (error: any) => {
+        this.isSavingMatriz = false;
+        console.error('Error actualizando activo:', error);
+        
+        let errorMessage = 'Error al actualizar el activo';
+        if (error.error?.message) {
+          errorMessage = error.error.message;
+        }
+        
+        this.showError(errorMessage);
+      }
+    });
+  }
+
+  /**
+   * Recalcular valores de un activo específico
+   */
+  private recalcularActivo(activoId: number): void {
+    this.parametrosService.ejecutarCalculos({
+      activo_id: activoId,
+      force: true
+    }).subscribe({
+      next: (response: any) => {
+        this.isSavingMatriz = false;
+        
+        if (response.success) {
+          this.showSuccess('Valores recalculados correctamente');
+          
+          // Recargar el activo actualizado desde el servidor
+          this.activosService.getActivo(activoId).subscribe({
+            next: (activoResponse: any) => {
+              if (activoResponse.success && activoResponse.data) {
+                // Actualizar el activo seleccionado con los datos recalculados
+                this.activoSeleccionado = activoResponse.data;
+                
+                // Regenerar la matriz con los nuevos valores calculados
+                if (this.activoSeleccionado) {
+                  this.generarMatrizCompleta(this.activoSeleccionado);
+                  
+                  // Recargar campos editables por si cambiaron
+                  this.camposEditables = {
+                    ubicacion: this.activoSeleccionado.ubicacion || '',
+                    tipo_unidad: (this.activoSeleccionado.detalle as any)?.tipo_unidad || '',
+                    fecha_compra: (this.activoSeleccionado.detalle as any)?.fecha_compra || '',
+                    modalidad: (this.activoSeleccionado.detalle as any)?.modalidad || '',
+                    proveedor: (this.activoSeleccionado.detalle as any)?.proveedor || ''
+                  };
+                }
+              }
+              
+              // Recargar la lista de activos para reflejar el nuevo puntaje
+              this.loadActivos();
+              this.loadStats();
+            },
+            error: (error: any) => {
+              console.error('Error recargando activo:', error);
+              // Aún así recargar la lista
+              this.loadActivos();
+              this.loadStats();
+            }
+          });
+        } else {
+          this.showWarn('Activo guardado pero no se pudo recalcular: ' + (response.message || ''));
+          // Recargar la lista de activos de todas formas
+          this.loadActivos();
+          this.loadStats();
+        }
+      },
+      error: (error: any) => {
+        this.isSavingMatriz = false;
+        console.error('Error recalculando activo:', error);
+        this.showWarn('Activo guardado pero no se pudo recalcular. Intente recalcular manualmente.');
+        
+        // Recargar la lista de activos de todas formas
+        this.loadActivos();
+        this.loadStats();
+      }
+    });
   }
 
   /**
@@ -1393,138 +1692,110 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Cargar lista de empresas desde los activos disponibles
    */
   loadEmpresas(): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999
-    };
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          const empresasMap = new Map<number, { id: number; nombre: string }>();
-          
-          activos.forEach(activo => {
-            if (activo.empresa && activo.id_empresa) {
-              if (!empresasMap.has(activo.id_empresa)) {
-                empresasMap.set(activo.id_empresa, {
-                  id: activo.id_empresa,
-                  nombre: activo.empresa.nombre
-                });
-              }
-            }
-          });
-          
-          this.empresasList = Array.from(empresasMap.values())
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-          
-          this.empresasOptions = this.empresasList.map(emp => ({
-            label: emp.nombre,
-            value: emp.id
-          }));
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando empresas:', error);
-        this.showError('Error al cargar las empresas');
-      }
-    });
+    this.loadEntidadesDesdeActivos('empresa', {});
   }
 
   /**
    * Cargar sucursales por empresa desde los activos disponibles
    */
   loadSucursalesPorEmpresa(empresaId: number): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999,
-      empresa_id: empresaId
-    };
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          const sucursalesMap = new Map<number, { id: number; nombre: string }>();
-          
-          activos.forEach(activo => {
-            if (activo.sucursal && activo.id_sucursal) {
-              if (!sucursalesMap.has(activo.id_sucursal)) {
-                sucursalesMap.set(activo.id_sucursal, {
-                  id: activo.id_sucursal,
-                  nombre: activo.sucursal.nombre
-                });
-              }
-            }
-          });
-          
-          this.sucursalesList = Array.from(sucursalesMap.values())
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-          
-          this.sucursalesOptions = this.sucursalesList.map(suc => ({
-            label: suc.nombre,
-            value: suc.id
-          }));
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando sucursales:', error);
-        this.showError('Error al cargar las sucursales');
-      }
-    });
+    this.loadEntidadesDesdeActivos('sucursal', { empresa_id: empresaId });
   }
 
   /**
    * Cargar sedes por sucursal desde los activos disponibles
    */
   loadSedesPorSucursal(sucursalId: number): void {
+    this.loadEntidadesDesdeActivos('sede', { 
+      empresa_id: this.selectedEmpresa!, 
+      sucursal_id: sucursalId 
+    });
+  }
+
+  /**
+   * Método genérico para cargar entidades desde activos
+   */
+  private loadEntidadesDesdeActivos(tipo: 'empresa' | 'sucursal' | 'sede', filtrosExtra: any): void {
     const filtros: FiltrosActivos = {
       per_page: 9999,
-      empresa_id: this.selectedEmpresa!,
-      sucursal_id: sucursalId
+      ...filtrosExtra
     };
 
     this.activosService.getActivosPorPermisos(filtros).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           const activos = response.data;
-          const sedesMap = new Map<number, { id: number; nombre: string }>();
+          const entidadesMap = new Map<number, { id: number; nombre: string }>();
           
           activos.forEach(activo => {
-            if (activo.sede && activo.id_sede) {
-              if (!sedesMap.has(activo.id_sede)) {
-                sedesMap.set(activo.id_sede, {
-                  id: activo.id_sede,
-                  nombre: activo.sede.nombre
+            const entidad = tipo === 'empresa' ? activo.empresa : 
+                           tipo === 'sucursal' ? activo.sucursal : 
+                           activo.sede;
+            const idKey = tipo === 'empresa' ? activo.id_empresa : 
+                         tipo === 'sucursal' ? activo.id_sucursal : 
+                         activo.id_sede;
+            
+            if (entidad && idKey) {
+              if (!entidadesMap.has(idKey)) {
+                entidadesMap.set(idKey, {
+                  id: idKey,
+                  nombre: entidad.nombre
                 });
               }
             }
           });
           
-          this.sedesList = Array.from(sedesMap.values())
+          const lista = Array.from(entidadesMap.values())
             .sort((a, b) => a.nombre.localeCompare(b.nombre));
           
-          this.sedesOptions = this.sedesList.map(sede => ({
-            label: sede.nombre,
-            value: sede.id
+          const opciones = lista.map(item => ({
+            label: item.nombre,
+            value: item.id
           }));
+
+          // Asignar a las propiedades correspondientes
+          if (tipo === 'empresa') {
+            this.empresasList = lista;
+            this.empresasOptions = opciones;
+          } else if (tipo === 'sucursal') {
+            this.sucursalesList = lista;
+            this.sucursalesOptions = opciones;
+          } else {
+            this.sedesList = lista;
+            this.sedesOptions = opciones;
+          }
         }
       },
       error: (error) => {
-        console.error('Error cargando sedes:', error);
-        this.showError('Error al cargar las sedes');
+        console.error(`Error cargando ${tipo}s:`, error);
+        this.showError(`Error al cargar las ${tipo}s`);
       }
     });
+  }
+
+  /**
+   * Limpiar filtros dependientes
+   */
+  private limpiarFiltrosDependientes(nivel: 'empresa' | 'sucursal'): void {
+    if (nivel === 'empresa') {
+      this.selectedSucursal = null;
+      this.selectedSede = null;
+      this.sucursalesOptions = [];
+      this.sedesOptions = [];
+      this.sucursalesList = [];
+      this.sedesList = [];
+    } else if (nivel === 'sucursal') {
+      this.selectedSede = null;
+      this.sedesOptions = [];
+      this.sedesList = [];
+    }
   }
 
   /**
    * Manejar cambio de empresa
    */
   onEmpresaChange(): void {
-    this.selectedSucursal = null;
-    this.selectedSede = null;
-    this.sucursalesOptions = [];
-    this.sedesOptions = [];
-    this.sucursalesList = [];
-    this.sedesList = [];
+    this.limpiarFiltrosDependientes('empresa');
 
     if (this.selectedEmpresa) {
       this.loadSucursalesPorEmpresa(this.selectedEmpresa);
@@ -1537,9 +1808,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Manejar cambio de sucursal
    */
   onSucursalChange(): void {
-    this.selectedSede = null;
-    this.sedesOptions = [];
-    this.sedesList = [];
+    this.limpiarFiltrosDependientes('sucursal');
 
     if (this.selectedSucursal) {
       this.loadSedesPorSucursal(this.selectedSucursal);
@@ -1570,38 +1839,37 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   limpiarFiltros(): void {
     this.selectedEmpresa = null;
-    this.selectedSucursal = null;
-    this.selectedSede = null;
-    this.sucursalesOptions = [];
-    this.sedesOptions = [];
-    this.sucursalesList = [];
-    this.sedesList = [];
-    
+    this.limpiarFiltrosDependientes('empresa');
     this.aplicarFiltros();
+  }
+
+  /**
+   * Obtener nombre de entidad por ID
+   */
+  private getEntityName(lista: any[], id: number): string {
+    const entity = lista.find(e => e.id === id);
+    return entity ? entity.nombre : '';
   }
 
   /**
    * Obtener nombre de empresa por ID
    */
   getEmpresaName(empresaId: number): string {
-    const empresa = this.empresasList.find(e => e.id === empresaId);
-    return empresa ? empresa.nombre : '';
+    return this.getEntityName(this.empresasList, empresaId);
   }
 
   /**
    * Obtener nombre de sucursal por ID
    */
   getSucursalName(sucursalId: number): string {
-    const sucursal = this.sucursalesList.find(s => s.id === sucursalId);
-    return sucursal ? sucursal.nombre : '';
+    return this.getEntityName(this.sucursalesList, sucursalId);
   }
 
   /**
    * Obtener nombre de sede por ID
    */
   getSedeName(sedeId: number): string {
-    const sede = this.sedesList.find(s => s.id === sedeId);
-    return sede ? sede.nombre : '';
+    return this.getEntityName(this.sedesList, sedeId);
   }
 
   /**
