@@ -5,49 +5,44 @@
   <!-- Confirm Dialog -->
   <p-confirmDialog></p-confirmDialog>
   
-  <button class="btn btn-back mb-2" routerLink="/organizacion">
-    <i class="bi bi-arrow-left me-2"></i>Volver
-  </button>
-
-  <!-- Header -->
-  <div class="page-header">
-    <div class="header-left">
-      <div class="header-title">
-        <h1>
-          <i class="bi-person-badge me-2"></i>
-          Gestión de Perfiles</h1>
-        <p>Administra los perfiles de permisos del sistema</p>
-      </div>
+  <!-- Header Moderno -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
     </div>
     
-    <!-- Estadísticas -->
-    <div class="stats-cards">
-      <div class="stat-card">
-        <div class="stat-icon total">
-          <i class="bi bi-person-badge"></i>
-        </div>
-        <div class="stat-info">
-          <div class="stat-label">Total Perfiles</div>
-          <div class="stat-value">{{ getTotalPerfiles() }}</div>
-        </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-person-badge me-2"></i>
+          Gestión de Perfiles
+        </h1>
+        <p class="page-subtitle-modern">Administra los perfiles de permisos del sistema</p>
       </div>
       
-      <div class="stat-card">
-        <div class="stat-icon active">
-          <i class="bi bi-toggle-on"></i>
+      <div class="header-actions">
+        <!-- Estadísticas compactas -->
+        <div class="stats-inline">
+          <div class="stat-inline">
+            <i class="bi bi-person-badge"></i>
+            <span>{{ getTotalPerfiles() }} perfiles</span>
+          </div>
+          <div class="stat-inline active">
+            <i class="bi bi-toggle-on"></i>
+            <span>{{ getPerfilesActivos() }} activos</span>
+          </div>
         </div>
-        <div class="stat-info">
-          <div class="stat-label">Activos</div>
-          <div class="stat-value">{{ getPerfilesActivos() }}</div>
-        </div>
+        <button 
+          class="btn-action btn-action-primary"
+          (click)="toggleForm()">
+          <i class="pi" [ngClass]="showForm ? 'pi-times' : 'pi-plus'"></i>
+          {{ showForm ? 'Cancelar' : 'Nuevo Perfil' }}
+        </button>
       </div>
     </div>
-    <p-button 
-      [label]="showForm ? 'Cancelar' : 'Nuevo Perfil'"
-      [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
-      (onClick)="toggleForm()"
-      [severity]="showForm ? 'secondary' : 'primary'">
-    </p-button>
   </div>
 
   <!-- Tabla de Perfiles con PrimeNG -->

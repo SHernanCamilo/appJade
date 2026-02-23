@@ -1,0 +1,98 @@
+<div class="template-list-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Gestión de Plantillas de Documentos</h1>
+    <button class="btn btn-primary" (click)="navigateToCreate()">
+      <i class="fas fa-plus"></i> Nueva Plantilla
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters">
+    <label>Filtrar por categoría:</label>
+    <div class="category-buttons">
+      <button 
+        class="btn btn-filter" 
+        [class.active]="selectedCategory === null"
+        (click)="filterByCategory(null)">
+        Todas
+      </button>
+      <button 
+        *ngFor="let category of categories"
+        class="btn btn-filter" 
+        [class.active]="selectedCategory === category"
+        (click)="filterByCategory(category)">
+        {{ getCategoryDisplayName(category) }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Cargando plantillas...</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error" class="error-message">
+    <i class="fas fa-exclamation-circle"></i>
+    {{ error }}
+    <button class="btn btn-sm" (click)="loadTemplates()">Reintentar</button>
+  </div>
+
+  <!-- Lista de plantillas -->
+  <div *ngIf="!loading && !error" class="templates-grid">
+    <div *ngIf="filteredTemplates.length === 0" class="no-templates">
+      <i class="fas fa-file-alt"></i>
+      <p>No hay plantillas disponibles</p>
+      <button class="btn btn-primary" (click)="navigateToCreate()">
+        Crear primera plantilla
+      </button>
+    </div>
+
+    <div *ngFor="let template of filteredTemplates" class="template-card">
+      <div class="card-header">
+        <h3>{{ template.name }}</h3>
+        <span class="category-badge">{{ getCategoryDisplayName(template.category) }}</span>
+      </div>
+
+      <div class="card-body">
+        <div class="template-info">
+          <p class="info-item">
+            <i class="fas fa-user"></i>
+            <span>Creado por: {{ template.creator?.name || 'Desconocido' }}</span>
+          </p>
+          <p class="info-item">
+            <i class="fas fa-calendar"></i>
+            <span>Última modificación: {{ formatDate(template.updated_at) }}</span>
+          </p>
+          <p class="info-item" *ngIf="template.variables && template.variables.length > 0">
+            <i class="fas fa-code"></i>
+            <span>Variables: {{ template.variables.length }}</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <button 
+          class="btn btn-sm btn-success" 
+          (click)="navigateToGenerate(template.id)"
+          title="Generar documento">
+          <i class="fas fa-file-pdf"></i> Generar
+        </button>
+        <button 
+          class="btn btn-sm btn-info" 
+          (click)="navigateToEdit(template.id)"
+          title="Editar plantilla">
+          <i class="fas fa-edit"></i> Editar
+        </button>
+        <button 
+          class="btn btn-sm btn-danger" 
+          (click)="deleteTemplate(template)"
+          title="Eliminar plantilla">
+          <i class="fas fa-trash"></i> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -36,6 +36,10 @@ export const routes: Routes = [
         path: 'financiera', 
         loadChildren: () => import('./modules/financiera/financiera.routes').then(m => m.FINANCIERA_ROUTES)
       },
+      { 
+        path: 'templates', 
+        loadChildren: () => import('./modules/templates/templates.routes').then(m => m.TEMPLATES_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí

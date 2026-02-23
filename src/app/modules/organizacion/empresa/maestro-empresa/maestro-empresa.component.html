@@ -2,36 +2,44 @@
   <p-toast></p-toast>
   <p-confirmDialog></p-confirmDialog>
 
-  <div class="page-header">
-    <button class="btn btn-back mb-2" routerLink="/organizacion">
-      <i class="bi bi-arrow-left me-2"></i>Volver
-    </button>
+  <!-- Header Moderno -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
     
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="page-title">
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
           <i class="bi bi-building-fill me-2"></i>
           Maestro de Empresas
         </h1>
-        <p class="page-subtitle">Gestiona las empresas del sistema</p>
+        <p class="page-subtitle-modern">Gestiona las empresas del sistema</p>
       </div>
-      <!-- Botón Crear Empresa - Solo visible en pestaña empresas y con permiso -->
-      <ng-container *ngIf="activeTab === 'empresas'">
-        <p-button 
-          *hasPermission="'org-emp-crear'"
-          [label]="showForm ? 'Cancelar' : 'Nueva Empresa'"
-          [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
-          (onClick)="toggleForm()"
-          [severity]="showForm ? 'secondary' : 'primary'">
-        </p-button>
-      </ng-container>
-      <!-- Botón Nuevo Dominio - Solo visible en pestaña dominios -->
-      <p-button 
-        *ngIf="activeTab === 'dominios'"
-        label="Nuevo Dominio"
-        icon="pi pi-plus"
-        (onClick)="openDomainDialog()">
-      </p-button>
+      
+      <div class="header-actions">
+        <!-- Botón Crear Empresa - Solo visible en pestaña empresas y con permiso -->
+        <ng-container *ngIf="activeTab === 'empresas'">
+          <button 
+            *hasPermission="'org-emp-crear'"
+            class="btn-action btn-action-primary"
+            (click)="toggleForm()">
+            <i class="pi" [ngClass]="showForm ? 'pi-times' : 'pi-plus'"></i>
+            {{ showForm ? 'Cancelar' : 'Nueva Empresa' }}
+          </button>
+        </ng-container>
+        <!-- Botón Nuevo Dominio - Solo visible en pestaña dominios -->
+        <button 
+          *ngIf="activeTab === 'dominios'"
+          class="btn-action btn-action-primary"
+          (click)="openDomainDialog()">
+          <i class="pi pi-plus"></i>
+          Nuevo Dominio
+        </button>
+      </div>
     </div>
   </div>
 
@@ -205,7 +213,6 @@
       </div>
     </form>
   </p-dialog>
-
 
   <div class="content-card" *ngIf="activeTab === 'empresas'">
     <p-table 

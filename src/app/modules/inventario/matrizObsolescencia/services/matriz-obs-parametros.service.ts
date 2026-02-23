@@ -154,4 +154,99 @@ export class MatrizObsParametrosService {
     });
   }
 
+  /**
+   * ========================================
+   * MÉTODOS PARA PROCESADORES
+   * ========================================
+   */
+
+  /**
+   * Obtener todos los procesadores
+   */
+  getProcesadores(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.apiUrl}/procesadores`);
+  }
+
+  /**
+   * Crear un nuevo procesador
+   */
+  createProcesador(procesador: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/procesadores`, procesador);
+  }
+
+  /**
+   * Actualizar un procesador
+   */
+  updateProcesador(id: number, procesador: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.apiUrl}/procesadores/${id}`, procesador);
+  }
+
+  /**
+   * Eliminar un procesador
+   */
+  deleteProcesador(id: number): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/procesadores/${id}`);
+  }
+
+  /**
+   * Obtener procesadores desde activos
+   */
+  getProcesadoresDesdeActivos(): Observable<ApiResponse<string[]>> {
+    return this.http.get<ApiResponse<string[]>>(`${this.apiUrl}/procesadores-desde-activos`);
+  }
+
+  /**
+   * Importar procesadores desde activos
+   */
+  importarProcesadoresDesdeActivos(): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/procesadores-importar`, {});
+  }
+
+  /**
+   * ========================================
+   * MÉTODOS PARA TIPOS DE RAM
+   * ========================================
+   */
+
+  /**
+   * Obtener todos los tipos de RAM
+   */
+  getTiposRam(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.apiUrl}/tipos-ram`);
+  }
+
+  /**
+   * Crear un nuevo tipo de RAM
+   */
+  createTipoRam(tipoRam: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/tipos-ram`, tipoRam);
+  }
+
+  /**
+   * Actualizar un tipo de RAM
+   */
+  updateTipoRam(id: number, tipoRam: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.apiUrl}/tipos-ram/${id}`, tipoRam);
+  }
+
+  /**
+   * Eliminar un tipo de RAM
+   */
+  deleteTipoRam(id: number): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/tipos-ram/${id}`);
+  }
+
+  /**
+   * Obtener tipos de RAM desde activos
+   */
+  getTiposRamDesdeActivos(): Observable<ApiResponse<string[]>> {
+    return this.http.get<ApiResponse<string[]>>(`${this.apiUrl}/tipos-ram-desde-activos`);
+  }
+
+  /**
+   * Importar tipos de RAM desde activos
+   */
+  importarTiposRamDesdeActivos(): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/tipos-ram-importar`, {});
+  }
 }

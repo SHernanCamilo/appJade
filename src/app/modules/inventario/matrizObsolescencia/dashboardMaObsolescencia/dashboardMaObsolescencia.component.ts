@@ -138,7 +138,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     tipo_unidad: '',
     fecha_compra: '',
     modalidad: '',
-    proveedor: ''
+    proveedor: '',
+    max_ram: null as number | null
   };
   
   // Estado de guardado
@@ -152,6 +153,14 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   currentPageCompleta = 1;
   rowsPerPageCompleta = 25;
   searchTermTodos = '';
+  
+  // Filtros del modal
+  selectedEmpresaModal: number | null = null;
+  selectedSucursalModal: number | null = null;
+  selectedSedeModal: number | null = null;
+  empresasOptionsModal: any[] = [];
+  sucursalesOptionsModal: any[] = [];
+  sedesOptionsModal: any[] = [];
 
   // Sincronización
   isSyncing = false;
@@ -771,6 +780,25 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.mostrarMatrizCompletaTodos = true;
     this.currentPageCompleta = 1;
     this.searchTermTodos = '';
+    
+    // Inicializar filtros del modal con los filtros actuales del dashboard
+    this.selectedEmpresaModal = this.selectedEmpresa;
+    this.selectedSucursalModal = this.selectedSucursal;
+    this.selectedSedeModal = this.selectedSede;
+    
+    // Cargar opciones de empresas para el modal
+    this.loadEmpresasModal();
+    
+    // Si hay empresa seleccionada, cargar sus sucursales
+    if (this.selectedEmpresaModal) {
+      this.loadSucursalesPorEmpresaModal(this.selectedEmpresaModal);
+      
+      // Si hay sucursal seleccionada, cargar sus sedes
+      if (this.selectedSucursalModal) {
+        this.loadSedesPorSucursalModal(this.selectedSucursalModal);
+      }
+    }
+    
     this.loadActivosMatrizCompleta();
   }
 
@@ -787,6 +815,17 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
     if (this.searchTermTodos) {
       filtros.search = this.searchTermTodos;
+    }
+
+    // Aplicar filtros del modal
+    if (this.selectedEmpresaModal) {
+      filtros.empresa_id = this.selectedEmpresaModal;
+    }
+    if (this.selectedSucursalModal) {
+      filtros.sucursal_id = this.selectedSucursalModal;
+    }
+    if (this.selectedSedeModal) {
+      filtros.sede_id = this.selectedSedeModal;
     }
 
     this.activosService.getActivosPorPermisos(filtros).subscribe({
@@ -826,8 +865,193 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   limpiarBusquedaCompleta(): void {
     this.searchTermTodos = '';
+    this.selectedEmpresaModal = null;
+    this.selectedSucursalModal = null;
+    this.selectedSedeModal = null;
+    this.sucursalesOptionsModal = [];
+    this.sedesOptionsModal = [];
     this.currentPageCompleta = 1;
     this.loadActivosMatrizCompleta();
+  }
+
+  /**
+   * Manejar cambio de empresa en modal
+   */
+  onEmpresaChangeModal(): void {
+    this.selectedSucursalModal = null;
+    this.selectedSedeModal = null;
+    this.sucursalesOptionsModal = [];
+    this.sedesOptionsModal = [];
+
+    if (this.selectedEmpresaModal) {
+      this.loadSucursalesPorEmpresaModal(this.selectedEmpresaModal);
+    }
+
+    this.aplicarFiltrosModal();
+  }
+
+  /**
+   * Manejar cambio de sucursal en modal
+   */
+  onSucursalChangeModal(): void {
+    this.selectedSedeModal = null;
+    this.sedesOptionsModal = [];
+
+    if (this.selectedSucursalModal) {
+      this.loadSedesPorSucursalModal(this.selectedSucursalModal);
+    }
+
+    this.aplicarFiltrosModal();
+  }
+
+  /**
+   * Manejar cambio de sede en modal
+   */
+  onSedeChangeModal(): void {
+    this.aplicarFiltrosModal();
+  }
+
+  /**
+   * Aplicar filtros del modal
+   */
+  aplicarFiltrosModal(): void {
+    this.currentPageCompleta = 1;
+    this.loadActivosMatrizCompleta();
+  }
+
+  /**
+   * Limpiar filtros del modal
+   */
+  limpiarFiltrosModal(): void {
+    this.selectedEmpresaModal = null;
+    this.selectedSucursalModal = null;
+    this.selectedSedeModal = null;
+    this.sucursalesOptionsModal = [];
+    this.sedesOptionsModal = [];
+    this.aplicarFiltrosModal();
+  }
+
+  /**
+   * Cargar empresas para el modal
+   */
+  private loadEmpresasModal(): void {
+    const filtros: FiltrosActivos = {
+      per_page: 9999
+    };
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const activos = response.data;
+          const empresasMap = new Map<number, { id: number; nombre: string }>();
+          
+          activos.forEach(activo => {
+            if (activo.empresa && activo.id_empresa) {
+              if (!empresasMap.has(activo.id_empresa)) {
+                empresasMap.set(activo.id_empresa, {
+                  id: activo.id_empresa,
+                  nombre: activo.empresa.nombre
+                });
+              }
+            }
+          });
+          
+          const lista = Array.from(empresasMap.values())
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          this.empresasOptionsModal = lista.map(item => ({
+            label: item.nombre,
+            value: item.id
+          }));
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando empresas para modal:', error);
+      }
+    });
+  }
+
+  /**
+   * Cargar sucursales por empresa para el modal
+   */
+  private loadSucursalesPorEmpresaModal(empresaId: number): void {
+    const filtros: FiltrosActivos = {
+      per_page: 9999,
+      empresa_id: empresaId
+    };
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const activos = response.data;
+          const sucursalesMap = new Map<number, { id: number; nombre: string }>();
+          
+          activos.forEach(activo => {
+            if (activo.sucursal && activo.id_sucursal) {
+              if (!sucursalesMap.has(activo.id_sucursal)) {
+                sucursalesMap.set(activo.id_sucursal, {
+                  id: activo.id_sucursal,
+                  nombre: activo.sucursal.nombre
+                });
+              }
+            }
+          });
+          
+          const lista = Array.from(sucursalesMap.values())
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          this.sucursalesOptionsModal = lista.map(item => ({
+            label: item.nombre,
+            value: item.id
+          }));
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando sucursales para modal:', error);
+      }
+    });
+  }
+
+  /**
+   * Cargar sedes por sucursal para el modal
+   */
+  private loadSedesPorSucursalModal(sucursalId: number): void {
+    const filtros: FiltrosActivos = {
+      per_page: 9999,
+      empresa_id: this.selectedEmpresaModal!,
+      sucursal_id: sucursalId
+    };
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const activos = response.data;
+          const sedesMap = new Map<number, { id: number; nombre: string }>();
+          
+          activos.forEach(activo => {
+            if (activo.sede && activo.id_sede) {
+              if (!sedesMap.has(activo.id_sede)) {
+                sedesMap.set(activo.id_sede, {
+                  id: activo.id_sede,
+                  nombre: activo.sede.nombre
+                });
+              }
+            }
+          });
+          
+          const lista = Array.from(sedesMap.values())
+            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          this.sedesOptionsModal = lista.map(item => ({
+            label: item.nombre,
+            value: item.id
+          }));
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando sedes para modal:', error);
+      }
+    });
   }
 
   /**
@@ -837,6 +1061,12 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.mostrarMatrizCompletaTodos = false;
     this.activosMatrizCompleta = [];
     this.searchTermTodos = '';
+    this.selectedEmpresaModal = null;
+    this.selectedSucursalModal = null;
+    this.selectedSedeModal = null;
+    this.empresasOptionsModal = [];
+    this.sucursalesOptionsModal = [];
+    this.sedesOptionsModal = [];
   }
 
   /**
@@ -858,15 +1088,15 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       per_page: 9999 // Obtener todos
     };
 
-    // Aplicar filtros actuales
-    if (this.selectedEmpresa) {
-      filtros.empresa_id = this.selectedEmpresa;
+    // Aplicar filtros del modal
+    if (this.selectedEmpresaModal) {
+      filtros.empresa_id = this.selectedEmpresaModal;
     }
-    if (this.selectedSucursal) {
-      filtros.sucursal_id = this.selectedSucursal;
+    if (this.selectedSucursalModal) {
+      filtros.sucursal_id = this.selectedSucursalModal;
     }
-    if (this.selectedSede) {
-      filtros.sede_id = this.selectedSede;
+    if (this.selectedSedeModal) {
+      filtros.sede_id = this.selectedSedeModal;
     }
     if (this.searchTermTodos) {
       filtros.search = this.searchTermTodos;
@@ -954,7 +1184,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         edadVsVutil: detalle?.edad_v_util !== null && detalle?.edad_v_util !== undefined ? `${detalle.edad_v_util}%` : '-',
         valoracionEdad: detalle?.valoracion_edad || '-',
         ram: detalle?.tamano_ram !== null && detalle?.tamano_ram !== undefined ? detalle.tamano_ram : '-',
-        maxRam: detalle?.tamano_ram !== null && detalle?.tamano_ram !== undefined ? detalle.tamano_ram * 2 : '-',
+        maxRam: detalle?.max_ram !== null && detalle?.max_ram !== undefined ? detalle.max_ram : (detalle?.tamano_ram !== null && detalle?.tamano_ram !== undefined ? detalle.tamano_ram * 2 : '-'),
         generacionRam: detalle?.generacion_ram || '-',
         valoracionRam: detalle?.valoracion_ram || '-',
         procesador: detalle?.procesador || '-',
@@ -999,7 +1229,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       tipo_unidad: (activo.detalle as any)?.tipo_unidad || '',
       fecha_compra: (activo.detalle as any)?.fecha_compra || '',
       modalidad: (activo.detalle as any)?.modalidad || '',
-      proveedor: (activo.detalle as any)?.proveedor || ''
+      proveedor: (activo.detalle as any)?.proveedor || '',
+      max_ram: (activo.detalle as any)?.max_ram || null
     };
     
     this.generarMatrizCompleta(activo);
@@ -1035,7 +1266,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       
       // RAM
       { campo: 'RAM (GB)', valor: activo.detalle?.tamano_ram ? `${activo.detalle.tamano_ram} GB` : '-', icono: 'pi pi-microchip' },
-      { campo: 'MaxRAM (GB)', valor: activo.detalle?.tamano_ram ? `${activo.detalle.tamano_ram * 2} GB` : '-', icono: 'pi pi-microchip' },
+      { campo: 'MaxRAM (GB)', valor: (activo.detalle as any)?.max_ram ? `${(activo.detalle as any).max_ram} GB` : (activo.detalle?.tamano_ram ? `${activo.detalle.tamano_ram * 2} GB (calculado)` : '-'), icono: 'pi pi-microchip' },
       { campo: 'GENERACIÓN RAM', valor: activo.detalle?.generacion_ram || '-', icono: 'pi pi-microchip' },
       { campo: 'Valoración RAM', valor: (activo.detalle as any)?.valoracion_ram || this.getValoracionRAM(activo.detalle?.tamano_ram || null), tipo: 'valoracion', icono: 'pi pi-star' },
       
@@ -1209,7 +1440,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         tipo_unidad: this.camposEditables.tipo_unidad,
         fecha_compra: this.camposEditables.fecha_compra,
         modalidad: this.camposEditables.modalidad,
-        proveedor: this.camposEditables.proveedor
+        proveedor: this.camposEditables.proveedor,
+        max_ram: this.camposEditables.max_ram
       }
     };
 
@@ -1227,6 +1459,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
               (this.activoSeleccionado.detalle as any).fecha_compra = this.camposEditables.fecha_compra;
               (this.activoSeleccionado.detalle as any).modalidad = this.camposEditables.modalidad;
               (this.activoSeleccionado.detalle as any).proveedor = this.camposEditables.proveedor;
+              (this.activoSeleccionado.detalle as any).max_ram = this.camposEditables.max_ram;
             }
           }
           
@@ -1282,7 +1515,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
                     tipo_unidad: (this.activoSeleccionado.detalle as any)?.tipo_unidad || '',
                     fecha_compra: (this.activoSeleccionado.detalle as any)?.fecha_compra || '',
                     modalidad: (this.activoSeleccionado.detalle as any)?.modalidad || '',
-                    proveedor: (this.activoSeleccionado.detalle as any)?.proveedor || ''
+                    proveedor: (this.activoSeleccionado.detalle as any)?.proveedor || '',
+                    max_ram: (this.activoSeleccionado.detalle as any)?.max_ram || null
                   };
                 }
               }

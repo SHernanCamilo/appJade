@@ -676,7 +676,7 @@
           </div>
           
           <!-- PROVEEDOR -->
-          <div class="col-12">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold">
               <i class="pi pi-users me-1"></i>
               PROVEEDOR
@@ -687,6 +687,26 @@
               [(ngModel)]="camposEditables.proveedor"
               placeholder="Ingrese proveedor"
               class="w-100">
+          </div>
+          
+          <!-- MAX RAM -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold">
+              <i class="pi pi-microchip me-1"></i>
+              MAX RAM (GB)
+            </label>
+            <input 
+              type="number" 
+              pInputText 
+              [(ngModel)]="camposEditables.max_ram"
+              placeholder="Ingrese capacidad máxima de RAM"
+              [min]="0"
+              [step]="0.01"
+              class="w-100">
+            <small class="text-muted d-block mt-1">
+              <i class="pi pi-info-circle me-1"></i>
+              Dejar vacío para cálculo automático (RAM × 2)
+            </small>
           </div>
         </div>
       </div>
@@ -744,10 +764,11 @@
     
     <div class="matriz-todos-container">
       
-      <!-- Filtros rápidos -->
-      <div class="filtros-rapidos mb-3">
-        <div class="row g-2">
-          <div class="col-12 col-md-4">
+      <!-- Filtros en línea horizontal -->
+      <div class="filtros-inline mb-3">
+        <div class="row g-2 align-items-end">
+          <!-- Búsqueda -->
+          <div class="col-12 col-md-3">
             <span class="p-input-icon-left w-100">
               <i class="pi pi-search"></i>
               <input 
@@ -759,12 +780,104 @@
                 class="w-100">
             </span>
           </div>
-          <div class="col-12 col-md-8">
+          
+          <!-- Filtro Empresa -->
+          <div class="col-12 col-md-2">
+            <p-dropdown
+              [options]="empresasOptionsModal"
+              [(ngModel)]="selectedEmpresaModal"
+              (onChange)="onEmpresaChangeModal()"
+              placeholder="Todas las empresas"
+              [showClear]="true"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100"
+              appendTo="body">
+              <ng-template pTemplate="selectedItem" let-option>
+                <div class="flex align-items-center" *ngIf="option">
+                  <i class="pi pi-building me-1" style="font-size: 0.875rem;"></i>
+                  <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="item" let-option>
+                <div class="flex align-items-center">
+                  <i class="pi pi-building me-2"></i>
+                  <span>{{ option.label }}</span>
+                </div>
+              </ng-template>
+            </p-dropdown>
+          </div>
+          
+          <!-- Filtro Sucursal -->
+          <div class="col-12 col-md-2">
+            <p-dropdown
+              [options]="sucursalesOptionsModal"
+              [(ngModel)]="selectedSucursalModal"
+              (onChange)="onSucursalChangeModal()"
+              placeholder="Todas las sucursales"
+              [showClear]="true"
+              [disabled]="!selectedEmpresaModal"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100"
+              appendTo="body">
+              <ng-template pTemplate="selectedItem" let-option>
+                <div class="flex align-items-center" *ngIf="option">
+                  <i class="pi pi-map-marker me-1" style="font-size: 0.875rem;"></i>
+                  <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="item" let-option>
+                <div class="flex align-items-center">
+                  <i class="pi pi-map-marker me-2"></i>
+                  <span>{{ option.label }}</span>
+                </div>
+              </ng-template>
+            </p-dropdown>
+          </div>
+          
+          <!-- Filtro Sede -->
+          <div class="col-12 col-md-2">
+            <p-dropdown
+              [options]="sedesOptionsModal"
+              [(ngModel)]="selectedSedeModal"
+              (onChange)="onSedeChangeModal()"
+              placeholder="Todas las sedes"
+              [showClear]="true"
+              [disabled]="!selectedSucursalModal"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100"
+              appendTo="body">
+              <ng-template pTemplate="selectedItem" let-option>
+                <div class="flex align-items-center" *ngIf="option">
+                  <i class="pi pi-home me-1" style="font-size: 0.875rem;"></i>
+                  <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="item" let-option>
+                <div class="flex align-items-center">
+                  <i class="pi pi-home me-2"></i>
+                  <span>{{ option.label }}</span>
+                </div>
+              </ng-template>
+            </p-dropdown>
+          </div>
+          
+          <!-- Botones de acción -->
+          <div class="col-12 col-md-3">
             <div class="d-flex gap-2 justify-content-end">
               <p-button 
                 label="Buscar" 
                 icon="pi pi-search"
                 size="small"
+                severity="success"
                 (onClick)="buscarEnMatrizCompleta()">
               </p-button>
               <p-button 
@@ -787,7 +900,7 @@
           </div>
         </div>
       </div>
-
+      
       <!-- Tabla con todas las columnas -->
       <div class="tabla-matriz-completa">
         <p-table 

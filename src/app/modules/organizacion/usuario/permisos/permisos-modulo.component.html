@@ -2,25 +2,32 @@
   <p-toast></p-toast>
   <p-confirmDialog></p-confirmDialog>
 
-  <div class="page-header">
-    <button class="btn btn-back mb-2" routerLink="/organizacion">
-      <i class="bi bi-arrow-left me-2"></i>Volver
-    </button>
+  <!-- Header Moderno -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
     
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="page-title">
-          <i class="bi-shield-lock-fill me-2"></i>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-shield-lock-fill me-2"></i>
           Gestión de Permisos
         </h1>
-        <p class="page-subtitle">Configura las acciones disponibles en cada módulo del sistema</p>
+        <p class="page-subtitle-modern">Configura las acciones disponibles en cada módulo del sistema</p>
       </div>
-      <p-button 
-        label="Nuevo Permiso"
-        icon="pi pi-plus"
-        (onClick)="openPermisoDialog()"
-        severity="primary">
-      </p-button>
+      
+      <div class="header-actions">
+        <button 
+          class="btn-action btn-action-primary"
+          (click)="openPermisoDialog()">
+          <i class="pi pi-plus"></i>
+          Nuevo Permiso
+        </button>
+      </div>
     </div>
   </div>
 

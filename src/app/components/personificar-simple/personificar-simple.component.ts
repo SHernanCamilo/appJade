@@ -1,4 +1,4 @@
-import { Component, OnInit, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PersonificarService, UsuarioDisponible } from '../../services/personificar.service';
@@ -216,12 +216,14 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     }
   `]
 })
-export class PersonificarSimpleComponent implements OnInit {
+export class PersonificarSimpleComponent implements OnInit, OnChanges {
+  @Input() visible: boolean = false; // Detectar cuando el modal se abre
   @Output() onClose = new EventEmitter<void>();
   
   usuarios: UsuarioDisponible[] = [];
   cargando = false;
   personificando: number | null = null;
+  private usuariosCargados = false; // Flag para evitar cargas duplicadas
 
   constructor(
     private personificarService: PersonificarService,
@@ -231,7 +233,15 @@ export class PersonificarSimpleComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.cargarUsuarios();
+    // No cargar usuarios aquí, esperar a que se abra el modal
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Detectar cuando el modal se abre
+    if (changes['visible'] && changes['visible'].currentValue === true && !this.usuariosCargados) {
+      console.log('🔓 Modal abierto, cargando usuarios...');
+      this.cargarUsuarios();
+    }
   }
 
   cargarUsuarios(): void {
@@ -244,6 +254,7 @@ export class PersonificarSimpleComponent implements OnInit {
         
         if (response.success) {
           this.usuarios = response.data;
+          this.usuariosCargados = true; // Marcar como cargados
           console.log('✅ Usuarios cargados:', this.usuarios.length, this.usuarios);
         } else {
           console.warn('⚠️ Respuesta no exitosa:', response.message);

@@ -2,27 +2,33 @@
   <p-toast></p-toast>
   <p-confirmDialog></p-confirmDialog>
 
-  <div class="page-header">
+  <!-- Header Moderno -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
     
-    <button class="btn btn-back mb-2" routerLink="/organizacion">
-      <i class="bi bi-arrow-left me-2"></i>Volver
-    </button>
-    
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="page-title">
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
           <i class="bi bi-geo-alt-fill me-2"></i>
           Gestión de Sedes
         </h1>
-        <p class="page-subtitle">Administra las sedes de cada sucursal</p>
+        <p class="page-subtitle-modern">Administra las sedes de cada sucursal</p>
       </div>
-      <p-button 
-        *hasPermission="'org-sede-crear'"
-        [label]="showForm ? 'Cancelar' : 'Nueva Sede'"
-        [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
-        (onClick)="toggleForm()"
-        [severity]="showForm ? 'secondary' : 'primary'">
-      </p-button>
+      
+      <div class="header-actions">
+        <button 
+          *hasPermission="'org-sede-crear'"
+          class="btn-action btn-action-primary"
+          (click)="toggleForm()">
+          <i class="pi" [ngClass]="showForm ? 'pi-times' : 'pi-plus'"></i>
+          {{ showForm ? 'Cancelar' : 'Nueva Sede' }}
+        </button>
+      </div>
     </div>
   </div>
 

@@ -68,6 +68,7 @@
   styleClass="personificar-dialog"
   (onHide)="closePersonificarModal()">
   <app-personificar-simple 
+    [visible]="showPersonificarModal"
     (onClose)="closePersonificarModal()">
   </app-personificar-simple>
 </p-dialog>

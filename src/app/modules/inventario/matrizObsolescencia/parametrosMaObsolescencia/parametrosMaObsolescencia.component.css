@@ -468,3 +468,123 @@ input[type="number"]::-webkit-inner-spin-button {
   content: " *";
   color: #dc3545;
 }
+
+/* Estilos para Fórmulas de Cálculo */
+.variable-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.variable-item {
+  transition: all 0.2s ease;
+}
+
+.variable-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.font-monospace {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+code {
+  background-color: #f8f9fa;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  color: #d63384;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+}
+
+.alert-info {
+  color: #055160;
+  background-color: #cff4fc;
+  border-color: #b6effb;
+}
+
+.alert-secondary {
+  color: #41464b;
+  background-color: #e2e3e5;
+  border-color: #d3d6d8;
+}
+
+/* Estilos para badges de variables */
+.badge.bg-info {
+  background-color: #0dcaf0 !important;
+  color: #000;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+/* Estilos para el card de fórmulas */
+.card .card-body {
+  padding: 1.25rem;
+}
+
+.card:hover {
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Scrollbar personalizado para lista de variables */
+.variable-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.variable-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.variable-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.variable-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+
+/* Fix para dropdowns que se renderizan en body */
+::ng-deep .p-dropdown-panel {
+  z-index: 10000 !important;
+}
+
+::ng-deep .p-dialog {
+  z-index: 1100 !important;
+}
+
+::ng-deep .p-dialog-mask {
+  z-index: 1099 !important;
+}
+
+/* Asegurar que el overlay del dropdown esté por encima del dialog */
+::ng-deep .p-component-overlay {
+  z-index: 9999 !important;
+}
+
+
+/* Display del valor actual del parámetro */
+.valor-actual-display {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0d6efd;
+  text-align: center;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', Courier, monospace;
+}

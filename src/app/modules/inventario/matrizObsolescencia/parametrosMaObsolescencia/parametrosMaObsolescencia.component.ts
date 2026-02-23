@@ -54,6 +54,12 @@ interface ConceptoPuntaje {
   textColor: string;
 }
 
+interface Procesador {
+  id?: number;
+  nombre: string;
+  anio_lanzamiento: number | null;
+}
+
 @Component({
   selector: 'app-parametros-ma-obsolescencia',
   standalone: true,
@@ -116,6 +122,14 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
   sincronizacionParametro: SincronizacionParametro | null = null;
   valorSincronizacion: string = '24'; // Valor por defecto visible
 
+  // Procesadores
+  procesadores: Procesador[] = [];
+  procesadoresFiltrados: Procesador[] = [];
+  busquedaProcesador: string = '';
+  isLoadingProcesadores: boolean = false;
+
+  todosParametros: Parametro[] = [];
+  
   // Estado de cálculos
   calculandoValores: boolean = false;
   
@@ -134,12 +148,14 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
   displayDialogCaracteristica: boolean = false;
   displayDialogConcepto: boolean = false;
   displayDialogAgente: boolean = false;
+  displayDialogProcesador: boolean = false;
   
   equipoSeleccionado: TipoEquipo = { id: 0, tipo: '', vidaUtil: 0, frecuencia: '' };
   rangoSeleccionado: RangoEdad = { id: 0, rango: '', puntaje: 0 };
   caracteristicaSeleccionada: CaracteristicaMinima = { id: 0, nombre: '', valor: '' };
   conceptoSeleccionado: ConceptoPuntaje = { id: 0, puntaje: '', concepto: '', color: '', textColor: '' };
   agenteSeleccionado: MatrizObsAgente = { tag: '', id_empresa: 0, id_sucursal: 0, id_sede: 0 };
+  procesadorSeleccionado: Procesador = { nombre: '', anio_lanzamiento: null };
   
   esNuevo: boolean = true;
 
@@ -195,6 +211,8 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
     this.cargarAgentes();
     this.cargarSincronizacionParametro();
     this.cargarEmpresas();
+    this.cargarTodosParametros();
+    this.cargarProcesadores();
   }
 
   /**
@@ -1278,4 +1296,203 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
       }
     });
   }
+
+  // ==================== MÉTODOS PARA FÓRMULAS DE CÁLCULO ====================
+
+  /**
+   * Cargar todos los parámetros disponibles
+   */
+  cargarTodosParametros(): void {
+    this.matrizService.getGrupos().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.todosParametros = [];
+          response.data.forEach(grupo => {
+            if (grupo.parametros) {
+              this.todosParametros.push(...grupo.parametros);
+            }
+          });
+        }
+      },
+      error: (error) => {
+        console.error('Error al cargar parámetros:', error);
+      }
+    });
+  }
+
+  /**
+   * ========================================
+   * MÉTODOS PARA GESTIÓN DE PROCESADORES
+   * ========================================
+   */
+
+  /**
+   * Cargar todos los procesadores
+   */
+  cargarProcesadores(): void {
+    this.isLoadingProcesadores = true;
+    
+    this.matrizService.getProcesadores().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.procesadores = response.data;
+          this.procesadoresFiltrados = [...this.procesadores];
+        }
+        this.isLoadingProcesadores = false;
+      },
+      error: (error) => {
+        console.error('Error al cargar procesadores:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar los procesadores',
+          life: 3000
+        });
+        this.isLoadingProcesadores = false;
+      }
+    });
+  }
+  
+  /**
+   * Filtrar procesadores por búsqueda
+   */
+  filtrarProcesadores(): void {
+    if (!this.busquedaProcesador || this.busquedaProcesador.trim() === '') {
+      this.procesadoresFiltrados = [...this.procesadores];
+      return;
+    }
+    
+    const busqueda = this.busquedaProcesador.toLowerCase().trim();
+    this.procesadoresFiltrados = this.procesadores.filter(procesador =>
+      procesador.nombre.toLowerCase().includes(busqueda)
+    );
+  }
+
+  /**
+   * Editar procesador existente
+   */
+  editarProcesador(procesador: Procesador): void {
+    this.esNuevo = false;
+    this.procesadorSeleccionado = { ...procesador };
+    this.displayDialogProcesador = true;
+  }
+
+  /**
+   * Guardar procesador (solo edición)
+   */
+  guardarProcesador(): void {
+    if (!this.procesadorSeleccionado.nombre.trim()) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'El nombre del procesador es requerido',
+        life: 3000
+      });
+      return;
+    }
+
+    this.matrizService.updateProcesador(this.procesadorSeleccionado.id!, this.procesadorSeleccionado).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const index = this.procesadores.findIndex(p => p.id === this.procesadorSeleccionado.id);
+          if (index !== -1) {
+            this.procesadores[index] = response.data;
+          }
+          
+          // Actualizar también el array filtrado
+          const indexFiltrado = this.procesadoresFiltrados.findIndex(p => p.id === this.procesadorSeleccionado.id);
+          if (indexFiltrado !== -1) {
+            this.procesadoresFiltrados[indexFiltrado] = response.data;
+          }
+          
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Actualizado',
+            detail: 'Procesador actualizado correctamente',
+            life: 3000
+          });
+          this.displayDialogProcesador = false;
+        }
+      },
+      error: (error) => {
+        console.error('Error:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo actualizar el procesador',
+          life: 3000
+        });
+      }
+    });
+  }
+
+  /**
+   * Eliminar procesador
+   */
+  eliminarProcesador(procesador: Procesador): void {
+    if (!procesador.id) return;
+    
+    this.matrizService.deleteProcesador(procesador.id).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.procesadores = this.procesadores.filter(p => p.id !== procesador.id);
+          this.procesadoresFiltrados = this.procesadoresFiltrados.filter(p => p.id !== procesador.id);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Eliminado',
+            detail: 'Procesador eliminado correctamente',
+            life: 3000
+          });
+        }
+      },
+      error: (error) => {
+        console.error('Error:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo eliminar el procesador',
+          life: 3000
+        });
+      }
+    });
+  }
+
+  /**
+   * Importar procesadores desde activos
+   */
+  importarProcesadoresDesdeActivos(): void {
+    this.isLoadingProcesadores = true;
+    
+    this.matrizService.importarProcesadoresDesdeActivos().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Importación Exitosa',
+            detail: `Se importaron ${response.data.importados} procesadores. ${response.data.duplicados} ya existían.`,
+            life: 5000
+          });
+          this.cargarProcesadores();
+        }
+        this.isLoadingProcesadores = false;
+      },
+      error: (error) => {
+        console.error('Error:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron importar los procesadores',
+          life: 3000
+        });
+        this.isLoadingProcesadores = false;
+      }
+    });
+  }
+
+  /**
+   * ========================================
+   * MÉTODOS PARA GESTIÓN DE TIPOS DE RAM
+   * ========================================
+   */
+
 }

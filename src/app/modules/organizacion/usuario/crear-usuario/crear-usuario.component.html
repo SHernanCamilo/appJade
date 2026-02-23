@@ -5,33 +5,37 @@
   <!-- Confirm Dialog -->
   <p-confirmDialog></p-confirmDialog>
 
-  <!-- Header -->
-  <div class="page-header">
-    <button class="btn btn-back mb-2" routerLink="/organizacion">
-      <i class="bi bi-arrow-left me-2"></i>Volver
-    </button>
+  <!-- Header Moderno -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
     
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="page-title">
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
           <i class="bi bi-person-plus-fill me-2"></i>
           Gestión de Usuarios
         </h1>
-        <p class="page-subtitle">Crea y administra usuarios del sistema</p>
+        <p class="page-subtitle-modern">Crea y administra usuarios del sistema</p>
       </div>
-      <div class="d-flex gap-2">
-        <p-button 
-          [label]="showForm ? 'Cancelar' : 'Nuevo Usuario'"
-          [icon]="showForm ? 'pi pi-times' : 'pi pi-plus'"
-          (onClick)="toggleForm()"
-          [severity]="showForm ? 'secondary' : 'primary'">
-        </p-button>
-        <p-button 
-          label="Sincronizar Tenant"
-          icon="pi pi-cloud-download"
-          (onClick)="abrirSincronizarTenant()"
-          styleClass="p-button-outlined p-button-info">
-        </p-button>
+      
+      <div class="header-actions">
+        <button 
+          class="btn-action btn-action-primary"
+          (click)="toggleForm()">
+          <i class="pi" [ngClass]="showForm ? 'pi-times' : 'pi-plus'"></i>
+          {{ showForm ? 'Cancelar' : 'Nuevo Usuario' }}
+        </button>
+        <button 
+          class="btn-action btn-action-info"
+          (click)="abrirSincronizarTenant()">
+          <i class="pi pi-cloud-download"></i>
+          Sincronizar Tenant
+        </button>
       </div>
     </div>
   </div>
@@ -489,176 +493,177 @@
   </p-dialog>
 
   <!-- Tabla de Usuarios con PrimeNG --> 
-  <div class="content-card">
-    <p-table 
-      #dt
-      [value]="usuarios" 
-      [paginator]="true" 
-      [rows]="10"
-      [showCurrentPageReport]="true"
-      [rowsPerPageOptions]="[10, 25, 50]"
-      [loading]="isLoading"
-      [globalFilterFields]="['name', 'email']"
-      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
-      [tableStyle]="{'min-width': '50rem'}">
-      
-      <ng-template pTemplate="caption">
-        <div class="d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            <i class="bi bi-people me-2"></i>
-            Lista de Usuarios
-            <p-tag [value]="usuarios.length.toString()" styleClass="ml-2"></p-tag>
-          </h5>
-          <span class="p-input-icon-left">
-            <input 
-              pInputText 
-              type="text" 
-              (input)="dt.filterGlobal($any($event.target).value, 'contains')" 
-              placeholder="Buscar por nombre o email..." />
-          </span>
-        </div>
-      </ng-template>
-
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="name">
-            Usuario <p-sortIcon field="name"></p-sortIcon>
-          </th>
-          <th pSortableColumn="email">
-            Email <p-sortIcon field="email"></p-sortIcon>
-          </th>
-          <th>Estado</th>
-          <th>Empresas</th>
-          <th>Roles</th>
-          <th pSortableColumn="created_at">
-            Fecha de Registro <p-sortIcon field="created_at"></p-sortIcon>
-          </th>
-          <th style="width: 200px">Acciones</th>
-        </tr>
-        <tr>
-          <th>
-            <!-- <p-columnFilter type="text" field="name" placeholder="Buscar por nombre"></p-columnFilter> -->
-          </th>
-          <th>
-            <!-- <p-columnFilter type="text" field="email" placeholder="Buscar por email"></p-columnFilter> -->
-          </th>
-          <th></th>
-          <th></th>
-          <th></th>
-          <th></th>
-          <th></th>
-        </tr>
-      </ng-template>
-
-      <ng-template pTemplate="body" let-usuario>
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <p-avatar 
-                [label]="getInitials(usuario.name)" 
-                styleClass="mr-2" 
-                size="normal"
-                [style]="{'background-color':'#667eea', 'color': '#ffffff'}">
-              </p-avatar>
-              <span class="fw-semibold">{{ usuario.name }}</span>
-            </div>
-          </td>
-          <td>
-            <span class="text-muted">{{ usuario.email }}</span>
-          </td>
-          <td>
-            <p-tag 
-              [value]="usuario.estado ? 'Activo' : 'Inactivo'"
-              [severity]="usuario.estado ? 'success' : 'danger'">
-              <i [class]="usuario.estado ? 'pi pi-check' : 'pi pi-times'"></i>
-              {{ usuario.estado ? 'Activo' : 'Inactivo' }}
-            </p-tag>
-          </td>
-          <td>
-            <ng-container *ngIf="usuario.empresas && usuario.empresas.length > 0">
-              <p-tag 
-                [value]="usuario.empresas[0].nombre" 
-                severity="success"
-                styleClass="mr-1">
-              </p-tag>
-              <p-tag 
-                *ngIf="usuario.empresas.length > 1"
-                [value]="'+' + (usuario.empresas.length - 1)" 
-                severity="success"
-                [style]="{'background-color': '#10b981', 'opacity': '0.7'}">
-              </p-tag>
-            </ng-container>
-            <span class="text-muted" *ngIf="!usuario.empresas || usuario.empresas.length === 0">
-              Sin empresas
+  <div class="dashboard-content">
+    <div class="content-card">
+      <p-table 
+        #dt
+        [value]="usuarios" 
+        [paginator]="true" 
+        [rows]="10"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[10, 25, 50]"
+        [loading]="isLoading"
+        [globalFilterFields]="['name', 'email']"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
+        [tableStyle]="{'min-width': '50rem'}">
+        
+        <ng-template pTemplate="caption">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-people me-2"></i>
+              Lista de Usuarios
+              <p-tag [value]="usuarios.length.toString()" styleClass="ml-2"></p-tag>
+            </h5>
+            <span class="p-input-icon-left">
+              <input 
+                pInputText 
+                type="text" 
+                (input)="dt.filterGlobal($any($event.target).value, 'contains')" 
+                placeholder="Buscar por nombre o email..." />
             </span>
-          </td>
-          <td>
-            <ng-container *ngIf="usuario.roles && usuario.roles.length > 0">
-              <p-tag 
-                [value]="usuario.roles[0].nombre || usuario.roles[0]" 
-                severity="info"
-                styleClass="mr-1">
-              </p-tag>
-              <p-tag 
-                *ngIf="usuario.roles.length > 1"
-                [value]="'+' + (usuario.roles.length - 1)" 
-                severity="info"
-                [style]="{'background-color': '#3b82f6', 'opacity': '0.7'}">
-              </p-tag>
-            </ng-container>
-            <span class="text-muted" *ngIf="!usuario.roles || usuario.roles.length === 0">
-              Sin roles
-            </span>
-          </td>
-          <td>
-            <span class="text-muted">{{ usuario.created_at | date:'dd/MM/yyyy' }}</span>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <p-button 
-                [icon]="usuario.estado ? 'pi pi-times' : 'pi pi-check'"
-                [styleClass]="'p-button-rounded p-button-text ' + (usuario.estado ? 'p-button-warning' : 'p-button-success')"
-                (onClick)="cambiarEstadoUsuario(usuario)"
-                [pTooltip]="usuario.estado ? 'Inactivar' : 'Activar'"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                icon="pi pi-pencil" 
-                styleClass="p-button-rounded p-button-text p-button-info"
-                (onClick)="editUsuario(usuario)"
-                [loading]="isLoadingForEdit && currentUsuarioId === usuario.id"
-                [disabled]="isLoadingForEdit"
-                pTooltip="Editar"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                icon="pi pi-trash" 
-                styleClass="p-button-rounded p-button-text p-button-danger"
-                (onClick)="deleteUsuario(usuario)"
-                pTooltip="Eliminar"
-                tooltipPosition="top">
-              </p-button>
-            </div>
-          </td>
-        </tr>
-      </ng-template>
+          </div>
+        </ng-template>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="7" class="text-center py-5">
-            <i class="pi pi-users" style="font-size: 3rem; color: #94a3b8;"></i>
-            <p class="text-muted mt-3">No hay usuarios registrados</p>
-            <p-button 
-              label="Crear Primer Usuario" 
-              icon="pi pi-plus" 
-              (onClick)="toggleForm()">
-            </p-button>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="name">
+              Usuario <p-sortIcon field="name"></p-sortIcon>
+            </th>
+            <th pSortableColumn="email">
+              Email <p-sortIcon field="email"></p-sortIcon>
+            </th>
+            <th>Estado</th>
+            <th>Empresas</th>
+            <th>Roles</th>
+            <th pSortableColumn="created_at">
+              Fecha de Registro <p-sortIcon field="created_at"></p-sortIcon>
+            </th>
+            <th style="width: 200px">Acciones</th>
+          </tr>
+          <tr>
+            <th>
+              <!-- <p-columnFilter type="text" field="name" placeholder="Buscar por nombre"></p-columnFilter> -->
+            </th>
+            <th>
+              <!-- <p-columnFilter type="text" field="email" placeholder="Buscar por email"></p-columnFilter> -->
+            </th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-usuario>
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <p-avatar 
+                  [label]="getInitials(usuario.name)" 
+                  styleClass="mr-2" 
+                  size="normal"
+                  [style]="{'background-color':'#667eea', 'color': '#ffffff'}">
+                </p-avatar>
+                <span class="fw-semibold">{{ usuario.name }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="text-muted">{{ usuario.email }}</span>
+            </td>
+            <td>
+              <p-tag 
+                [value]="usuario.estado ? 'Activo' : 'Inactivo'"
+                [severity]="usuario.estado ? 'success' : 'danger'">
+                <i [class]="usuario.estado ? 'pi pi-check' : 'pi pi-times'"></i>
+                {{ usuario.estado ? 'Activo' : 'Inactivo' }}
+              </p-tag>
+            </td>
+            <td>
+              <ng-container *ngIf="usuario.empresas && usuario.empresas.length > 0">
+                <p-tag 
+                  [value]="usuario.empresas[0].nombre" 
+                  severity="success"
+                  styleClass="mr-1">
+                </p-tag>
+                <p-tag 
+                  *ngIf="usuario.empresas.length > 1"
+                  [value]="'+' + (usuario.empresas.length - 1)" 
+                  severity="success"
+                  [style]="{'background-color': '#10b981', 'opacity': '0.7'}">
+                </p-tag>
+              </ng-container>
+              <span class="text-muted" *ngIf="!usuario.empresas || usuario.empresas.length === 0">
+                Sin empresas
+              </span>
+            </td>
+            <td>
+              <ng-container *ngIf="usuario.roles && usuario.roles.length > 0">
+                <p-tag 
+                  [value]="usuario.roles[0].nombre || usuario.roles[0]" 
+                  severity="info"
+                  styleClass="mr-1">
+                </p-tag>
+                <p-tag 
+                  *ngIf="usuario.roles.length > 1"
+                  [value]="'+' + (usuario.roles.length - 1)" 
+                  severity="info"
+                  [style]="{'background-color': '#3b82f6', 'opacity': '0.7'}">
+                </p-tag>
+              </ng-container>
+              <span class="text-muted" *ngIf="!usuario.roles || usuario.roles.length === 0">
+                Sin roles
+              </span>
+            </td>
+            <td>
+              <span class="text-muted">{{ usuario.created_at | date:'dd/MM/yyyy' }}</span>
+            </td>
+            <td>
+              <div class="d-flex gap-2">
+                <p-button 
+                  [icon]="usuario.estado ? 'pi pi-times' : 'pi pi-check'"
+                  [styleClass]="'p-button-rounded p-button-text ' + (usuario.estado ? 'p-button-warning' : 'p-button-success')"
+                  (onClick)="cambiarEstadoUsuario(usuario)"
+                  [pTooltip]="usuario.estado ? 'Inactivar' : 'Activar'"
+                  tooltipPosition="top">
+                </p-button>
+                <p-button 
+                  icon="pi pi-pencil" 
+                  styleClass="p-button-rounded p-button-text p-button-info"
+                  (onClick)="editUsuario(usuario)"
+                  [loading]="isLoadingForEdit && currentUsuarioId === usuario.id"
+                  [disabled]="isLoadingForEdit"
+                  pTooltip="Editar"
+                  tooltipPosition="top">
+                </p-button>
+                <p-button 
+                  icon="pi pi-trash" 
+                  styleClass="p-button-rounded p-button-text p-button-danger"
+                  (onClick)="deleteUsuario(usuario)"
+                  pTooltip="Eliminar"
+                  tooltipPosition="top">
+                </p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="text-center py-5">
+              <i class="pi pi-users" style="font-size: 3rem; color: #94a3b8;"></i>
+              <p class="text-muted mt-3">No hay usuarios registrados</p>
+              <p-button 
+                label="Crear Primer Usuario" 
+                icon="pi pi-plus" 
+                (onClick)="toggleForm()">
+              </p-button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
   </div>
-
   <!-- Modal de Sincronización con Tenant -->
   <app-sincronizar-tenant
     [(visible)]="showSincronizarTenant"

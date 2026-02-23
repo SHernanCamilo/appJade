@@ -244,6 +244,115 @@
                 </div>
               </div>
 
+              <!-- Sección de Procesadores -->
+              <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h5 class="mb-1">
+                      <i class="bi bi-cpu me-2 text-primary"></i>
+                      Gestión de Procesadores
+                    </h5>
+                    <p class="text-muted mb-0 small">
+                      Catálogo de procesadores importados desde los activos existentes
+                    </p>
+                  </div>
+                  <p-button 
+                    label="Importar desde Activos" 
+                    icon="pi pi-download"
+                    (onClick)="importarProcesadoresDesdeActivos()"
+                    styleClass="p-button-info"
+                    [loading]="isLoadingProcesadores"
+                    pTooltip="Importar procesadores únicos desde los activos existentes"
+                    *hasPermission="'inv-matriz-parametros-de-activos-editar'">
+                  </p-button>
+                </div>
+
+                <!-- Skeleton de carga -->
+                <div *ngIf="isLoadingProcesadores" class="text-center py-4">
+                  <p-skeleton width="100%" height="60px" styleClass="mb-2"></p-skeleton>
+                  <p-skeleton width="100%" height="60px" styleClass="mb-2"></p-skeleton>
+                  <p-skeleton width="100%" height="60px" styleClass="mb-2"></p-skeleton>
+                  <p class="text-muted mt-3">Cargando procesadores...</p>
+                </div>
+
+                <!-- Buscador y Tabla de procesadores -->
+                <div class="card" *ngIf="!isLoadingProcesadores">
+                  <!-- Buscador -->
+                  <div class="p-3 border-bottom">
+                    <div class="p-input-icon-left w-100">
+                      <i class="pi pi-search"></i>
+                      <input 
+                        type="text" 
+                        pInputText 
+                        [(ngModel)]="busquedaProcesador"
+                        (input)="filtrarProcesadores()"
+                        placeholder="Buscar procesador por nombre..."
+                        class="w-100" />
+                    </div>
+                    <small class="text-muted d-block mt-2" *ngIf="busquedaProcesador">
+                      <i class="pi pi-info-circle me-1"></i>
+                      Mostrando {{ procesadoresFiltrados.length }} de {{ procesadores.length }} procesadores
+                    </small>
+                  </div>
+                  
+                  <p-table 
+                    [value]="procesadoresFiltrados" 
+                    [paginator]="true" 
+                    [rows]="10"
+                    [showCurrentPageReport]="true"
+                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} procesadores"
+                    [rowsPerPageOptions]="[10, 25, 50]"
+                    styleClass="p-datatable-sm">
+                    
+                    <ng-template pTemplate="header">
+                      <tr>
+                        <th style="width: 60%">Nombre del Procesador</th>
+                        <th style="width: 20%" class="text-center">Año Lanzamiento</th>
+                        <th style="width: 20%" class="text-center">Acciones</th>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template pTemplate="body" let-procesador>
+                      <tr>
+                        <td>{{ procesador.nombre }}</td>
+                        <td class="text-center">
+                          <span class="badge bg-info" *ngIf="procesador.anio_lanzamiento">
+                            {{ procesador.anio_lanzamiento }}
+                          </span>
+                          <span class="text-muted" *ngIf="!procesador.anio_lanzamiento">-</span>
+                        </td>
+                        <td class="text-center">
+                          <p-button 
+                            icon="pi pi-pencil" 
+                            (onClick)="editarProcesador(procesador)"
+                            styleClass="p-button-rounded p-button-text p-button-info p-button-sm me-1"
+                            pTooltip="Editar"
+                            *hasPermission="'inv-matriz-parametros-de-activos-editar'">
+                          </p-button>
+                          <p-button 
+                            icon="pi pi-trash" 
+                            (onClick)="eliminarProcesador(procesador)"
+                            styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
+                            pTooltip="Eliminar"
+                            *hasPermission="'inv-matriz-parametros-de-activos-eliminar'">
+                          </p-button>
+                        </td>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template pTemplate="emptymessage">
+                      <tr>
+                        <td colspan="3" class="text-center py-4">
+                          <i class="bi bi-cpu text-muted" style="font-size: 3rem;"></i>
+                          <p class="text-muted mt-3 mb-1">No hay procesadores registrados</p>
+                          <small class="text-muted">Haz clic en "Importar desde Activos" para cargar los procesadores</small>
+                        </td>
+                      </tr>
+                    </ng-template>
+                  </p-table>
+                </div>
+              </div>
+
               <!-- Botón para ejecutar cálculos automáticos -->
               <div class="mb-3 d-flex justify-content-between align-items-center">
                 <div>
@@ -286,6 +395,7 @@
                 </ul>
               </div>
 
+              
 
             </div>
           </p-tabPanel>
@@ -485,7 +595,8 @@
         optionLabel="label"
         optionValue="value"
         placeholder="Seleccione frecuencia"
-        styleClass="w-100">
+        styleClass="w-100"
+        appendTo="body">
       </p-dropdown>
     </div>
   </div>
@@ -745,6 +856,9 @@
             placeholder="Seleccione una empresa"
             styleClass="w-100"
             [required]="true"
+            appendTo="body"
+            [filter]="true"
+            filterPlaceholder="Buscar empresa"
             (onChange)="onEmpresaChange($event)">
           </p-dropdown>
           <small class="form-text text-muted">
@@ -769,6 +883,9 @@
             styleClass="w-100"
             [required]="true"
             [disabled]="!agenteSeleccionado.id_empresa"
+            appendTo="body"
+            [filter]="true"
+            filterPlaceholder="Buscar sucursal"
             (onChange)="onSucursalChange($event)">
           </p-dropdown>
           <small class="form-text text-muted">
@@ -792,7 +909,10 @@
             placeholder="Seleccione una sede (opcional)"
             styleClass="w-100"
             [disabled]="!agenteSeleccionado.id_sucursal"
-            [showClear]="true">
+            [showClear]="true"
+            appendTo="body"
+            [filter]="true"
+            filterPlaceholder="Buscar sede">
           </p-dropdown>
           <small class="form-text text-muted">
             Seleccione la sede asociada (campo opcional)
@@ -819,4 +939,69 @@
   </ng-template>
 </p-dialog>
 
+
+<!-- Dialog para Agregar/Editar Procesador -->
+<p-dialog 
+  [(visible)]="displayDialogProcesador" 
+  [header]="esNuevo ? 'Nuevo Procesador' : 'Editar Procesador'"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="dialog-content">
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label required">
+            <i class="bi bi-cpu me-2"></i>
+            Nombre del Procesador
+          </label>
+          <input 
+            type="text" 
+            pInputText 
+            [(ngModel)]="procesadorSeleccionado.nombre"
+            placeholder="Ej: Intel Core i7-10700K"
+            class="w-100" />
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="bi bi-calendar me-2"></i>
+            Año de Lanzamiento
+          </label>
+          <p-inputNumber 
+            [(ngModel)]="procesadorSeleccionado.anio_lanzamiento"
+            [useGrouping]="false"
+            [min]="1970"
+            [max]="2030"
+            placeholder="Ej: 2020"
+            styleClass="w-100">
+          </p-inputNumber>
+          <small class="form-text text-muted">
+            Opcional. Año en que se lanzó el procesador al mercado.
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button 
+      label="Cancelar" 
+      icon="pi pi-times" 
+      (onClick)="displayDialogProcesador = false"
+      styleClass="p-button-text">
+    </p-button>
+    <p-button 
+      label="Guardar" 
+      icon="pi pi-check" 
+      (onClick)="guardarProcesador()"
+      styleClass="p-button-success"
+      [disabled]="!procesadorSeleccionado.nombre">
+    </p-button>
+  </ng-template>
+</p-dialog>
 
