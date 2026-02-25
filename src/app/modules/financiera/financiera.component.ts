@@ -19,6 +19,7 @@ export class FinancieraComponent {
       description: 'Gestión de solicitudes y aprobación de anticipos',
       color: 'primary',
       items: [
+        { name: 'Conceptos de Anticipos', route: '/financiera/anticipos/conceptos', icon: 'bi-list-ul' },
         { name: 'Solicitudes de Anticipos', route: '/financiera/anticipos/solicitudes', icon: 'bi-file-earmark-text' }
       ]
     }

@@ -1,0 +1,246 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header">
+    <button class="btn-back" routerLink="/financiera">
+      <i class="pi pi-arrow-left"></i>
+      Volver
+    </button>
+    <h1 class="page-title">
+      <i class="pi pi-list me-2"></i>
+      Conceptos de Anticipos
+    </h1>
+    <p class="page-subtitle">Gestión de tipos, clases y modalidades de anticipos</p>
+  </div>
+
+  <!-- Formulario de Concepto -->
+  <div class="form-card">
+    <div class="form-row">
+      
+      <!-- Columna 1: Tipo de Anticipo -->
+      <div class="form-col">
+        <label class="form-label">
+          Tipo de Anticipo <span class="required">*</span>
+        </label>
+        <p-dropdown
+          [options]="tiposOptions"
+          [(ngModel)]="conceptoActual.id_tipo"
+          (onChange)="onTipoChange()"
+          placeholder="Seleccione el tipo"
+          optionLabel="nombre"
+          optionValue="id"
+          [showClear]="true"
+          styleClass="w-100">
+        </p-dropdown>
+        <small class="help-text">Seleccione si es para viajes u otros conceptos</small>
+        
+        <!-- Checkbox Estado -->
+        <div class="mt-3">
+          <p-checkbox 
+            [(ngModel)]="conceptoActual.estado" 
+            [binary]="true"
+            inputId="estado"
+            label="Activo">
+          </p-checkbox>
+        </div>
+      </div>
+
+      <!-- Columna 2: Clase de Anticipo -->
+      <div class="form-col">
+        <label class="form-label">
+          Clase de Anticipo <span class="required">*</span>
+        </label>
+        <p-dropdown
+          [options]="clasesOptions"
+          [(ngModel)]="conceptoActual.id_clase"
+          (onChange)="onClaseChange()"
+          placeholder="Seleccione la clase"
+          optionLabel="nombre"
+          optionValue="id"
+          [showClear]="true"
+          [disabled]="!conceptoActual.id_tipo"
+          styleClass="w-100">
+        </p-dropdown>
+        <small class="help-text" *ngIf="!conceptoActual.id_tipo">Primero seleccione el tipo de anticipo</small>
+        <small class="help-text" *ngIf="conceptoActual.id_tipo">Clase relacionada al tipo seleccionado</small>
+        
+        <!-- Modalidad -->
+        <div class="mt-3">
+          <label class="form-label">
+            Modalidad <span class="required">*</span>
+          </label>
+          <p-dropdown
+            [options]="modalidadesOptions"
+            [(ngModel)]="conceptoActual.id_modalidad"
+            placeholder="Seleccione la modalidad"
+            optionLabel="nombre"
+            optionValue="id"
+            [showClear]="true"
+            [disabled]="!conceptoActual.id_clase"
+            styleClass="w-100">
+          </p-dropdown>
+          <small class="help-text" *ngIf="!conceptoActual.id_clase">Primero seleccione la clase de anticipo</small>
+        </div>
+      </div>
+
+      <!-- Columna 3: Reglas del Concepto -->
+      <div class="form-col reglas-col">
+        <label class="form-label">
+          <i class="pi pi-shield me-1"></i>
+          Reglas del Concepto
+        </label>
+        
+        <!-- Formulario para agregar regla -->
+        <div class="regla-input-group">
+          <input 
+            type="text" 
+            pInputText 
+            [(ngModel)]="nuevaRegla.descripcion"
+            placeholder="Ej: Máximo por día, Máximo por trayecto"
+            class="regla-descripcion-input">
+          
+          <p-inputNumber 
+            [(ngModel)]="nuevaRegla.valor_tope"
+            mode="currency"
+            currency="COP"
+            locale="es-CO"
+            placeholder="$ 0.00"
+            styleClass="regla-valor-input">
+          </p-inputNumber>
+        </div>
+
+        <!-- Lista de reglas agregadas -->
+        <div class="reglas-list-mini" *ngIf="reglas.length > 0">
+          <div class="regla-mini-item" *ngFor="let regla of reglas">
+            <span class="regla-mini-count">{{ reglas.indexOf(regla) + 1 }} regla(s)</span>
+            <button 
+              class="btn-remove-regla"
+              (click)="eliminarRegla(regla)">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Botón Agregar Concepto -->
+    <div class="form-actions">
+      <button 
+        class="btn-cancel"
+        *ngIf="modoEdicion"
+        (click)="cancelarEdicion()">
+        <i class="pi pi-times me-1"></i>
+        Cancelar
+      </button>
+      <button 
+        class="btn-add-concepto"
+        (click)="agregarConcepto()">
+        <i class="pi pi-plus me-1"></i>
+        {{ modoEdicion ? 'Actualizar' : 'Agregar' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabla de Conceptos Configurados -->
+  <div class="table-card">
+    <div class="table-header">
+      <h2>Conceptos Configurados</h2>
+    </div>
+
+    <p-table 
+      [value]="conceptos" 
+      [loading]="isLoading"
+      [paginator]="true" 
+      [rows]="10"
+      [totalRecords]="totalRecords"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} conceptos"
+      [rowsPerPageOptions]="[10, 25, 50]"
+      (onPage)="onPageChange($event)"
+      styleClass="conceptos-table">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>TIPO</th>
+          <th>CLASE</th>
+          <th>MODALIDAD</th>
+          <th>REGLAS</th>
+          <th>ESTADO</th>
+          <th>ACCIONES</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-concepto>
+        <tr>
+          <td>{{ getTipoLabel(concepto) }}</td>
+          <td>{{ getClaseLabel(concepto) }}</td>
+          <td>{{ getModalidadLabel(concepto) }}</td>
+          <td>
+            <div *ngIf="concepto.reglas && concepto.reglas.length > 0; else noReglas">
+              <div *ngFor="let regla of concepto.reglas" style="margin-bottom: 8px;">
+                <div style="font-size: 0.9em; color: #495057;">
+                  <strong>{{ regla.descripcion }}</strong>
+                </div>
+                <div style="font-size: 0.85em; color: #6c757d;">
+                  Valor tope: {{ regla.valor_tope | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </div>
+              </div>
+            </div>
+            <ng-template #noReglas>
+              <span style="color: #9ca3af; font-style: italic;">Sin reglas</span>
+            </ng-template>
+          </td>
+          <td>
+            <p-tag 
+              [value]="getEstadoTexto(concepto.estado)" 
+              [severity]="getSeverity(concepto.estado)">
+            </p-tag>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button 
+                class="btn-action-icon btn-edit"
+                pTooltip="Editar"
+                tooltipPosition="top"
+                (click)="editarConcepto(concepto)">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button 
+                class="btn-action-icon btn-delete"
+                pTooltip="Eliminar"
+                tooltipPosition="top"
+                (click)="eliminarConcepto(concepto)">
+                <i class="pi pi-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center py-5">
+            <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+            <p class="text-muted mt-3 mb-1">No hay conceptos registrados</p>
+            <small class="text-muted">Los conceptos aparecerán aquí una vez agregados</small>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="loadingbody">
+        <tr *ngFor="let i of [1,2,3,4,5]">
+          <td><p-skeleton></p-skeleton></td>
+          <td><p-skeleton></p-skeleton></td>
+          <td><p-skeleton></p-skeleton></td>
+          <td><p-skeleton></p-skeleton></td>
+          <td><p-skeleton></p-skeleton></td>
+          <td><p-skeleton></p-skeleton></td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+</div>

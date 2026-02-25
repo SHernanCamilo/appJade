@@ -1,0 +1,311 @@
+/* Layout Principal */
+.page-container {
+  background: #f5f7fa;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.dashboard-content {
+  padding: 0 2rem 2rem 2rem;
+}
+
+/* Header Moderno */
+.page-header-modern {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.header-top {
+  margin-bottom: 1rem;
+}
+
+.btn-back-modern {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  transition: color 0.2s ease;
+}
+
+.btn-back-modern:hover {
+  color: #1f2937;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title-section {
+  flex: 1;
+}
+
+.page-title-modern {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-subtitle-modern {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Botones */
+.btn-action {
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-action-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-action-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-action-icon.btn-action-primary {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.btn-action-icon.btn-action-primary:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Filtros / Formulario */
+.filters-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #f3f4f6;
+  margin-bottom: 2rem;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.filters-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.btn-clear-filters {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.btn-clear-filters:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.filters-body {
+  padding: 0;
+}
+
+.filter-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.filter-label i {
+  color: #6b7280;
+}
+
+/* Tabla */
+.table-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #f3f4f6;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.table-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.modern-table-container {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+::ng-deep .modern-table {
+  width: 100%;
+}
+
+::ng-deep .modern-table .p-datatable-thead > tr > th {
+  background: #f9fafb !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  padding: 0.875rem 1rem !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  font-size: 0.875rem !important;
+}
+
+::ng-deep .modern-table .p-datatable-tbody > tr {
+  transition: background-color 0.2s ease;
+}
+
+::ng-deep .modern-table .p-datatable-tbody > tr:hover {
+  background-color: #f9fafb !important;
+}
+
+::ng-deep .modern-table .p-datatable-tbody > tr > td {
+  padding: 1rem !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  vertical-align: middle !important;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Estilos para PrimeNG */
+:host ::ng-deep .p-dropdown {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+:host ::ng-deep .p-inputtext {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep .p-inputtext:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+:host ::ng-deep .p-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+:host ::ng-deep .p-checkbox-label {
+  margin-left: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep textarea.p-inputtext {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.813rem;
+  padding: 0.5rem;
+}
+
+/* Utilidades */
+.me-1 {
+  margin-right: 0.25rem;
+}
+
+.me-2 {
+  margin-right: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 0 1rem 1rem 1rem;
+  }
+  
+  .page-header-modern {
+    padding: 1rem;
+  }
+  
+  .filters-card, .table-section {
+    padding: 1rem;
+  }
+}
