@@ -1512,3 +1512,43 @@
   margin-left: 0.5rem;
   font-weight: 500;
 }
+
+/* Estilos para celdas editables */
+.editable-cell-container {
+  cursor: pointer;
+  min-height: 30px;
+}
+
+.editable-cell {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.editable-cell:hover {
+  background-color: #f8f9fa;
+}
+
+.editable-cell i {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.editable-cell:hover i {
+  opacity: 1;
+}
+
+.edit-input-container {
+  padding: 0.25rem 0;
+}
+
+/* Ajustar el ancho del input number en modo edición */
+::ng-deep .p-inputnumber {
+  width: 100%;
+}
+
+::ng-deep .p-inputnumber input {
+  width: 100%;
+}

@@ -20,53 +20,10 @@
       </div>
       
       <div class="header-actions">
-        <button class="btn-action btn-action-success" (click)="abrirMatrizCompletaTodos()">
-          <i class="pi pi-table"></i>
-          Matriz Completa
-        </button>
-        
-        <!-- Botón de sincronización o barra de progreso -->
-        <div class="sync-container" *ngIf="!isSyncing">
-          <button 
-            class="btn-action btn-action-primary"
-            (click)="iniciarSincronizacion()" 
-            [disabled]="isCalculatingValues">
-            <i class="pi pi-sync"></i>
-            Sincronizar Equipos
-          </button>
-        </div>
-        
-        <!-- Barra de progreso con botón de cancelar -->
-        <div class="sync-progress-container" *ngIf="isSyncing">
-          <div class="progress-info">
-            <span class="progress-label">{{ syncProgress.message }}</span>
-            <span class="progress-percentage">{{ syncProgress.percentage }}%</span>
-          </div>
-          <div class="progress-bar-wrapper">
-            <p-progressBar 
-              [value]="syncProgress.percentage" 
-              [showValue]="false"
-              styleClass="custom-progress-bar">
-            </p-progressBar>
-            <button 
-              class="btn-cancel-sync"
-              (click)="cancelarSincronizacion()"
-              [disabled]="isCancelling"
-              pTooltip="Cancelar sincronización">
-              <i class="pi" [ngClass]="isCancelling ? 'pi-spin pi-spinner' : 'pi-times'"></i>
-            </button>
-          </div>
-          <div class="progress-details" *ngIf="syncProgress.total > 0">
-            <small class="text-muted">
-              Procesados: {{ syncProgress.processed }} | 
-              Creados: {{ syncProgress.created }} | 
-              Actualizados: {{ syncProgress.updated }}
-              <span *ngIf="syncProgress.errors > 0" class="text-danger"> | Errores: {{ syncProgress.errors }}</span>
-            </small>
-          </div>
-        </div>
-        
-        <button class="btn-action btn-action-primary" (click)="actualizarDatosConCalculos()" [disabled]="isCalculatingValues || isSyncing">
+        <button 
+          class="btn-action btn-action-primary" 
+          (click)="actualizarDatosConCalculos()" 
+          [disabled]="isCalculatingValues">
           <i class="pi pi-refresh" [class.pi-spin]="isCalculatingValues"></i>
           {{ isCalculatingValues ? 'Calculando...' : 'Actualizar Datos' }}
         </button>
@@ -76,6 +33,12 @@
 
   <!-- Dashboard Content -->
   <div class="dashboard-content">
+    
+    <!-- Tabs para Dashboard y Matriz Completa -->
+    <p-tabView [(activeIndex)]="activeTabIndex" (onChange)="onTabChange($event)" styleClass="dashboard-tabs">
+      
+      <!-- Tab 1: Dashboard -->
+      <p-tabPanel header="Dashboard" leftIcon="pi pi-chart-bar">
     
     <!-- Card de Filtros -->
     <div class="filters-card mb-4">
@@ -511,6 +474,359 @@
 
     </div>
 
+      </p-tabPanel>
+      
+      <!-- Tab 2: Matriz Completa -->
+      <p-tabPanel header="Matriz Completa" leftIcon="pi pi-table">
+        
+        <!-- Contenido de Matriz Completa -->
+        <div class="matriz-todos-container">
+      
+          <!-- Filtros en línea horizontal -->
+          <div class="filtros-inline mb-3">
+            <div class="row g-2 align-items-end">
+              <!-- Búsqueda -->
+              <div class="col-12 col-md-3">
+                <span class="p-input-icon-left w-100">
+                  <i class="pi pi-search"></i>
+                  <input 
+                    type="text" 
+                    pInputText 
+                    [(ngModel)]="searchTermTodos"
+                    (keyup.enter)="buscarEnMatrizCompleta()"
+                    placeholder="Buscar en matriz completa..."
+                    class="w-100">
+                </span>
+              </div>
+              
+              <!-- Filtro Empresa -->
+              <div class="col-12 col-md-2">
+                <p-dropdown
+                  [options]="empresasOptions"
+                  [(ngModel)]="selectedEmpresa"
+                  (onChange)="onEmpresaChange()"
+                  placeholder="Todas las empresas"
+                  [showClear]="true"
+                  optionLabel="label"
+                  optionValue="value"
+                  [filter]="true"
+                  filterBy="label"
+                  styleClass="w-100"
+                  appendTo="body">
+                  <ng-template pTemplate="selectedItem" let-option>
+                    <div class="flex align-items-center" *ngIf="option">
+                      <i class="pi pi-building me-1" style="font-size: 0.875rem;"></i>
+                      <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                  <ng-template pTemplate="item" let-option>
+                    <div class="flex align-items-center">
+                      <i class="pi pi-building me-2"></i>
+                      <span>{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                </p-dropdown>
+              </div>
+              
+              <!-- Filtro Sucursal -->
+              <div class="col-12 col-md-2">
+                <p-dropdown
+                  [options]="sucursalesOptions"
+                  [(ngModel)]="selectedSucursal"
+                  (onChange)="onSucursalChange()"
+                  placeholder="Todas las sucursales"
+                  [showClear]="true"
+                  [disabled]="!selectedEmpresa"
+                  optionLabel="label"
+                  optionValue="value"
+                  [filter]="true"
+                  filterBy="label"
+                  styleClass="w-100"
+                  appendTo="body">
+                  <ng-template pTemplate="selectedItem" let-option>
+                    <div class="flex align-items-center" *ngIf="option">
+                      <i class="pi pi-map-marker me-1" style="font-size: 0.875rem;"></i>
+                      <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                  <ng-template pTemplate="item" let-option>
+                    <div class="flex align-items-center">
+                      <i class="pi pi-map-marker me-2"></i>
+                      <span>{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                </p-dropdown>
+              </div>
+              
+              <!-- Filtro Sede -->
+              <div class="col-12 col-md-2">
+                <p-dropdown
+                  [options]="sedesOptions"
+                  [(ngModel)]="selectedSede"
+                  (onChange)="onSedeChange()"
+                  placeholder="Todas las sedes"
+                  [showClear]="true"
+                  [disabled]="!selectedSucursal"
+                  optionLabel="label"
+                  optionValue="value"
+                  [filter]="true"
+                  filterBy="label"
+                  styleClass="w-100"
+                  appendTo="body">
+                  <ng-template pTemplate="selectedItem" let-option>
+                    <div class="flex align-items-center" *ngIf="option">
+                      <i class="pi pi-home me-1" style="font-size: 0.875rem;"></i>
+                      <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                  <ng-template pTemplate="item" let-option>
+                    <div class="flex align-items-center">
+                      <i class="pi pi-home me-2"></i>
+                      <span>{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                </p-dropdown>
+              </div>
+              
+              <!-- Botones de acción -->
+              <div class="col-12 col-md-3">
+                <div class="d-flex gap-2 justify-content-end">
+                  <p-button 
+                    icon="pi pi-search"
+                    size="small"
+                    severity="success"
+                    (onClick)="buscarEnMatrizCompleta()">
+                  </p-button>
+                  <p-button 
+                    icon="pi pi-times"
+                    size="small"
+                    severity="secondary"
+                    [outlined]="true"
+                    (onClick)="limpiarFiltros()">
+                  </p-button>
+                  <p-button 
+                    label="Exportar" 
+                    icon="pi pi-file-excel" 
+                    size="small"
+                    severity="success"
+                    [outlined]="true"
+                    (onClick)="exportarTodosLosActivos()">
+                  </p-button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tabla con todas las columnas -->
+          <div class="tabla-matriz-completa">
+            <p-table 
+              [value]="activosMatrizCompleta"
+              dataKey="id"
+              [loading]="isLoadingMatrizCompleta"
+              [paginator]="true"
+              [rows]="rowsPerPageCompleta"
+              [totalRecords]="totalRecordsCompleta"
+              [lazy]="true"
+              (onLazyLoad)="onPageChangeCompleta($event)"
+              [rowsPerPageOptions]="[10, 25, 50]"
+              [showCurrentPageReport]="true"
+              currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} activos"
+              styleClass="p-datatable-sm p-datatable-striped matriz-completa-table"
+              [scrollable]="false"
+              [resizableColumns]="true">
+              
+              <ng-template pTemplate="header">
+                <tr>
+                  <!-- Información Básica -->
+                  <th [style]="{'min-width': '120px'}">Concepto</th>
+                  <th pSortableColumn="nombre_equipo" [style]="{'min-width': '150px'}">
+                    Nombre Equipo
+                    <p-sortIcon field="nombre_equipo"></p-sortIcon>
+                  </th>
+                  <th [style]="{'min-width': '120px'}">Sucursal/Sede</th>
+                  <th [style]="{'min-width': '100px'}">TAG Agente</th>
+                  <th [style]="{'min-width': '120px'}">Placa</th>
+                  <th [style]="{'min-width': '120px'}">Marca</th>
+                  <th [style]="{'min-width': '120px'}">Tipo Equipo</th>
+                  <th [style]="{'min-width': '120px'}">Referencia</th>
+                  <th [style]="{'min-width': '120px'}">Serial</th>
+                  <th [style]="{'min-width': '120px'}">Ubicación</th>
+                  <th [style]="{'min-width': '120px'}">Tipo Unidad</th>
+                  
+                  <!-- Fechas y Compras -->
+                  <th [style]="{'min-width': '120px'}">Fecha Compra</th>
+                  <th [style]="{'min-width': '140px'}">Modalidad Compra</th>
+                  <th [style]="{'min-width': '120px'}">Proveedor</th>
+                  
+                  <!-- Edad -->
+                  <th [style]="{'min-width': '100px'}">Edad (Años)</th>
+                  <th [style]="{'min-width': '120px'}">Edad Vs Vutil</th>
+                  <th [style]="{'min-width': '120px'}">Valoración Edad</th>
+                  
+                  <!-- RAM -->
+                  <th [style]="{'min-width': '100px'}">RAM (GB)</th>
+                  <th [style]="{'min-width': '110px'}">MaxRAM (GB)</th>
+                  <th [style]="{'min-width': '130px'}">Generación RAM</th>
+                  <th [style]="{'min-width': '120px'}">Valoración RAM</th>
+                  
+                  <!-- Procesador -->
+                  <th [style]="{'min-width': '150px'}">Procesador</th>
+                  <th [style]="{'min-width': '130px'}">Número Procesador</th>
+                  <th [style]="{'min-width': '140px'}">Valoración Procesador</th>
+                  
+                  <!-- Disco -->
+                  <th [style]="{'min-width': '100px'}">Tipo Disco</th>
+                  <th [style]="{'min-width': '100px'}">Disco (GB)</th>
+                  <th [style]="{'min-width': '130px'}">Interfaz Conexión</th>
+                  <th [style]="{'min-width': '120px'}">Valoración Disco</th>
+                  
+                  <!-- Finales -->
+                  <th [style]="{'min-width': '140px'}">#Incidencias 6 Meses</th>
+                  <th pSortableColumn="puntaje" [style]="{'min-width': '100px'}">
+                    Puntaje
+                    <p-sortIcon field="puntaje"></p-sortIcon>
+                  </th>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="body" let-activo>
+                <tr>
+                  <!-- Información Básica -->
+                  <td>
+                    <p-tag 
+                      [value]="getConceptoCorto(activo.puntaje)" 
+                      [severity]="getPuntajeSeverity(activo.puntaje)"
+                      [style]="{'font-size': '0.75rem'}">
+                    </p-tag>
+                  </td>
+                  <td>
+                    <div class="fw-semibold text-primary">{{ activo.nombre_equipo }}</div>
+                  </td>
+                  <td>
+                    <div *ngIf="activo.empresa">
+                      <div class="fw-semibold">{{ activo.empresa.nombre }}</div>
+                      <small class="text-muted" *ngIf="activo.sucursal">
+                        {{ activo.sucursal.nombre }}
+                      </small>
+                    </div>
+                  </td>
+                  <td>
+                    <p-tag [value]="activo.agente" severity="info" [style]="{'font-size': '0.75rem'}"></p-tag>
+                  </td>
+                  <td>{{ activo.placa || '-' }}</td>
+                  <td>{{ activo.detalle?.marca || '-' }}</td>
+                  <td>{{ activo.detalle?.tipo || '-' }}</td>
+                  <td>{{ activo.detalle?.referencia || '-' }}</td>
+                  <td>{{ activo.serial || '-' }}</td>
+                  <td>{{ activo.ubicacion || '-' }}</td>
+                  <td>{{ getDetalleValueOrDefault(activo, 'tipo_unidad', ' - ') }}</td>
+                  
+                  <!-- Fechas y Compras -->
+                  <td>{{ getDetalleProperty(activo, 'fecha_compra') ? formatDate(getDetalleProperty(activo, 'fecha_compra')) : '-' }}</td>
+                  <td>{{ getDetalleValueOrDefault(activo, 'modalidad', ' - ') }}</td>
+                  <td>{{ getDetalleValueOrDefault(activo, 'proveedor', ' - ') }}</td>
+                  
+                  <!-- Edad -->
+                  <td>{{ getDetalleProperty(activo, 'edad') !== null ? getDetalleProperty(activo, 'edad') + ' año(s)' : '-' }}</td>
+                  <td>{{ formatEdadVsVutil(getDetalleProperty(activo, 'edad_v_util')) }}</td>
+                  <td>
+                    <p-tag 
+                      [value]="getValoracionEdadFormateada(activo)" 
+                      [severity]="getValoracionEdadSeverity(activo)"
+                      [style]="{'font-size': '0.75rem'}">
+                    </p-tag>
+                  </td>
+                  
+                  <!-- RAM -->
+                  <td>{{ activo.detalle?.tamano_ram ? activo.detalle.tamano_ram + ' GB' : '-' }}</td>
+                  <td>
+                    <div class="editable-cell-container" (click)="startEditMaxRam(activo)">
+                      <span *ngIf="!isEditingMaxRam(activo)" class="editable-cell">
+                        {{ activo.detalle?.max_ram ? activo.detalle.max_ram + ' GB' : '-' }}
+                        <i class="pi pi-pencil ms-2" style="font-size: 0.7rem; color: #6c757d;"></i>
+                      </span>
+                      <div *ngIf="isEditingMaxRam(activo)" class="edit-input-container" (click)="$event.stopPropagation()">
+                        <p-inputNumber 
+                          [(ngModel)]="activo.detalle.max_ram" 
+                          mode="decimal"
+                          [min]="0"
+                          [maxFractionDigits]="0"
+                          suffix=" GB"
+                          [showButtons]="true"
+                          [step]="1"
+                          (onBlur)="saveMaxRam(activo)"
+                          (keydown.enter)="saveMaxRam(activo)"
+                          (keydown.escape)="cancelEditMaxRam(activo)"
+                          [autofocus]="true"
+                          styleClass="w-100">
+                        </p-inputNumber>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ activo.detalle?.generacion_ram || '-' }}</td>
+                  <td>
+                    <p-tag 
+                      [value]="getValoracionRAMFormateada(activo)" 
+                      [severity]="getValoracionRAMSeverity(activo)"
+                      [style]="{'font-size': '0.75rem'}">
+                    </p-tag>
+                  </td>
+                  
+                  <!-- Procesador -->
+                  <td>{{ activo.detalle?.procesador || '-' }}</td>
+                  <td>{{ activo.detalle?.numero_procesador || '-' }}</td>
+                  <td>
+                    <p-tag 
+                      [value]="getValoracionProcesadorFormateada(activo)" 
+                      [severity]="getValoracionProcesadorSeverity(activo)"
+                      [style]="{'font-size': '0.75rem'}">
+                    </p-tag>
+                  </td>
+                  
+                  <!-- Disco -->
+                  <td>{{ activo.detalle?.tipo_disco || '-' }}</td>
+                  <td>{{ activo.detalle?.tamano_disco ? activo.detalle.tamano_disco + ' GB' : '-' }}</td>
+                  <td>{{ activo.detalle?.interfaz_conexion || '-' }}</td>
+                  <td>
+                    <p-tag 
+                      [value]="getValoracionDiscoFormateada(activo)" 
+                      [severity]="getValoracionDiscoSeverity(activo)"
+                      [style]="{'font-size': '0.75rem'}">
+                    </p-tag>
+                  </td>
+                  
+                  <!-- Finales -->
+                  <td class="text-center">{{ getDetalleValueOrDefault(activo, 'incidencias_6_meses', 0) }}</td>
+                  <td>
+                    <p-tag 
+                      [value]="activo.puntaje + '%'" 
+                      [severity]="getPuntajeSeverity(activo.puntaje)">
+                    </p-tag>
+                  </td>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="29" class="text-center py-4">
+                    <i class="pi pi-inbox text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No se encontraron activos</p>
+                  </td>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="loadingbody">
+                <tr *ngFor="let i of [1,2,3,4,5]">
+                  <td *ngFor="let j of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]">
+                    <p-skeleton></p-skeleton>
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </p-tabPanel>
+    </p-tabView>
   </div>
 
   <!-- Modal para Matriz Completa -->
@@ -715,10 +1031,6 @@
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-between align-items-center">
         <div class="text-muted px-2">
-          <small>
-            <i class="pi pi-clock me-1"></i>
-            Última sincronización: {{ getUltimaSincronizacion() }}
-          </small>
         </div>
         <div class="d-flex gap-2">
           <p-button 
@@ -745,366 +1057,6 @@
             severity="secondary"
             [outlined]="true"
             (onClick)="cerrarMatrizCompleta()">
-          </p-button>
-        </div>
-      </div>
-    </ng-template>
-    
-  </p-dialog>
-
-  <!-- Modal para Matriz Completa de TODOS los Activos -->
-  <p-dialog 
-    header="Matriz de Obsolescencia - Todos los Activos" 
-    [(visible)]="mostrarMatrizCompletaTodos" 
-    [modal]="true" 
-    [closable]="true"
-    [maximizable]="true"
-    [style]="{width: '98vw', height: '95vh'}"
-    styleClass="matriz-completa-todos-dialog">
-    
-    <div class="matriz-todos-container">
-      
-      <!-- Filtros en línea horizontal -->
-      <div class="filtros-inline mb-3">
-        <div class="row g-2 align-items-end">
-          <!-- Búsqueda -->
-          <div class="col-12 col-md-3">
-            <span class="p-input-icon-left w-100">
-              <i class="pi pi-search"></i>
-              <input 
-                type="text" 
-                pInputText 
-                [(ngModel)]="searchTermTodos"
-                (keyup.enter)="buscarEnMatrizCompleta()"
-                placeholder="Buscar en matriz completa..."
-                class="w-100">
-            </span>
-          </div>
-          
-          <!-- Filtro Empresa -->
-          <div class="col-12 col-md-2">
-            <p-dropdown
-              [options]="empresasOptionsModal"
-              [(ngModel)]="selectedEmpresaModal"
-              (onChange)="onEmpresaChangeModal()"
-              placeholder="Todas las empresas"
-              [showClear]="true"
-              optionLabel="label"
-              optionValue="value"
-              [filter]="true"
-              filterBy="label"
-              styleClass="w-100"
-              appendTo="body">
-              <ng-template pTemplate="selectedItem" let-option>
-                <div class="flex align-items-center" *ngIf="option">
-                  <i class="pi pi-building me-1" style="font-size: 0.875rem;"></i>
-                  <span style="font-size: 0.875rem;">{{ option.label }}</span>
-                </div>
-              </ng-template>
-              <ng-template pTemplate="item" let-option>
-                <div class="flex align-items-center">
-                  <i class="pi pi-building me-2"></i>
-                  <span>{{ option.label }}</span>
-                </div>
-              </ng-template>
-            </p-dropdown>
-          </div>
-          
-          <!-- Filtro Sucursal -->
-          <div class="col-12 col-md-2">
-            <p-dropdown
-              [options]="sucursalesOptionsModal"
-              [(ngModel)]="selectedSucursalModal"
-              (onChange)="onSucursalChangeModal()"
-              placeholder="Todas las sucursales"
-              [showClear]="true"
-              [disabled]="!selectedEmpresaModal"
-              optionLabel="label"
-              optionValue="value"
-              [filter]="true"
-              filterBy="label"
-              styleClass="w-100"
-              appendTo="body">
-              <ng-template pTemplate="selectedItem" let-option>
-                <div class="flex align-items-center" *ngIf="option">
-                  <i class="pi pi-map-marker me-1" style="font-size: 0.875rem;"></i>
-                  <span style="font-size: 0.875rem;">{{ option.label }}</span>
-                </div>
-              </ng-template>
-              <ng-template pTemplate="item" let-option>
-                <div class="flex align-items-center">
-                  <i class="pi pi-map-marker me-2"></i>
-                  <span>{{ option.label }}</span>
-                </div>
-              </ng-template>
-            </p-dropdown>
-          </div>
-          
-          <!-- Filtro Sede -->
-          <div class="col-12 col-md-2">
-            <p-dropdown
-              [options]="sedesOptionsModal"
-              [(ngModel)]="selectedSedeModal"
-              (onChange)="onSedeChangeModal()"
-              placeholder="Todas las sedes"
-              [showClear]="true"
-              [disabled]="!selectedSucursalModal"
-              optionLabel="label"
-              optionValue="value"
-              [filter]="true"
-              filterBy="label"
-              styleClass="w-100"
-              appendTo="body">
-              <ng-template pTemplate="selectedItem" let-option>
-                <div class="flex align-items-center" *ngIf="option">
-                  <i class="pi pi-home me-1" style="font-size: 0.875rem;"></i>
-                  <span style="font-size: 0.875rem;">{{ option.label }}</span>
-                </div>
-              </ng-template>
-              <ng-template pTemplate="item" let-option>
-                <div class="flex align-items-center">
-                  <i class="pi pi-home me-2"></i>
-                  <span>{{ option.label }}</span>
-                </div>
-              </ng-template>
-            </p-dropdown>
-          </div>
-          
-          <!-- Botones de acción -->
-          <div class="col-12 col-md-3">
-            <div class="d-flex gap-2 justify-content-end">
-              <p-button 
-                label="Buscar" 
-                icon="pi pi-search"
-                size="small"
-                severity="success"
-                (onClick)="buscarEnMatrizCompleta()">
-              </p-button>
-              <p-button 
-                label="Limpiar" 
-                icon="pi pi-times"
-                size="small"
-                severity="secondary"
-                [outlined]="true"
-                (onClick)="limpiarBusquedaCompleta()">
-              </p-button>
-              <p-button 
-                label="Exportar Todo" 
-                icon="pi pi-file-excel" 
-                size="small"
-                severity="success"
-                [outlined]="true"
-                (onClick)="exportarTodosLosActivos()">
-              </p-button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Tabla con todas las columnas -->
-      <div class="tabla-matriz-completa">
-        <p-table 
-          [value]="activosMatrizCompleta"
-          [loading]="isLoadingMatrizCompleta"
-          [paginator]="true"
-          [rows]="rowsPerPageCompleta"
-          [totalRecords]="totalRecordsCompleta"
-          [lazy]="true"
-          (onLazyLoad)="onPageChangeCompleta($event)"
-          [rowsPerPageOptions]="[10, 20, 50]"
-          [showCurrentPageReport]="true"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} activos"
-          styleClass="p-datatable-sm p-datatable-striped matriz-completa-table"
-          [scrollable]="true" 
-          scrollHeight="65vh"
-          [resizableColumns]="true">
-          
-          <ng-template pTemplate="header">
-            <tr>
-              <!-- Información Básica -->
-              <th pSortableColumn="nombre_equipo" [style]="{'min-width': '150px'}">
-                Nombre Equipo
-                <p-sortIcon field="nombre_equipo"></p-sortIcon>
-              </th>
-              <th [style]="{'min-width': '120px'}">Sucursal/Sede</th>
-              <th [style]="{'min-width': '100px'}">TAG Agente</th>
-              <th [style]="{'min-width': '120px'}">Placa</th>
-              <th [style]="{'min-width': '120px'}">Marca</th>
-              <th [style]="{'min-width': '120px'}">Tipo Equipo</th>
-              <th [style]="{'min-width': '120px'}">Referencia</th>
-              <th [style]="{'min-width': '120px'}">Serial</th>
-              <th [style]="{'min-width': '120px'}">Ubicación</th>
-              <th [style]="{'min-width': '120px'}">Tipo Unidad</th>
-              
-              <!-- Fechas y Compras -->
-              <th [style]="{'min-width': '120px'}">Fecha Compra</th>
-              <th [style]="{'min-width': '140px'}">Modalidad Compra</th>
-              <th [style]="{'min-width': '120px'}">Proveedor</th>
-              
-              <!-- Edad -->
-              <th [style]="{'min-width': '100px'}">Edad (Años)</th>
-              <th [style]="{'min-width': '120px'}">Edad Vs Vutil</th>
-              <th [style]="{'min-width': '120px'}">Valoración Edad</th>
-              
-              <!-- RAM -->
-              <th [style]="{'min-width': '100px'}">RAM (GB)</th>
-              <th [style]="{'min-width': '110px'}">MaxRAM (GB)</th>
-              <th [style]="{'min-width': '130px'}">Generación RAM</th>
-              <th [style]="{'min-width': '120px'}">Valoración RAM</th>
-              
-              <!-- Procesador -->
-              <th [style]="{'min-width': '150px'}">Procesador</th>
-              <th [style]="{'min-width': '130px'}">Número Procesador</th>
-              <th [style]="{'min-width': '140px'}">Valoración Procesador</th>
-              
-              <!-- Disco -->
-              <th [style]="{'min-width': '100px'}">Tipo Disco</th>
-              <th [style]="{'min-width': '100px'}">Disco (GB)</th>
-              <th [style]="{'min-width': '130px'}">Interfaz Conexión</th>
-              <th [style]="{'min-width': '120px'}">Valoración Disco</th>
-              
-              <!-- Finales -->
-              <th [style]="{'min-width': '140px'}">#Incidencias 6 Meses</th>
-              <th pSortableColumn="puntaje" [style]="{'min-width': '100px'}">
-                Puntaje
-                <p-sortIcon field="puntaje"></p-sortIcon>
-              </th>
-              <th [style]="{'min-width': '200px'}">Concepto</th>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="body" let-activo>
-            <tr>
-              <!-- Información Básica -->
-              <td>
-                <div class="fw-semibold text-primary">{{ activo.nombre_equipo }}</div>
-              </td>
-              <td>
-                <div *ngIf="activo.empresa">
-                  <div class="fw-semibold">{{ activo.empresa.nombre }}</div>
-                  <small class="text-muted" *ngIf="activo.sucursal">
-                    {{ activo.sucursal.nombre }}
-                  </small>
-                </div>
-              </td>
-              <td>
-                <p-tag [value]="activo.agente" severity="info" [style]="{'font-size': '0.75rem'}"></p-tag>
-              </td>
-              <td>{{ activo.placa || '-' }}</td>
-              <td>{{ activo.detalle?.marca || '-' }}</td>
-              <td>{{ activo.detalle?.tipo || '-' }}</td>
-              <td>{{ activo.detalle?.referencia || '-' }}</td>
-              <td>{{ activo.serial || '-' }}</td>
-              <td>{{ activo.ubicacion || '-' }}</td>
-              <td>{{ getDetalleValueOrDefault(activo, 'tipo_unidad', ' - ') }}</td>
-              
-              <!-- Fechas y Compras -->
-              <td>{{ getDetalleProperty(activo, 'fecha_compra') ? formatDate(getDetalleProperty(activo, 'fecha_compra')) : '-' }}</td>
-              <td>{{ getDetalleValueOrDefault(activo, 'modalidad', ' - ') }}</td>
-              <td>{{ getDetalleValueOrDefault(activo, 'proveedor', ' - ') }}</td>
-              
-              <!-- Edad -->
-              <td>{{ getDetalleProperty(activo, 'edad') !== null ? getDetalleProperty(activo, 'edad') + ' año(s)' : '-' }}</td>
-              <td>{{ formatEdadVsVutil(getDetalleProperty(activo, 'edad_v_util')) }}</td>
-              <td>
-                <p-tag 
-                  [value]="getDetalleProperty(activo, 'valoracion_edad') || getValoracionEdad(activo.created_at)" 
-                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_edad') || getValoracionEdad(activo.created_at))"
-                  [style]="{'font-size': '0.75rem'}">
-                </p-tag>
-              </td>
-              
-              <!-- RAM -->
-              <td>{{ activo.detalle?.tamano_ram ? activo.detalle.tamano_ram + ' GB' : '-' }}</td>
-              <td>{{ activo.detalle?.tamano_ram ? (activo.detalle.tamano_ram * 2) + ' GB' : '-' }}</td>
-              <td>{{ activo.detalle?.generacion_ram || '-' }}</td>
-              <td>
-                <p-tag 
-                  [value]="getDetalleProperty(activo, 'valoracion_ram') || getValoracionRAM(activo.detalle?.tamano_ram || null)" 
-                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_ram') || getValoracionRAM(activo.detalle?.tamano_ram || null))"
-                  [style]="{'font-size': '0.75rem'}">
-                </p-tag>
-              </td>
-              
-              <!-- Procesador -->
-              <td>{{ activo.detalle?.procesador || '-' }}</td>
-              <td>{{ activo.detalle?.numero_procesador || '-' }}</td>
-              <td>
-                <p-tag 
-                  [value]="getDetalleProperty(activo, 'valoracion_procesador') || getValoracionProcesador(activo.detalle?.procesador || null)" 
-                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_procesador') || getValoracionProcesador(activo.detalle?.procesador || null))"
-                  [style]="{'font-size': '0.75rem'}">
-                </p-tag>
-              </td>
-              
-              <!-- Disco -->
-              <td>{{ activo.detalle?.tipo_disco || '-' }}</td>
-              <td>{{ activo.detalle?.tamano_disco ? activo.detalle.tamano_disco + ' GB' : '-' }}</td>
-              <td>{{ activo.detalle?.interfaz_conexion || '-' }}</td>
-              <td>
-                <p-tag 
-                  [value]="getDetalleProperty(activo, 'valoracion_disco') || getValoracionDisco(activo.detalle?.tipo_disco || null)" 
-                  [severity]="getValoracionSeverity(getDetalleProperty(activo, 'valoracion_disco') || getValoracionDisco(activo.detalle?.tipo_disco || null))"
-                  [style]="{'font-size': '0.75rem'}">
-                </p-tag>
-              </td>
-              
-              <!-- Finales -->
-              <td class="text-center">{{ getDetalleValueOrDefault(activo, 'incidencias_6_meses', 0) }}</td>
-              <td>
-                <p-tag 
-                  [value]="activo.puntaje + '%'" 
-                  [severity]="getPuntajeSeverity(activo.puntaje)">
-                </p-tag>
-              </td>
-              <td>
-                <small>{{ getConceptoPuntaje(activo.puntaje) }}</small>
-              </td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="29" class="text-center py-4">
-                <i class="pi pi-inbox text-muted" style="font-size: 3rem;"></i>
-                <p class="text-muted mt-2 mb-0">No se encontraron activos</p>
-              </td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="loadingbody">
-            <tr *ngFor="let i of [1,2,3,4,5]">
-              <td *ngFor="let j of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]">
-                <p-skeleton></p-skeleton>
-              </td>
-            </tr>
-          </ng-template>
-
-        </p-table>
-      </div>
-
-    </div>
-
-    <ng-template pTemplate="footer">
-      <div class="d-flex justify-content-between align-items-center">
-        <div class="text-muted px-2">
-          <small>
-            <i class="pi pi-info-circle me-1"></i>
-            Total de activos: {{ totalRecordsCompleta }}
-          </small>
-        </div>
-        <div class="d-flex gap-2">
-          <!-- <p-button 
-            label="Exportar Todo" 
-            icon="pi pi-download" 
-            severity="success"
-            [outlined]="true"
-            (onClick)="exportarTodosLosActivos()">
-          </p-button> -->
-          <p-button 
-            label="Cerrar" 
-            icon="pi pi-times"
-            (onClick)="cerrarMatrizCompletaTodos()">
           </p-button>
         </div>
       </div>

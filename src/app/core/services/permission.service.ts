@@ -18,8 +18,26 @@ export class PermissionService {
   public permissions$ = this.permissionsSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    // NO cargar permisos automáticamente en el constructor
-    // Se cargarán después del login desde el AuthService
+    // Cargar permisos desde localStorage si existen
+    this.loadPermissionsFromStorage();
+  }
+
+  /**
+   * Carga los permisos desde localStorage al iniciar
+   */
+  private loadPermissionsFromStorage(): void {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.permissions && Array.isArray(user.permissions)) {
+          console.log('✅ Cargando permisos desde localStorage:', user.permissions);
+          this.setPermissions(user.permissions);
+        }
+      } catch (e) {
+        console.error('❌ Error cargando permisos desde localStorage:', e);
+      }
+    }
   }
 
   /**

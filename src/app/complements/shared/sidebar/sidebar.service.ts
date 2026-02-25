@@ -35,6 +35,11 @@ export class SidebarService {
   private modulosSubject = new BehaviorSubject<ModuloSidebar[]>([]);
   public modulos$: Observable<ModuloSidebar[]> = this.modulosSubject.asObservable();
 
+  constructor() {
+    // Cargar módulos desde localStorage al iniciar
+    this.cargarModulosDesdeCache();
+  }
+
   toggleSidebar(): void {
     this.isCollapsedSubject.next(!this.isCollapsedSubject.value);
   }

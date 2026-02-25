@@ -22,6 +22,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ChartModule } from 'primeng/chart';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { CalendarModule } from 'primeng/calendar';
+import { TabViewModule } from 'primeng/tabview';
+import { InputNumberModule } from 'primeng/inputnumber';
 
 interface EmpresaPermiso {
   empresa_id: number;
@@ -51,13 +53,15 @@ interface MatrizItem {
     TableModule,
     TagModule,
     InputTextModule,
+    InputNumberModule,
     DropdownModule,
     SkeletonModule,
     DialogModule,
     TooltipModule,
     ChartModule,
     ProgressBarModule,
-    CalendarModule
+    CalendarModule,
+    TabViewModule
   ],
   providers: [MessageService],
   templateUrl: './dashboardMaObsolescencia.component.html',
@@ -68,6 +72,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   // Data
   activos: ActivoMatriz[] = [];
   empresasPermisos: EmpresaPermiso[] = [];
+
+  // Sincronización
+  isSyncing = false;
   
   // Loading states
   isLoading = false;
@@ -151,34 +158,15 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   isLoadingMatrizCompleta = false;
   totalRecordsCompleta = 0;
   currentPageCompleta = 1;
-  rowsPerPageCompleta = 25;
+  rowsPerPageCompleta = 10;
   searchTermTodos = '';
   
-  // Filtros del modal
-  selectedEmpresaModal: number | null = null;
-  selectedSucursalModal: number | null = null;
-  selectedSedeModal: number | null = null;
-  empresasOptionsModal: any[] = [];
-  sucursalesOptionsModal: any[] = [];
-  sedesOptionsModal: any[] = [];
+  // Edición de celdas en tabla
+  clonedActivos: { [s: string]: ActivoMatriz } = {};
+  editingMaxRamId: number | null = null;
 
-  // Sincronización
-  isSyncing = false;
-  isCancelling = false;
-  currentSyncId: string | null = null;
-  syncCheckInterval: any = null;
-  
-  // Progreso de sincronización
-  syncProgress = {
-    percentage: 0,
-    current: 0,
-    total: 0,
-    processed: 0,
-    created: 0,
-    updated: 0,
-    errors: 0,
-    message: 'Iniciando sincronización...'
-  };
+  // Tab activo
+  activeTabIndex = 0;
 
   constructor(
     private authService: AuthService,
@@ -774,35 +762,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Abrir matriz completa de todos los activos
-   */
-  abrirMatrizCompletaTodos(): void {
-    this.mostrarMatrizCompletaTodos = true;
-    this.currentPageCompleta = 1;
-    this.searchTermTodos = '';
-    
-    // Inicializar filtros del modal con los filtros actuales del dashboard
-    this.selectedEmpresaModal = this.selectedEmpresa;
-    this.selectedSucursalModal = this.selectedSucursal;
-    this.selectedSedeModal = this.selectedSede;
-    
-    // Cargar opciones de empresas para el modal
-    this.loadEmpresasModal();
-    
-    // Si hay empresa seleccionada, cargar sus sucursales
-    if (this.selectedEmpresaModal) {
-      this.loadSucursalesPorEmpresaModal(this.selectedEmpresaModal);
-      
-      // Si hay sucursal seleccionada, cargar sus sedes
-      if (this.selectedSucursalModal) {
-        this.loadSedesPorSucursalModal(this.selectedSucursalModal);
-      }
-    }
-    
-    this.loadActivosMatrizCompleta();
-  }
-
-  /**
    * Cargar activos para matriz completa
    */
   loadActivosMatrizCompleta(): void {
@@ -817,15 +776,15 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       filtros.search = this.searchTermTodos;
     }
 
-    // Aplicar filtros del modal
-    if (this.selectedEmpresaModal) {
-      filtros.empresa_id = this.selectedEmpresaModal;
+    // Aplicar filtros usando las mismas variables del dashboard
+    if (this.selectedEmpresa) {
+      filtros.empresa_id = this.selectedEmpresa;
     }
-    if (this.selectedSucursalModal) {
-      filtros.sucursal_id = this.selectedSucursalModal;
+    if (this.selectedSucursal) {
+      filtros.sucursal_id = this.selectedSucursal;
     }
-    if (this.selectedSedeModal) {
-      filtros.sede_id = this.selectedSedeModal;
+    if (this.selectedSede) {
+      filtros.sede_id = this.selectedSede;
     }
 
     this.activosService.getActivosPorPermisos(filtros).subscribe({
@@ -861,212 +820,13 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Limpiar búsqueda en matriz completa
-   */
-  limpiarBusquedaCompleta(): void {
-    this.searchTermTodos = '';
-    this.selectedEmpresaModal = null;
-    this.selectedSucursalModal = null;
-    this.selectedSedeModal = null;
-    this.sucursalesOptionsModal = [];
-    this.sedesOptionsModal = [];
-    this.currentPageCompleta = 1;
-    this.loadActivosMatrizCompleta();
-  }
-
-  /**
-   * Manejar cambio de empresa en modal
-   */
-  onEmpresaChangeModal(): void {
-    this.selectedSucursalModal = null;
-    this.selectedSedeModal = null;
-    this.sucursalesOptionsModal = [];
-    this.sedesOptionsModal = [];
-
-    if (this.selectedEmpresaModal) {
-      this.loadSucursalesPorEmpresaModal(this.selectedEmpresaModal);
-    }
-
-    this.aplicarFiltrosModal();
-  }
-
-  /**
-   * Manejar cambio de sucursal en modal
-   */
-  onSucursalChangeModal(): void {
-    this.selectedSedeModal = null;
-    this.sedesOptionsModal = [];
-
-    if (this.selectedSucursalModal) {
-      this.loadSedesPorSucursalModal(this.selectedSucursalModal);
-    }
-
-    this.aplicarFiltrosModal();
-  }
-
-  /**
-   * Manejar cambio de sede en modal
-   */
-  onSedeChangeModal(): void {
-    this.aplicarFiltrosModal();
-  }
-
-  /**
-   * Aplicar filtros del modal
-   */
-  aplicarFiltrosModal(): void {
-    this.currentPageCompleta = 1;
-    this.loadActivosMatrizCompleta();
-  }
-
-  /**
-   * Limpiar filtros del modal
-   */
-  limpiarFiltrosModal(): void {
-    this.selectedEmpresaModal = null;
-    this.selectedSucursalModal = null;
-    this.selectedSedeModal = null;
-    this.sucursalesOptionsModal = [];
-    this.sedesOptionsModal = [];
-    this.aplicarFiltrosModal();
-  }
-
-  /**
-   * Cargar empresas para el modal
-   */
-  private loadEmpresasModal(): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999
-    };
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          const empresasMap = new Map<number, { id: number; nombre: string }>();
-          
-          activos.forEach(activo => {
-            if (activo.empresa && activo.id_empresa) {
-              if (!empresasMap.has(activo.id_empresa)) {
-                empresasMap.set(activo.id_empresa, {
-                  id: activo.id_empresa,
-                  nombre: activo.empresa.nombre
-                });
-              }
-            }
-          });
-          
-          const lista = Array.from(empresasMap.values())
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-          
-          this.empresasOptionsModal = lista.map(item => ({
-            label: item.nombre,
-            value: item.id
-          }));
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando empresas para modal:', error);
-      }
-    });
-  }
-
-  /**
-   * Cargar sucursales por empresa para el modal
-   */
-  private loadSucursalesPorEmpresaModal(empresaId: number): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999,
-      empresa_id: empresaId
-    };
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          const sucursalesMap = new Map<number, { id: number; nombre: string }>();
-          
-          activos.forEach(activo => {
-            if (activo.sucursal && activo.id_sucursal) {
-              if (!sucursalesMap.has(activo.id_sucursal)) {
-                sucursalesMap.set(activo.id_sucursal, {
-                  id: activo.id_sucursal,
-                  nombre: activo.sucursal.nombre
-                });
-              }
-            }
-          });
-          
-          const lista = Array.from(sucursalesMap.values())
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-          
-          this.sucursalesOptionsModal = lista.map(item => ({
-            label: item.nombre,
-            value: item.id
-          }));
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando sucursales para modal:', error);
-      }
-    });
-  }
-
-  /**
-   * Cargar sedes por sucursal para el modal
-   */
-  private loadSedesPorSucursalModal(sucursalId: number): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999,
-      empresa_id: this.selectedEmpresaModal!,
-      sucursal_id: sucursalId
-    };
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          const sedesMap = new Map<number, { id: number; nombre: string }>();
-          
-          activos.forEach(activo => {
-            if (activo.sede && activo.id_sede) {
-              if (!sedesMap.has(activo.id_sede)) {
-                sedesMap.set(activo.id_sede, {
-                  id: activo.id_sede,
-                  nombre: activo.sede.nombre
-                });
-              }
-            }
-          });
-          
-          const lista = Array.from(sedesMap.values())
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-          
-          this.sedesOptionsModal = lista.map(item => ({
-            label: item.nombre,
-            value: item.id
-          }));
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando sedes para modal:', error);
-      }
-    });
-  }
-
-  /**
    * Cerrar modal de matriz completa todos
    */
   cerrarMatrizCompletaTodos(): void {
-    this.mostrarMatrizCompletaTodos = false;
+    // Volver al tab de Dashboard
+    this.activeTabIndex = 0;
     this.activosMatrizCompleta = [];
     this.searchTermTodos = '';
-    this.selectedEmpresaModal = null;
-    this.selectedSucursalModal = null;
-    this.selectedSedeModal = null;
-    this.empresasOptionsModal = [];
-    this.sucursalesOptionsModal = [];
-    this.sedesOptionsModal = [];
   }
 
   /**
@@ -1080,23 +840,21 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Exportar todos los activos a Excel
    */
   exportarTodosLosActivos(): void {
-    // Mostrar indicador de carga
     this.showInfo('Preparando exportación...');
     
-    // Obtener todos los activos sin paginación
     const filtros: FiltrosActivos = {
-      per_page: 9999 // Obtener todos
+      per_page: 9999
     };
 
-    // Aplicar filtros del modal
-    if (this.selectedEmpresaModal) {
-      filtros.empresa_id = this.selectedEmpresaModal;
+    // Aplicar filtros usando las mismas variables del dashboard
+    if (this.selectedEmpresa) {
+      filtros.empresa_id = this.selectedEmpresa;
     }
-    if (this.selectedSucursalModal) {
-      filtros.sucursal_id = this.selectedSucursalModal;
+    if (this.selectedSucursal) {
+      filtros.sucursal_id = this.selectedSucursal;
     }
-    if (this.selectedSedeModal) {
-      filtros.sede_id = this.selectedSedeModal;
+    if (this.selectedSede) {
+      filtros.sede_id = this.selectedSede;
     }
     if (this.searchTermTodos) {
       filtros.search = this.searchTermTodos;
@@ -1289,16 +1047,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Obtener última sincronización formateada
-   */
-  getUltimaSincronizacion(): string {
-    if (!this.activoSeleccionado?.date_u_sincronizacion) {
-      return '-';
-    }
-    return this.formatDate(this.activoSeleccionado.date_u_sincronizacion);
-  }
-
-  /**
    * Calcular edad del equipo en años
    */
   calcularEdadEquipo(fechaCreacion: string): string {
@@ -1349,13 +1097,13 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     
     const proc = procesador.toLowerCase();
     if (proc.includes('i7') || proc.includes('i9') || proc.includes('ryzen 7') || proc.includes('ryzen 9')) {
-      return 'Excelente';
+      return 'Sin Datos';
     }
     if (proc.includes('i5') || proc.includes('ryzen 5')) {
-      return 'Bueno';
+      return 'Sin Datos';
     }
     if (proc.includes('i3') || proc.includes('ryzen 3')) {
-      return 'Regular';
+      return 'Sin Datos';
     }
     return 'Básico';
   }
@@ -1387,6 +1135,16 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Obtener concepto corto según puntaje (para tag)
+   */
+  getConceptoCorto(puntaje: number): string {
+    if (puntaje >= 80) return 'Óptimo';
+    if (puntaje >= 60) return 'Funcional';
+    if (puntaje >= 40) return 'Potencializar';
+    return 'Obsoleto';
+  }
+
+  /**
    * Obtener severity para valoraciones
    */
   getValoracionSeverity(valoracion: string): 'success' | 'info' | 'warn' | 'danger' {
@@ -1396,6 +1154,144 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     if (val.includes('excelente') || val.includes('muy bueno')) return 'success';
     if (val.includes('bueno') || val.includes('aceptable')) return 'info';
     if (val.includes('regular') || val.includes('medio')) return 'warn';
+    return 'danger';
+  }
+
+  /**
+   * Obtener valoración de edad formateada para la tabla
+   */
+  getValoracionEdadFormateada(activo: ActivoMatriz): string {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_edad');
+    
+    // Si hay valoración y es numérica, mostrarla
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      // Verificar si es un número
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return numValue.toString();
+      }
+      // Si no es número pero tiene valor, mostrarlo
+      return valoracion;
+    }
+    
+    // Si no hay datos, mostrar "Sin datos"
+    return 'Sin datos';
+  }
+
+  /**
+   * Obtener severity para valoración de edad
+   */
+  getValoracionEdadSeverity(activo: ActivoMatriz): 'success' | 'danger' {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_edad');
+    
+    // Si hay valoración y es numérica, verde
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return 'success';
+      }
+    }
+    
+    // Si no hay datos, rojo
+    return 'danger';
+  }
+
+  /**
+   * Obtener valoración de RAM formateada para la tabla
+   */
+  getValoracionRAMFormateada(activo: ActivoMatriz): string {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_ram');
+    
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return numValue.toString();
+      }
+      return valoracion;
+    }
+    
+    return 'Sin datos';
+  }
+
+  /**
+   * Obtener severity para valoración de RAM
+   */
+  getValoracionRAMSeverity(activo: ActivoMatriz): 'success' | 'danger' {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_ram');
+    
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return 'success';
+      }
+    }
+    
+    return 'danger';
+  }
+
+  /**
+   * Obtener valoración de Procesador formateada para la tabla
+   */
+  getValoracionProcesadorFormateada(activo: ActivoMatriz): string {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_procesador');
+    
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return numValue.toString();
+      }
+      return valoracion;
+    }
+    
+    return 'Sin datos';
+  }
+
+  /**
+   * Obtener severity para valoración de Procesador
+   */
+  getValoracionProcesadorSeverity(activo: ActivoMatriz): 'success' | 'danger' {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_procesador');
+    
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return 'success';
+      }
+    }
+    
+    return 'danger';
+  }
+
+  /**
+   * Obtener valoración de Disco formateada para la tabla
+   */
+  getValoracionDiscoFormateada(activo: ActivoMatriz): string {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_disco');
+    
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return numValue.toString();
+      }
+      return valoracion;
+    }
+    
+    return 'Sin datos';
+  }
+
+  /**
+   * Obtener severity para valoración de Disco
+   */
+  getValoracionDiscoSeverity(activo: ActivoMatriz): 'success' | 'danger' {
+    const valoracion = this.getDetalleProperty(activo, 'valoracion_disco');
+    
+    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
+      const numValue = parseFloat(valoracion);
+      if (!isNaN(numValue)) {
+        return 'success';
+      }
+    }
+    
     return 'danger';
   }
 
@@ -1726,200 +1622,26 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Alternar sincronización (iniciar o cancelar)
+   * Manejar cambio de tab
    */
-  toggleSincronizacion(): void {
-    if (this.isSyncing) {
-      this.cancelarSincronizacion();
-    } else {
-      this.iniciarSincronizacion();
-    }
-  }
-
-  /**
-   * Iniciar sincronización de equipos desde GLPI
-   */
-  iniciarSincronizacion(): void {
-    this.isSyncing = true;
-    this.isCancelling = false;
-    
-    this.syncProgress = {
-      percentage: 0,
-      current: 0,
-      total: 0,
-      processed: 0,
-      created: 0,
-      updated: 0,
-      errors: 0,
-      message: 'Iniciando sincronización...'
-    };
-
-    this.parametrosService.sincronizarEquipos().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.currentSyncId = response.data.sync_id;
-          this.syncProgress.message = 'Sincronización en progreso...';
-          this.startSyncStatusPolling();
-          this.showInfo('Sincronización iniciada. Puede tomar varios minutos...');
-        } else {
-          this.isSyncing = false;
-          this.showError(response.message || 'Error al iniciar la sincronización');
-        }
-      },
-      error: (error) => {
-        this.isSyncing = false;
-        console.error('Error en sincronización:', error);
-        this.handleSyncError(error);
+  onTabChange(event: any): void {
+    // Si se cambia al tab de Matriz Completa (índice 1)
+    if (event.index === 1) {
+      // Cargar empresas para los filtros si no están cargadas
+      if (this.empresasOptions.length === 0) {
+        this.loadEmpresas();
       }
-    });
-  }
-
-  /**
-   * Manejar errores de sincronización
-   */
-  private handleSyncError(error: any, customMessage?: string): void {
-    let errorMessage = customMessage || 'Error al iniciar la sincronización';
-    
-    if (error.status === 404) {
-      errorMessage = 'La ruta de sincronización no fue encontrada. URL: ' + error.url;
-    } else if (error.status === 401) {
-      errorMessage = 'No tienes permisos para ejecutar la sincronización. Verifica tu autenticación.';
-    } else if (error.status === 403) {
-      errorMessage = 'Acceso denegado para ejecutar la sincronización.';
-    } else if (error.status === 0) {
-      errorMessage = 'No se pudo conectar con el servidor. Verifica la conexión de red.';
-    } else if (error.error?.message) {
-      errorMessage = error.error.message;
+      
+      // Cargar los datos de la matriz completa
+      this.loadActivosMatrizCompleta();
     }
-    
-    this.showError(errorMessage);
-  }
-
-  /**
-   * Cancelar sincronización en curso
-   */
-  cancelarSincronizacion(): void {
-    if (!this.currentSyncId) {
-      this.isSyncing = false;
-      return;
-    }
-
-    this.isCancelling = true;
-
-    this.parametrosService.cancelarSincronizacion(this.currentSyncId).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.showWarn('Sincronización cancelada');
-          this.stopSyncStatusPolling();
-          this.isSyncing = false;
-          this.isCancelling = false;
-          this.currentSyncId = null;
-          this.loadActivos();
-          this.loadStats();
-        } else {
-          this.isCancelling = false;
-          this.showError(response.message || 'Error al cancelar la sincronización');
-        }
-      },
-      error: (error) => {
-        this.isCancelling = false;
-        console.error('Error cancelando sincronización:', error);
-        this.showError(error.error?.message || 'Error al cancelar la sincronización');
-      }
-    });
-  }
-
-  /**
-   * Iniciar polling para verificar el estado de la sincronización
-   */
-  private startSyncStatusPolling(): void {
-    this.syncCheckInterval = setInterval(() => {
-      if (this.currentSyncId) {
-        this.checkSyncStatus();
-      }
-    }, 5000);
-  }
-
-  /**
-   * Detener polling de estado
-   */
-  private stopSyncStatusPolling(): void {
-    if (this.syncCheckInterval) {
-      clearInterval(this.syncCheckInterval);
-      this.syncCheckInterval = null;
-    }
-  }
-
-  /**
-   * Verificar estado de la sincronización
-   */
-  private checkSyncStatus(): void {
-    if (!this.currentSyncId) return;
-
-    this.parametrosService.getEstadoSincronizacion(this.currentSyncId).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const status = response.data.status;
-          const progress = response.data.progress;
-          
-          if (progress) {
-            this.syncProgress = {
-              percentage: progress.percentage || 0,
-              current: progress.current || 0,
-              total: progress.total || 0,
-              processed: progress.processed || 0,
-              created: progress.created || 0,
-              updated: progress.updated || 0,
-              errors: progress.errors || 0,
-              message: progress.message || 'Procesando...'
-            };
-          }
-          
-          if (status === 'completed') {
-            this.showSuccess('Sincronización completada exitosamente');
-            this.stopSyncStatusPolling();
-            this.isSyncing = false;
-            this.currentSyncId = null;
-            this.loadActivos();
-            this.loadStats();
-            this.loadEstadisticasPorTipo();
-            this.loadEstadisticasPorUbicacion();
-          } else if (status === 'cancelled') {
-            this.stopSyncStatusPolling();
-            this.isSyncing = false;
-            this.currentSyncId = null;
-          } else if (status === 'error') {
-            this.showError('La sincronización finalizó con errores');
-            this.stopSyncStatusPolling();
-            this.isSyncing = false;
-            this.currentSyncId = null;
-          }
-        }
-      },
-      error: (error) => {
-        console.error('Error verificando estado de sincronización:', error);
-      }
-    });
-  }
-
-  /**
-   * Obtener texto del botón de sincronización
-   */
-  getSyncButtonText(): string {
-    if (this.isCancelling) {
-      return 'Cancelando...';
-    }
-    if (this.isSyncing) {
-      return 'Cancelar Sincronización';
-    }
-    return 'Sincronizar Equipos';
   }
 
   /**
    * Limpiar recursos al destruir el componente
    */
   ngOnDestroy(): void {
-    this.stopSyncStatusPolling();
+    // Limpieza si es necesaria
   }
 
   /**
@@ -1963,11 +1685,11 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           
           activos.forEach(activo => {
             const entidad = tipo === 'empresa' ? activo.empresa : 
-                           tipo === 'sucursal' ? activo.sucursal : 
-                           activo.sede;
+                          tipo === 'sucursal' ? activo.sucursal : 
+                          activo.sede;
             const idKey = tipo === 'empresa' ? activo.id_empresa : 
-                         tipo === 'sucursal' ? activo.id_sucursal : 
-                         activo.id_sede;
+                        tipo === 'sucursal' ? activo.id_sucursal : 
+                        activo.id_sede;
             
             if (entidad && idKey) {
               if (!entidadesMap.has(idKey)) {
@@ -2066,6 +1788,11 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.currentPageCompleta = 1;
     this.loadActivos();
     this.loadStats();
+    
+    // Si estamos en el tab de Matriz Completa, recargar también esos datos
+    if (this.activeTabIndex === 1) {
+      this.loadActivosMatrizCompleta();
+    }
   }
 
   /**
@@ -2150,5 +1877,76 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       }
     });
   }
-}
 
+  /**
+   * Verificar si se está editando MaxRAM de un activo
+   */
+  isEditingMaxRam(activo: ActivoMatriz): boolean {
+    return this.editingMaxRamId === activo.id;
+  }
+
+  /**
+   * Iniciar edición de MaxRAM
+   */
+  startEditMaxRam(activo: ActivoMatriz): void {
+    // Guardar copia del valor original
+    this.clonedActivos[activo.id.toString()] = { ...activo };
+    this.editingMaxRamId = activo.id;
+  }
+
+  /**
+   * Guardar cambios de MaxRAM
+   */
+  saveMaxRam(activo: ActivoMatriz): void {
+    const maxRam = (activo.detalle as any)?.max_ram;
+    
+    // Validar que max_ram sea un número válido
+    if (maxRam !== null && maxRam !== undefined && maxRam !== '') {
+      const numValue = parseFloat(maxRam.toString());
+      if (isNaN(numValue) || numValue < 0) {
+        this.showError('El valor de MaxRAM debe ser un número válido mayor o igual a 0');
+        this.cancelEditMaxRam(activo);
+        return;
+      }
+    }
+
+    // Preparar datos para actualizar
+    const datosActualizar = {
+      id: activo.id,
+      detalle: {
+        max_ram: maxRam ? parseFloat(maxRam.toString()) : null
+      }
+    };
+
+    // Guardar en el backend
+    this.activosService.actualizarActivo(datosActualizar).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          delete this.clonedActivos[activo.id.toString()];
+          this.editingMaxRamId = null;
+          this.showSuccess('MaxRAM actualizado correctamente');
+        } else {
+          this.showError(response.message || 'Error al actualizar MaxRAM');
+          this.cancelEditMaxRam(activo);
+        }
+      },
+      error: (error: any) => {
+        console.error('Error actualizando MaxRAM:', error);
+        this.showError('Error al actualizar MaxRAM');
+        this.cancelEditMaxRam(activo);
+      }
+    });
+  }
+
+  /**
+   * Cancelar edición de MaxRAM
+   */
+  cancelEditMaxRam(activo: ActivoMatriz): void {
+    const cloned = this.clonedActivos[activo.id.toString()];
+    if (cloned && cloned.detalle) {
+      (activo.detalle as any).max_ram = (cloned.detalle as any)?.max_ram;
+    }
+    delete this.clonedActivos[activo.id.toString()];
+    this.editingMaxRamId = null;
+  }
+}
