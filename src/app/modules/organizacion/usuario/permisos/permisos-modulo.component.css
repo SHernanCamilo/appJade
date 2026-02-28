@@ -798,3 +798,271 @@ input:checked + .slider:before {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
+
+/* ============================================
+   MODAL MODERNO (PRIMENG DIALOG)
+   ============================================ */
+:host ::ng-deep {
+  /* Overlay del modal */
+  .p-dialog-mask {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  /* Contenedor del modal */
+  .p-dialog {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+
+  /* Header del modal - Estilo moderno con fondo oscuro */
+  .p-dialog .p-dialog-header {
+    background: linear-gradient(135deg, #334155 0%, #475569 100%);
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+    border-radius: 0;
+  }
+
+  .p-dialog .p-dialog-header .p-dialog-title {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Icono del título en blanco */
+  .p-dialog .p-dialog-header .p-dialog-title i {
+    color: #ffffff;
+    font-size: 1.125rem;
+  }
+
+  /* Botón cerrar (X) en blanco */
+  .p-dialog .p-dialog-header .p-dialog-header-icon {
+    width: 2rem;
+    height: 2rem;
+    color: #ffffff;
+    border-radius: 6px;
+    transition: all 0.2s;
+    opacity: 0.8;
+  }
+
+  .p-dialog .p-dialog-header .p-dialog-header-icon:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+  }
+
+  .p-dialog .p-dialog-header .p-dialog-header-icon:focus {
+    box-shadow: none;
+  }
+
+  /* Body del modal */
+  .p-dialog .p-dialog-content {
+    padding: 2rem;
+    background: white;
+  }
+
+  /* Footer del modal */
+  .p-dialog .p-dialog-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 1.25rem 2rem;
+    border-radius: 0;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  /* Botones del footer */
+  .p-dialog .p-dialog-footer .p-button {
+    min-width: 100px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  /* Botón secundario (Cancelar) */
+  .p-dialog .p-dialog-footer .p-button.p-button-secondary {
+    background: #e5e7eb;
+    color: #374151;
+    border: none;
+  }
+
+  .p-dialog .p-dialog-footer .p-button.p-button-secondary:hover {
+    background: #d1d5db;
+  }
+
+  /* Botón primario (Crear/Guardar) */
+  .p-dialog .p-dialog-footer .p-button.p-button-success {
+    background: #10b981;
+    border: none;
+  }
+
+  .p-dialog .p-dialog-footer .p-button.p-button-success:hover {
+    background: #059669;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+
+  .p-dialog .p-dialog-footer .p-button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  /* Animación de entrada del modal */
+  .p-dialog-enter-active {
+    animation: modalSlideIn 0.3s ease-out;
+  }
+
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Estilos de formulario dentro del modal */
+  .p-dialog .p-field label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    display: block;
+  }
+
+  .p-dialog .p-inputtext,
+  .p-dialog .p-dropdown,
+  .p-dialog .p-inputtextarea {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0.625rem 0.875rem;
+    transition: all 0.2s;
+    font-size: 0.875rem;
+    width: 100%;
+  }
+
+  .p-dialog .p-inputtext:focus,
+  .p-dialog .p-dropdown:focus,
+  .p-dialog .p-inputtextarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+  }
+
+  .p-dialog .p-inputtext::placeholder {
+    color: #9ca3af;
+  }
+
+  /* Dropdown dentro del modal */
+  .p-dialog .p-dropdown {
+    background: white;
+  }
+
+  .p-dialog .p-dropdown:not(.p-disabled):hover {
+    border-color: #3b82f6;
+  }
+
+  .p-dialog .p-dropdown-label {
+    padding: 0.625rem 0.875rem;
+  }
+
+  /* Input group dentro del modal */
+  .p-dialog .p-inputgroup-addon {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 0.625rem 0.875rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+
+  .p-dialog .p-inputgroup .p-inputtext {
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .p-dialog .p-inputgroup .p-inputtext:focus {
+    border-left: 1px solid #3b82f6;
+  }
+
+  /* Checkbox dentro del modal */
+  .p-dialog .p-checkbox {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .p-dialog .p-checkbox .p-checkbox-box {
+    border: 2px solid #cbd5e1;
+    border-radius: 4px;
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .p-dialog .p-checkbox .p-checkbox-box.p-highlight {
+    background: #3b82f6;
+    border-color: #3b82f6;
+  }
+
+  .p-dialog .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box:hover {
+    border-color: #3b82f6;
+  }
+
+  .p-dialog .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6;
+  }
+
+  /* Input Switch dentro del modal */
+  .p-dialog .p-inputswitch {
+    width: 2.5rem;
+    height: 1.375rem;
+  }
+
+  .p-dialog .p-inputswitch .p-inputswitch-slider {
+    background: #cbd5e1;
+    border-radius: 999px;
+    transition: background-color 0.2s;
+  }
+
+  .p-dialog .p-inputswitch .p-inputswitch-slider:before {
+    width: 1rem;
+    height: 1rem;
+    left: 0.1875rem;
+    bottom: 0.1875rem;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+
+  .p-dialog .p-inputswitch.p-inputswitch-checked .p-inputswitch-slider {
+    background: #10b981;
+  }
+
+  .p-dialog .p-inputswitch.p-inputswitch-checked .p-inputswitch-slider:before {
+    transform: translateX(1.125rem);
+  }
+
+  /* Texto de ayuda */
+  .p-dialog small {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    display: block;
+  }
+
+  /* Mensajes de error */
+  .p-dialog .p-error {
+    color: #ef4444;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+  }
+}

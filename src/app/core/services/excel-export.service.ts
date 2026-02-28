@@ -24,27 +24,29 @@ export class ExcelExportService {
   constructor() { }
 
   /**
-   * Exportar datos a Excel con estilos personalizados
+   * Exportar datos a Excel con estilos personalizados y devolver el worksheet para personalizaciones adicionales
    * @param data Array de objetos con los datos a exportar
    * @param columns Configuración de columnas
    * @param sheetName Nombre de la hoja
    * @param fileName Nombre del archivo (sin extensión)
    * @param styleConfig Configuración de estilos (opcional)
+   * @param customizeWorksheet Función opcional para personalizar el worksheet antes de descargar
    */
-  async exportToExcel(
+  async exportToExcelWithCustomization(
     data: any[],
     columns: ExcelColumn[],
     sheetName: string,
     fileName: string,
-    styleConfig?: ExcelStyleConfig
+    styleConfig?: ExcelStyleConfig,
+    customizeWorksheet?: (worksheet: ExcelJS.Worksheet) => void
   ): Promise<void> {
     // Configuración de estilos por defecto
     const defaultStyle: ExcelStyleConfig = {
-      headerBackgroundColor: 'FF4472C4', // Azul
-      headerFontColor: 'FFFFFFFF', // Blanco
+      headerBackgroundColor: 'FF4472C4',
+      headerFontColor: 'FFFFFFFF',
       headerFontSize: 11,
       headerHeight: 20,
-      dataBorderColor: 'FFD3D3D3', // Gris claro
+      dataBorderColor: 'FFD3D3D3',
       applyBorders: true
     };
 
@@ -70,8 +72,31 @@ export class ExcelExportService {
       this.applyDataBorders(worksheet, styles.dataBorderColor!);
     }
 
+    // Aplicar personalizaciones adicionales si se proporcionan
+    if (customizeWorksheet) {
+      customizeWorksheet(worksheet);
+    }
+
     // Descargar archivo
     await this.downloadExcel(workbook, fileName);
+  }
+
+  /**
+   * Exportar datos a Excel con estilos personalizados
+   * @param data Array de objetos con los datos a exportar
+   * @param columns Configuración de columnas
+   * @param sheetName Nombre de la hoja
+   * @param fileName Nombre del archivo (sin extensión)
+   * @param styleConfig Configuración de estilos (opcional)
+   */
+  async exportToExcel(
+    data: any[],
+    columns: ExcelColumn[],
+    sheetName: string,
+    fileName: string,
+    styleConfig?: ExcelStyleConfig
+  ): Promise<void> {
+    await this.exportToExcelWithCustomization(data, columns, sheetName, fileName, styleConfig);
   }
 
   /**

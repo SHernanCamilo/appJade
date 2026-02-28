@@ -883,8 +883,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Generar archivo Excel con los datos de activos usando el servicio
    */
   private async generarExcel(activos: ActivoMatriz[]): Promise<void> {
-    // Definir las columnas
+    // Definir las columnas (CONCEPTO primero, como en la tabla)
     const columns: ExcelColumn[] = [
+      { header: 'CONCEPTO', key: 'concepto', width: 15 },
       { header: 'NOMBRE EQUIPO', key: 'nombreEquipo', width: 25 },
       { header: 'SUCURSAL/SEDE', key: 'sucursalSede', width: 30 },
       { header: 'TAG AGENTE', key: 'tagAgente', width: 15 },
@@ -913,8 +914,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       { header: 'INTERFAZ CONEXIÓN', key: 'interfazConexion', width: 18 },
       { header: 'VALORACIÓN DISCO', key: 'valoracionDisco', width: 18 },
       { header: '#INCIDENCIAS 6 MESES', key: 'incidencias', width: 20 },
-      { header: 'PUNTAJE', key: 'puntaje', width: 10 },
-      { header: 'CONCEPTO', key: 'concepto', width: 35 }
+      { header: 'PUNTAJE', key: 'puntaje', width: 10 }
     ];
 
     // Transformar los datos al formato requerido
@@ -925,6 +925,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       const ubicacionEmpresa = sucursal ? `${empresa} - ${sucursal}` : empresa;
 
       return {
+        concepto: this.getConceptoCorto(activo.puntaje),
         nombreEquipo: activo.nombre_equipo || '-',
         sucursalSede: ubicacionEmpresa,
         tagAgente: activo.agente || '-',
@@ -953,13 +954,12 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         interfazConexion: detalle?.interfaz_conexion || '-',
         valoracionDisco: detalle?.valoracion_disco || '-',
         incidencias: detalle?.incidencias_6_meses !== null && detalle?.incidencias_6_meses !== undefined ? detalle.incidencias_6_meses : '0',
-        puntaje: activo.puntaje || 0,
-        concepto: this.getConceptoPuntaje(activo.puntaje)
+        puntaje: activo.puntaje || 0
       };
     });
 
-    // Usar el servicio para exportar
-    await this.excelExportService.exportToExcel(
+    // Usar el servicio para exportar con colores condicionales
+    await this.excelExportService.exportToExcelWithCustomization(
       excelData,
       columns,
       'Matriz Obsolescencia',
@@ -971,6 +971,49 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         headerHeight: 20,
         dataBorderColor: 'FFD3D3D3', // Gris claro
         applyBorders: true
+      },
+      (worksheet) => {
+        // Aplicar colores a la columna CONCEPTO (columna A, índice 1)
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1) { // Saltar encabezados
+            const conceptoCell = row.getCell(1); // Primera columna (CONCEPTO)
+            const concepto = conceptoCell.value?.toString() || '';
+
+            // Aplicar colores según el concepto
+            if (concepto === 'Óptimo') {
+              conceptoCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF10B981' } // Verde
+              };
+              conceptoCell.font = { color: { argb: 'FFFFFFFF' }, bold: true }; // Texto blanco
+            } else if (concepto === 'Funcional') {
+              conceptoCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'F9F516' } // Amarillo
+              };
+              conceptoCell.font = { color: { argb: 'FF000000' }, bold: true }; // Texto negro
+            } else if (concepto === 'Potencializar') {
+              conceptoCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'F9B116' } // Naranja/Mostaza
+              };
+              conceptoCell.font = { color: { argb: 'FFFFFFFF' }, bold: true }; // Texto blanco
+            } else if (concepto === 'Obsoleto') {
+              conceptoCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFEF4444' } // Rojo
+              };
+              conceptoCell.font = { color: { argb: 'FFFFFFFF' }, bold: true }; // Texto blanco
+            }
+
+            // Centrar el texto
+            conceptoCell.alignment = { vertical: 'middle', horizontal: 'center' };
+          }
+        });
       }
     );
   }
@@ -1042,7 +1085,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       // Incidencias y puntaje final
       { campo: '#Incidencias 6 Meses', valor: (activo.detalle as any)?.incidencias_6_meses !== null && (activo.detalle as any)?.incidencias_6_meses !== undefined ? (activo.detalle as any).incidencias_6_meses.toString() : '0', icono: 'pi pi-exclamation-triangle' },
       { campo: 'Puntaje', valor: activo.puntaje, tipo: 'puntaje', icono: 'pi pi-chart-bar', destacado: true },
-      { campo: 'Concepto', valor: this.getConceptoPuntaje(activo.puntaje), icono: 'pi pi-comment' }
+      { campo: 'Concepto', valor: this.getConceptoCorto(activo.puntaje), icono: 'pi pi-comment' }
     ];
   }
 
