@@ -4,11 +4,10 @@
 
 export const environment = {
   production: true,
-  URL_BACKEND: 'http://ApiRestFul.com',
-  URL_SERVICIOS: 'http://ApiRestFul/api',
-  URL_FRONTEND: 'http://appMulti.dominio.com',
+  URL_BACKEND: 'https://jade-api.medilaser.com.co',
+  URL_SERVICIOS: 'https://jade-api.medilaser.com.co/api',
+  URL_FRONTEND: 'https://jade.medilaser.com.co/plataform',
 };
-
 /*
  * For easier debugging in development mode, you can import the following file
  * to ignore zone related error stack frames such as `zone.run`, `zoneDelegate.invokeTask`.
