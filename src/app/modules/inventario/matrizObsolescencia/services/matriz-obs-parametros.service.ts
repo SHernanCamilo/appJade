@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
@@ -28,6 +28,17 @@ export interface Parametro {
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
+  message?: string;
+  error?: string;
+}
+
+export interface PaginatedApiResponse<T> {
+  success: boolean;
+  data?: T;
+  total?: number;
+  per_page?: number;
+  current_page?: number;
+  last_page?: number;
   message?: string;
   error?: string;
 }
@@ -113,6 +124,31 @@ export class MatrizObsParametrosService {
    */
   getEstadisticasPorUbicacion(): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.apiUrl}/estadisticas-por-ubicacion`);
+  }
+
+  /**
+   * Obtener equipos filtrados por tipo o ubicación (para modales de gráficas)
+   */
+  getEquiposPorFiltro(filtros: {
+    tipo?: string;
+    ubicacion?: string;
+    empresa_id?: number;
+    sucursal_id?: number;
+    sede_id?: number;
+    page?: number;
+    per_page?: number;
+  }): Observable<PaginatedApiResponse<any[]>> {
+    let params = new HttpParams();
+    
+    if (filtros.tipo) params = params.set('tipo', filtros.tipo);
+    if (filtros.ubicacion) params = params.set('ubicacion', filtros.ubicacion);
+    if (filtros.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
+    if (filtros.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
+    if (filtros.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
+    if (filtros.page) params = params.set('page', filtros.page.toString());
+    if (filtros.per_page) params = params.set('per_page', filtros.per_page.toString());
+    
+    return this.http.get<PaginatedApiResponse<any[]>>(`${this.apiUrl}/equipos-por-filtro`, { params });
   }
 
   /**

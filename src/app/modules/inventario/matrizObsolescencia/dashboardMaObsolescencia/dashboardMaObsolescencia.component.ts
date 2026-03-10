@@ -105,10 +105,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   
   // Stats
   stats = {
-    totalActivos: 0,
-    activosRecientes: 0,
-    empresasConAcceso: 0,
-    promedioObsolescencia: 0
+    totalActivos: 0
   };
 
   // Estadísticas por estado
@@ -121,7 +118,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
   // Estadísticas por tipo para gráfico circular
   estadisticasPorTipo: any[] = [];
-  promedioGeneral = 0;
   isLoadingGrafico = false;
 
   // Datos para el gráfico de Chart.js
@@ -152,6 +148,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   // Estado de guardado
   isSavingMatriz = false;
 
+  // Modal de selección de formato de exportación
+  mostrarModalExportacion = false;
+
   // Modal Matriz Completa Todos
   mostrarMatrizCompletaTodos = false;
   activosMatrizCompleta: ActivoMatriz[] = [];
@@ -167,6 +166,16 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
   // Tab activo
   activeTabIndex = 0;
+
+  // Modal de equipos filtrados
+  mostrarModalEquipos = false;
+  equiposFiltrados: any[] = [];
+  tituloModalEquipos = '';
+  isLoadingModalEquipos = false;
+  totalRecordsModal = 0;
+  currentPageModal = 1;
+  rowsPerPageModal = 10;
+  filtroActualModal: any = {};
 
   constructor(
     private authService: AuthService,
@@ -234,6 +243,14 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
               font: {
                 size: 10
               }
+            }
+          }
+        },
+        onClick: (event: any, activeElements: any[]) => {
+          if (activeElements && activeElements.length > 0) {
+            const index = activeElements[0].index;
+            if (this.estadisticasPorUbicacion[index]) {
+              this.abrirModalEquiposPorUbicacion(this.estadisticasPorUbicacion[index].ubicacion);
             }
           }
         }
@@ -325,7 +342,16 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
             }
           }
         },
-        cutout: '60%'
+        cutout: '60%',
+        onClick: (event: any, activeElements: any[]) => {
+          if (activeElements && activeElements.length > 0) {
+            const index = activeElements[0].index;
+            const principales = this.getTiposPrincipales();
+            if (principales[index]) {
+              this.abrirModalEquiposPorTipo(principales[index].tipo);
+            }
+          }
+        }
       };
     } catch (error) {
       console.error('Error inicializando opciones del gráfico:', error);
@@ -616,19 +642,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.isLoadingBarChart = false;
   }
 
-  /**
-   * Cargar estadísticas por tipo de equipo (stub - ahora se calcula localmente)
-   */
-  loadEstadisticasPorTipo(): void {
-    // Delegado a calcularEstadisticasPorTipo
-  }
 
-  /**
-   * Cargar estadísticas por ubicación (stub - ahora se calcula localmente)
-   */
-  loadEstadisticasPorUbicacion(): void {
-    // Delegado a calcularEstadisticasPorUbicacion
-  }
 
   /**
    * Manejar cambio de página (lazy loading)
@@ -677,30 +691,10 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Obtener el total de equipos
-   */
-  getTotalEquipos(): number {
-    return this.estadisticasPorTipo.reduce((sum, tipo) => sum + tipo.total, 0);
-  }
-
-  /**
    * Obtener el total de equipos por ubicación
    */
   getTotalEquiposUbicacion(): number {
     return this.estadisticasPorUbicacion.reduce((sum, ubicacion) => sum + ubicacion.total, 0);
-  }
-
-  /**
-   * Obtener el porcentaje de equipos bien utilizados (puntaje >= 60)
-   */
-  getPorcentajeBienUtilizados(): number {
-    if (this.estadisticasPorTipo.length === 0) return 0;
-    
-    const totalEquipos = this.estadisticasPorTipo.reduce((sum, tipo) => sum + tipo.total, 0);
-    const equiposBienUtilizados = this.estadisticasPorTipo.reduce((sum, tipo) => 
-      sum + tipo.optimo + tipo.funcional, 0);
-    
-    return totalEquipos > 0 ? Math.round((equiposBienUtilizados / totalEquipos) * 100) : 0;
   }
 
   /**
@@ -820,27 +814,26 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Cerrar modal de matriz completa todos
-   */
-  cerrarMatrizCompletaTodos(): void {
-    // Volver al tab de Dashboard
-    this.activeTabIndex = 0;
-    this.activosMatrizCompleta = [];
-    this.searchTermTodos = '';
-  }
-
-  /**
-   * Exportar matriz completa (placeholder)
-   */
-  exportarMatrizCompleta(): void {
-    this.showInfo('Funcionalidad de exportación de matriz completa en desarrollo');
-  }
-
-  /**
    * Exportar todos los activos a Excel
    */
   exportarTodosLosActivos(): void {
-    this.showInfo('Preparando exportación...');
+    // Abrir modal de selección de formato
+    this.mostrarModalExportacion = true;
+  }
+
+  /**
+   * Cerrar modal de exportación
+   */
+  cerrarModalExportacion(): void {
+    this.mostrarModalExportacion = false;
+  }
+
+  /**
+   * Exportar en formato Excel
+   */
+  exportarExcel(): void {
+    this.cerrarModalExportacion();
+    this.showInfo('Preparando exportación a Excel...');
     
     const filtros: FiltrosActivos = {
       per_page: 9999
@@ -864,7 +857,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.success && response.data && response.data.length > 0) {
           this.generarExcel(response.data);
-          this.showSuccess(`Se exportaron ${response.data.length} activos correctamente`);
+          this.showSuccess(`Se exportaron ${response.data.length} activos correctamente a Excel`);
         } else {
           this.showWarn('No hay datos para exportar');
         }
@@ -874,6 +867,15 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         this.showError('Error al exportar los activos');
       }
     });
+  }
+
+  /**
+   * Exportar en formato PDF
+   */
+  exportarPDF(): void {
+    this.cerrarModalExportacion();
+    this.showInfo('La exportación a PDF estará disponible próximamente');
+    // TODO: Implementar exportación a PDF
   }
 
   /**
@@ -1090,20 +1092,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Calcular edad del equipo en años
-   */
-  calcularEdadEquipo(fechaCreacion: string): string {
-    if (!fechaCreacion) return '-';
-    
-    const fechaCreado = new Date(fechaCreacion);
-    const ahora = new Date();
-    const diferencia = ahora.getTime() - fechaCreado.getTime();
-    const anos = Math.floor(diferencia / (1000 * 60 * 60 * 24 * 365));
-    
-    return `${anos} año(s)`;
-  }
-
-  /**
    * Obtener valoración de edad
    */
   getValoracionEdad(fechaCreacion: string): string {
@@ -1165,16 +1153,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       return 'Regular';
     }
     return 'Básico';
-  }
-
-  /**
-   * Obtener concepto según puntaje
-   */
-  getConceptoPuntaje(puntaje: number): string {
-    if (puntaje >= 80) return 'Excelente - Equipo en óptimas condiciones';
-    if (puntaje >= 60) return 'Bueno - Equipo en buenas condiciones';
-    if (puntaje >= 40) return 'Regular - Considerar actualización';
-    return 'Crítico - Requiere reemplazo urgente';
   }
 
   /**
@@ -1609,8 +1587,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     // Primero cargar los datos
     this.loadActivos();
     this.loadStats();
-    this.loadEstadisticasPorTipo();
-    this.loadEstadisticasPorUbicacion();
     
     // Luego ejecutar cálculos automáticos (recalcular todo)
     this.parametrosService.ejecutarCalculos({
@@ -1639,8 +1615,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.loadActivos();
             this.loadStats();
-            this.loadEstadisticasPorTipo();
-            this.loadEstadisticasPorUbicacion();
           }, 1000);
           
         } else {
@@ -1678,6 +1652,89 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       // Cargar los datos de la matriz completa
       this.loadActivosMatrizCompleta();
     }
+  }
+
+  /**
+   * Abrir modal con equipos filtrados por tipo
+   */
+  abrirModalEquiposPorTipo(tipo: string): void {
+    this.tituloModalEquipos = `Equipos de tipo: ${tipo}`;
+    this.filtroActualModal = {
+      tipo: tipo,
+      empresa_id: this.selectedEmpresa,
+      sucursal_id: this.selectedSucursal,
+      sede_id: this.selectedSede
+    };
+    this.currentPageModal = 1;
+    this.cargarEquiposFiltrados();
+    this.mostrarModalEquipos = true;
+  }
+
+  /**
+   * Abrir modal con equipos filtrados por ubicación
+   */
+  abrirModalEquiposPorUbicacion(ubicacion: string): void {
+    this.tituloModalEquipos = `Equipos en: ${ubicacion}`;
+    this.filtroActualModal = {
+      ubicacion: ubicacion
+      // NO incluir empresa_id, sucursal_id, sede_id aquí
+      // porque la ubicación ya contiene esa información
+    };
+    this.currentPageModal = 1;
+    this.cargarEquiposFiltrados();
+    this.mostrarModalEquipos = true;
+  }
+
+  /**
+   * Cargar equipos filtrados para el modal
+   */
+  cargarEquiposFiltrados(): void {
+    this.isLoadingModalEquipos = true;
+
+    const filtros = {
+      ...this.filtroActualModal,
+      page: this.currentPageModal,
+      per_page: this.rowsPerPageModal
+    };
+
+    this.parametrosService.getEquiposPorFiltro(filtros).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.equiposFiltrados = response.data;
+          this.totalRecordsModal = response.total || 0;
+        } else {
+          this.equiposFiltrados = [];
+          this.totalRecordsModal = 0;
+        }
+        this.isLoadingModalEquipos = false;
+      },
+      error: (error) => {
+        console.error('Error cargando equipos filtrados:', error);
+        this.showError('Error al cargar los equipos');
+        this.equiposFiltrados = [];
+        this.totalRecordsModal = 0;
+        this.isLoadingModalEquipos = false;
+      }
+    });
+  }
+
+  /**
+   * Manejar cambio de página en modal de equipos
+   */
+  onPageChangeModal(event: any): void {
+    this.currentPageModal = Math.floor(event.first / event.rows) + 1;
+    this.rowsPerPageModal = event.rows;
+    this.cargarEquiposFiltrados();
+  }
+
+  /**
+   * Cerrar modal de equipos filtrados
+   */
+  cerrarModalEquipos(): void {
+    this.mostrarModalEquipos = false;
+    this.equiposFiltrados = [];
+    this.filtroActualModal = {};
+    this.tituloModalEquipos = '';
   }
 
   /**
@@ -1896,8 +1953,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.loadActivos();
             this.loadStats();
-            this.loadEstadisticasPorTipo();
-            this.loadEstadisticasPorUbicacion();
           }, 1000);
         } else {
           this.showError(response.message || 'Error al sincronizar el activo');
