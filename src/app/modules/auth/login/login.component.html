@@ -5,8 +5,7 @@
       <!-- Header -->
       <ng-template pTemplate="header">
         <div class="login-header">
-          <h1 class="login-title">Jade Plataform</h1>
-          <p class="login-subtitle">Bienvenido a la plataforma de soluciones tech para empresa</p>
+          <h1 class="login-title">Jade One</h1>
         </div>
       </ng-template>
 
@@ -33,7 +32,7 @@
 
         <!-- Divider -->
         <p-divider align="center">
-          <span class="divider-text">O</span>
+          <!-- <span class="divider-text">O</span> -->
         </p-divider>
 
         <!-- Email Field -->
@@ -89,14 +88,15 @@
         <!-- Remember Me & Forgot Password -->
         <div class="flex justify-content-between align-items-center mb-4">
           <div class="flex align-items-center">
-            <p-checkbox 
-              formControlName="rememberMe" 
-              [binary]="true" 
-              inputId="rememberMe">
-            </p-checkbox>
-            <label for="rememberMe" class="ml-2 cursor-pointer">Recordarme</label>
+            <label for="rememberMe" class="flex align-items-center cursor-pointer">
+              <p-checkbox 
+                formControlName="rememberMe" 
+                [binary]="true" 
+                inputId="rememberMe">
+              </p-checkbox>
+              <span class="ml-2">Recordarme</span>
+            </label>
           </div>
-          <a routerLink="/auth/forgot-password" class="text-primary">¿Olvidaste tu contraseña?</a>
         </div>
 
         <!-- Submit Button -->
@@ -110,10 +110,11 @@
 
         <!-- Register Link -->
         <div class="text-center">
-          <span class="text-600">¿Deseas registrarte?</span>
-          <a routerLink="/auth/registration" class="text-primary ml-2">Registrarte</a>
+          <span class="text-600">¿Necesitas Ayuda?</span>
+          <a href="http://aqsolutions.tech/" target="_blank" class="text-primary ml-2">Aq Solutions-Tech</a>
         </div>
       </form>
     </p-card>
   </div>
 </div>
+

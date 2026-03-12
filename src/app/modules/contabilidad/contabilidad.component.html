@@ -1,0 +1,32 @@
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1 class="dashboard-title">
+      <i class="bi bi-calculator"></i>
+      Módulo de Contabilidad
+    </h1>
+    <p class="dashboard-subtitle">Gestión contable y financiera</p>
+  </div>
+
+  <div class="dashboard-grid">
+    <div class="dashboard-card" *ngFor="let card of dashboardCards">
+      <div class="card-header" [ngClass]="'card-header-' + card.color">
+        <i [class]="card.icon"></i>
+        <h2>{{ card.title }}</h2>
+      </div>
+      <div class="card-body">
+        <p class="card-description">{{ card.description }}</p>
+        <div class="card-items">
+          <a 
+            *ngFor="let item of card.items" 
+            [routerLink]="item.route"
+            class="card-item"
+            pRipple>
+            <i [class]="item.icon"></i>
+            <span>{{ item.name }}</span>
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

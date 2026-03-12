@@ -37,6 +37,10 @@ export const routes: Routes = [
         loadChildren: () => import('./modules/financiera/financiera.routes').then(m => m.FINANCIERA_ROUTES)
       },
       { 
+        path: 'contabilidad', 
+        loadChildren: () => import('./modules/contabilidad/contabilidad.routes').then(m => m.CONTABILIDAD_ROUTES)
+      },
+      { 
         path: 'templates', 
         loadChildren: () => import('./modules/templates/templates.routes').then(m => m.TEMPLATES_ROUTES)
       },

@@ -70,6 +70,34 @@ export class LoginComponent implements OnInit {
       this.hasError = true;
       this.errorMsg = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
     }
+
+    // Cargar credenciales guardadas si existen
+    this.loadRememberedCredentials();
+  }
+
+  // Cargar credenciales guardadas
+  private loadRememberedCredentials(): void {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    const rememberedPassword = localStorage.getItem('rememberedPassword');
+    
+    if (rememberedEmail && rememberedPassword) {
+      this.loginForm.patchValue({
+        email: rememberedEmail,
+        password: rememberedPassword,
+        rememberMe: true
+      });
+    }
+  }
+
+  // Guardar o eliminar credenciales según la opción "Recordarme"
+  private handleRememberMe(email: string, password: string, rememberMe: boolean): void {
+    if (rememberMe) {
+      localStorage.setItem('rememberedEmail', email);
+      localStorage.setItem('rememberedPassword', password);
+    } else {
+      localStorage.removeItem('rememberedEmail');
+      localStorage.removeItem('rememberedPassword');
+    }
   }
 
   onSubmit(): void {
@@ -82,7 +110,10 @@ export class LoginComponent implements OnInit {
     this.hasError = false;
     this.errorMsg = '';
 
-    const { email, password } = this.loginForm.value;
+    const { email, password, rememberMe } = this.loginForm.value;
+    
+    // Guardar o eliminar credenciales según la opción "Recordarme"
+    this.handleRememberMe(email, password, rememberMe);
     
     this.auth.login(email, password).subscribe({
       next: () => {
