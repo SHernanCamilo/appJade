@@ -2,11 +2,10 @@
   <!-- Logo -->
   <div class="sidebar-logo p-3">
     <div class="d-flex align-items-center" *ngIf="!isCollapsed" style="flex: 1;">
-      <i class="bi bi-building text-primary fs-4 me-2"></i>
-      <span class="fw-bold text-white fs-5">Jade One</span>
+      <img src="assets/media/logos/jade-one-horizontal-ligth.png" alt="Jade One" class="sidebar-logo-img" />
     </div>
     <div class="d-flex align-items-center justify-content-center" *ngIf="isCollapsed" style="flex: 1;">
-      <i class="bi bi-building text-primary fs-4"></i>
+      <img src="assets/media/logos/jade-one-verticall-ligth.png" alt="Jade One" class="sidebar-logo-icon" />
     </div>
     <button type="button" class="btn-toggle d-none d-lg-flex" (click)="toggleSidebar()" [title]="isCollapsed ? 'Expandir' : 'Minimizar'">
       <i class="bi" [ngClass]="isCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'"></i>
@@ -17,9 +16,10 @@
   </div>
 
   <div class="sidebar-menu flex-grow-1 overflow-auto mt-2">
+
     <ul class="nav flex-column px-2">
       <!-- Dashboard (siempre visible) --> 
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="!searchTerm">
         <a routerLink="/dashboard" routerLinkActive="active" class="nav-link d-flex align-items-center text-white" [title]="isCollapsed ? 'Dashboard' : ''">
           <i class="bi bi-grid-fill fs-5" [ngClass]="{'me-3': !isCollapsed}"></i>
           <span *ngIf="!isCollapsed">Dashboard</span>
@@ -27,7 +27,7 @@
       </li>
 
       <!-- Menú dinámico basado en módulos -->
-      <ng-container *ngFor="let item of modulos$ | async">
+      <ng-container *ngFor="let item of modulosFiltrados">
         <li class="nav-item">
           <!-- Item sin hijos -->
           <ng-container *ngIf="!item.hijos || item.hijos.length === 0">
@@ -44,13 +44,13 @@
                 <i [class]="'bi ' + item.icono + ' fs-5'" [ngClass]="{'me-3': !isCollapsed}"></i>
                 <span *ngIf="!isCollapsed">{{ item.nombre }}</span>
               </a>
-              <button *ngIf="!isCollapsed" type="button" class="btn-dropdown" [attr.data-bs-toggle]="'collapse'" [attr.data-bs-target]="'#menu-' + item.id" [attr.aria-expanded]="false">
+              <button *ngIf="!isCollapsed" type="button" class="btn-dropdown" [attr.data-bs-toggle]="'collapse'" [attr.data-bs-target]="'#menu-' + item.id" [attr.aria-expanded]="item._expanded || false">
                 <i class="bi bi-chevron-down"></i>
               </button>
             </div>
             
             <!-- Submenu -->
-            <ul class="collapse list-unstyled ps-5" [id]="'menu-' + item.id" *ngIf="!isCollapsed">
+            <ul class="list-unstyled ps-5" [id]="'menu-' + item.id" *ngIf="!isCollapsed" [ngClass]="{'collapse': !item._expanded, 'show': item._expanded}">
               <ng-container *ngFor="let hijo of item.hijos">
                 <!-- Hijo sin sub-hijos -->
                 <li class="submenu-item" *ngIf="!hijo.hijos || hijo.hijos.length === 0">
@@ -80,8 +80,31 @@
           </ng-container>
         </li>
       </ng-container>
+
+      <!-- Sin resultados -->
+      <li *ngIf="searchTerm && modulosFiltrados.length === 0" class="px-2 py-3 text-center">
+        <small class="text-white-50">Sin resultados para "{{ searchTerm }}"</small>
+      </li>
     </ul>
   </div>
+
+  <!-- Buscador en la parte inferior -->
+  <div class="sidebar-search-bottom p-2" *ngIf="!isCollapsed">
+    <div class="search-wrapper">
+      <i class="bi bi-search search-icon"></i>
+      <input
+        type="text"
+        class="sidebar-search-input"
+        placeholder="Buscar módulo..."
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="filtrarModulos()"
+      />
+      <button *ngIf="searchTerm" class="search-clear" (click)="limpiarBusqueda()" type="button">
+        <i class="bi bi-x"></i>
+      </button>
+    </div>
+  </div>
+
 </nav>
 
 <!-- Overlay para cerrar sidebar en móvil -->

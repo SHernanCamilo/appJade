@@ -6,6 +6,7 @@
       <ng-template pTemplate="header">
         <div class="login-header">
           <img src="assets/media/logos/jade-one-horizontal-dark.png" alt="Jade One" class="login-logo" />
+          <p class="login-subtitle">Una plataforma, infinitas posibilidades</p>
         </div>
       </ng-template>
 
@@ -19,75 +20,93 @@
           styleClass="w-full mb-4">
         </p-message>
 
-        <!-- Microsoft Login Button -->
-        <p-button 
-          label="Iniciar sesión con Microsoft"
-          icon="pi pi-microsoft"
-          styleClass="w-full mb-3"
-          severity="secondary"
-          [outlined]="true"
-          [loading]="isMicrosoftLoading"
-          (onClick)="loginWithMicrosoft()">
-        </p-button>
+        <!-- Botones de login -->
+        <div class="login-buttons-row mb-3">
+          <!-- Microsoft Login Button -->
+          <p-button 
+            label="Iniciar sesión con Microsoft"
+            styleClass="w-full login-btn-microsoft"
+            severity="secondary"
+            [outlined]="true"
+            [loading]="isMicrosoftLoading"
+            (onClick)="loginWithMicrosoft()">
+            <ng-template pTemplate="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" width="30" height="30" style="margin-right:8px;flex-shrink:0">
+                <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+                <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+                <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+                <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+              </svg>
+            </ng-template>
+          </p-button>
 
-        <!-- Divider -->
-        <p-divider align="center">
-          <!-- <span class="divider-text">O</span> -->
-        </p-divider>
-
-        <!-- Email Field -->
-        <div class="field mb-4">
-          <label for="email" class="block mb-2">Correo electrónico</label>
-          <input 
-            pInputText 
-            id="email" 
-            type="email"
-            formControlName="email"
-            placeholder="usuario@ejemplo.com"
-            (input)="clearError()"
-            class="w-full"
-            [class.ng-invalid]="loginForm.controls['email'].invalid && loginForm.controls['email'].touched"
-            [class.ng-dirty]="loginForm.controls['email'].dirty" />
-          <small 
-            class="p-error block mt-1" 
-            *ngIf="loginForm.controls['email'].hasError('required') && loginForm.controls['email'].touched">
-            El correo electrónico es obligatorio
-          </small>
-          <small 
-            class="p-error block mt-1" 
-            *ngIf="loginForm.controls['email'].hasError('email') && loginForm.controls['email'].touched">
-            El formato del correo electrónico no es válido
-          </small>
+          <!-- JadeOne Login Button -->
+          <p-button 
+            label="Iniciar sesión con JadeOne"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="toggleFormJadeOne()">
+            <ng-template pTemplate="icon">
+              <img src="assets/media/logos/favicon.png" alt="Icono de JadeOne" class="btn-logo-icon" />
+            </ng-template>
+          </p-button>
         </div>
 
-        <!-- Password Field -->
-        <div class="field mb-4">
-          <label for="password" class="block mb-2">Contraseña</label>
-          <p-password 
-            formControlName="password"
-            [toggleMask]="true"
-            [feedback]="false"
-            placeholder="Ingresa tu contraseña"
-            (onInput)="clearError()"
-            styleClass="w-full"
-            [inputStyleClass]="'w-full'"
-            [class.ng-invalid]="loginForm.controls['password'].invalid && loginForm.controls['password'].touched">
-          </p-password>
-          <small 
-            class="p-error block mt-1" 
-            *ngIf="loginForm.controls['password'].hasError('required') && loginForm.controls['password'].touched">
-            La contraseña es obligatoria
-          </small>
-          <small 
-            class="p-error block mt-1" 
-            *ngIf="loginForm.controls['password'].hasError('minlength') && loginForm.controls['password'].touched">
-            La contraseña debe tener al menos 6 caracteres
-          </small>
-        </div>
+        <!-- Formulario JadeOne (colapsable) -->
+        <div class="jadeone-form" [ngClass]="{'jadeone-form--visible': showJadeOneForm}">
 
-        <!-- Remember Me & Forgot Password -->
-        <div class="flex justify-content-between align-items-center mb-4">
-          <div class="flex align-items-center">
+          <!-- Email Field -->
+          <div class="field mb-4">
+            <label for="email" class="block mb-2">Correo electrónico</label>
+            <input 
+              pInputText 
+              id="email" 
+              type="email"
+              formControlName="email"
+              placeholder="usuario@ejemplo.com"
+              (input)="clearError()"
+              class="w-full"
+              [class.ng-invalid]="loginForm.controls['email'].invalid && loginForm.controls['email'].touched"
+              [class.ng-dirty]="loginForm.controls['email'].dirty" />
+            <small 
+              class="p-error block mt-1" 
+              *ngIf="loginForm.controls['email'].hasError('required') && loginForm.controls['email'].touched">
+              El correo electrónico es obligatorio
+            </small>
+            <small 
+              class="p-error block mt-1" 
+              *ngIf="loginForm.controls['email'].hasError('email') && loginForm.controls['email'].touched">
+              El formato del correo electrónico no es válido
+            </small>
+          </div>
+
+          <!-- Password Field -->
+          <div class="field mb-4">
+            <label for="password" class="block mb-2">Contraseña</label>
+            <p-password 
+              formControlName="password"
+              [toggleMask]="true"
+              [feedback]="false"
+              placeholder="Ingresa tu contraseña"
+              (onInput)="clearError()"
+              styleClass="w-full"
+              [inputStyleClass]="'w-full'"
+              [class.ng-invalid]="loginForm.controls['password'].invalid && loginForm.controls['password'].touched">
+            </p-password>
+            <small 
+              class="p-error block mt-1" 
+              *ngIf="loginForm.controls['password'].hasError('required') && loginForm.controls['password'].touched">
+              La contraseña es obligatoria
+            </small>
+            <small 
+              class="p-error block mt-1" 
+              *ngIf="loginForm.controls['password'].hasError('minlength') && loginForm.controls['password'].touched">
+              La contraseña debe tener al menos 6 caracteres
+            </small>
+          </div>
+
+          <!-- Remember Me -->
+          <div class="flex align-items-center mb-4">
             <label for="rememberMe" class="flex align-items-center cursor-pointer">
               <p-checkbox 
                 formControlName="rememberMe" 
@@ -97,24 +116,23 @@
               <span class="ml-2">Recordarme</span>
             </label>
           </div>
+
+          <!-- Submit Button -->
+          <p-button 
+            label="Continuar"
+            type="submit"
+            styleClass="w-full mb-3"
+            [loading]="isLoading"
+            [disabled]="loginForm.invalid || isLoading">
+          </p-button>
         </div>
 
-        <!-- Submit Button -->
-        <p-button 
-          label="Continuar"
-          type="submit"
-          styleClass="w-full mb-3"
-          [loading]="isLoading"
-          [disabled]="loginForm.invalid || isLoading">
-        </p-button>
-
-        <!-- Register Link -->
-        <div class="text-center">
+        <!-- Help Link -->
+        <div class="text-center mt-3">
           <span class="text-600">¿Necesitas Ayuda?</span>
-          <a href="http://aqsolutions.tech/" target="_blank" class="text-primary ml-2">Aq Solutions-Tech</a>
+          <a href="http://aqsolutions.tech/" target="_blank" class="text-primary ml-2">Aq Solutions-Tech (Mesa de ayuda)</a>
         </div>
       </form>
     </p-card>
   </div>
 </div>
-

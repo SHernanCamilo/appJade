@@ -39,6 +39,7 @@ export class LoginComponent implements OnInit {
   errorMsg = '';
   returnUrl = '/dashboard';
   showPassword = false;
+  showJadeOneForm = false;
 
   constructor(
     private fb: FormBuilder,
@@ -155,6 +156,11 @@ export class LoginComponent implements OnInit {
   // Método para mostrar/ocultar contraseña
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
+  }
+
+  // Mostrar/ocultar formulario JadeOne
+  toggleFormJadeOne(): void {
+    this.showJadeOneForm = !this.showJadeOneForm;
   }
 
   // Método para login con Microsoft usando popup

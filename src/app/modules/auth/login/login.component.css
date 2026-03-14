@@ -1,5 +1,5 @@
 /* ============================================
-   ANIMACIÓN DE FONDO - BURBUJAS FLOTANTES
+--ANIMACIÓN DE FONDO - BURBUJAS FLOTANTES
    ============================================ */
 
 /* Contenedor principal */
@@ -222,15 +222,12 @@
   display: block;
   margin: 0 auto;
 }
-  color: #1976d2;
-  margin: 0 0 0.2rem 0;
-}
 
 .login-subtitle {
   color: #737c84;
   font-size: 0.938rem;
   font-weight: 600;
-  margin: 0;
+  margin-top: 10px;
 }
 
 /* ============================================
@@ -512,4 +509,33 @@
     align-items: flex-start !important;
     gap: 0.75rem;
   }
+}
+
+/* Botones lado a lado */
+.login-buttons-row {
+  display: flex;
+  gap: 12px;
+}
+
+.login-buttons-row .p-button {
+  flex: 1;
+}
+
+/* Ícono del logo en el botón JadeOne */
+.btn-logo-icon {
+  object-fit: contain;
+  margin-right: 6px;
+}
+
+/* Formulario colapsable */
+.jadeone-form {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.jadeone-form--visible {
+  max-height: 500px;
+  opacity: 1;
 }
