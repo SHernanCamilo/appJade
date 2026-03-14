@@ -215,9 +215,13 @@
   text-align: center;
 }
 
-.login-title {
-  font-size: 2rem;
-  font-weight: bold;
+.login-logo {
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
   color: #1976d2;
   margin: 0 0 0.2rem 0;
 }

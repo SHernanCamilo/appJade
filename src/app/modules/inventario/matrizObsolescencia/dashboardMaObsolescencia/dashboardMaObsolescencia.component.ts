@@ -112,7 +112,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   estadisticasPorEstado = {
     optimo: 0,
     funcional: 0,
-    potencial: 0,
+    potencialmente: 0,
     obsoleto: 0
   };
 
@@ -281,28 +281,28 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       datasets: [
         {
           label: 'Óptimo',
-          data: this.estadisticasPorUbicacion.map(item => item.distribucion.optimo),
+          data: this.estadisticasPorUbicacion.map(item => item.distribucion.optimo || 0),
           backgroundColor: '#10B981',
           borderColor: '#10B981',
           borderWidth: 1
         },
         {
           label: 'Funcional',
-          data: this.estadisticasPorUbicacion.map(item => item.distribucion.funcional),
+          data: this.estadisticasPorUbicacion.map(item => item.distribucion.funcional || 0),
           backgroundColor: '#3B82F6',
           borderColor: '#3B82F6',
           borderWidth: 1
         },
         {
-          label: 'Potencial',
-          data: this.estadisticasPorUbicacion.map(item => item.distribucion.potencial),
+          label: 'Potencializar',
+          data: this.estadisticasPorUbicacion.map(item => item.distribucion.potencialmente || 0),
           backgroundColor: '#F59E0B',
           borderColor: '#F59E0B',
           borderWidth: 1
         },
         {
           label: 'Obsoleto',
-          data: this.estadisticasPorUbicacion.map(item => item.distribucion.obsoleto),
+          data: this.estadisticasPorUbicacion.map(item => item.distribucion.obsoleto || 0),
           backgroundColor: '#EF4444',
           borderColor: '#EF4444',
           borderWidth: 1
@@ -503,10 +503,16 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           }
           
           this.estadisticasPorEstado = {
-            optimo: activos.filter(a => a.puntaje >= 80).length,
-            funcional: activos.filter(a => a.puntaje >= 60 && a.puntaje < 80).length,
-            potencial: activos.filter(a => a.puntaje >= 40 && a.puntaje < 60).length,
-            obsoleto: activos.filter(a => a.puntaje < 40).length
+            optimo: activos.filter(a => Number(a.puntaje) >= 100).length,
+            funcional: activos.filter(a => {
+              const p = Number(a.puntaje);
+              return p >= 60 && p < 100;
+            }).length,
+            potencialmente: activos.filter(a => {
+              const p = Number(a.puntaje);
+              return p > 0 && p < 60;
+            }).length,
+            obsoleto: activos.filter(a => !a.puntaje || Number(a.puntaje) === 0).length
           };
           
           this.stats.totalActivos = activos.length;
@@ -522,7 +528,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         this.estadisticasPorEstado = {
           optimo: 0,
           funcional: 0,
-          potencial: 0,
+          potencialmente: 0,
           obsoleto: 0
         };
         this.stats.totalActivos = 0;
@@ -563,22 +569,23 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   private calcularEstadisticasPorTipo(activos: ActivoMatriz[]): void {
     this.isLoadingGrafico = true;
 
-    const tipoMap = new Map<string, { total: number; optimo: number; funcional: number; potencial: number; obsoleto: number }>();
+    const tipoMap = new Map<string, { total: number; optimo: number; funcional: number; potencialmente: number; obsoleto: number }>();
     
     activos.forEach(activo => {
       const tipo = activo.detalle?.tipo || 'Sin tipo';
       
       if (!tipoMap.has(tipo)) {
-        tipoMap.set(tipo, { total: 0, optimo: 0, funcional: 0, potencial: 0, obsoleto: 0 });
+        tipoMap.set(tipo, { total: 0, optimo: 0, funcional: 0, potencialmente: 0, obsoleto: 0 });
       }
       
       const stats = tipoMap.get(tipo)!;
       stats.total++;
       
-      if (activo.puntaje >= 80) stats.optimo++;
-      else if (activo.puntaje >= 60) stats.funcional++;
-      else if (activo.puntaje >= 40) stats.potencial++;
-      else stats.obsoleto++;
+      const p = Number(activo.puntaje);
+      if (p >= 100) stats.optimo++;
+      else if (p >= 60 && p < 100) stats.funcional++;
+      else if (p > 0 && p < 60) stats.potencialmente++;
+      else stats.obsoleto++; // Incluye null, undefined y 0
     });
     
     this.estadisticasPorTipo = Array.from(tipoMap.entries()).map(([tipo, stats]) => ({
@@ -586,7 +593,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       total: stats.total,
       optimo: stats.optimo,
       funcional: stats.funcional,
-      potencial: stats.potencial,
+      potencialmente: stats.potencialmente,
       obsoleto: stats.obsoleto
     }));
     
@@ -601,7 +608,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   private calcularEstadisticasPorUbicacion(activos: ActivoMatriz[]): void {
     this.isLoadingBarChart = true;
 
-    const ubicacionMap = new Map<string, { total: number; optimo: number; funcional: number; potencial: number; obsoleto: number }>();
+    const ubicacionMap = new Map<string, { total: number; optimo: number; funcional: number; potencialmente: number; obsoleto: number }>();
     
     activos.forEach(activo => {
       let ubicacion = 'Sin empresa';
@@ -614,16 +621,17 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       }
       
       if (!ubicacionMap.has(ubicacion)) {
-        ubicacionMap.set(ubicacion, { total: 0, optimo: 0, funcional: 0, potencial: 0, obsoleto: 0 });
+        ubicacionMap.set(ubicacion, { total: 0, optimo: 0, funcional: 0, potencialmente: 0, obsoleto: 0 });
       }
       
       const stats = ubicacionMap.get(ubicacion)!;
       stats.total++;
       
-      if (activo.puntaje >= 80) stats.optimo++;
-      else if (activo.puntaje >= 60) stats.funcional++;
-      else if (activo.puntaje >= 40) stats.potencial++;
-      else stats.obsoleto++;
+      const p = Number(activo.puntaje);
+      if (p >= 100) stats.optimo++;
+      else if (p >= 60 && p < 100) stats.funcional++;
+      else if (p > 0 && p < 60) stats.potencialmente++;
+      else stats.obsoleto++; // Incluye null, undefined y 0
     });
     
     this.estadisticasPorUbicacion = Array.from(ubicacionMap.entries()).map(([ubicacion, stats]) => ({
@@ -632,7 +640,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       distribucion: {
         optimo: stats.optimo,
         funcional: stats.funcional,
-        potencial: stats.potencial,
+        potencialmente: stats.potencialmente,
         obsoleto: stats.obsoleto
       }
     }));
@@ -677,9 +685,11 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Obtener severity del tag según puntaje
    */
   getPuntajeSeverity(puntaje: number): 'success' | 'info' | 'warn' | 'danger' {
-    if (puntaje >= 80) return 'success';
-    if (puntaje >= 60) return 'info';
-    if (puntaje >= 40) return 'warn';
+    const p = Number(puntaje);
+    if (!p || p === 0) return 'danger';
+    if (p >= 100) return 'success';
+    if (p >= 60 && p < 100) return 'info';
+    if (p > 0 && p < 60) return 'warn';
     return 'danger';
   }
 
@@ -1159,10 +1169,12 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Obtener concepto corto según puntaje (para tag)
    */
   getConceptoCorto(puntaje: number): string {
-    if (puntaje >= 80) return 'Óptimo';
-    if (puntaje >= 60) return 'Funcional';
-    if (puntaje >= 40) return 'Potencializar';
-    return 'Obsoleto';
+    const p = Number(puntaje);
+    if (!p || p === 0) return 'Obsoleto';
+    if (p > 0 && p < 60) return 'Potencializar';
+    if (p >= 60 && p < 100) return 'Funcional';
+    if (p >= 100) return 'Óptimo';
+    return 'Sin clasificar';
   }
 
   /**
@@ -1478,7 +1490,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       case 'funcional':
         return this.estadisticasPorEstado.funcional;
       case 'potencial':
-        return this.estadisticasPorEstado.potencial;
+      case 'potencialmente':
+        return this.estadisticasPorEstado.potencialmente;
       case 'obsoleto':
         return this.estadisticasPorEstado.obsoleto;
       default:
@@ -1490,9 +1503,11 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Obtener clase CSS según puntaje
    */
   getPuntajeClass(puntaje: number): string {
-    if (puntaje >= 80) return 'optimo';
-    if (puntaje >= 60) return 'funcional';
-    if (puntaje >= 40) return 'potencial';
+    const p = Number(puntaje);
+    if (!p || p === 0) return 'obsoleto';
+    if (p >= 100) return 'optimo';
+    if (p >= 60 && p < 100) return 'funcional';
+    if (p > 0 && p < 60) return 'potencial';
     return 'obsoleto';
   }
 
@@ -1500,10 +1515,12 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Obtener estado textual según puntaje
    */
   getPuntajeEstado(puntaje: number): string {
-    if (puntaje >= 80) return 'Óptimo';
-    if (puntaje >= 60) return 'Funcional';
-    if (puntaje >= 40) return 'Potencializar';
-    return 'Obsoleto';
+    const p = Number(puntaje);
+    if (!p || p === 0) return 'Obsoleto';
+    if (p > 0 && p < 60) return 'Potencializar';
+    if (p >= 60 && p < 100) return 'Funcional';
+    if (p >= 100) return 'Óptimo';
+    return 'Sin clasificar';
   }
 
   /**
