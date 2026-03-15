@@ -6,6 +6,7 @@ import { AuthService } from '../../../auth/auth.service';
 import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../services/matriz-obs-activos.service';
 import { MatrizObsParametrosService } from '../services/matriz-obs-parametros.service';
 import { ExcelExportService, ExcelColumn } from '../../../../core/services/excel-export.service';
+import { PdfExportService } from '../../../../core/services/pdf-export.service';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -182,7 +183,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     private activosService: MatrizObsActivosService,
     private messageService: MessageService,
     private parametrosService: MatrizObsParametrosService,
-    private excelExportService: ExcelExportService
+    private excelExportService: ExcelExportService,
+    private pdfExportService: PdfExportService
   ) {
     this.initChartOptions();
     this.initBarChartOptions();
@@ -884,8 +886,78 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   exportarPDF(): void {
     this.cerrarModalExportacion();
-    this.showInfo('La exportación a PDF estará disponible próximamente');
-    // TODO: Implementar exportación a PDF
+    this.showInfo('Preparando exportación a PDF...');
+
+    const filtros: FiltrosActivos = { per_page: 9999 };
+    if (this.selectedEmpresa)   filtros.empresa_id   = this.selectedEmpresa;
+    if (this.selectedSucursal)  filtros.sucursal_id  = this.selectedSucursal;
+    if (this.selectedSede)      filtros.sede_id      = this.selectedSede;
+    if (this.searchTermTodos)   filtros.search       = this.searchTermTodos;
+
+    this.activosService.getActivosPorPermisos(filtros).subscribe({
+      next: async (response) => {
+        if (!response.success || !response.data?.length) {
+          this.showWarn('No hay datos para exportar');
+          return;
+        }
+
+        const activos = response.data;
+
+        const stats = [
+          { label: 'Total Activos',   value: activos.length },
+          { label: 'Óptimo',          value: activos.filter(a => Number(a.puntaje) >= 100).length },
+          { label: 'Funcional',       value: activos.filter(a => { const p = Number(a.puntaje); return p >= 60 && p < 100; }).length },
+          { label: 'Potencializar',   value: activos.filter(a => { const p = Number(a.puntaje); return p > 0 && p < 60; }).length },
+          { label: 'Obsoleto',        value: activos.filter(a => !a.puntaje || Number(a.puntaje) === 0).length },
+        ];
+
+        const columns = [
+          { header: 'Concepto',       key: 'concepto',      width: 70 },
+          { header: 'Nombre Equipo',  key: 'nombreEquipo',  width: '*' },
+          { header: 'Empresa/Sede',   key: 'sucursalSede',  width: '*' },
+          { header: 'Placa',          key: 'placa',         width: 60 },
+          { header: 'Marca',          key: 'marca',         width: 60 },
+          { header: 'Tipo',           key: 'tipoEquipo',    width: 60 },
+          { header: 'Serial',         key: 'serial',        width: 80 },
+          { header: 'Procesador',     key: 'procesador',    width: '*' },
+          { header: 'RAM (GB)',        key: 'ram',           width: 45 },
+          { header: 'Disco (GB)',     key: 'disco',         width: 50 },
+          { header: 'Puntaje',        key: 'puntaje',       width: 45 },
+        ];
+
+        const data = activos.map(a => {
+          const d = a.detalle as any;
+          const empresa = a.empresa?.nombre || '-';
+          const sucursal = a.sucursal?.nombre || '';
+          return {
+            concepto:     this.getConceptoCorto(a.puntaje),
+            nombreEquipo: a.nombre_equipo || '-',
+            sucursalSede: sucursal ? `${empresa} - ${sucursal}` : empresa,
+            placa:        a.placa || '-',
+            marca:        d?.marca || '-',
+            tipoEquipo:   d?.tipo || '-',
+            serial:       a.serial || '-',
+            procesador:   d?.procesador || '-',
+            ram:          d?.tamano_ram ?? '-',
+            disco:        d?.tamano_disco ?? '-',
+            puntaje:      a.puntaje !== null && a.puntaje !== undefined ? Number(a.puntaje).toFixed(2) : '-',
+          };
+        });
+
+        await this.pdfExportService.exportReport({
+          title:       'Reporte Matriz de Obsolescencia',
+          subtitle:    'Inventario de activos tecnológicos',
+          fileName:    'matriz_obsolescencia',
+          orientation: 'landscape',
+          columns,
+          data,
+          stats,
+        });
+
+        this.showSuccess(`PDF generado con ${activos.length} activos`);
+      },
+      error: () => this.showError('Error al generar el PDF')
+    });
   }
 
   /**
@@ -1752,6 +1824,61 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.equiposFiltrados = [];
     this.filtroActualModal = {};
     this.tituloModalEquipos = '';
+  }
+
+  /**
+   * Exportar equipos del modal a Excel
+   */
+  exportarModalEquipos(): void {
+    if (this.tituloModalEquipos === '') {
+      this.showWarn('No hay datos para exportar');
+      return;
+    }
+
+    this.showInfo('Preparando exportación...');
+
+    const filtros = { ...this.filtroActualModal, per_page: 9999, page: 1 };
+
+    this.parametrosService.getEquiposPorFiltro(filtros).subscribe({
+      next: (response: any) => {
+        const datos = response?.data || [];
+
+        if (!datos.length) {
+          this.showWarn('No hay datos para exportar');
+          return;
+        }
+
+        const columns: ExcelColumn[] = [
+          { header: 'Concepto', key: 'concepto', width: 15 },
+          { header: 'Nombre Equipo', key: 'nombre_equipo', width: 25 },
+          { header: 'Tipo', key: 'tipo', width: 15 },
+          { header: 'Marca', key: 'marca', width: 15 },
+          { header: 'Empresa', key: 'empresa_nombre', width: 25 },
+          { header: 'Sucursal', key: 'sucursal_nombre', width: 20 },
+          { header: 'Sede', key: 'sede_nombre', width: 20 },
+          { header: 'Puntaje', key: 'puntaje', width: 10 },
+        ];
+
+        const excelData = datos.map((e: any) => ({
+          concepto: this.getConceptoCorto(e.puntaje),
+          nombre_equipo: e.nombre_equipo || '-',
+          tipo: e.tipo || '-',
+          marca: e.marca || '-',
+          empresa_nombre: e.empresa_nombre || '-',
+          sucursal_nombre: e.sucursal_nombre || '-',
+          sede_nombre: e.sede_nombre || '-',
+          puntaje: e.puntaje ?? 0,
+        }));
+
+        const nombreArchivo = this.tituloModalEquipos.replace(/[^a-zA-Z0-9]/g, '_');
+        const nombreHoja = this.tituloModalEquipos.replace(/[:\*\?\/\\\[\]]/g, '').substring(0, 31);
+        this.excelExportService.exportToExcel(excelData, columns, nombreHoja, nombreArchivo);
+        this.showSuccess(`${excelData.length} equipos exportados correctamente`);
+      },
+      error: () => {
+        this.showError('Error al exportar. Intenta nuevamente.');
+      }
+    });
   }
 
   /**

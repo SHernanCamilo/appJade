@@ -1158,6 +1158,13 @@
     <ng-template pTemplate="footer">
       <div class="modal-footer-actions">
         <p-button 
+          label="Exportar Excel" 
+          icon="pi pi-file-excel"
+          severity="success"
+          [outlined]="true"
+          (onClick)="exportarModalEquipos()">
+        </p-button>
+        <p-button 
           label="Cerrar" 
           icon="pi pi-times" 
           (onClick)="cerrarModalEquipos()"

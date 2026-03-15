@@ -24,7 +24,7 @@
         <div class="login-buttons-row mb-3">
           <!-- Microsoft Login Button -->
           <p-button 
-            label="Iniciar sesión con Microsoft"
+            label="Inicio con Microsoft"
             styleClass="w-full login-btn-microsoft"
             severity="secondary"
             [outlined]="true"
@@ -42,7 +42,7 @@
 
           <!-- JadeOne Login Button -->
           <p-button 
-            label="Iniciar sesión con JadeOne"
+            label="Inicio con JadeOne"
             severity="secondary"
             [outlined]="true"
             (onClick)="toggleFormJadeOne()">
@@ -103,18 +103,6 @@
               *ngIf="loginForm.controls['password'].hasError('minlength') && loginForm.controls['password'].touched">
               La contraseña debe tener al menos 6 caracteres
             </small>
-          </div>
-
-          <!-- Remember Me -->
-          <div class="flex align-items-center mb-4">
-            <label for="rememberMe" class="flex align-items-center cursor-pointer">
-              <p-checkbox 
-                formControlName="rememberMe" 
-                [binary]="true" 
-                inputId="rememberMe">
-              </p-checkbox>
-              <span class="ml-2">Recordarme</span>
-            </label>
           </div>
 
           <!-- Submit Button -->

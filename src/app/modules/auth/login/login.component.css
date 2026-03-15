@@ -227,7 +227,7 @@
   color: #737c84;
   font-size: 0.938rem;
   font-weight: 600;
-  margin-top: 10px;
+  margin: 0;
 }
 
 /* ============================================
@@ -310,28 +310,6 @@
 }
 
 /* Checkbox */
-::ng-deep .p-checkbox {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-::ng-deep .p-checkbox .p-checkbox-box {
-  border-radius: 4px;
-  border: 1px solid #dbe8fc;
-  background: #f4f8fb;
-}
-
-::ng-deep .p-checkbox .p-checkbox-box.p-highlight {
-  background: #1976d2;
-  border-color: #1976d2;
-}
-
-.cursor-pointer {
-  cursor: pointer;
-  font-size: 0.95rem;
-  user-select: none;
-  color: #263859;
-}
 
 /* ============================================
    BUTTONS
@@ -375,30 +353,6 @@
 
 ::ng-deep .p-button .p-button-icon {
   font-size: 1.25rem;
-}
-
-/* ============================================
-   DIVIDER
-   ============================================ */
-
-::ng-deep .p-divider {
-  margin: 1.5rem 0;
-}
-
-::ng-deep .p-divider::before,
-::ng-deep .p-divider::after {
-  border-top: 1.5px solid #e9eefa;
-}
-
-::ng-deep .p-divider .p-divider-content {
-  background: #fff;
-  padding: 0 0.9rem;
-}
-
-.divider-text {
-  color: #979fad;
-  font-weight: 500;
-  font-size: 0.86rem;
 }
 
 /* ============================================
@@ -514,11 +468,28 @@
 /* Botones lado a lado */
 .login-buttons-row {
   display: flex;
+  justify-content: center;
   gap: 12px;
 }
 
 .login-buttons-row .p-button {
   flex: 1;
+}
+
+.login-buttons-row ::ng-deep .p-button-label {
+  white-space: nowrap;
+}
+
+.login-buttons-row ::ng-deep .p-button .p-button-content {
+  justify-content: center;
+}
+
+.login-buttons-row ::ng-deep .p-button > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
 }
 
 /* Ícono del logo en el botón JadeOne */

@@ -8,7 +8,6 @@ import { CommonModule } from '@angular/common';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { ButtonModule } from 'primeng/button';
-import { CheckboxModule } from 'primeng/checkbox';
 import { CardModule } from 'primeng/card';
 import { MessageModule } from 'primeng/message';
 import { DividerModule } from 'primeng/divider';
@@ -23,7 +22,6 @@ import { DividerModule } from 'primeng/divider';
     InputTextModule,
     PasswordModule,
     ButtonModule,
-    CheckboxModule,
     CardModule,
     MessageModule,
     DividerModule
@@ -56,48 +54,17 @@ export class LoginComponent implements OnInit {
 
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email, Validators.minLength(3)]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      rememberMe: [false]
+      password: ['', [Validators.required, Validators.minLength(6)]]
     });
   }
 
   ngOnInit(): void {
-    // Obtener la URL de retorno si existe
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
     
-    // Verificar si la sesión expiró
     const reason = this.route.snapshot.queryParams['reason'];
     if (reason === 'session_expired') {
       this.hasError = true;
       this.errorMsg = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-    }
-
-    // Cargar credenciales guardadas si existen
-    this.loadRememberedCredentials();
-  }
-
-  // Cargar credenciales guardadas
-  private loadRememberedCredentials(): void {
-    const rememberedEmail = localStorage.getItem('rememberedEmail');
-    const rememberedPassword = localStorage.getItem('rememberedPassword');
-    
-    if (rememberedEmail && rememberedPassword) {
-      this.loginForm.patchValue({
-        email: rememberedEmail,
-        password: rememberedPassword,
-        rememberMe: true
-      });
-    }
-  }
-
-  // Guardar o eliminar credenciales según la opción "Recordarme"
-  private handleRememberMe(email: string, password: string, rememberMe: boolean): void {
-    if (rememberMe) {
-      localStorage.setItem('rememberedEmail', email);
-      localStorage.setItem('rememberedPassword', password);
-    } else {
-      localStorage.removeItem('rememberedEmail');
-      localStorage.removeItem('rememberedPassword');
     }
   }
 
@@ -111,10 +78,7 @@ export class LoginComponent implements OnInit {
     this.hasError = false;
     this.errorMsg = '';
 
-    const { email, password, rememberMe } = this.loginForm.value;
-    
-    // Guardar o eliminar credenciales según la opción "Recordarme"
-    this.handleRememberMe(email, password, rememberMe);
+    const { email, password } = this.loginForm.value;
     
     this.auth.login(email, password).subscribe({
       next: () => {
@@ -171,7 +135,6 @@ export class LoginComponent implements OnInit {
 
     this.microsoftAuth.loginWithPopup().subscribe({
       next: (response) => {
-        console.log('✅ Respuesta de Microsoft Auth:', response);
         
         this.isMicrosoftLoading = false;
         
@@ -185,14 +148,12 @@ export class LoginComponent implements OnInit {
           
           // Cargar permisos del usuario (igual que el login normal)
           if ((response.user as any).permissions) {
-            console.log('🔐 Cargando permisos de Microsoft Auth:', (response.user as any).permissions);
             this.auth['permissionService'].setPermissions((response.user as any).permissions);
           }
         }
 
         // Cargar módulos del sidebar si vienen en la respuesta (igual que el login normal)
         if ((response as any).sidebar && (response as any).sidebar.length > 0) {
-          console.log('📋 Cargando sidebar de Microsoft Auth:', (response as any).sidebar);
           this.auth['sidebarService'].cargarModulosDesdeLogin((response as any).sidebar);
         } else {
           // Si no vienen en el login, cargarlos con endpoint separado
@@ -207,8 +168,6 @@ export class LoginComponent implements OnInit {
         // Iniciar monitoreo de inactividad
         this.inactivityService.startWatching();
         
-        console.log('🚀 Login con Microsoft completado, navegando a:', this.returnUrl);
-        
         // Navegar al dashboard
         this.router.navigateByUrl(this.returnUrl).then(
           (success) => console.log('✅ Navegación exitosa:', success),
@@ -216,7 +175,6 @@ export class LoginComponent implements OnInit {
         );
       },
       error: (error) => {
-        console.error('❌ Error en login con Microsoft:', error);
         this.isMicrosoftLoading = false;
         this.hasError = true;
         
@@ -242,8 +200,4 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  // Método alternativo: login con Microsoft usando redirect
-  loginWithMicrosoftRedirect(): void {
-    this.microsoftAuth.loginWithRedirect();
-  }
 }
