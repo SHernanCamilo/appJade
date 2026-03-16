@@ -205,6 +205,10 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
     return this.permissionService.hasPermission('inv-matriz-paramatriz-activos-eliminar');
   }
 
+  canParametrosImportarProcesadores(): boolean {
+    return this.permissionService.hasPermission('inv-matriz-paramatriz-impor-procesador');
+  }
+
 
   ngOnInit(): void {
     this.cargarDatos();

@@ -7,6 +7,8 @@ import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../servic
 import { MatrizObsParametrosService } from '../services/matriz-obs-parametros.service';
 import { ExcelExportService, ExcelColumn } from '../../../../core/services/excel-export.service';
 import { PdfExportService } from '../../../../core/services/pdf-export.service';
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -62,7 +64,8 @@ interface MatrizItem {
     ChartModule,
     ProgressBarModule,
     CalendarModule,
-    TabViewModule
+    TabViewModule,
+    HasPermissionDirective
   ],
   providers: [MessageService],
   templateUrl: './dashboardMaObsolescencia.component.html',
@@ -184,7 +187,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     private messageService: MessageService,
     private parametrosService: MatrizObsParametrosService,
     private excelExportService: ExcelExportService,
-    private pdfExportService: PdfExportService
+    private pdfExportService: PdfExportService,
+    public permissionService: PermissionService
   ) {
     this.initChartOptions();
     this.initBarChartOptions();
@@ -195,6 +199,29 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.loadActivos();
     this.loadStats(); // Esto carga todo incluyendo las empresas para los filtros
   }
+
+  //Permisos
+  canVerEnGLPI(): boolean {
+    return this.permissionService.hasPermission('ver-glpi'); 
+  }
+
+  canMOActualizarActivo(): boolean {
+    return this.permissionService.hasPermission('mo-actualizar-activo'); 
+  }
+
+  canVerMatrizActivo(): boolean {
+    return this.permissionService.hasPermission('ver-matriz-activo'); 
+  }
+
+  canSincronizarActivo(): boolean {
+    return this.permissionService.hasPermission('sincronizar-por-activo'); 
+  }
+
+  canExportarActivo(): boolean {
+    return this.permissionService.hasPermission('exportar-matriz'); 
+  }
+
+
 
   /**
    * Inicializar opciones del gráfico de barras

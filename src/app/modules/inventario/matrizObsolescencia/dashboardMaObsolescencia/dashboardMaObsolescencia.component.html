@@ -313,7 +313,6 @@
         <div class="row g-2">
           <div class="col-12 col-md-6">
             <span class="p-input-icon-left w-100">
-              <i class="pi pi-search"></i>
               <input 
                 type="text" 
                 pInputText 
@@ -419,6 +418,7 @@
               <td class="table-cell-modern">
                 <div class="action-buttons">
                   <p-button 
+                  *hasPermission="'sincronizar-por-activo'"
                     icon="pi pi-sync" 
                     [text]="true" 
                     [rounded]="true"
@@ -430,6 +430,7 @@
                     (onClick)="sincronizarActivoIndividual(activo)">
                   </p-button>
                   <p-button 
+                    *hasPermission="'ver-matriz-activo'"
                     icon="pi pi-external-link" 
                     [text]="true" 
                     [rounded]="true"
@@ -605,6 +606,7 @@
                     (onClick)="limpiarFiltros()">
                   </p-button>
                   <p-button 
+                  *hasPermission="'exportar-matriz'"
                     label="Exportar" 
                     icon="pi pi-file-excel" 
                     size="small"
@@ -1043,6 +1045,7 @@
             pTooltip="Abrir equipo en GLPI">
           </p-button>
           <p-button 
+            *hasPermission="'mo-actualizar-activo'"
             label="Guardar" 
             icon="pi pi-save" 
             severity="success"
@@ -1158,6 +1161,7 @@
     <ng-template pTemplate="footer">
       <div class="modal-footer-actions">
         <p-button 
+        *hasPermission="'exportar-matriz'"
           label="Exportar Excel" 
           icon="pi pi-file-excel"
           severity="success"
