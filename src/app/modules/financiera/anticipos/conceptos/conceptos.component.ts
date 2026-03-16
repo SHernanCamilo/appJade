@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -29,12 +31,50 @@ import {
   AntiModalidad,
   AntiRegla 
 } from '../services/anticipo-concepto.service';
+import { ContextoService } from '../../../../core/services/contexto.service';
+import { AuthService } from '../../../auth/auth.service';
+import { environment } from '../../../../environments/environment';
 
 interface ConceptoForm {
   id_tipo: number | null;
   id_clase: number | null;
   id_modalidad: number | null;
   estado: boolean;
+}
+
+interface Empleado {
+  id: number;
+  id_empresa: number;
+  id_cargo: number;
+  numero_identificacion: string;
+  nombre: string;
+  email?: string | null;
+  tipo_identificacion?: string | null;
+  unidad?: string | null;
+  direccion?: string | null;
+  telefono?: string | null;
+  estado?: boolean;
+  caso_glpi?: string | null;
+  usuario_crea_id?: number | null;
+  usuario_actualiza_id?: number | null;
+  empresa?: {
+    id: number;
+    nombre: string;
+  };
+  cargo_relacion?: {
+    id_cargo: number;
+    nombre_cargo: string;
+  };
+}
+
+interface EmpleadoUI {
+  id: number;
+  nombre: string;
+  cedula: string;
+  cargo: string;
+  area: string;
+  email?: string | null;
+  raw: Empleado;
 }
 
 @Component({
@@ -63,7 +103,7 @@ interface ConceptoForm {
   templateUrl: './conceptos.component.html',
   styleUrl: './conceptos.component.css'
 })
-export class ConceptosAnticiposComponent implements OnInit {
+export class ConceptosAnticiposComponent implements OnInit, OnDestroy {
   
   // Estados de carga
   isLoading = false;
@@ -88,16 +128,27 @@ export class ConceptosAnticiposComponent implements OnInit {
   // Reglas del concepto
   reglas: AntiRegla[] = [];
   nuevaRegla: AntiRegla = { descripcion: '', valor_tope: 0 };
+  empleadoActual: EmpleadoUI | null = null;
+  private empresaIdActual: number | null = null;
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
-    private anticipoService: AnticipoConceptoService
+    private anticipoService: AnticipoConceptoService,
+    private http: HttpClient,
+    private contextoService: ContextoService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
+    this.iniciarContexto();
     this.loadTipos();
     this.loadConceptos();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
   /**
@@ -132,6 +183,80 @@ export class ConceptosAnticiposComponent implements OnInit {
         });
       }
     });
+  }
+
+  private iniciarContexto(): void {
+    const contexto = this.contextoService.getContextoActual();
+    this.actualizarEmpresa(contexto?.empresa_id || null);
+    this.subscriptions.push(
+      this.contextoService.contexto$.subscribe(ctx => {
+        this.actualizarEmpresa(ctx?.empresa_id || null);
+      })
+    );
+  }
+
+  private actualizarEmpresa(empresaId: number | null): void {
+    const cambio = this.empresaIdActual !== empresaId;
+    this.empresaIdActual = empresaId;
+    if (cambio && this.empresaIdActual) {
+      this.cargarEmpleadoActual();
+    }
+  }
+
+  private cargarEmpleadoActual(): void {
+    const usuario = this.authService.currentUser;
+    if (!usuario) {
+      this.authService.me().subscribe({
+        next: (user) => {
+          this.buscarEmpleadoPorUsuario(user);
+        }
+      });
+      return;
+    }
+    this.buscarEmpleadoPorUsuario(usuario);
+  }
+
+  private buscarEmpleadoPorUsuario(usuario: any): void {
+    if (!this.empresaIdActual) {
+      return;
+    }
+    const termino = usuario?.numero_identificacion || usuario?.documento || usuario?.email || usuario?.name;
+    if (!termino) {
+      return;
+    }
+    const params = new HttpParams()
+      .set('id_empresa', this.empresaIdActual.toString())
+      .set('buscar', termino);
+    this.http.get<any>(`${environment.URL_SERVICIOS}/empleados`, { params }).subscribe({
+      next: (response) => {
+        const empleados = this.normalizarEmpleados(response);
+        if (empleados.length > 0) {
+          this.empleadoActual = this.mapEmpleadoUI(empleados[0]);
+        }
+      }
+    });
+  }
+
+  private normalizarEmpleados(response: any): Empleado[] {
+    if (Array.isArray(response)) {
+      return response as Empleado[];
+    }
+    if (response?.data && Array.isArray(response.data)) {
+      return response.data as Empleado[];
+    }
+    return [];
+  }
+
+  private mapEmpleadoUI(empleado: Empleado): EmpleadoUI {
+    return {
+      id: empleado.id,
+      nombre: empleado.nombre,
+      cedula: empleado.numero_identificacion,
+      cargo: empleado.cargo_relacion?.nombre_cargo || 'Sin cargo',
+      area: empleado.unidad || 'Sin unidad',
+      email: empleado.email,
+      raw: empleado
+    };
   }
 
   /**

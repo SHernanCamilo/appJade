@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface Contexto {
@@ -102,11 +102,7 @@ export class ContextoService {
    */
   obtenerEmpresasDisponibles(): Observable<Empresa[]> {
     return this.http.get<any>(`${this.apiUrl}/empresas-disponibles`).pipe(
-      tap((response) => {
-        if (response.success) {
-          return response.data;
-        }
-      })
+      map((response) => response?.success ? response.data : [])
     );
   }
 

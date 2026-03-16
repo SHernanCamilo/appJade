@@ -13,6 +13,7 @@
       Conceptos de Anticipos
     </h1>
     <p class="page-subtitle">Gestión de tipos, clases y modalidades de anticipos</p>
+    <p class="page-subtitle" *ngIf="empleadoActual">Responsable: {{ empleadoActual.nombre }} - {{ empleadoActual.cedula }}</p>
   </div>
 
   <!-- Formulario de Concepto -->
