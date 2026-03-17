@@ -211,25 +211,21 @@
           1. Responsable del Anticipo
         </h3>
         
-        <!-- Si NO es para mi: Buscar por cédula -->
         <div *ngIf="!esParaMi" class="mb-2">
-          <label class="form-label">Cédula</label>
-          <div class="d-flex gap-2">
-            <input 
-              type="text" 
-              pInputText 
-              [(ngModel)]="cedulaBusqueda"
-              placeholder="Ingrese número de cédula"
-              class="flex-grow-1"
-              (keyup.enter)="buscarUsuarioPorCedula()">
-            <button 
-              class="btn-action btn-action-primary"
-              (click)="buscarUsuarioPorCedula()"
-              [disabled]="isLoadingUsuario">
-              <i class="pi" [ngClass]="isLoadingUsuario ? 'pi-spin pi-spinner' : 'pi-search'"></i>
-              Buscar
-            </button>
-          </div>
+          <label class="form-label">Empleado</label>
+          <p-dropdown
+            [options]="empleadosOptions"
+            [(ngModel)]="usuarioSeleccionado"
+            (onChange)="onEmpleadoSeleccionado($event.value)"
+            (onFilter)="onBuscarEmpleado($event.filter)"
+            optionLabel="label"
+            optionValue="value"
+            [filter]="true"
+            [loading]="isLoadingEmpleados"
+            filterPlaceholder="Buscar empleado"
+            placeholder="Seleccione un empleado"
+            styleClass="w-100">
+          </p-dropdown>
         </div>
 
         <!-- Información del usuario seleccionado -->
