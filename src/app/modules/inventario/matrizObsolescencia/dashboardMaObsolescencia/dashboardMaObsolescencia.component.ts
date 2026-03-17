@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../auth/auth.service';
 import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../services/matriz-obs-activos.service';
 import { MatrizObsParametrosService } from '../services/matriz-obs-parametros.service';
-import { ExcelExportService, ExcelColumn } from '../../../../core/services/excel-export.service';
+import { ExcelExportService, ExcelColumn, ExcelReportHeader } from '../../../../core/services/excel-export.service';
 import { PdfExportService } from '../../../../core/services/pdf-export.service';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
@@ -1086,7 +1086,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       (worksheet) => {
         // Aplicar colores a la columna CONCEPTO (columna A, índice 1)
         worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber > 1) { // Saltar encabezados
+          if (rowNumber > 6) { // Saltar cabecera del reporte (5 filas) + encabezados de columna (1 fila)
             const conceptoCell = row.getCell(1); // Primera columna (CONCEPTO)
             const concepto = conceptoCell.value?.toString() || '';
 
@@ -1125,6 +1125,10 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
             conceptoCell.alignment = { vertical: 'middle', horizontal: 'center' };
           }
         });
+      },
+      {
+        title: 'Matriz de Obsolescencia',
+        subtitle: 'Reporte de activos tecnológicos'
       }
     );
   }
