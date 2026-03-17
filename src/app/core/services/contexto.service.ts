@@ -102,11 +102,7 @@ export class ContextoService {
    */
   obtenerEmpresasDisponibles(): Observable<Empresa[]> {
     return this.http.get<any>(`${this.apiUrl}/empresas-disponibles`).pipe(
-      tap((response) => {
-        if (response.success) {
-          return response.data;
-        }
-      })
+      map((response) => response?.success ? response.data : [])
     );
   }
 
