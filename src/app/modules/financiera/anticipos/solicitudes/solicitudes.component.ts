@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -83,6 +84,13 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   private empresaIdActual: number | null = null;
   private subscriptions: Subscription[] = [];
 
+  // Búsqueda de empleados con debounce
+  private busquedaEmpleado$ = new Subject<string>();
+  private empleadosPagina = 1;
+  private empleadosPerPage = 30;
+  private empleadosTotalPages = 1;
+  private empleadosCargados = false; // guard para evitar cargas duplicadas
+
   // Motivo del anticipo
   motivoSeleccionado: 'viaje' | 'otros' | null = null;
 
@@ -130,6 +138,36 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.iniciarContexto();
     this.loadSolicitudes();
+    // Debounce en búsqueda de empleados: espera 400ms antes de llamar al backend
+    this.subscriptions.push(
+      this.busquedaEmpleado$.pipe(
+        debounceTime(400),
+        distinctUntilChanged(),
+        switchMap((termino) => {
+          this.isLoadingEmpleados = true;
+          this.empleadosPagina = 1;
+          return this.personaService.buscarEmpleadosPaginados({
+            empresaId: this.empresaIdActual!,
+            termino: termino || undefined,
+            estado: true,
+            page: 1,
+            perPage: this.empleadosPerPage
+          });
+        })
+      ).subscribe({
+        next: (resultado) => {
+          this.empleadosTotalPages = resultado.last_page;
+          this.empleadosOptions = resultado.data
+            .filter(e => e.estado !== false)
+            .map(e => ({ label: `${e.nombre} - ${e.numero_identificacion}`, value: this.mapEmpleadoUI(e) }));
+          this.isLoadingEmpleados = false;
+        },
+        error: () => {
+          this.isLoadingEmpleados = false;
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los empleados', life: 3000 });
+        }
+      })
+    );
   }
 
   ngOnDestroy(): void {
@@ -167,13 +205,23 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Abrir modal de nueva solicitud
+   * Abrir modal de nueva solicitud.
+   * La empresa ya fue resuelta por iniciarContexto() via contexto$.
+   * Si aún no hay empresa (contexto tardó), intentar resolverla ahora.
    */
   abrirNuevaSolicitud(): void {
     this.displayNuevaSolicitud = true;
     this.resetFormulario();
-    this.resolverEmpresaActual();
-    this.cargarEmpleadosEmpresa();
+
+    if (!this.empresaIdActual) {
+      this.resolverEmpresaActual();
+    }
+
+    // Solo cargar si no hay empleados y no está en proceso de carga
+    if (this.empleadosOptions.length === 0 && this.empresaIdActual && !this.isLoadingEmpleados) {
+      this.empleadosCargados = false;
+      this.cargarEmpleadosEmpresa();
+    }
   }
 
   /**
@@ -348,111 +396,100 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   private iniciarContexto(): void {
-    const contexto = this.contextoService.getContextoActual();
-    this.actualizarEmpresa(contexto?.empresa_id || null);
+    // Combinar contexto + usuario para resolver empresa correctamente
     this.subscriptions.push(
       this.contextoService.contexto$.subscribe(ctx => {
-        this.actualizarEmpresa(ctx?.empresa_id || null);
+        if (ctx === null) return; // Aún cargando
+        this.resolverEmpresaDesdeContexto(ctx);
       })
     );
-    this.resolverEmpresaActual();
+
+    // Si el usuario llega después (carga async), reintentar con el contexto actual
+    this.subscriptions.push(
+      this.authService.currentUser$.subscribe(usuario => {
+        if (!usuario) return;
+        const ctx = this.contextoService.getContextoActual();
+        if (ctx) this.resolverEmpresaDesdeContexto(ctx);
+      })
+    );
   }
 
-  private actualizarEmpresa(empresaId: number | null): void {
-    const cambio = this.empresaIdActual !== empresaId;
-    this.empresaIdActual = empresaId;
-    if (cambio && this.empresaIdActual) {
+  private resolverEmpresaDesdeContexto(ctx: any): void {
+    const usuario = this.authService.currentUser;
+    const empresasUsuario: number[] = (usuario?.empresas ?? []).map((e: any) => e.id);
+    const empresaDelContexto = ctx?.empresa_id ?? null;
+
+    let empresaResuelta: number | null = null;
+
+    if (empresaDelContexto && (empresasUsuario.length === 0 || empresasUsuario.includes(empresaDelContexto))) {
+      empresaResuelta = empresaDelContexto;
+    } else {
+      // Empresa del contexto no pertenece al usuario → usar la del usuario
+      empresaResuelta = empresasUsuario[0] ?? usuario?.empresa?.id ?? null;
+    }
+
+    if (empresaResuelta && empresaResuelta !== this.empresaIdActual) {
+      this.empresaIdActual = empresaResuelta;
+      this.empleadosOptions = [];
+      this.empleadosCargados = false; // nueva empresa → permitir recarga
       this.cargarEmpleadosEmpresa();
     }
   }
 
   private resolverEmpresaActual(): void {
-    if (this.empresaIdActual) {
-      return;
-    }
+    if (this.empresaIdActual) return;
     const contexto = this.contextoService.getContextoActual();
-    const empresaContexto = contexto?.empresa_id || null;
-    if (empresaContexto) {
-      this.empresaIdActual = empresaContexto;
+    if (contexto?.empresa_id) {
+      this.empresaIdActual = contexto.empresa_id;
       return;
     }
+    // Último recurso: empresa del usuario (solo si el contexto ya cargó y no tiene empresa)
     const usuario = this.authService.currentUser;
-    const empresaUsuario = usuario?.empresa_id || usuario?.empresa?.id || usuario?.empresas?.[0]?.id || null;
-    if (empresaUsuario) {
-      this.empresaIdActual = empresaUsuario;
-    }
+    this.empresaIdActual = usuario?.empresa?.id ?? null;
   }
 
   private cargarEmpleadosEmpresa(): void {
-    if (!this.empresaIdActual) {
-      return;
-    }
+    if (!this.empresaIdActual) return;
+    if (this.isLoadingEmpleados || this.empleadosCargados) return; // evitar duplicados
     this.isLoadingEmpleados = true;
-    this.personaService.buscarEmpleados({
+    this.empleadosPagina = 1;
+    this.personaService.buscarEmpleadosPaginados({
       empresaId: this.empresaIdActual,
-      estado: true
+      estado: true,
+      page: 1,
+      perPage: this.empleadosPerPage
     }).subscribe({
-      next: (empleados) => {
-        const empleadosUI = empleados
-          .filter((empleado) => empleado.estado !== false)
-          .map((empleado) => this.mapEmpleadoUI(empleado));
-        this.empleadosOptions = empleadosUI.map(empleado => ({
-          label: `${empleado.nombre} - ${empleado.cedula}`,
-          value: empleado
-        }));
+      next: (resultado) => {
+        this.empleadosTotalPages = resultado.last_page;
+        this.empleadosOptions = resultado.data
+          .filter(e => e.estado !== false)
+          .map(e => ({ label: `${e.nombre} - ${e.numero_identificacion}`, value: this.mapEmpleadoUI(e) }));
         this.isLoadingEmpleados = false;
+        this.empleadosCargados = true;
       },
       error: () => {
         this.isLoadingEmpleados = false;
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudieron cargar los empleados de la empresa',
-          life: 3000
-        });
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los empleados de la empresa', life: 3000 });
       }
     });
   }
 
   onBuscarEmpleado(termino: string): void {
-    if (!termino || termino.trim() === '') {
-      this.cargarEmpleadosEmpresa();
-      return;
-    }
-    this.resolverEmpresaActual();
     if (!this.empresaIdActual) {
-      return;
+      this.resolverEmpresaActual();
+      if (!this.empresaIdActual) return;
     }
-    this.isLoadingEmpleados = true;
-    this.personaService.buscarEmpleados({
-      empresaId: this.empresaIdActual,
-      termino: termino.trim(),
-      estado: true
-    }).subscribe({
-      next: (empleados) => {
-        const empleadosUI = empleados
-          .filter((empleado) => empleado.estado !== false)
-          .map((empleado) => this.mapEmpleadoUI(empleado));
-        this.empleadosOptions = empleadosUI.map(empleado => ({
-          label: `${empleado.nombre} - ${empleado.cedula}`,
-          value: empleado
-        }));
-        this.isLoadingEmpleados = false;
-      },
-      error: () => {
-        this.isLoadingEmpleados = false;
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudo buscar empleados',
-          life: 3000
-        });
-      }
-    });
+    // Emitir al Subject — el debounce en ngOnInit maneja la petición
+    this.busquedaEmpleado$.next(termino ?? '');
   }
 
   private autocompletarEmpleadoActual(): void {
-    this.resolverEmpresaActual();
+    // No llamar resolverEmpresaActual aquí — puede sobreescribir con empresa incorrecta
+    if (!this.empresaIdActual) {
+      this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'No se pudo determinar la empresa del usuario', life: 3000 });
+      this.esParaMi = false;
+      return;
+    }
     this.personaService.obtenerEmpleadoActual().subscribe({
       next: (empleado) => {
         if (empleado) {
@@ -493,44 +530,29 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   private buscarEmpleadoPorTermino(usuario: any): void {
-    if (!this.empresaIdActual) {
-      return;
-    }
+    if (!this.empresaIdActual) return;
     const termino = usuario?.numero_identificacion || usuario?.documento || usuario?.email || usuario?.name;
     if (!termino) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Advertencia',
-        detail: 'No se encontró información para identificar al empleado',
-        life: 3000
-      });
+      this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'No se encontró información para identificar al empleado', life: 3000 });
       this.esParaMi = false;
       return;
     }
-    this.personaService.buscarEmpleados({
+    this.personaService.buscarEmpleadosPaginados({
       empresaId: this.empresaIdActual,
       termino,
-      estado: true
+      estado: true,
+      page: 1,
+      perPage: 5
     }).subscribe({
-      next: (empleados) => {
-        if (empleados.length === 0) {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'Advertencia',
-            detail: 'No se encontró un empleado asociado al usuario',
-            life: 3000
-          });
+      next: (resultado) => {
+        if (resultado.data.length === 0) {
+          this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'No se encontró un empleado asociado al usuario', life: 3000 });
           this.esParaMi = false;
           return;
         }
-        const empleadoUI = this.mapEmpleadoUI(empleados[0]);
+        const empleadoUI = this.mapEmpleadoUI(resultado.data[0]);
         if (!this.esEmpleadoActivo(empleadoUI)) {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'Advertencia',
-            detail: 'El empleado asociado al usuario está inactivo',
-            life: 3000
-          });
+          this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'El empleado asociado al usuario está inactivo', life: 3000 });
           this.esParaMi = false;
           return;
         }
@@ -538,12 +560,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
         this.usuarioSeleccionado = { ...empleadoUI };
       },
       error: () => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudo autocompletar el empleado',
-          life: 3000
-        });
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo autocompletar el empleado', life: 3000 });
         this.esParaMi = false;
       }
     });
