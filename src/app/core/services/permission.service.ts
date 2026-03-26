@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, map } from 'rxjs';
-import { environment } from '../../environments/environment';
 
 export interface UserPermission {
   codigo: string;
@@ -55,7 +54,7 @@ export class PermissionService {
 
     console.log('✅ Token encontrado, consultando permisos al backend...');
     
-    this.http.get<any>(`${environment.URL_SERVICIOS}/auth/me`).subscribe({
+    this.http.get<any>('/auth/me').subscribe({
       next: (response) => {
         console.log('📦 Respuesta completa del backend:', response);
         console.log('🔑 Permisos del usuario:', response.permissions);

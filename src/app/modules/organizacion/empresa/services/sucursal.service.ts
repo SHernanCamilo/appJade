@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Sucursal {
   id: number;
@@ -25,7 +24,7 @@ export interface CreateSucursalRequest {
   providedIn: 'root'
 })
 export class SucursalService {
-  private apiUrl = environment.URL_SERVICIOS + '/sucursales';
+  private apiUrl = '/sucursales';
 
   constructor(private http: HttpClient) {
     console.log('📡 SucursalService initialized. API URL:', this.apiUrl);
@@ -40,7 +39,7 @@ export class SucursalService {
   }
 
   getSucursalesPorEmpresa(empresaId: number): Observable<Sucursal[]> {
-    return this.http.get<Sucursal[]>(`${environment.URL_SERVICIOS}/sucursales-por-empresa/${empresaId}`);
+    return this.http.get<Sucursal[]>(`/sucursales-por-empresa/${empresaId}`);
   }
 
   createSucursal(sucursal: CreateSucursalRequest): Observable<Sucursal> {

@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Permiso {
   id: number;
@@ -40,8 +39,8 @@ export interface ApiResponse<T> {
   providedIn: 'root'
 })
 export class PermisoService {
-  private apiUrl = `${environment.URL_SERVICIOS}/permisos`;
-  private modulosUrl = `${environment.URL_SERVICIOS}/modulos`;
+  private apiUrl = '/permisos';
+  private modulosUrl = '/modulos';
 
   constructor(private http: HttpClient) {}
 
@@ -70,10 +69,10 @@ export class PermisoService {
   }
 
   getModulos(): Observable<ApiResponse<Modulo[]>> {
-    return this.http.get<ApiResponse<Modulo[]>>(`${environment.URL_SERVICIOS}/modulos`);
+    return this.http.get<ApiResponse<Modulo[]>>('/modulos');
   }
 
   getPermisosPorModulo(): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${environment.URL_SERVICIOS}/permisos-por-modulo`);
+    return this.http.get<ApiResponse<any[]>>('/permisos-por-modulo');
   }
 }

@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Rol {
   id: number;
@@ -61,7 +60,7 @@ export interface ApiResponse<T> {
   providedIn: 'root'
 })
 export class RolService {
-  private apiUrl = `${environment.URL_SERVICIOS}/roles`;
+  private apiUrl = '/roles';
 
   constructor(private http: HttpClient) {}
 
@@ -130,23 +129,15 @@ export class RolService {
    * Obtener roles por empresa
    */
   getRolesPorEmpresa(idEmpresa: number): Observable<Rol[]> {
-    return this.http.get<Rol[]>(`${environment.URL_SERVICIOS}/roles-por-empresa/${idEmpresa}`);
+    return this.http.get<Rol[]>(`/roles-por-empresa/${idEmpresa}`);
   }
 
-  /**
-   * Obtener roles por empresa filtrados por módulos con permisos
-   * Solo devuelve roles cuyos perfiles pertenecen a módulos donde la empresa tiene acceso
-   */
   getRolesPorEmpresaConModulos(idEmpresa: number): Observable<Rol[]> {
-    return this.http.get<Rol[]>(`${environment.URL_SERVICIOS}/roles-por-empresa-modulos/${idEmpresa}`);
+    return this.http.get<Rol[]>(`/roles-por-empresa-modulos/${idEmpresa}`);
   }
 
-  /**
-   * Obtener roles por múltiples empresas filtrados por módulos con permisos
-   * Recibe un array de IDs de empresas y devuelve roles disponibles para esas empresas
-   */
   getRolesPorMultiplesEmpresas(empresasIds: number[]): Observable<any> {
-    return this.http.post<any>(`${environment.URL_SERVICIOS}/roles-por-multiples-empresas`, {
+    return this.http.post<any>('/roles-por-multiples-empresas', {
       empresas: empresasIds
     });
   }

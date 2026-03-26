@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Modulo {
   id: number;
@@ -55,8 +54,8 @@ export interface MatrizPermisos {
   providedIn: 'root'
 })
 export class ModuloService {
-  private apiUrl = `${environment.URL_SERVICIOS}/modulos`;
-  private apiUrlEmpresa = `${environment.URL_SERVICIOS}`;
+  private apiUrl = '/modulos';
+  private apiUrlEmpresa = '';
 
   constructor(private http: HttpClient) {}
 

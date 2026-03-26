@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Tercero {
   id: number;
@@ -21,7 +20,7 @@ export interface Tercero {
   providedIn: 'root'
 })
 export class TerceroService {
-  private apiUrl = `${environment.URL_SERVICIOS}/terceros`;
+  private apiUrl = '/terceros';
 
   constructor(private http: HttpClient) {}
 

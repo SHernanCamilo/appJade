@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { tap, map } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
 import { 
   Template, 
   CreateTemplateDto, 
@@ -14,7 +13,7 @@ import {
   providedIn: 'root'
 })
 export class TemplateService {
-  private apiUrl = `${environment.URL_SERVICIOS}/templates`;
+  private apiUrl = '/templates';
   private templatesCache = new BehaviorSubject<Template[]>([]);
   private cacheTimestamp: number = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutos

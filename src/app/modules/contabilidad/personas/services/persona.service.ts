@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Empleado {
   id: number;
@@ -40,8 +39,8 @@ export interface EmpleadosPaginados {
   providedIn: 'root'
 })
 export class PersonaService {
-  private empleadosUrl = `${environment.URL_SERVICIOS}/empleados`;
-  private personasUrl = `${environment.URL_SERVICIOS}/personas`;
+  private empleadosUrl = '/empleados';
+  private personasUrl  = '/personas';
 
   constructor(private http: HttpClient) {}
 

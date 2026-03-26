@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { environment } from '../environments/environment';
 
 export interface UsuarioDisponible {
   id: number;
@@ -39,7 +38,7 @@ export interface PersonificacionResponse {
   providedIn: 'root'
 })
 export class PersonificarService {
-  private apiUrl = `${environment.URL_SERVICIOS}/personificar`;
+  private apiUrl = '/personificar';
   private personificacionSubject = new BehaviorSubject<PersonificacionData>({ activa: false });
   private estadoVerificado = false;
   

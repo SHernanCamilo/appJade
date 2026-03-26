@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface GrupoParametro {
   id: number;
@@ -47,7 +46,7 @@ export interface PaginatedApiResponse<T> {
   providedIn: 'root'
 })
 export class MatrizObsParametrosService {
-  private apiUrl = `${environment.URL_SERVICIOS}/matriz-obsolescencia`;
+  private apiUrl = '/matriz-obsolescencia';
 
   constructor(private http: HttpClient) {}
 
@@ -155,37 +154,25 @@ export class MatrizObsParametrosService {
    * Iniciar sincronización completa de equipos desde GLPI
    */
   sincronizarEquipos(): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${environment.URL_SERVICIOS}/glpi/sync/force-all`, {});
+    return this.http.post<ApiResponse<any>>('/glpi/sync/force-all', {});
   }
 
-  /**
-   * Cancelar sincronización en curso
-   */
   cancelarSincronizacion(syncId: string): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${environment.URL_SERVICIOS}/glpi/sync/cancel`, { sync_id: syncId });
+    return this.http.post<ApiResponse<any>>('/glpi/sync/cancel', { sync_id: syncId });
   }
 
-  /**
-   * Obtener estado de sincronización
-   */
   getEstadoSincronizacion(syncId: string): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${environment.URL_SERVICIOS}/glpi/sync/status`, {
+    return this.http.get<ApiResponse<any>>('/glpi/sync/status', {
       params: { sync_id: syncId }
     });
   }
 
-  /**
-   * Obtener el estado de la última sincronización activa
-   */
   getLastActiveSyncStatus(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${environment.URL_SERVICIOS}/glpi/sync/last-active-status`);
+    return this.http.get<ApiResponse<any>>('/glpi/sync/last-active-status');
   }
 
-  /**
-   * Sincronizar un activo específico
-   */
   sincronizarActivoEspecifico(assetId: number): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${environment.URL_SERVICIOS}/glpi/sync/single-asset`, {
+    return this.http.post<ApiResponse<any>>('/glpi/sync/single-asset', {
       asset_id: assetId
     });
   }

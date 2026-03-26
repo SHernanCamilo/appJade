@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Usuario {
   id: number;
@@ -27,7 +26,7 @@ export interface CreateUsuarioRequest {
   providedIn: 'root'
 })
 export class UsuarioService {
-  private apiUrl = environment.URL_SERVICIOS + '/users';
+  private apiUrl = '/users';
 
   constructor(private http: HttpClient) {
     console.log('📡 UsuarioService initialized. API URL:', this.apiUrl);

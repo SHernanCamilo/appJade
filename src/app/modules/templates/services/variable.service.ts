@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
 import { Variable, ValidationResult, ValidationError, ApiResponse } from '../interfaces/template.interface';
 import Handlebars from 'handlebars';
 
@@ -10,7 +9,7 @@ import Handlebars from 'handlebars';
   providedIn: 'root'
 })
 export class VariableService {
-  private apiUrl = `${environment.URL_SERVICIOS}/variables`;
+  private apiUrl = '/variables';
   private variablesCache = new BehaviorSubject<Variable[]>([]);
   private cacheLoaded = false;
 

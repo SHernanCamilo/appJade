@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Sede {
   id: number;
@@ -30,7 +29,7 @@ export interface CreateSedeRequest {
   providedIn: 'root'
 })
 export class SedeService {
-  private apiUrl = environment.URL_SERVICIOS + '/sedes';
+  private apiUrl = '/sedes';
 
   constructor(private http: HttpClient) {
     console.log('📡 SedeService initialized. API URL:', this.apiUrl);
@@ -45,11 +44,11 @@ export class SedeService {
   }
 
   getSedesPorSucursal(sucursalId: number): Observable<Sede[]> {
-    return this.http.get<Sede[]>(`${environment.URL_SERVICIOS}/sedes-por-sucursal/${sucursalId}`);
+    return this.http.get<Sede[]>(`/sedes-por-sucursal/${sucursalId}`);
   }
 
   getSedesPorEmpresa(empresaId: number): Observable<Sede[]> {
-    return this.http.get<Sede[]>(`${environment.URL_SERVICIOS}/sedes-por-empresa/${empresaId}`);
+    return this.http.get<Sede[]>(`/sedes-por-empresa/${empresaId}`);
   }
 
   createSede(sede: CreateSedeRequest): Observable<Sede> {

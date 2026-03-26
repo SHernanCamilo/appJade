@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
-import { environment } from '../../../../environments/environment';
 
 export interface ActivoMatriz {
   tipo_unidad: string;
@@ -100,7 +99,7 @@ export interface FiltrosActivos {
   providedIn: 'root'
 })
 export class MatrizObsActivosService {
-  private apiUrl = `${environment.URL_SERVICIOS}/matriz-obs-activos`;
+  private apiUrl = '/matriz-obs-activos';
 
   constructor(private http: HttpClient) {}
 
@@ -140,10 +139,6 @@ export class MatrizObsActivosService {
   }
 
   getActivosPorPermisos(filtros?: FiltrosActivos): Observable<ActivosResponse> {
-    console.log('🌐 === SERVICIO: getActivosPorPermisos ===');
-    console.log('📡 URL base:', this.apiUrl);
-    console.log('🔧 Environment URL_SERVICIOS:', environment.URL_SERVICIOS);
-    
     let params = new HttpParams();
 
     if (filtros) {

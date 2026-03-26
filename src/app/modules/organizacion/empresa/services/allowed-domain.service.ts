@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface AllowedDomain {
   id: number;
@@ -23,7 +22,7 @@ export interface AllowedDomain {
   providedIn: 'root'
 })
 export class AllowedDomainService {
-  private apiUrl = `${environment.URL_SERVICIOS}/allowed-domains`;
+  private apiUrl = '/allowed-domains';
 
   constructor(private http: HttpClient) {}
 

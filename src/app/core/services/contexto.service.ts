@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, map, tap } from 'rxjs';
-import { environment } from '../../environments/environment';
 
 export interface Contexto {
   id: number;
@@ -49,7 +48,7 @@ export interface Sede {
   providedIn: 'root'
 })
 export class ContextoService {
-  private apiUrl = `${environment.URL_SERVICIOS}/contexto`;
+  private apiUrl = '/contexto';
   private contextoSubject = new BehaviorSubject<Contexto | null>(null);
   public contexto$ = this.contextoSubject.asObservable();
 

@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap, catchError } from 'rxjs/operators';
 import { throwError, BehaviorSubject, Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
 import { PermissionService } from '../../core/services/permission.service';
 import { TokenService } from '../../core/services/token.service';
 import { SidebarService, ModuloSidebar } from '../../complements/shared/sidebar/sidebar.service';
@@ -18,7 +17,7 @@ interface LoginResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private apiUrl = environment.URL_SERVICIOS + '/auth';
+  private apiUrl = '/auth';
   private currentUserSubject = new BehaviorSubject<any>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 

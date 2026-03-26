@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
 
 export interface MenuItem {
   id: number;
@@ -32,7 +31,7 @@ export class MenuService {
       return;
     }
 
-    this.http.get<any>(`${environment.URL_SERVICIOS}/auth/modulos`).subscribe({
+    this.http.get<any>('/auth/modulos').subscribe({
       next: (response) => {
         console.log('Menú del usuario:', response.data);
         this.menuItemsSubject.next(response.data || []);

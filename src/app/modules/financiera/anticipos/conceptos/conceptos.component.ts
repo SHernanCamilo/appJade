@@ -33,7 +33,6 @@ import {
 } from '../services/anticipo-concepto.service';
 import { ContextoService } from '../../../../core/services/contexto.service';
 import { AuthService } from '../../../auth/auth.service';
-import { environment } from '../../../../environments/environment';
 
 interface ConceptoForm {
   id_tipo: number | null;
@@ -227,7 +226,7 @@ export class ConceptosAnticiposComponent implements OnInit, OnDestroy {
     const params = new HttpParams()
       .set('id_empresa', this.empresaIdActual.toString())
       .set('buscar', termino);
-    this.http.get<any>(`${environment.URL_SERVICIOS}/empleados`, { params }).subscribe({
+    this.http.get<any>('/empleados', { params }).subscribe({
       next: (response) => {
         const empleados = this.normalizarEmpleados(response);
         if (empleados.length > 0) {

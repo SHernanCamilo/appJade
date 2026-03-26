@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface Perfil {
   id: number;
@@ -52,7 +51,7 @@ export interface ApiResponse<T> {
   providedIn: 'root'
 })
 export class PerfilService {
-  private apiUrl = `${environment.URL_SERVICIOS}/perfiles`;
+  private apiUrl = '/perfiles';
 
   constructor(private http: HttpClient) {}
 
@@ -104,20 +103,14 @@ export class PerfilService {
    * Obtener perfiles agrupados por módulo
    */
   getPerfilesPorModulo(): Observable<any[]> {
-    return this.http.get<any[]>(`${environment.URL_SERVICIOS}/perfiles-por-modulo`);
+    return this.http.get<any[]>('/perfiles-por-modulo');
   }
 
-  /**
-   * Obtener perfiles de un módulo específico
-   */
   getPerfilesDeModulo(idModulo: number): Observable<any> {
-    return this.http.get<any>(`${environment.URL_SERVICIOS}/perfiles-modulo/${idModulo}`);
+    return this.http.get<any>(`/perfiles-modulo/${idModulo}`);
   }
 
-  /**
-   * Obtener permisos disponibles para un módulo
-   */
   getPermisosDisponibles(idModulo: number): Observable<any> {
-    return this.http.get<any>(`${environment.URL_SERVICIOS}/permisos-disponibles/${idModulo}`);
+    return this.http.get<any>(`/permisos-disponibles/${idModulo}`);
   }
 }

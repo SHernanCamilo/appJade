@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, from } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
-import { environment } from '../../environments/environment';
 
 interface MicrosoftAuthResponse {
   message: string;
@@ -39,7 +38,7 @@ interface MicrosoftAuthUrlResponse {
   providedIn: 'root'
 })
 export class MicrosoftAuthService {
-  private apiUrl = environment.URL_SERVICIOS + '/auth/microsoft';
+  private apiUrl = '/auth/microsoft';
   private popupWindow: Window | null = null;
 
   constructor(

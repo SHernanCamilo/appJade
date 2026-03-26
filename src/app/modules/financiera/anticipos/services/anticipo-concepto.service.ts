@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 
 export interface AntiTipo {
   id: number;
@@ -71,7 +70,7 @@ export interface PaginatedResponse<T> {
   providedIn: 'root'
 })
 export class AnticipoConceptoService {
-  private apiUrl = `${environment.URL_SERVICIOS}/anticipos`;
+  private apiUrl = '/anticipos';
 
   constructor(private http: HttpClient) {}
 
