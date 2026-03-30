@@ -20,7 +20,8 @@ export class FinancieraComponent {
       color: 'primary',
       items: [
         { name: 'Conceptos de Anticipos', route: '/financiera/anticipos/conceptos', icon: 'bi-list-ul' },
-        { name: 'Solicitudes de Anticipos', route: '/financiera/anticipos/solicitudes', icon: 'bi-file-earmark-text' }
+        { name: 'Solicitudes de Anticipos', route: '/financiera/anticipos/solicitudes', icon: 'bi-file-earmark-text' },
+        { name: 'Configuración de Flujos', route: '/financiera/anticipos/configuracion', icon: 'bi-gear' }
       ]
     }
   ];

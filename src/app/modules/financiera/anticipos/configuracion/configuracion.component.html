@@ -1,0 +1,178 @@
+<div class="page-container">
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/financiera">
+        <i class="bi bi-arrow-left"></i>
+        <span>Volver a Financiera</span>
+      </button>
+    </div>
+    
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-gear-fill me-2" style="color: #8b5cf6;"></i>
+          Configuración de Flujos
+        </h1>
+        <p class="page-subtitle-modern">
+          Administración del motor de flujos parametrizable para anticipos
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="dashboard-content">
+    
+    <!-- Tabs -->
+    <p-tabView [(activeIndex)]="activeTabIndex">
+      
+      <!-- TAB 1: FLUJOS -->
+      <p-tabPanel header="Flujos" leftIcon="bi bi-diagram-3">
+        <div class="tab-content">
+          
+          <!-- Tabla de Flujos -->
+          <div class="table-section">
+            <div class="table-header">
+              <h2>
+                <i class="bi bi-diagram-3 me-2"></i>
+                Definiciones de Flujo
+              </h2>
+              <button class="btn-action btn-action-primary" (click)="mostrarModalFlujo = true">
+                <i class="bi bi-plus-lg"></i>
+                <span>Nuevo Flujo</span>
+              </button>
+            </div>
+
+            <div class="modern-table-container">
+              <p-table 
+                [value]="flujos" 
+                [loading]="isLoading"
+                styleClass="modern-table"
+                [paginator]="true"
+                [rows]="10"
+                [totalRecords]="totalFlujos"
+                [rowsPerPageOptions]="[10, 20, 50]">
+                
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th style="width: 15%">Código</th>
+                    <th style="width: 25%">Nombre</th>
+                    <th style="width: 15%">Módulo</th>
+                    <th style="width: 15%">Empresa</th>
+                    <th style="width: 10%">Estado</th>
+                    <th style="width: 20%">Acciones</th>
+                  </tr>
+                </ng-template>
+                
+                <ng-template pTemplate="body" let-flujo>
+                  <tr>
+                    <td><span class="text-monospace">{{ flujo.codigo }}</span></td>
+                    <td>{{ flujo.nombre }}</td>
+                    <td><p-tag [value]="flujo.modulo" severity="info"></p-tag></td>
+                    <td>{{ flujo.id_empresa ? 'Específica' : 'Todas' }}</td>
+                    <td>
+                      <p-tag 
+                        [value]="getEstadoTexto(flujo.estado)" 
+                        [severity]="getSeverity(flujo.estado)">
+                      </p-tag>
+                    </td>
+                    <td>
+                      <div class="action-buttons">
+                        <button 
+                          class="btn-action-icon btn-action-primary" 
+                          (click)="seleccionarFlujo(flujo)"
+                          pTooltip="Ver detalles">
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button 
+                          class="btn-action-icon btn-action-success" 
+                          pTooltip="Editar">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </ng-template>
+                
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem;">
+                      <i class="bi bi-inbox" style="font-size: 3rem; color: #d1d5db;"></i>
+                      <p style="color: #6b7280; margin-top: 1rem;">No hay flujos configurados</p>
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+
+          <!-- Detalle del Flujo Seleccionado -->
+          <div class="flujo-detalle-card" *ngIf="flujoSeleccionado">
+            <h3>
+              <i class="bi bi-info-circle me-2"></i>
+              Detalle del Flujo: {{ flujoSeleccionado.nombre }}
+            </h3>
+            
+            <p-accordion [multiple]="true" [activeIndex]="[0, 1]">
+              <!-- Pasos -->
+              <p-accordionTab header="Pasos del Flujo">
+                <div class="pasos-lista">
+                  <div class="paso-item" *ngFor="let paso of pasos">
+                    <div class="paso-orden">{{ paso.orden }}</div>
+                    <div class="paso-info">
+                      <div class="paso-nombre">{{ paso.nombre_paso }}</div>
+                      <div class="paso-rol">Rol: {{ paso.rol_aprobador }}</div>
+                    </div>
+                    <div class="paso-badges">
+                      <span class="badge-opcional" *ngIf="paso.es_opcional">Opcional</span>
+                      <span class="badge-rechazo" *ngIf="paso.permite_rechazo">Permite Rechazo</span>
+                    </div>
+                  </div>
+                </div>
+              </p-accordionTab>
+
+              <!-- Reglas -->
+              <p-accordionTab header="Reglas de Asignación">
+                <div class="reglas-lista">
+                  <div class="regla-item" *ngFor="let regla of reglas">
+                    <div class="regla-prioridad">
+                      <i class="bi bi-star-fill"></i>
+                      {{ regla.prioridad }}
+                    </div>
+                    <div class="regla-info">
+                      <div class="regla-descripcion">{{ regla.descripcion || 'Sin descripción' }}</div>
+                      <div class="regla-condiciones">{{ formatCondiciones(regla.condiciones) }}</div>
+                    </div>
+                    <div class="regla-estado">
+                      <p-tag 
+                        [value]="getEstadoTexto(regla.estado)" 
+                        [severity]="getSeverity(regla.estado)">
+                      </p-tag>
+                    </div>
+                  </div>
+                </div>
+              </p-accordionTab>
+            </p-accordion>
+          </div>
+
+        </div>
+      </p-tabPanel>
+
+      <!-- TAB 2: MONITOREO -->
+      <p-tabPanel header="Monitoreo" leftIcon="bi bi-activity">
+        <div class="tab-content">
+          <p class="text-muted">Monitoreo de instancias de flujo en tiempo real (próximamente)</p>
+        </div>
+      </p-tabPanel>
+
+    </p-tabView>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<p-toast></p-toast>
+
+<!-- Confirm Dialog -->
+<p-confirmDialog></p-confirmDialog>

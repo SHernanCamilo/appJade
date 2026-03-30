@@ -22,6 +22,11 @@ export const FINANCIERA_ROUTES: Routes = [
         path: 'solicitudes',
         loadComponent: () => import('./anticipos/solicitudes/solicitudes.component')
           .then(m => m.SolicitudesAnticiposComponent)
+      },
+      {
+        path: 'configuracion',
+        loadComponent: () => import('./anticipos/configuracion/configuracion.component')
+          .then(m => m.ConfiguracionAnticiposComponent)
       }
     ]
   }

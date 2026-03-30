@@ -282,6 +282,120 @@
       <div *ngIf="motivoSeleccionado === 'viaje'" class="form-section mb-2">
         <h4 class="subsection-title mb-2">Detalles del Viaje</h4>
         
+        <!-- Ciudad Destino y Cobertura -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label-compact">Ciudad Destino</label>
+            <p-dropdown
+              [options]="ciudadesOptions"
+              [(ngModel)]="ciudadSeleccionada"
+              (onChange)="onCiudadChange($event.value)"
+              optionLabel="nombre"
+              [filter]="true"
+              filterBy="nombre,departamento"
+              placeholder="Seleccione ciudad"
+              styleClass="w-100"
+              [showClear]="true">
+              <ng-template let-ciudad pTemplate="item">
+                <div class="ciudad-item">
+                  <span class="ciudad-nombre">{{ ciudad.nombre }}</span>
+                  <span class="ciudad-depto">({{ ciudad.departamento }})</span>
+                  <span class="badge-tipo-ciudad tipo-{{ ciudad.tipo_ciudad }}">{{ ciudad.tipo_ciudad }}</span>
+                </div>
+              </ng-template>
+            </p-dropdown>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-compact">Cobertura</label>
+            <p-dropdown
+              [options]="[{label: 'Nacional', value: 'nacional'}, {label: 'Internacional', value: 'internacional'}]"
+              [(ngModel)]="formularioViaje.cobertura"
+              (onChange)="calcularTopesAutomatico()"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccione cobertura"
+              styleClass="w-100">
+            </p-dropdown>
+          </div>
+        </div>
+
+        <!-- Fechas del Viaje -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label-compact">Fecha Salida</label>
+            <p-calendar 
+              [(ngModel)]="formularioViaje.fechaSalida"
+              (onSelect)="onFechaSalidaChange()"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              placeholder="dd/mm/aaaa"
+              styleClass="w-100"
+              [inputStyle]="{'padding': '0.5rem'}">
+            </p-calendar>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-compact">Fecha Regreso</label>
+            <p-calendar 
+              [(ngModel)]="formularioViaje.fechaRegreso"
+              (onSelect)="onFechaRegresoChange()"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              placeholder="dd/mm/aaaa"
+              styleClass="w-100"
+              [inputStyle]="{'padding': '0.5rem'}"
+              [disabled]="!formularioViaje.fechaSalida"
+              [minDate]="formularioViaje.fechaSalida">
+            </p-calendar>
+          </div>
+        </div>
+
+        <!-- Card de Topes Calculados -->
+        <div *ngIf="topesCalculados" class="topes-card mb-3">
+          <div class="topes-header">
+            <h5>
+              <i class="pi pi-calculator me-2"></i>
+              Topes Calculados
+            </h5>
+            <span class="badge-dias">{{ topesCalculados.dias_viaje }} días</span>
+          </div>
+          <div class="topes-body">
+            <div class="row g-2">
+              <div class="col-md-6">
+                <div class="tope-item">
+                  <span class="tope-label">Alimentación Diaria:</span>
+                  <span class="tope-valor">{{ formatCurrency(topesCalculados.topes_alimentacion.total_diario) }}</span>
+                </div>
+                <div class="tope-item-small">
+                  <span>Desayuno: {{ formatCurrency(topesCalculados.topes_alimentacion.desayuno_diario) }}</span>
+                  <span>Almuerzo: {{ formatCurrency(topesCalculados.topes_alimentacion.almuerzo_diario) }}</span>
+                  <span>Cena: {{ formatCurrency(topesCalculados.topes_alimentacion.cena_diario) }}</span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="tope-item">
+                  <span class="tope-label">Transporte Interno Diario:</span>
+                  <span class="tope-valor">{{ formatCurrency(topesCalculados.topes_transporte.transporte_interno_diario) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="topes-total">
+              <span class="total-label">Monto Total Estimado:</span>
+              <span class="total-valor">{{ formatCurrency(topesCalculados.monto_total_estimado) }}</span>
+            </div>
+            <div *ngIf="topesCalculados.flujo_asignado" class="flujo-info">
+              <i class="pi pi-sitemap me-2"></i>
+              <span>Flujo: {{ topesCalculados.flujo_asignado.nombre }}</span>
+              <span class="badge-pasos">{{ topesCalculados.flujo_asignado.pasos.length }} pasos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicador de cálculo en progreso -->
+        <div *ngIf="isCalculandoTopes" class="calculando-topes mb-3">
+          <i class="pi pi-spin pi-spinner me-2"></i>
+          Calculando topes...
+        </div>
+        
         <!-- Grid compacto de 2 columnas -->
         <div class="row g-2 mb-2">
           <!-- Pasaje Intermunicipal -->
@@ -435,52 +549,17 @@
           <span class="total-amount">{{ calcularTotalViaje() | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
         </div>
 
-        <!-- Motivo, Destino y Fechas -->
+        <!-- Motivo del Viaje -->
         <div class="row g-2">
-          <div class="col-md-6">
-            <label class="form-label-compact">Motivo</label>
+          <div class="col-md-12">
+            <label class="form-label-compact">Motivo del Viaje</label>
             <input 
               type="text" 
               pInputText 
               [(ngModel)]="formularioViaje.motivo"
-              placeholder="Ej: REUNIÓN NACIONAL"
+              placeholder="Ej: REUNIÓN NACIONAL, CAPACITACIÓN, VISITA CLIENTE"
               class="w-100"
               style="padding: 0.5rem;">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label-compact">Destino</label>
-            <input 
-              type="text" 
-              pInputText 
-              [(ngModel)]="formularioViaje.destino"
-              placeholder="Ej: BOGOTÁ"
-              class="w-100"
-              style="padding: 0.5rem;">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label-compact">Fecha Salida</label>
-            <p-calendar 
-              [(ngModel)]="formularioViaje.fechaSalida"
-              (onSelect)="onFechaSalidaChange()"
-              dateFormat="dd/mm/yy"
-              [showIcon]="true"
-              placeholder="dd/mm/aaaa"
-              styleClass="w-100"
-              [inputStyle]="{'padding': '0.5rem'}">
-            </p-calendar>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label-compact">Fecha Regreso</label>
-            <p-calendar 
-              [(ngModel)]="formularioViaje.fechaRegreso"
-              dateFormat="dd/mm/yy"
-              [showIcon]="true"
-              placeholder="dd/mm/aaaa"
-              styleClass="w-100"
-              [inputStyle]="{'padding': '0.5rem'}"
-              [disabled]="!formularioViaje.fechaSalida"
-              [minDate]="formularioViaje.fechaSalida">
-            </p-calendar>
           </div>
         </div>
       </div>

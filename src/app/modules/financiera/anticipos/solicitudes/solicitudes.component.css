@@ -694,3 +694,171 @@
   font-size: 0.813rem;
   padding: 0.5rem;
 }
+
+/* Topes Calculados Card */
+.topes-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.topes-header {
+  background: #10b981;
+  color: white;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topes-header h5 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.badge-dias {
+  background: rgba(255, 255, 255, 0.25);
+  padding: 0.25rem 0.625rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.topes-body {
+  padding: 1rem;
+}
+
+.tope-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #d1fae5;
+  margin-bottom: 0.5rem;
+}
+
+.tope-label {
+  font-size: 0.813rem;
+  font-weight: 500;
+  color: #065f46;
+}
+
+.tope-valor {
+  font-size: 0.938rem;
+  font-weight: 700;
+  color: #047857;
+}
+
+.tope-item-small {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tope-item-small span {
+  font-size: 0.75rem;
+  color: #059669;
+}
+
+.topes-total {
+  background: white;
+  border: 2px solid #10b981;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.total-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.total-valor {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #047857;
+}
+
+.flujo-info {
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: white;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-pasos {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* Indicador de cálculo */
+.calculando-topes {
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #1e40af;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+/* Estilos para dropdown de ciudades */
+:host ::ng-deep .p-dropdown-item .ciudad-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ciudad-nombre {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.ciudad-depto {
+  color: #6b7280;
+  font-size: 0.813rem;
+}
+
+.badge-tipo-ciudad {
+  margin-left: auto;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.688rem;
+  font-weight: 700;
+}
+
+.badge-tipo-ciudad.tipo-A {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-tipo-ciudad.tipo-B {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-tipo-ciudad.tipo-C {
+  background: #fee2e2;
+  color: #991b1b;
+}

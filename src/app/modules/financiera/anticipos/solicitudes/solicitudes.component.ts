@@ -24,6 +24,9 @@ import { FileUploadModule } from 'primeng/fileupload';
 import { ContextoService } from '../../../../core/services/contexto.service';
 import { AuthService } from '../../../auth/auth.service';
 import { PersonaService, Empleado } from '../../../contabilidad/personas/services/persona.service';
+import { AnticipoSolicitudService } from '../services/anticipo-solicitud.service';
+import { AnticipoC iudadService } from '../services/anticipo-ciudad.service';
+import { Ciudad, CalculoTopesResponse } from '../models/anticipo.models';
 
 interface EmpleadoUI {
   id: number;
@@ -89,10 +92,18 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   private empleadosPagina = 1;
   private empleadosPerPage = 30;
   private empleadosTotalPages = 1;
-  private empleadosCargados = false; // guard para evitar cargas duplicadas
+  private empleadosCargados = false;
 
   // Motivo del anticipo
   motivoSeleccionado: 'viaje' | 'otros' | null = null;
+
+  // Ciudades disponibles
+  ciudadesOptions: Ciudad[] = [];
+  ciudadSeleccionada: Ciudad | null = null;
+
+  // Topes calculados
+  topesCalculados: CalculoTopesResponse | null = null;
+  isCalculandoTopes = false;
 
   // Formulario Viaje
   formularioViaje = {
@@ -101,9 +112,9 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     alimentacion: { cantidad: 1, valor: 0 },
     hospedaje: { cantidad: 1, valor: 0 },
     motivo: '',
-    destino: '',
     fechaSalida: null as Date | null,
-    fechaRegreso: null as Date | null
+    fechaRegreso: null as Date | null,
+    cobertura: 'nacional' as 'nacional' | 'internacional'
   };
 
   // Formulario Otros Conceptos
@@ -132,13 +143,17 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     private messageService: MessageService,
     private contextoService: ContextoService,
     private authService: AuthService,
-    private personaService: PersonaService
+    private personaService: PersonaService,
+    private anticipoSolicitudService: AnticipoSolicitudService,
+    private ciudadService: AnticipoC iudadService
   ) { }
 
   ngOnInit(): void {
     this.iniciarContexto();
     this.loadSolicitudes();
-    // Debounce en búsqueda de empleados: espera 400ms antes de llamar al backend
+    this.cargarCiudades();
+    
+    // Debounce en búsqueda de empleados
     this.subscriptions.push(
       this.busquedaEmpleado$.pipe(
         debounceTime(400),
@@ -175,40 +190,64 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Cargar ciudades disponibles
+   */
+  cargarCiudades(): void {
+    this.ciudadService.getCiudades().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.ciudadesOptions = response.data.filter(c => c.estado);
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando ciudades:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar las ciudades',
+          life: 3000
+        });
+      }
+    });
+  }
+
+  /**
    * Cargar solicitudes
    */
   loadSolicitudes(): void {
     this.isLoading = true;
 
-    // Simulación de carga de datos
-    setTimeout(() => {
-      this.solicitudes = [];
-      this.totalRecords = 0;
-      this.isLoading = false;
-    }, 1000);
+    this.anticipoSolicitudService.listarSolicitudes({
+      estado: this.selectedEstado || undefined,
+      page: 1,
+      per_page: 20
+    }).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.solicitudes = response.data;
+          this.totalRecords = response.total;
+        }
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error cargando solicitudes:', error);
+        this.solicitudes = [];
+        this.totalRecords = 0;
+        this.isLoading = false;
+      }
+    });
   }
 
-  /**
-   * Aplicar filtros
-   */
   aplicarFiltros(): void {
     this.loadSolicitudes();
   }
 
-  /**
-   * Limpiar filtros
-   */
   limpiarFiltros(): void {
     this.selectedEstado = null;
     this.searchTerm = '';
     this.loadSolicitudes();
   }
 
-  /**
-   * Abrir modal de nueva solicitud.
-   * La empresa ya fue resuelta por iniciarContexto() via contexto$.
-   * Si aún no hay empresa (contexto tardó), intentar resolverla ahora.
-   */
   abrirNuevaSolicitud(): void {
     this.displayNuevaSolicitud = true;
     this.resetFormulario();
@@ -217,42 +256,35 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       this.resolverEmpresaActual();
     }
 
-    // Solo cargar si no hay empleados y no está en proceso de carga
     if (this.empleadosOptions.length === 0 && this.empresaIdActual && !this.isLoadingEmpleados) {
       this.empleadosCargados = false;
       this.cargarEmpleadosEmpresa();
     }
   }
 
-  /**
-   * Cerrar modal de nueva solicitud
-   */
   cerrarNuevaSolicitud(): void {
     this.displayNuevaSolicitud = false;
     this.resetFormulario();
   }
 
-  /**
-   * Reset formulario
-   */
   resetFormulario(): void {
     this.esParaMi = false;
     this.usuarioSeleccionado = null;
     this.motivoSeleccionado = null;
+    this.ciudadSeleccionada = null;
+    this.topesCalculados = null;
 
-    // Reset formulario viaje
     this.formularioViaje = {
       pasajeIntermunicipal: { cantidad: 1, valor: 0 },
       transporteInterno: { cantidad: 1, valor: 0 },
       alimentacion: { cantidad: 1, valor: 0 },
       hospedaje: { cantidad: 1, valor: 0 },
       motivo: '',
-      destino: '',
       fechaSalida: null,
-      fechaRegreso: null
+      fechaRegreso: null,
+      cobertura: 'nacional'
     };
 
-    // Reset formulario otros
     this.formularioOtros = {
       moneda: 'pesos',
       valor: 0,
@@ -261,9 +293,6 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     };
   }
 
-  /**
-   * Cambio en checkbox "Es para mi"
-   */
   onEsParaMiChange(): void {
     if (this.esParaMi) {
       this.autocompletarEmpleadoActual();
@@ -272,16 +301,10 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Seleccionar motivo
-   */
   seleccionarMotivo(motivo: 'viaje' | 'otros'): void {
     this.motivoSeleccionado = motivo;
   }
 
-  /**
-   * Calcular total viaje
-   */
   calcularTotalViaje(): number {
     const { pasajeIntermunicipal, transporteInterno, alimentacion, hospedaje } = this.formularioViaje;
     return (
@@ -292,27 +315,17 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     );
   }
 
-  /**
-   * Incrementar cantidad de un concepto
-   */
   incrementarCantidad(concepto: 'pasajeIntermunicipal' | 'transporteInterno' | 'alimentacion' | 'hospedaje'): void {
     this.formularioViaje[concepto].cantidad++;
   }
 
-  /**
-   * Decrementar cantidad de un concepto
-   */
   decrementarCantidad(concepto: 'pasajeIntermunicipal' | 'transporteInterno' | 'alimentacion' | 'hospedaje'): void {
     if (this.formularioViaje[concepto].cantidad > 1) {
       this.formularioViaje[concepto].cantidad--;
     }
   }
 
-  /**
-   * Manejar cambio de fecha de salida
-   */
   onFechaSalidaChange(): void {
-    // Si hay una fecha de regreso y es menor que la fecha de salida, limpiarla
     if (this.formularioViaje.fechaRegreso && this.formularioViaje.fechaSalida) {
       if (this.formularioViaje.fechaRegreso < this.formularioViaje.fechaSalida) {
         this.formularioViaje.fechaRegreso = null;
@@ -324,29 +337,109 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
         });
       }
     }
+    this.calcularTopesAutomatico();
   }
 
-  /**
-   * Manejar selección de archivos
-   */
-  onFileSelect(event: any): void {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      this.formularioOtros.archivos = Array.from(files);
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Archivos cargados',
-        detail: `${files.length} archivo(s) seleccionado(s)`,
-        life: 3000
-      });
+  onFechaRegresoChange(): void {
+    this.calcularTopesAutomatico();
+  }
+
+  onCiudadChange(ciudad: Ciudad | null): void {
+    this.ciudadSeleccionada = ciudad;
+    this.calcularTopesAutomatico();
+  }
+
+  private calcularTopesAutomatico(): void {
+    if (
+      this.usuarioSeleccionado &&
+      this.ciudadSeleccionada &&
+      this.formularioViaje.fechaSalida &&
+      this.formularioViaje.fechaRegreso
+    ) {
+      this.calcularTopes();
     }
   }
 
-  /**
-   * Guardar solicitud
-   */
+  calcularTopes(): void {
+    if (!this.usuarioSeleccionado || !this.ciudadSeleccionada) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Advertencia',
+        detail: 'Debe seleccionar empleado y ciudad destino',
+        life: 3000
+      });
+      return;
+    }
+
+    if (!this.formularioViaje.fechaSalida || !this.formularioViaje.fechaRegreso) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Advertencia',
+        detail: 'Debe seleccionar fechas de salida y regreso',
+        life: 3000
+      });
+      return;
+    }
+
+    this.isCalculandoTopes = true;
+
+    const request = {
+      id_empleado: this.usuarioSeleccionado.id,
+      id_ciudad_destino: this.ciudadSeleccionada.id,
+      fecha_salida: this.formatDate(this.formularioViaje.fechaSalida),
+      fecha_regreso: this.formatDate(this.formularioViaje.fechaRegreso),
+      cobertura: this.formularioViaje.cobertura
+    };
+
+    this.anticipoSolicitudService.calcularTopes(request).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.topesCalculados = response.data;
+          
+          this.formularioViaje.alimentacion.cantidad = this.topesCalculados.dias_viaje;
+          this.formularioViaje.alimentacion.valor = this.topesCalculados.topes_alimentacion.total_diario;
+          
+          this.formularioViaje.transporteInterno.cantidad = this.topesCalculados.dias_viaje;
+          this.formularioViaje.transporteInterno.valor = this.topesCalculados.topes_transporte.transporte_interno_diario;
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Topes calculados',
+            detail: `Monto estimado: ${this.formatCurrency(this.topesCalculados.monto_total_estimado)}`,
+            life: 4000
+          });
+        }
+        this.isCalculandoTopes = false;
+      },
+      error: (error) => {
+        console.error('Error calculando topes:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.error?.message || 'No se pudieron calcular los topes',
+          life: 3000
+        });
+        this.isCalculandoTopes = false;
+      }
+    });
+  }
+
+  private formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  formatCurrency(value: number): string {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0
+    }).format(value);
+  }
+
   guardarSolicitud(): void {
-    // Validaciones
     if (!this.usuarioSeleccionado) {
       this.messageService.add({
         severity: 'warn',
@@ -361,22 +454,157 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       this.messageService.add({
         severity: 'warn',
         summary: 'Advertencia',
-        detail: 'Debe seleccionar un motivo (Viaje u Otros Conceptos)',
+        detail: 'Debe seleccionar un motivo',
         life: 3000
       });
       return;
     }
 
-    // Aquí iría la lógica para guardar en el backend
+    if (this.motivoSeleccionado === 'viaje') {
+      if (!this.ciudadSeleccionada) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Advertencia',
+          detail: 'Debe seleccionar una ciudad destino',
+          life: 3000
+        });
+        return;
+      }
+
+      if (!this.formularioViaje.fechaSalida || !this.formularioViaje.fechaRegreso) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Advertencia',
+          detail: 'Debe seleccionar fechas de salida y regreso',
+          life: 3000
+        });
+        return;
+      }
+
+      if (!this.formularioViaje.motivo || this.formularioViaje.motivo.trim() === '') {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Advertencia',
+          detail: 'Debe ingresar el motivo del viaje',
+          life: 3000
+        });
+        return;
+      }
+
+      this.crearSolicitudViaje();
+    } else {
+      this.crearSolicitudOtros();
+    }
+  }
+
+  private crearSolicitudViaje(): void {
+    const items = [];
+
+    if (this.formularioViaje.pasajeIntermunicipal.valor > 0) {
+      items.push({
+        id_concepto: 1,
+        descripcion: 'Pasaje Intermunicipal',
+        cantidad: this.formularioViaje.pasajeIntermunicipal.cantidad,
+        valor_unitario: this.formularioViaje.pasajeIntermunicipal.valor,
+        valor_total: this.formularioViaje.pasajeIntermunicipal.cantidad * this.formularioViaje.pasajeIntermunicipal.valor
+      });
+    }
+
+    if (this.formularioViaje.transporteInterno.valor > 0) {
+      items.push({
+        id_concepto: 2,
+        descripcion: 'Transporte Interno',
+        cantidad: this.formularioViaje.transporteInterno.cantidad,
+        valor_unitario: this.formularioViaje.transporteInterno.valor,
+        valor_total: this.formularioViaje.transporteInterno.cantidad * this.formularioViaje.transporteInterno.valor
+      });
+    }
+
+    if (this.formularioViaje.alimentacion.valor > 0) {
+      items.push({
+        id_concepto: 3,
+        descripcion: 'Alimentación',
+        cantidad: this.formularioViaje.alimentacion.cantidad,
+        valor_unitario: this.formularioViaje.alimentacion.valor,
+        valor_total: this.formularioViaje.alimentacion.cantidad * this.formularioViaje.alimentacion.valor
+      });
+    }
+
+    if (this.formularioViaje.hospedaje.valor > 0) {
+      items.push({
+        id_concepto: 4,
+        descripcion: 'Hospedaje',
+        cantidad: this.formularioViaje.hospedaje.cantidad,
+        valor_unitario: this.formularioViaje.hospedaje.valor,
+        valor_total: this.formularioViaje.hospedaje.cantidad * this.formularioViaje.hospedaje.valor
+      });
+    }
+
+    if (items.length === 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Advertencia',
+        detail: 'Debe agregar al menos un concepto con valor mayor a 0',
+        life: 3000
+      });
+      return;
+    }
+
+    const request = {
+      id_empleado: this.usuarioSeleccionado!.id,
+      id_ciudad_destino: this.ciudadSeleccionada!.id,
+      fecha_salida: this.formatDate(this.formularioViaje.fechaSalida!),
+      fecha_regreso: this.formatDate(this.formularioViaje.fechaRegreso!),
+      motivo: this.formularioViaje.motivo,
+      cobertura: this.formularioViaje.cobertura,
+      items
+    };
+
+    this.anticipoSolicitudService.crearSolicitud(request).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: response.message || 'Solicitud creada correctamente',
+            life: 3000
+          });
+          this.cerrarNuevaSolicitud();
+          this.loadSolicitudes();
+        }
+      },
+      error: (error) => {
+        console.error('Error creando solicitud:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.error?.message || 'No se pudo crear la solicitud',
+          life: 3000
+        });
+      }
+    });
+  }
+
+  private crearSolicitudOtros(): void {
     this.messageService.add({
-      severity: 'success',
-      summary: 'Éxito',
-      detail: 'Solicitud creada correctamente',
+      severity: 'info',
+      summary: 'En desarrollo',
+      detail: 'Funcionalidad de otros conceptos en desarrollo',
       life: 3000
     });
+  }
 
-    this.cerrarNuevaSolicitud();
-    this.loadSolicitudes();
+  onFileSelect(event: any): void {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      this.formularioOtros.archivos = Array.from(files);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Archivos cargados',
+        detail: `${files.length} archivo(s) seleccionado(s)`,
+        life: 3000
+      });
+    }
   }
 
   onEmpleadoSeleccionado(empleado: EmpleadoUI | null): void {
@@ -392,19 +620,18 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
         return;
       }
       this.usuarioSeleccionado = empleado;
+      this.calcularTopesAutomatico();
     }
   }
 
   private iniciarContexto(): void {
-    // Combinar contexto + usuario para resolver empresa correctamente
     this.subscriptions.push(
       this.contextoService.contexto$.subscribe(ctx => {
-        if (ctx === null) return; // Aún cargando
+        if (ctx === null) return;
         this.resolverEmpresaDesdeContexto(ctx);
       })
     );
 
-    // Si el usuario llega después (carga async), reintentar con el contexto actual
     this.subscriptions.push(
       this.authService.currentUser$.subscribe(usuario => {
         if (!usuario) return;
@@ -424,14 +651,13 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     if (empresaDelContexto && (empresasUsuario.length === 0 || empresasUsuario.includes(empresaDelContexto))) {
       empresaResuelta = empresaDelContexto;
     } else {
-      // Empresa del contexto no pertenece al usuario → usar la del usuario
       empresaResuelta = empresasUsuario[0] ?? usuario?.empresa?.id ?? null;
     }
 
     if (empresaResuelta && empresaResuelta !== this.empresaIdActual) {
       this.empresaIdActual = empresaResuelta;
       this.empleadosOptions = [];
-      this.empleadosCargados = false; // nueva empresa → permitir recarga
+      this.empleadosCargados = false;
       this.cargarEmpleadosEmpresa();
     }
   }
@@ -443,14 +669,13 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       this.empresaIdActual = contexto.empresa_id;
       return;
     }
-    // Último recurso: empresa del usuario (solo si el contexto ya cargó y no tiene empresa)
     const usuario = this.authService.currentUser;
     this.empresaIdActual = usuario?.empresa?.id ?? null;
   }
 
   private cargarEmpleadosEmpresa(): void {
     if (!this.empresaIdActual) return;
-    if (this.isLoadingEmpleados || this.empleadosCargados) return; // evitar duplicados
+    if (this.isLoadingEmpleados || this.empleadosCargados) return;
     this.isLoadingEmpleados = true;
     this.empleadosPagina = 1;
     this.personaService.buscarEmpleadosPaginados({
@@ -479,12 +704,10 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       this.resolverEmpresaActual();
       if (!this.empresaIdActual) return;
     }
-    // Emitir al Subject — el debounce en ngOnInit maneja la petición
     this.busquedaEmpleado$.next(termino ?? '');
   }
 
   private autocompletarEmpleadoActual(): void {
-    // No llamar resolverEmpresaActual aquí — puede sobreescribir con empresa incorrecta
     if (!this.empresaIdActual) {
       this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'No se pudo determinar la empresa del usuario', life: 3000 });
       this.esParaMi = false;
@@ -582,9 +805,6 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     return empleado.raw.estado !== false;
   }
 
-  /**
-   * Obtener severidad según estado
-   */
   getSeverity(estado: string): 'success' | 'warn' | 'danger' | 'info' {
     switch (estado) {
       case 'aprobado':
