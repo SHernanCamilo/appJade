@@ -44,6 +44,10 @@ export const routes: Routes = [
         path: 'templates', 
         loadChildren: () => import('./modules/templates/templates.routes').then(m => m.TEMPLATES_ROUTES)
       },
+      {
+        path: 'sistema',
+        loadChildren: () => import('./modules/sistema/sistema.routes').then(m => m.SISTEMA_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí

@@ -1,0 +1,143 @@
+.flujo-detalle-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.flujo-detalle-card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+/* Pasos */
+.pasos-lista { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.paso-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.paso-orden {
+  width: 32px;
+  height: 32px;
+  background: #6366f1;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.paso-info { flex: 1; }
+.paso-nombre { font-weight: 600; color: #111827; font-size: 0.9rem; }
+.paso-rol { font-size: 0.8rem; color: #6b7280; }
+
+.paso-badges { display: flex; gap: 0.4rem; }
+
+.badge-opcional {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.badge-rechazo {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+/* Aprobadores */
+.aprobadores-section {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+.aprobadores-lista { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.aprobador-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.badge-suplente {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+/* Reglas */
+.reglas-lista { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.regla-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.regla-prioridad {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 700;
+  color: #f59e0b;
+  min-width: 40px;
+}
+
+.regla-info { flex: 1; }
+.regla-descripcion { font-weight: 600; color: #111827; font-size: 0.875rem; }
+.regla-condiciones { font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem; }
+
+/* Form grid */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-field { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-field label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+.form-field-check { flex-direction: row; align-items: center; gap: 1.5rem; grid-column: span 2; }
+
+/* Row selected */
+.row-selected { background: #eff6ff !important; }
+
+/* Btn sm */
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+
+/* Action buttons */
+.btn-action-icon.btn-action-info {
+  background: #eff6ff;
+  color: #3b82f6;
+  border: 1px solid #bfdbfe;
+}
+
+.btn-action-icon.btn-action-danger {
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+}
+
+.btn-action-icon.btn-action-danger:hover { background: #fee2e2; }
+.btn-action-icon.btn-action-info:hover { background: #dbeafe; }

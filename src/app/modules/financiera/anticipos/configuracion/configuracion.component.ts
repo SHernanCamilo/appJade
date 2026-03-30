@@ -17,14 +17,14 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DropdownModule } from 'primeng/dropdown';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { InputTextareaModule } from 'primeng/inputtextarea';
+import { InputTextarea } from 'primeng/inputtextarea';
 import { TabViewModule } from 'primeng/tabview';
 import { DialogModule } from 'primeng/dialog';
 import { AccordionModule } from 'primeng/accordion';
 
 // Services
-import { WorkflowService } from '../../../../core/services/workflow.service';
-import { WfDefinicion, WfPaso, WfRegla, WfAprobador, CondicionesRegla } from '../models/workflow.models';
+import { WorkflowService } from '../../../sistema/flujos/services/workflow.service';
+import { WfDefinicion, WfPaso, WfRegla, WfAprobador, CondicionesRegla } from '../../../sistema/flujos/models/workflow.models';
 
 @Component({
   selector: 'app-configuracion-anticipos',
@@ -45,7 +45,7 @@ import { WfDefinicion, WfPaso, WfRegla, WfAprobador, CondicionesRegla } from '..
     DropdownModule,
     InputNumberModule,
     ConfirmDialogModule,
-    InputTextareaModule,
+    InputTextarea,
     TabViewModule,
     DialogModule,
     AccordionModule

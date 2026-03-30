@@ -70,34 +70,22 @@ export interface PaginatedResponse<T> {
   providedIn: 'root'
 })
 export class AnticipoConceptoService {
-  private apiUrl = '/anticipos';
+  private apiUrl = '/anticipos/catalogos';
 
   constructor(private http: HttpClient) {}
 
-  /**
-   * Obtener todos los tipos de anticipos
-   */
   getTipos(): Observable<ApiResponse<AntiTipo[]>> {
     return this.http.get<ApiResponse<AntiTipo[]>>(`${this.apiUrl}/tipos`);
   }
 
-  /**
-   * Obtener clases por tipo
-   */
   getClasesPorTipo(tipoId: number): Observable<ApiResponse<AntiClase[]>> {
-    return this.http.get<ApiResponse<AntiClase[]>>(`${this.apiUrl}/tipos/${tipoId}/clases`);
+    return this.http.get<ApiResponse<AntiClase[]>>(`${this.apiUrl}/clases/${tipoId}`);
   }
 
-  /**
-   * Obtener modalidades por clase
-   */
   getModalidadesPorClase(claseId: number): Observable<ApiResponse<AntiModalidad[]>> {
-    return this.http.get<ApiResponse<AntiModalidad[]>>(`${this.apiUrl}/clases/${claseId}/modalidades`);
+    return this.http.get<ApiResponse<AntiModalidad[]>>(`${this.apiUrl}/modalidades/${claseId}`);
   }
 
-  /**
-   * Listar conceptos con paginación y filtros
-   */
   getConceptos(params?: {
     page?: number;
     per_page?: number;
@@ -107,7 +95,6 @@ export class AnticipoConceptoService {
     search?: string;
   }): Observable<PaginatedResponse<AntiConcepto>> {
     let httpParams = new HttpParams();
-    
     if (params) {
       if (params.page) httpParams = httpParams.set('page', params.page.toString());
       if (params.per_page) httpParams = httpParams.set('per_page', params.per_page.toString());
@@ -116,53 +103,29 @@ export class AnticipoConceptoService {
       if (params.estado !== undefined) httpParams = httpParams.set('estado', params.estado ? '1' : '0');
       if (params.search) httpParams = httpParams.set('search', params.search);
     }
-
     return this.http.get<PaginatedResponse<AntiConcepto>>(`${this.apiUrl}/conceptos`, { params: httpParams });
   }
 
-  /**
-   * Obtener un concepto específico
-   */
   getConcepto(id: number): Observable<ApiResponse<AntiConcepto>> {
     return this.http.get<ApiResponse<AntiConcepto>>(`${this.apiUrl}/conceptos/${id}`);
   }
 
-  /**
-   * Crear un nuevo concepto
-   */
   createConcepto(concepto: {
-    id_tipo: number;
-    id_clase: number;
-    id_modalidad: number;
-    estado: boolean;
-    reglas: AntiRegla[];
+    id_tipo: number; id_clase: number; id_modalidad: number; estado: boolean; reglas: AntiRegla[];
   }): Observable<ApiResponse<AntiConcepto>> {
     return this.http.post<ApiResponse<AntiConcepto>>(`${this.apiUrl}/conceptos`, concepto);
   }
 
-  /**
-   * Actualizar un concepto existente
-   */
   updateConcepto(id: number, concepto: {
-    id_tipo: number;
-    id_clase: number;
-    id_modalidad: number;
-    estado: boolean;
-    reglas: AntiRegla[];
+    id_tipo: number; id_clase: number; id_modalidad: number; estado: boolean; reglas: AntiRegla[];
   }): Observable<ApiResponse<AntiConcepto>> {
     return this.http.put<ApiResponse<AntiConcepto>>(`${this.apiUrl}/conceptos/${id}`, concepto);
   }
 
-  /**
-   * Eliminar un concepto
-   */
   deleteConcepto(id: number): Observable<ApiResponse<any>> {
     return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/conceptos/${id}`);
   }
 
-  /**
-   * Cambiar estado de un concepto
-   */
   toggleEstado(id: number): Observable<ApiResponse<AntiConcepto>> {
     return this.http.patch<ApiResponse<AntiConcepto>>(`${this.apiUrl}/conceptos/${id}/toggle-estado`, {});
   }

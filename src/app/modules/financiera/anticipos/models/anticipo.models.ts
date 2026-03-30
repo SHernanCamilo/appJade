@@ -109,31 +109,41 @@ export interface CalculoTopesRequest {
   cobertura: Cobertura;
 }
 
+// Item individual devuelto por el backend en calcular-topes
+export interface TopeItem {
+  id_concepto: number;
+  id_regla: number;
+  descripcion: string;
+  cantidad: number;
+  valor_unitario: number | string;
+  valor_total: number;
+}
+
+// Respuesta real del backend: GET /api/anticipos/calcular-topes
 export interface CalculoTopesResponse {
-  empleado: {
-    id: number;
-    nombre: string;
-    cargo: string;
-    nivel_jerarquico: number;
-    sucursal: string;
-  };
-  destino: {
-    ciudad: string;
-    tipo_ciudad: TipoCiudad;
-  };
-  dias_viaje: number;
-  topes_alimentacion: {
+  alimentacion_diario: number;
+  alimentacion_total: number;
+  transporte_diario: number | string;
+  transporte_total: number;
+  total: number;
+  dias: number;
+  nivel_jerarquico: number;
+  tipo_ciudad: TipoCiudad;
+  items: TopeItem[];
+  // Campos legacy opcionales (por compatibilidad)
+  dias_viaje?: number;
+  topes_alimentacion?: {
     desayuno_diario: number;
     almuerzo_diario: number;
     cena_diario: number;
     total_diario: number;
     total_viaje: number;
   };
-  topes_transporte: {
+  topes_transporte?: {
     transporte_interno_diario: number;
     total_viaje: number;
   };
-  monto_total_estimado: number;
+  monto_total_estimado?: number;
   flujo_asignado?: FlujoAsignado;
 }
 
