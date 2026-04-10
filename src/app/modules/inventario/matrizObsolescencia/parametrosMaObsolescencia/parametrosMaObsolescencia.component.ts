@@ -154,7 +154,7 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
   rangoSeleccionado: RangoEdad = { id: 0, rango: '', puntaje: 0 };
   caracteristicaSeleccionada: CaracteristicaMinima = { id: 0, nombre: '', valor: '' };
   conceptoSeleccionado: ConceptoPuntaje = { id: 0, puntaje: '', concepto: '', color: '', textColor: '' };
-  agenteSeleccionado: MatrizObsAgente = { tag: '', id_empresa: 0, id_sucursal: 0, id_sede: 0 };
+  agenteSeleccionado: MatrizObsAgente = { tag: '', nomenclatura: '', id_empresa: 0, id_sucursal: 0, id_sede: 0 };
   procesadorSeleccionado: Procesador = { nombre: '', anio_lanzamiento: null };
   
   esNuevo: boolean = true;
@@ -924,6 +924,7 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
     this.esNuevo = true;
     this.agenteSeleccionado = { 
       tag: '', 
+      nomenclatura: '',
       id_empresa: 0, 
       id_sucursal: 0, 
       id_sede: 0 
@@ -965,6 +966,29 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
         severity: 'error',
         summary: 'Error',
         detail: 'El tag del agente es requerido',
+        life: 3000
+      });
+      return;
+    }
+
+    // Validar nomenclatura
+    if (!this.agenteSeleccionado.nomenclatura || !this.agenteSeleccionado.nomenclatura.trim()) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'La nomenclatura es requerida',
+        life: 3000
+      });
+      return;
+    }
+
+    // Validar formato de nomenclatura (2-10 caracteres, solo mayúsculas y números)
+    const nomenclaturaRegex = /^[A-Z0-9]{2,10}$/;
+    if (!nomenclaturaRegex.test(this.agenteSeleccionado.nomenclatura)) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'La nomenclatura debe tener entre 2 y 10 caracteres (solo letras mayúsculas y números)',
         life: 3000
       });
       return;

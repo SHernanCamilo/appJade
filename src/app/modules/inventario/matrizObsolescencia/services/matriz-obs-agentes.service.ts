@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 export interface MatrizObsAgente {
   id?: number;
   tag: string;
+  nomenclatura: string;
   id_empresa: number;
   id_sucursal: number;
   id_sede?: number;

@@ -653,6 +653,8 @@
                   <th [style]="{'min-width': '120px'}">Referencia</th>
                   <th [style]="{'min-width': '120px'}">Serial</th>
                   <th [style]="{'min-width': '120px'}">Ubicación</th>
+                  <th [style]="{'min-width': '150px'}">Usuario</th>
+                  <th [style]="{'min-width': '180px'}">Sistema Operativo</th>
                   <th [style]="{'min-width': '120px'}">Tipo Unidad</th>
                   
                   <!-- Fechas y Compras -->
@@ -721,6 +723,8 @@
                   <td>{{ activo.detalle?.referencia || '-' }}</td>
                   <td>{{ activo.serial || '-' }}</td>
                   <td>{{ activo.ubicacion || '-' }}</td>
+                  <td>{{ activo.usuario_glpi || '-' }}</td>
+                  <td>{{ activo.detalle?.sistema_operativo || '-' }}</td>
                   <td>{{ getDetalleValueOrDefault(activo, 'tipo_unidad', ' - ') }}</td>
                   
                   <!-- Fechas y Compras -->

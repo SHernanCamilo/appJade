@@ -477,6 +477,7 @@
                         <ng-template pTemplate="header">
                           <tr>
                             <th>TAG</th>
+                            <th>NOMENCLATURA</th>
                             <th>EMPRESA</th>
                             <th>SUCURSAL</th>
                             <th>SEDE</th>
@@ -494,6 +495,9 @@
                                 size="normal"
                                 shape="square">
                               </p-avatar>
+                            </td>
+                            <td>
+                              <span class="badge bg-info text-white">{{ agente.nomenclatura }}</span>
                             </td>
                             <td>
                               <div>
@@ -527,7 +531,7 @@
                         
                         <ng-template pTemplate="emptymessage">
                           <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="7" class="text-center py-5">
                               <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
                               <p class="text-muted mt-3 mb-1">No hay agentes configurados</p>
                               <small class="text-muted">Haz clic en "Agregar Agente" para comenzar</small>
@@ -841,6 +845,27 @@
         </div>
       </div>
 
+      <!-- Nomenclatura -->
+      <div class="col-12">
+        <div class="form-group">
+          <label class="form-label required">
+            <i class="bi bi-code-square me-2"></i>
+            Nomenclatura
+          </label>
+          <input 
+            type="text"
+            class="form-control text-uppercase"
+            [(ngModel)]="agenteSeleccionado.nomenclatura"
+            placeholder="Ej: CM, EA, NVA"
+            maxlength="10"
+            required
+            style="text-transform: uppercase;">
+          <small class="form-text text-muted">
+            2-3 iniciales para validar equipos (solo letras mayúsculas y números)
+          </small>
+        </div>
+      </div>
+
       <!-- Empresa -->
       <div class="col-12">
         <div class="form-group">
@@ -934,7 +959,7 @@
       icon="pi pi-check" 
       (onClick)="guardarAgente()"
       styleClass="p-button-success"
-      [disabled]="!agenteSeleccionado.tag || !agenteSeleccionado.id_empresa || !agenteSeleccionado.id_sucursal">
+      [disabled]="!agenteSeleccionado.tag || !agenteSeleccionado.nomenclatura || !agenteSeleccionado.id_empresa || !agenteSeleccionado.id_sucursal">
     </p-button>
   </ng-template>
 </p-dialog>

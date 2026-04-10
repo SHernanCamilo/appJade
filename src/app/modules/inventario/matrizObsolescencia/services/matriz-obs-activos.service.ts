@@ -15,6 +15,7 @@ export interface ActivoMatriz {
   placa: string | null;
   serial: string | null;
   ubicacion: string | null;
+  usuario_glpi: string | null;
   puntaje: number;
   usuario_modificacion: string;
   date_u_sincronizacion: string;
@@ -54,6 +55,7 @@ export interface ActivoMatriz {
     tipo_disco: string | null;
     tamano_disco: number | null;
     interfaz_conexion: string | null;
+    sistema_operativo: string | null;
     
     // Campos adicionales que vienen del backend
     tipo_unidad?: string | null;
