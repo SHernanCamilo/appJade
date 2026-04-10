@@ -32,7 +32,7 @@ export class SedeService {
   private apiUrl = '/sedes';
 
   constructor(private http: HttpClient) {
-    console.log('📡 SedeService initialized. API URL:', this.apiUrl);
+    // console.log('📡 SedeService initialized. API URL:', this.apiUrl);
   }
 
   getSedes(): Observable<Sede[]> {

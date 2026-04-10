@@ -27,13 +27,13 @@ export class MenuService {
   loadUserMenu(): void {
     const token = localStorage.getItem('token');
     if (!token) {
-      console.log('No hay token, no se carga el menú');
+      // console.log('No hay token, no se carga el menú');
       return;
     }
 
     this.http.get<any>('/auth/modulos').subscribe({
       next: (response) => {
-        console.log('Menú del usuario:', response.data);
+        // console.log('Menú del usuario:', response.data);
         this.menuItemsSubject.next(response.data || []);
       },
       error: (error) => {

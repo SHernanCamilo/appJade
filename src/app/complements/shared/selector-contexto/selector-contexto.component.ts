@@ -96,7 +96,7 @@ export class SelectorContextoComponent implements OnInit {
     ).subscribe({
       next: (response) => {
         if (response.success) {
-          console.log('Contexto actualizado exitosamente');
+          // console.log('Contexto actualizado exitosamente');
           this.mostrarSelector = false;
           // Recargar la página para aplicar el nuevo contexto
           window.location.reload();

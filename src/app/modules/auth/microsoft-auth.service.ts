@@ -158,7 +158,7 @@ export class MicrosoftAuthService {
           localStorage.setItem('user', JSON.stringify(response.user));
         }
         
-        console.log('✅ Login con Microsoft exitoso (callback)');
+        // console.log('✅ Login con Microsoft exitoso (callback)');
       })
     );
   }

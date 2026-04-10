@@ -144,67 +144,68 @@ export class MatrizObsActivosService {
     let params = new HttpParams();
 
     if (filtros) {
-      console.log('🔧 Procesando filtros:', filtros);
+      // console.log('🔧 Procesando filtros:', filtros);
       
       if (filtros.empresa_id) {
         params = params.set('empresa_id', filtros.empresa_id.toString());
-        console.log('  ✓ empresa_id:', filtros.empresa_id);
+        // console.log('  ✓ empresa_id:', filtros.empresa_id);
       }
       if (filtros.sucursal_id) {
         params = params.set('sucursal_id', filtros.sucursal_id.toString());
-        console.log('  ✓ sucursal_id:', filtros.sucursal_id);
+        // console.log('  ✓ sucursal_id:', filtros.sucursal_id);
       }
       if (filtros.sede_id) {
         params = params.set('sede_id', filtros.sede_id.toString());
-        console.log('  ✓ sede_id:', filtros.sede_id);
+        // console.log('  ✓ sede_id:', filtros.sede_id);
       }
       if (filtros.agente) {
         params = params.set('agente', filtros.agente);
-        console.log('  ✓ agente:', filtros.agente);
+        // console.log('  ✓ agente:', filtros.agente);
       }
       if (filtros.search) {
         params = params.set('search', filtros.search);
-        console.log('  ✓ search:', filtros.search);
+        // console.log('  ✓ search:', filtros.search);
       }
       if (filtros.page) {
         params = params.set('page', filtros.page.toString());
-        console.log('  ✓ page:', filtros.page);
+        // console.log('  ✓ page:', filtros.page);
       }
       if (filtros.per_page) {
         params = params.set('per_page', filtros.per_page.toString());
-        console.log('  ✓ per_page:', filtros.per_page);
+        // console.log('  ✓ per_page:', filtros.per_page);
       }
     }
 
     const finalUrl = `${this.apiUrl}/por-permisos`;
     const finalParams = params.toString();
     
-    console.log('🎯 URL final:', finalUrl);
-    console.log('📋 Parámetros finales:', finalParams);
-    console.log('🔗 URL completa:', finalUrl + (finalParams ? '?' + finalParams : ''));
+    // console.log('🎯 URL final:', finalUrl);
+    // console.log('📋 Parámetros finales:', finalParams);
+    // console.log('🔗 URL completa:', finalUrl + (finalParams ? '?' + finalParams : ''));
     
-    console.log('📤 Enviando petición HTTP GET...');
+    // console.log('📤 Enviando petición HTTP GET...');
 
     return this.http.get<ActivosResponse>(finalUrl, { params })
       .pipe(
         tap(response => {
-          console.log('📥 === RESPUESTA DEL SERVIDOR ===');
-          console.log('✅ Status: OK');
-          console.log('📊 Response RAW:', response);
-          console.log('📊 Response Type:', typeof response);
-          console.log('📊 Response.success:', response.success, typeof response.success);
-          console.log('📊 Response.data:', response.data);
-          console.log('📊 Response.data Type:', typeof response.data);
-          console.log('📊 Response.data Array?:', Array.isArray(response.data));
-          console.log('📊 Response.data Length:', response.data?.length);
-          console.log('📊 Response.total:', response.total);
+          // console.log('📥 === RESPUESTA DEL SERVIDOR ===');
+          // console.log('✅ Status: OK');
+          // console.log('📊 Response RAW:', response);
+          // console.log('📊 Response Type:', typeof response);
+          // console.log('📊 Response.success:', response.success, typeof response.success);
+          // console.log('📊 Response.data:', response.data);
+          // console.log('📊 Response.data Type:', typeof response.data);
+          // console.log('📊 Response.data Array?:', Array.isArray(response.data));
+          // console.log('📊 Response.data Length:', response.data?.length);
+          // console.log('📊 Response.total:', response.total);
           
           // Verificar estructura de cada activo
           if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-            console.log('🔍 === ANÁLISIS DETALLADO SERVICIO ===');
+            // console.log('🔍 === ANÁLISIS DETALLADO SERVICIO ===');
             response.data.forEach((activo, index) => {
               if (index < 2) { // Solo los primeros 2
-                console.log(`📋 Activo ${index + 1} en servicio:`, {
+                /* console.log(`📋 Activo ${index + 1} en servicio:`, 
+                {
                   id: activo.id,
                   nombre_equipo: activo.nombre_equipo,
                   agente: activo.agente,
@@ -213,7 +214,7 @@ export class MatrizObsActivosService {
                   tiene_empresa: !!activo.empresa,
                   tiene_detalles: !!activo.detalle,
                   keys: Object.keys(activo)
-                });
+                });*/
               }
             });
           }

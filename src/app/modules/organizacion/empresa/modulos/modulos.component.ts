@@ -209,7 +209,7 @@ export class ModulosComponent implements OnInit {
     this.loading = true;
     this.moduloService.getModulosTree().subscribe({
       next: (response) => {
-        console.log('Módulos cargados:', response);
+        // console.log('Módulos cargados:', response);
         if (response.success) {
           this.modulos = response.data;
           this.modulosRaiz = response.data;
@@ -569,7 +569,7 @@ export class ModulosComponent implements OnInit {
     this.loadingDomains = true;
     this.allowedDomainService.getAll().subscribe({
       next: (response) => {
-        console.log('Dominios cargados:', response);
+        // console.log('Dominios cargados:', response);
         this.domains = response.domains || [];
         this.loadingDomains = false;
       },

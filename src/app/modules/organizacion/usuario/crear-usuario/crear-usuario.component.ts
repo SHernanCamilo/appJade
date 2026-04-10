@@ -433,9 +433,9 @@ export class CrearUsuarioComponent implements OnInit {
     await Promise.all(loadPromises);
     
     // DEBUG: Verificar las asignaciones cargadas
-    console.log('📋 Asignaciones cargadas en edición:', this.empresasAsignadas);
+    // console.log('📋 Asignaciones cargadas en edición:', this.empresasAsignadas);
     this.empresasAsignadas.forEach((asig, index) => {
-      console.log(`  ${index}: empresa=${asig.empresa_id}, sucursal=${asig.sucursal_id}, sede=${asig.sede_id}, recursivo=${asig.recursivo}`);
+      // console.log(`  ${index}: empresa=${asig.empresa_id}, sucursal=${asig.sucursal_id}, sede=${asig.sede_id}, recursivo=${asig.recursivo}`);
     });
     
     this.loadRolesPorEmpresas();
@@ -490,9 +490,9 @@ export class CrearUsuarioComponent implements OnInit {
     const usuarioData = this.buildUsuarioData();
 
     // DEBUG: Mostrar datos que se van a enviar
-    console.log('📤 Datos a enviar al backend:', usuarioData);
-    console.log('🔍 Empresas asignadas:', this.empresasAsignadas);
-    console.log('🔍 Valores del formulario:', this.usuarioForm.value);
+    // console.log('📤 Datos a enviar al backend:', usuarioData);
+    // console.log('🔍 Empresas asignadas:', this.empresasAsignadas);
+    // console.log('🔍 Valores del formulario:', this.usuarioForm.value);
 
     const operation = this.editMode && this.currentUsuarioId
       ? this.usuarioService.updateUsuario(this.currentUsuarioId, usuarioData)
@@ -500,7 +500,7 @@ export class CrearUsuarioComponent implements OnInit {
 
     operation.subscribe({
       next: (response) => {
-        console.log('✅ Respuesta exitosa del servidor:', response);
+        // console.log('✅ Respuesta exitosa del servidor:', response);
         const message = this.editMode ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente';
         this.showSuccess(message);
         this.resetAfterSubmit();
@@ -720,17 +720,17 @@ export class CrearUsuarioComponent implements OnInit {
     }
 
     // DEBUG: Verificar datos procesados
-    console.log('🔍 Datos procesados para envío:', {
+    /* console.log('🔍 Datos procesados para envío:', {
       cargo: usuarioData.cargo,
       cargoType: typeof usuarioData.cargo,
       empresasAsignadas: usuarioData.empresasAsignadas,
       roles: usuarioData.roles
-    });
+    });*/
 
     // DEBUG específico para empresas asignadas
-    console.log('📋 Empresas asignadas detalladas:');
+    // console.log('📋 Empresas asignadas detalladas:');
     usuarioData.empresasAsignadas.forEach((emp: any, index: number) => {
-      console.log(`  ${index}:`, {
+      /* console.log(`  ${index}:`, {
         empresa_id: emp.empresa_id,
         sucursal_id: emp.sucursal_id,
         sede_id: emp.sede_id,
@@ -741,7 +741,7 @@ export class CrearUsuarioComponent implements OnInit {
           sede_id: typeof emp.sede_id,
           recursivo: typeof emp.recursivo
         }
-      });
+      });*/
     });
 
     return usuarioData;
@@ -895,12 +895,12 @@ export class CrearUsuarioComponent implements OnInit {
     const recursivo = Boolean(this.tempRecursivo);
 
     // DEBUG: Verificar el valor de tempRecursivo
-    console.log('🔍 DEBUG - Valores antes de crear asignación:');
-    console.log('  - tempEmpresa:', this.tempEmpresa);
-    console.log('  - tempSucursal:', this.tempSucursal);
-    console.log('  - tempSede:', this.tempSede);
-    console.log('  - tempRecursivo (original):', this.tempRecursivo);
-    console.log('  - recursivo (procesado):', recursivo);
+    // console.log('🔍 DEBUG - Valores antes de crear asignación:');
+    // console.log('  - tempEmpresa:', this.tempEmpresa);
+    // console.log('  - tempSucursal:', this.tempSucursal);
+    // console.log('  - tempSede:', this.tempSede);
+    // console.log('  - tempRecursivo (original):', this.tempRecursivo);
+    // console.log('  - recursivo (procesado):', recursivo);
 
     const nuevaAsignacion: EmpresaAsignacion = {
       empresa_id: Number(this.tempEmpresa),
@@ -909,7 +909,7 @@ export class CrearUsuarioComponent implements OnInit {
       recursivo: recursivo
     };
 
-    console.log('✅ Nueva asignación creada:', nuevaAsignacion);
+    // console.log('✅ Nueva asignación creada:', nuevaAsignacion);
     
     this.empresasAsignadas.push(nuevaAsignacion);
     
@@ -1008,8 +1008,8 @@ export class CrearUsuarioComponent implements OnInit {
   }
 
   private clearTempSelections(): void {
-    console.log('🧹 Limpiando selecciones temporales...');
-    console.log('  - Antes: tempRecursivo =', this.tempRecursivo);
+    // console.log('🧹 Limpiando selecciones temporales...');
+    // console.log('  - Antes: tempRecursivo =', this.tempRecursivo);
     
     this.tempEmpresa = null;
     this.tempSucursal = null;
@@ -1018,7 +1018,7 @@ export class CrearUsuarioComponent implements OnInit {
     this.sucursales = [];
     this.sedes = [];
     
-    console.log('  - Después: tempRecursivo =', this.tempRecursivo);
+    // console.log('  - Después: tempRecursivo =', this.tempRecursivo);
   }
 
   eliminarEmpresaAsignacion(index: number): void {
@@ -1176,7 +1176,7 @@ export class CrearUsuarioComponent implements OnInit {
       return error.error.message;
     } else if (error.error?.errors) {
       const errors = error.error.errors;
-      console.log('🔍 Errores de validación detallados:', errors);
+      // console.log('🔍 Errores de validación detallados:', errors);
       
       // Manejar específicamente el error de email duplicado
       if (errors.email) {
@@ -1193,7 +1193,7 @@ export class CrearUsuarioComponent implements OnInit {
       }
       
       if (errors.empresasAsignadas) {
-        console.log('🔍 Error específico en empresasAsignadas:', errors.empresasAsignadas);
+        // console.log('🔍 Error específico en empresasAsignadas:', errors.empresasAsignadas);
         
         // Si es un objeto con índices, extraer los errores específicos
         if (typeof errors.empresasAsignadas === 'object' && !Array.isArray(errors.empresasAsignadas)) {

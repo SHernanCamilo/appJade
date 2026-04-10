@@ -27,7 +27,7 @@ export class SucursalService {
   private apiUrl = '/sucursales';
 
   constructor(private http: HttpClient) {
-    console.log('📡 SucursalService initialized. API URL:', this.apiUrl);
+    // console.log('📡 SucursalService initialized. API URL:', this.apiUrl);
   }
 
   getSucursales(): Observable<Sucursal[]> {

@@ -246,10 +246,10 @@ export class TemplateEditorComponent implements OnInit, OnDestroy {
       content: content
     };
 
-    console.log('=== CONTENIDO FINAL ===');
-    console.log(content);
-    console.log('=== DATOS A ENVIAR ===');
-    console.log(formValue);
+    // console.log('=== CONTENIDO FINAL ===');
+    // console.log(content);
+    // console.log('=== DATOS A ENVIAR ===');
+    // console.log(formValue);
 
     const operation = this.isEditMode && this.templateId
       ? this.templateService.update(this.templateId, formValue)

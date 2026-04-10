@@ -310,7 +310,7 @@ export class MaestroEmpresaComponent implements OnInit {
   }
 
   reloadPermissions(): void {
-    console.log('🔄 Recargando permisos manualmente...');
+    // console.log('🔄 Recargando permisos manualmente...');
     this.permissionService.reloadPermissions();
     this.messageService.add({
       severity: 'info',
@@ -325,7 +325,7 @@ export class MaestroEmpresaComponent implements OnInit {
     this.loadingDomains = true;
     this.allowedDomainService.getAll().subscribe({
       next: (response) => {
-        console.log('Dominios cargados:', response);
+        // console.log('Dominios cargados:', response);
         this.domains = response.domains || [];
         this.loadingDomains = false;
       },

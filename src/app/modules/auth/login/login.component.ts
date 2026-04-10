@@ -86,7 +86,7 @@ export class LoginComponent implements OnInit {
         this.hasError = false;
         // Navegar a la URL de retorno o al dashboard
         this.router.navigateByUrl(this.returnUrl).then(
-          (success) => console.log('✅ Navegación exitosa:', success),
+          //(success) => console.log('✅ Navegación exitosa:', success),
           (error) => console.error('❌ Error en navegación:', error)
         );
       },
@@ -170,7 +170,7 @@ export class LoginComponent implements OnInit {
         
         // Navegar al dashboard
         this.router.navigateByUrl(this.returnUrl).then(
-          (success) => console.log('✅ Navegación exitosa:', success),
+          //(success) => console.log('✅ Navegación exitosa:', success),
           (error) => console.error('❌ Error en navegación:', error)
         );
       },

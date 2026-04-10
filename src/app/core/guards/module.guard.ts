@@ -52,7 +52,7 @@ export const moduleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
     return false;
   }
 
-  console.log(`✅ Acceso permitido al módulo: ${moduleCode}`);
+  // console.log(`✅ Acceso permitido al módulo: ${moduleCode}`);
   return true;
 };
 

@@ -29,7 +29,7 @@ export class UsuarioService {
   private apiUrl = '/users';
 
   constructor(private http: HttpClient) {
-    console.log('📡 UsuarioService initialized. API URL:', this.apiUrl);
+    // console.log('📡 UsuarioService initialized. API URL:', this.apiUrl);
   }
 
   // Obtener todos los usuarios

@@ -59,7 +59,7 @@ export class PersonificarService {
    * Iniciar personificación de un usuario
    */
   iniciarPersonificacion(userId: number): Observable<PersonificacionResponse> {
-    console.log('🎭 Iniciando personificación para usuario ID:', userId);
+    // console.log('🎭 Iniciando personificación para usuario ID:', userId);
     
     return this.http.post<PersonificacionResponse>(`${this.apiUrl}/iniciar`, {
       user_id: userId
@@ -87,19 +87,19 @@ export class PersonificarService {
    * Finalizar personificación y volver al usuario original
    */
   finalizarPersonificacion(): Observable<PersonificacionResponse> {
-    console.log('🔚 PersonificarService: Finalizando personificación...');
+    // console.log('🔚 PersonificarService: Finalizando personificación...');
     
     return this.http.post<PersonificacionResponse>(`${this.apiUrl}/finalizar`, {}).pipe(
       tap(response => {
-        console.log('📦 PersonificarService: Respuesta de finalización:', response);
+        // console.log('📦 PersonificarService: Respuesta de finalización:', response);
         
         if (response.success) {
-          console.log('✅ PersonificarService: Finalizando personificación...');
+          // console.log('✅ PersonificarService: Finalizando personificación...');
           
           // Actualizar estado de personificación a INACTIVO INMEDIATAMENTE
           const estadoInactivo = { activa: false };
           this.personificacionSubject.next(estadoInactivo);
-          console.log('📊 Estado actualizado a inactivo en BehaviorSubject');
+          // console.log('📊 Estado actualizado a inactivo en BehaviorSubject');
           
           // Emitir evento para que otros componentes se actualicen
           window.dispatchEvent(new CustomEvent('personificacion-finalizada', {
@@ -116,11 +116,11 @@ export class PersonificarService {
    * Obtener estado actual de personificación
    */
   getEstadoPersonificacion(): Observable<any> {
-    console.log('🌐 PersonificarService: Consultando estado al backend...');
+    // console.log('🌐 PersonificarService: Consultando estado al backend...');
     
     return this.http.get<any>(`${this.apiUrl}/estado`).pipe(
       tap(response => {
-        console.log('📦 PersonificarService: Respuesta del estado:', response);
+        // console.log('📦 PersonificarService: Respuesta del estado:', response);
         
         if (response.success && response.data) {
           // Solo actualizar si hay datos válidos
@@ -146,7 +146,7 @@ export class PersonificarService {
   verificarEstadoSiNecesario(): void {
     // Solo verificar una vez por sesión
     if (this.estadoVerificado) {
-      console.log('🔍 PersonificarService: Ya verificado, saltando...');
+      // console.log('🔍 PersonificarService: Ya verificado, saltando...');
       return;
     }
     
@@ -156,11 +156,11 @@ export class PersonificarService {
       // sin hacer llamada al backend
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('🔍 PersonificarService: Token decodificado, personificando =', payload.personificando);
+        // console.log('🔍 PersonificarService: Token decodificado, personificando =', payload.personificando);
         
         if (payload.personificando === true) {
           // Solo si hay personificación activa, verificar con el backend
-          console.log('🎭 PersonificarService: Token tiene personificación activa, consultando backend...');
+          // console.log('🎭 PersonificarService: Token tiene personificación activa, consultando backend...');
           this.estadoVerificado = true;
           this.getEstadoPersonificacion().subscribe({
             error: () => {
@@ -169,7 +169,7 @@ export class PersonificarService {
           });
         } else {
           // Token limpio, asegurar que el estado sea inactivo
-          console.log('✅ PersonificarService: Token limpio, sin personificación');
+          // console.log('✅ PersonificarService: Token limpio, sin personificación');
           this.estadoVerificado = true;
           this.personificacionSubject.next({ activa: false });
         }
@@ -179,7 +179,7 @@ export class PersonificarService {
         this.personificacionSubject.next({ activa: false });
       }
     } else {
-      console.log('⚠️ PersonificarService: No hay token');
+      // console.log('⚠️ PersonificarService: No hay token');
     }
   }
   

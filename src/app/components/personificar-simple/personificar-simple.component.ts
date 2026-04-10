@@ -239,23 +239,23 @@ export class PersonificarSimpleComponent implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     // Detectar cuando el modal se abre
     if (changes['visible'] && changes['visible'].currentValue === true && !this.usuariosCargados) {
-      console.log('🔓 Modal abierto, cargando usuarios...');
+      // console.log('🔓 Modal abierto, cargando usuarios...');
       this.cargarUsuarios();
     }
   }
 
   cargarUsuarios(): void {
     this.cargando = true;
-    console.log('🔄 Iniciando carga de usuarios para personificar...');
+    // console.log('🔄 Iniciando carga de usuarios para personificar...');
     
     this.personificarService.getUsuariosDisponibles().subscribe({
       next: (response) => {
-        console.log('📦 Respuesta del servicio:', response);
+        // console.log('📦 Respuesta del servicio:', response);
         
         if (response.success) {
           this.usuarios = response.data;
           this.usuariosCargados = true; // Marcar como cargados
-          console.log('✅ Usuarios cargados:', this.usuarios.length, this.usuarios);
+          // console.log('✅ Usuarios cargados:', this.usuarios.length, this.usuarios);
         } else {
           console.warn('⚠️ Respuesta no exitosa:', response.message);
           this.messageService.add({
@@ -300,11 +300,11 @@ export class PersonificarSimpleComponent implements OnInit, OnChanges {
     
     this.personificarService.iniciarPersonificacion(usuario.id).subscribe({
       next: (response) => {
-        console.log('🎭 Respuesta de personificación:', response);
+        // console.log('🎭 Respuesta de personificación:', response);
         
         if (response.success) {
           // Limpiar datos anteriores para forzar recarga completa
-          console.log('🧹 Limpiando datos anteriores...');
+          // console.log('🧹 Limpiando datos anteriores...');
           localStorage.removeItem('user');
           localStorage.removeItem('sidebar_modules');
           
@@ -318,7 +318,7 @@ export class PersonificarSimpleComponent implements OnInit, OnChanges {
           this.onClose.emit();
           
           // Recargar inmediatamente
-          console.log('🔄 Recargando página...');
+          // console.log('🔄 Recargando página...');
           setTimeout(() => {
             window.location.reload();
           }, 500);

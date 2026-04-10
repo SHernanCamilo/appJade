@@ -302,11 +302,11 @@ export class RolesComponent implements OnInit {
   }
 
   loadPerfilesPorModulo(): void {
-    console.log('🔄 Cargando perfiles...');
+    // console.log('🔄 Cargando perfiles...');
     this.isLoadingPerfiles = true;
     this.perfilService.getPerfiles().subscribe({
       next: (response: any) => {
-        console.log('✅ Respuesta de perfiles:', response);
+        // console.log('✅ Respuesta de perfiles:', response);
         
         // Manejar diferentes formatos de respuesta
         let perfiles: Perfil[] = [];
@@ -319,7 +319,7 @@ export class RolesComponent implements OnInit {
           perfiles = Array.isArray(response.data) ? response.data : [];
         }
         
-        console.log('📋 Perfiles procesados:', perfiles.length);
+        // console.log('📋 Perfiles procesados:', perfiles.length);
         this.todosLosPerfiles = perfiles;
         this.isLoadingPerfiles = false;
       },

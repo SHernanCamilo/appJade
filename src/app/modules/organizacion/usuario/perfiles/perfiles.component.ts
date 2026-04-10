@@ -141,11 +141,11 @@ export class PerfilesComponent implements OnInit {
    * Cargar TODOS los permisos de TODOS los módulos
    */
   loadTodosLosPermisos(): void {
-    console.log('🔍 Cargando TODOS los permisos de todos los módulos');
+    // console.log('🔍 Cargando TODOS los permisos de todos los módulos');
     
     // Obtener todos los módulos de la jerarquía
     const todosLosModulos = this.obtenerTodosLosModulosPlanos(this.modulosJerarquia);
-    console.log('📦 Total de módulos:', todosLosModulos.length, todosLosModulos.map(m => m.nombre));
+    // console.log('📦 Total de módulos:', todosLosModulos.length, todosLosModulos.map(m => m.nombre));
     
     // Cargar permisos de todos los módulos
     this.permisosDisponibles = [];
@@ -161,7 +161,7 @@ export class PerfilesComponent implements OnInit {
       this.perfilService.getPermisosDisponibles(modulo.id).subscribe({
         next: (response: any) => {
           const permisos = response.data?.permisos || [];
-          console.log(`✅ Permisos cargados para ${modulo.nombre}:`, permisos.length);
+          // console.log(`✅ Permisos cargados para ${modulo.nombre}:`, permisos.length);
           
           // Agregar información del módulo a cada permiso
           const permisosConModulo = permisos.map((permiso: any) => ({
@@ -177,7 +177,7 @@ export class PerfilesComponent implements OnInit {
           
           // Cuando todos los permisos estén cargados, generar la agrupación
           if (permisosCompletos === todosLosModulos.length) {
-            console.log('🎉 Todos los permisos cargados. Total:', this.permisosDisponibles.length);
+            // console.log('🎉 Todos los permisos cargados. Total:', this.permisosDisponibles.length);
             this.generarPermisosAgrupadosTodos();
             this.prepararModulosParaFiltro(); // Preparar módulos para el filtro
           }
@@ -187,7 +187,7 @@ export class PerfilesComponent implements OnInit {
           permisosCompletos++;
           
           if (permisosCompletos === todosLosModulos.length) {
-            console.log('⚠️ Carga completada con errores');
+            // console.log('⚠️ Carga completada con errores');
             this.generarPermisosAgrupadosTodos();
           }
         }
@@ -216,7 +216,7 @@ export class PerfilesComponent implements OnInit {
    * Generar permisos agrupados para todos los módulos
    */
   generarPermisosAgrupadosTodos(): void {
-    console.log('📊 Generando permisos agrupados para todos los módulos...');
+    // console.log('📊 Generando permisos agrupados para todos los módulos...');
     
     // Obtener módulos únicos de los permisos
     const modulosUnicos = new Map<number, any>();
@@ -237,9 +237,9 @@ export class PerfilesComponent implements OnInit {
     this.permisosAgrupados = Array.from(modulosUnicos.values())
       .sort((a, b) => a.nivel - b.nivel);
     
-    console.log('✅ Permisos agrupados generados:', this.permisosAgrupados.length, 'grupos');
+    // console.log('✅ Permisos agrupados generados:', this.permisosAgrupados.length, 'grupos');
     this.permisosAgrupados.forEach(g => {
-      console.log(`  - ${g.modulo_nombre} (nivel ${g.nivel}): ${g.permisos.length} permisos`);
+      // console.log(`  - ${g.modulo_nombre} (nivel ${g.nivel}): ${g.permisos.length} permisos`);
     });
 
     // Colapsar todos los módulos por defecto
@@ -640,7 +640,7 @@ export class PerfilesComponent implements OnInit {
 
   togglePermisoEnPerfil(permiso: PermisoConModulo): void {
     // Aquí implementarías la lógica para agregar/quitar el permiso del perfil
-    console.log('Toggle permiso:', permiso);
+    // console.log('Toggle permiso:', permiso);
   }
 
   onGlobalFilter(event: Event): void {
@@ -859,14 +859,14 @@ export class PerfilesComponent implements OnInit {
         return a.nombre.localeCompare(b.nombre);
       });
     
-    console.log('📋 Módulos para filtro preparados:', this.modulosParaFiltro);
+    // console.log('📋 Módulos para filtro preparados:', this.modulosParaFiltro);
   }
 
   /**
    * Maneja el cambio de filtro de módulo
    */
   onModuloFiltroChange(): void {
-    console.log('🔍 Filtro de módulo cambiado:', this.moduloFiltroId);
+    // console.log('🔍 Filtro de módulo cambiado:', this.moduloFiltroId);
     // No necesitamos hacer nada más, getPermisosFiltrados() se encarga
   }
 

@@ -14,7 +14,7 @@ export class InactivityService {
   ) {}
 
   startWatching(): void {
-    console.log('👁️ Monitoreo de inactividad iniciado');
+    // console.log('👁️ Monitoreo de inactividad iniciado');
     this.resetTimer();
   }
 
@@ -35,7 +35,7 @@ export class InactivityService {
   }
 
   private handleInactivity(): void {
-    console.log('⏰ Sesión cerrada por inactividad');
+    // console.log('⏰ Sesión cerrada por inactividad');
     localStorage.removeItem('access_token');
     localStorage.removeItem('token');
     localStorage.removeItem('user');

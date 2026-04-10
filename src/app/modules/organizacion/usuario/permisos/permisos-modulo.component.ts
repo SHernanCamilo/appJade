@@ -93,23 +93,23 @@ export class PermisosModuloComponent implements OnInit {
   }
 
   loadModulosConPermisos(): void {
-    console.log('Iniciando carga de módulos y permisos...');
+    // console.log('Iniciando carga de módulos y permisos...');
     this.loading = true;
     
     this.permisoService.getModulos().subscribe({
       next: (responseModulos) => {
-        console.log('✅ Respuesta módulos completa:', responseModulos);
-        console.log('✅ Success:', responseModulos.success);
-        console.log('✅ Data:', responseModulos.data);
-        console.log('✅ Cantidad de módulos:', responseModulos.data?.length);
+        // console.log('✅ Respuesta módulos completa:', responseModulos);
+        // console.log('✅ Success:', responseModulos.success);
+        // console.log('✅ Data:', responseModulos.data);
+        // console.log('✅ Cantidad de módulos:', responseModulos.data?.length);
         
         if (responseModulos.success && responseModulos.data) {
           const modulos = responseModulos.data;
           
           this.permisoService.getPermisos().subscribe({
             next: (responsePermisos) => {
-              console.log('✅ Respuesta permisos completa:', responsePermisos);
-              console.log('✅ Cantidad de permisos:', responsePermisos.data?.length);
+              // console.log('✅ Respuesta permisos completa:', responsePermisos);
+              // console.log('✅ Cantidad de permisos:', responsePermisos.data?.length);
               
               if (responsePermisos.success && responsePermisos.data) {
                 const permisos = responsePermisos.data;
@@ -126,8 +126,8 @@ export class PermisosModuloComponent implements OnInit {
                 // Organizar por jerarquía
                 this.modulosConPermisos = this.organizarJerarquia(modulosMap);
                 
-                console.log('✅ Módulos con permisos procesados:', this.modulosConPermisos);
-                console.log('✅ Total módulos raíz:', this.modulosConPermisos.length);
+                // console.log('✅ Módulos con permisos procesados:', this.modulosConPermisos);
+                // console.log('✅ Total módulos raíz:', this.modulosConPermisos.length);
               } else {
                 console.warn('⚠️ Respuesta de permisos sin success o data');
                 // Cargar módulos sin permisos
@@ -446,14 +446,14 @@ export class PermisosModuloComponent implements OnInit {
 
     const profundidadMaxima = Math.max(...modulosRaiz.map(m => contarProfundidad(m)));
 
-    console.log('📊 Jerarquía organizada:', {
+    /* console.log('📊 Jerarquía organizada:', {
       modulosRaiz: modulosRaiz.length,
       profundidadMaxima: profundidadMaxima,
       estructura: modulosRaiz.map(m => ({
         nombre: m.nombre,
         hijos: m.hijos?.length || 0
       }))
-    });
+    });*/
 
     return modulosRaiz;
   }

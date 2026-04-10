@@ -87,7 +87,7 @@ export class MicrosoftCallbackComponent implements OnInit {
   private processCallback(code: string): void {
     this.microsoftAuth.handleCallback(code).subscribe({
       next: (response) => {
-        console.log('✅ Autenticación con Microsoft exitosa');
+        // console.log('✅ Autenticación con Microsoft exitosa');
         
         // Actualizar el usuario en AuthService
         this.authService['currentUserSubject'].next(response.user);

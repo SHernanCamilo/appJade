@@ -30,7 +30,7 @@ export class PermissionService {
       try {
         const user = JSON.parse(userStr);
         if (user.permissions && Array.isArray(user.permissions)) {
-          console.log('✅ Cargando permisos desde localStorage:', user.permissions);
+          // console.log('✅ Cargando permisos desde localStorage:', user.permissions);
           this.setPermissions(user.permissions);
         }
       } catch (e) {
@@ -43,21 +43,21 @@ export class PermissionService {
    * Carga los permisos del usuario desde el backend
    */
   loadUserPermissions(): void {
-    console.log('🔄 Iniciando carga de permisos...');
+    // console.log('🔄 Iniciando carga de permisos...');
     
     // Verificar si hay un token de autenticación
     const token = localStorage.getItem('token');
     if (!token) {
-      console.log('⚠️ No hay token, no se cargarán permisos');
+      // console.log('⚠️ No hay token, no se cargarán permisos');
       return;
     }
 
-    console.log('✅ Token encontrado, consultando permisos al backend...');
+    // console.log('✅ Token encontrado, consultando permisos al backend...');
     
     this.http.get<any>('/auth/me').subscribe({
       next: (response) => {
-        console.log('📦 Respuesta completa del backend:', response);
-        console.log('🔑 Permisos del usuario:', response.permissions);
+        // console.log('📦 Respuesta completa del backend:', response);
+        // console.log('🔑 Permisos del usuario:', response.permissions);
         
         // Manejar diferentes formatos de respuesta
         let permissionsCodes: string[] = [];
@@ -70,7 +70,7 @@ export class PermissionService {
           permissionsCodes = response.permisos;
         }
         
-        console.log('📋 Códigos de permisos procesados:', permissionsCodes);
+        // console.log('📋 Códigos de permisos procesados:', permissionsCodes);
         
         
         // Convertir los códigos de permisos a objetos UserPermission
@@ -81,7 +81,7 @@ export class PermissionService {
           estado: true
         }));
         
-        console.log('✅ Permisos cargados:', permissions.length);
+        // console.log('✅ Permisos cargados:', permissions.length);
         this.permissionsSubject.next(permissions);
       },
       error: (error) => {

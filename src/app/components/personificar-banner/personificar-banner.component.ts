@@ -216,7 +216,7 @@ export class PersonificarBannerComponent implements OnInit, OnDestroy {
     this.personificarService.finalizarPersonificacion().subscribe({
       next: (response) => {
         if (response.success) {
-          console.log('✅ Personificación finalizada exitosamente');
+          // console.log('✅ Personificación finalizada exitosamente');
           
           // Ocultar el banner inmediatamente
           this.personificacionData = { activa: false };
@@ -231,9 +231,9 @@ export class PersonificarBannerComponent implements OnInit, OnDestroy {
           // Verificar que el token nuevo NO tiene personificación
           try {
             const payload = JSON.parse(atob(response.data.token.split('.')[1]));
-            console.log('🔑 Nuevo token - personificando:', payload.personificando);
+            // console.log('🔑 Nuevo token - personificando:', payload.personificando);
           } catch (e) {
-            console.log('🔑 No se pudo decodificar el token');
+            // console.log('🔑 No se pudo decodificar el token');
           }
           
           this.messageService.add({

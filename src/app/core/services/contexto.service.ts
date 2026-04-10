@@ -69,7 +69,7 @@ export class ContextoService {
       next: (response) => {
         if (response.success && response.data) {
           this.contextoSubject.next(response.data);
-          console.log('Contexto cargado:', response.data);
+          // console.log('Contexto cargado:', response.data);
         }
       },
       error: (error) => {
@@ -90,7 +90,7 @@ export class ContextoService {
       tap((response) => {
         if (response.success && response.data) {
           this.contextoSubject.next(response.data);
-          console.log('Contexto actualizado:', response.data);
+          // console.log('Contexto actualizado:', response.data);
         }
       })
     );

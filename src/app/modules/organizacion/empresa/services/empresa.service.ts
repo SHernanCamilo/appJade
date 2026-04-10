@@ -37,7 +37,7 @@ export class EmpresaService {
   private apiUrl = '/empresas';
 
   constructor(private http: HttpClient) {
-    console.log('📡 EmpresaService initialized. API URL:', this.apiUrl);
+    // console.log('📡 EmpresaService initialized. API URL:', this.apiUrl);
   }
 
   getEmpresas(): Observable<Empresa[]> {

@@ -57,10 +57,10 @@ export class AuthService {
 
         // Cargar módulos del sidebar si vienen en la respuesta
         if (resp.sidebar && resp.sidebar.length > 0) {
-          console.log('✅ Módulos del sidebar recibidos en login:', resp.sidebar);
+          // console.log('✅ Módulos del sidebar recibidos en login:', resp.sidebar);
           this.sidebarService.cargarModulosDesdeLogin(resp.sidebar);
         } else {
-          console.log('⚠️ No se recibieron módulos en login, cargando con endpoint separado');
+          // console.log('⚠️ No se recibieron módulos en login, cargando con endpoint separado');
           // Si no vienen en el login, cargarlos con endpoint separado
           this.loadSidebarModules();
         }
