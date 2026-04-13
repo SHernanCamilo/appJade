@@ -43,9 +43,7 @@
             <div class="d-flex gap-2">
               <input type="text" pInputText [(ngModel)]="searchTerm" (keyup.enter)="aplicarFiltros()"
                 placeholder="Buscar por empleado, código..." class="flex-grow-1">
-              <button class="btn-action btn-action-primary" (click)="aplicarFiltros()">
-                <i class="pi pi-search"></i>
-              </button>
+              <button class="btn-action btn-action-primary" (click)="aplicarFiltros()"><i class="pi pi-search"></i></button>
             </div>
           </div>
         </div>
@@ -61,7 +59,7 @@
           <ng-template pTemplate="header">
             <tr>
               <th>Código</th><th>Empleado</th><th>Monto</th>
-              <th>Fecha Solicitud</th><th>Estado</th><th>Acciones</th>
+              <th>Fecha</th><th>Estado</th><th>Acciones</th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-s>
@@ -70,7 +68,7 @@
               <td>{{ s.empleado?.nombre || s.empleado }}</td>
               <td>{{ (s.monto_solicitado || s.monto) | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
               <td>{{ (s.created_at || s.fecha) | date:'dd/MM/yyyy' }}</td>
-              <td><p-tag [value]="s.estado" [severity]="getSeverity(s.estado)"></p-tag></td>
+              <td><p-tag [value]="getEstadoLabel(s.estado)" [severity]="getSeverity(s.estado)"></p-tag></td>
               <td>
                 <div class="action-buttons">
                   <button class="btn-action-icon btn-action-primary" pTooltip="Ver detalles"><i class="pi pi-eye"></i></button>
@@ -101,11 +99,9 @@
 
     <div class="solicitud-form-container">
 
-      <!-- Checkbox para mí -->
       <div class="form-section mb-3">
         <p-checkbox [(ngModel)]="esParaMi" [binary]="true" (onChange)="onEsParaMiChange()"
-          inputId="esParaMi" label="El anticipo es para mí">
-        </p-checkbox>
+          inputId="esParaMi" label="El anticipo es para mí"></p-checkbox>
       </div>
 
       <!-- 1. Responsable -->
@@ -117,8 +113,7 @@
             (onChange)="onEmpleadoSeleccionado($event.value)" (onFilter)="onBuscarEmpleado($event.filter)"
             optionLabel="label" optionValue="value" [filter]="true" [loading]="isLoadingEmpleados"
             filterPlaceholder="Buscar empleado" placeholder="Seleccione un empleado"
-            appendTo="body" styleClass="w-100">
-          </p-dropdown>
+            appendTo="body" styleClass="w-100"></p-dropdown>
         </div>
         <div *ngIf="usuarioSeleccionado" class="usuario-info-card">
           <div class="row g-2">
@@ -147,7 +142,6 @@
       <div *ngIf="motivoSeleccionado === 'viaje'" class="form-section mb-2">
         <h4 class="subsection-title mb-2">Detalles del Viaje</h4>
 
-        <!-- Ciudad + Cobertura -->
         <div class="row g-2 mb-3">
           <div class="col-md-6">
             <label class="form-label-compact">Ciudad Destino</label>
@@ -168,19 +162,16 @@
             <label class="form-label-compact">Cobertura</label>
             <p-dropdown [options]="[{label:'Nacional',value:'nacional'},{label:'Internacional',value:'internacional'}]"
               [(ngModel)]="formularioViaje.cobertura" (onChange)="calcularTopesAutomatico()"
-              optionLabel="label" optionValue="value" styleClass="w-100">
-            </p-dropdown>
+              optionLabel="label" optionValue="value" styleClass="w-100"></p-dropdown>
           </div>
         </div>
 
-        <!-- Fechas — usa p-datepicker (PrimeNG 17+) -->
         <div class="row g-2 mb-3">
           <div class="col-md-6">
             <label class="form-label-compact">Fecha Salida</label>
             <p-datepicker [(ngModel)]="formularioViaje.fechaSalida" (onSelect)="onFechaSalidaChange()"
               dateFormat="dd/mm/yy" [showIcon]="true" placeholder="dd/mm/aaaa"
-              styleClass="w-100" appendTo="body">
-            </p-datepicker>
+              styleClass="w-100" appendTo="body"></p-datepicker>
           </div>
           <div class="col-md-6">
             <label class="form-label-compact">Fecha Regreso</label>
@@ -188,12 +179,10 @@
               dateFormat="dd/mm/yy" [showIcon]="true" placeholder="dd/mm/aaaa"
               styleClass="w-100" appendTo="body"
               [disabled]="!formularioViaje.fechaSalida"
-              [minDate]="formularioViaje.fechaSalida!">
-            </p-datepicker>
+              [minDate]="formularioViaje.fechaSalida!"></p-datepicker>
           </div>
         </div>
 
-        <!-- Spinner calculando -->
         <div *ngIf="isCalculandoTopes" class="calculando-topes mb-3">
           <i class="pi pi-spin pi-spinner me-2"></i>Calculando topes...
         </div>
@@ -202,11 +191,10 @@
         <div *ngIf="topesCalculados && !isCalculandoTopes" class="topes-card mb-3">
           <div class="topes-header">
             <h5><i class="pi pi-calculator me-2"></i>Topes según nivel jerárquico</h5>
-            <span class="badge-dias">{{ topesCalculados.dias ?? topesCalculados.dias_viaje }} días · Ciudad Tipo {{ topesCalculados.tipo_ciudad }}</span>
+            <span class="badge-dias">{{ (topesCalculados.dias || topesCalculados.dias_viaje) }} días · Ciudad Tipo {{ topesCalculados.tipo_ciudad }}</span>
           </div>
           <div class="topes-body">
             <div class="row g-2">
-              <!-- Alimentación desglosada -->
               <div class="col-md-6" *ngIf="desglose">
                 <div class="tope-group-title">Alimentación diaria</div>
                 <div class="tope-row"><span>Desayuno:</span><span>{{ formatCurrency(desglose.desayuno) }}</span></div>
@@ -214,38 +202,26 @@
                 <div class="tope-row"><span>Cena:</span><span>{{ formatCurrency(desglose.cena) }}</span></div>
                 <div class="tope-row tope-row-total"><span>Total diario:</span><span>{{ formatCurrency(desglose.totalDiario) }}</span></div>
               </div>
-              <!-- Transporte -->
               <div class="col-md-6">
                 <div class="tope-group-title">Transporte interno (obligatorio)</div>
-                <div class="tope-row tope-row-total">
-                  <span>Diario:</span>
-                  <span>{{ formatCurrency(topesCalculados.transporte_diario) }}</span>
-                </div>
+                <div class="tope-row tope-row-total"><span>Diario:</span><span>{{ formatCurrency(topesCalculados.transporte_diario || 0) }}</span></div>
               </div>
             </div>
             <div class="topes-total mt-2">
               <span class="total-label">Total estimado:</span>
-              <span class="total-valor">{{ formatCurrency(topesCalculados.total ?? topesCalculados.monto_total_estimado ?? 0) }}</span>
+              <span class="total-valor">{{ formatCurrency(topesCalculados.total || topesCalculados.monto_total_estimado || 0) }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Checkboxes opcionales — ELIMINADOS de aquí, van en cada tarjeta -->
-
         <!-- Grid conceptos -->
         <div class="row g-2 mb-2">
-
           <!-- Pasaje Intermunicipal -->
           <div class="col-md-6">
             <div class="concepto-card">
               <div class="concepto-card-header">
-                <div class="concepto-card-title">
-                  <i class="pi pi-ticket concepto-icon concepto-icon-gray"></i>
-                  <span>Pasaje Intermunicipal</span>
-                </div>
-                <i class="pi pi-info-circle info-icon"
-                   pTooltip="El valor del pasaje intermunicipal se ingresa según el costo real de la compañía de transporte. Se debe escoger la opción de mejor comodidad disponible."
-                   tooltipPosition="top" [escape]="false"></i>
+                <div class="concepto-card-title"><i class="pi pi-ticket concepto-icon concepto-icon-gray"></i><span>Pasaje Intermunicipal</span></div>
+                <i class="pi pi-info-circle info-icon" pTooltip="Valor real del pasaje según compañía de transporte." tooltipPosition="top"></i>
               </div>
               <div class="concepto-card-body">
                 <div class="concepto-field">
@@ -268,14 +244,8 @@
           <div class="col-md-6">
             <div class="concepto-card concepto-card-required">
               <div class="concepto-card-header">
-                <div class="concepto-card-title">
-                  <i class="pi pi-car concepto-icon concepto-icon-blue"></i>
-                  <span>Transporte Interno</span>
-                  <span class="badge-obligatorio">Obligatorio</span>
-                </div>
-                <i class="pi pi-info-circle info-icon"
-                   pTooltip="Tope según tipo de ciudad destino: Tipo A $70.000 · Tipo B $50.000 · Tipo C $40.000. Cubre taxi y buses durante el viaje. Se autocompleta con el tope máximo permitido."
-                   tooltipPosition="top"></i>
+                <div class="concepto-card-title"><i class="pi pi-car concepto-icon concepto-icon-blue"></i><span>Transporte Interno</span><span class="badge-obligatorio">Obligatorio</span></div>
+                <i class="pi pi-info-circle info-icon" pTooltip="Tope según tipo de ciudad: A $70.000 · B $50.000 · C $40.000" tooltipPosition="top"></i>
               </div>
               <div class="concepto-card-body">
                 <div class="concepto-field">
@@ -287,29 +257,21 @@
                   </div>
                 </div>
                 <div class="concepto-field concepto-field-grow">
-                  <small class="field-label">Valor diario <span class="tope-hint" *ngIf="topesCalculados">(tope: {{ formatCurrency(topesCalculados.transporte_diario) }})</span></small>
+                  <small class="field-label">Valor diario <span class="tope-hint" *ngIf="topesCalculados">(tope: {{ formatCurrency(topesCalculados.transporte_diario || 0) }})</span></small>
                   <p-inputNumber [(ngModel)]="formularioViaje.transporteInterno.valor" mode="currency" currency="COP" locale="es-CO" [inputStyle]="{'padding':'0.4rem','width':'100%'}"></p-inputNumber>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Alimentación (con checkbox en header) -->
+          <!-- Alimentación -->
           <div class="col-md-6">
             <div class="concepto-card" [class.concepto-card-disabled]="!incluirAlimentacion">
               <div class="concepto-card-header">
-                <div class="concepto-card-title">
-                  <i class="pi pi-star concepto-icon" [class.concepto-icon-green]="incluirAlimentacion" [class.concepto-icon-gray]="!incluirAlimentacion"></i>
-                  <span>Alimentación</span>
-                </div>
+                <div class="concepto-card-title"><i class="pi pi-star concepto-icon" [class.concepto-icon-green]="incluirAlimentacion" [class.concepto-icon-gray]="!incluirAlimentacion"></i><span>Alimentación</span></div>
                 <div class="concepto-card-actions">
-                  <i class="pi pi-info-circle info-icon"
-                     pTooltip="Topes por nivel jerárquico: Nivel 1 — Desayuno $35.000 · Almuerzo $45.000 · Cena $45.000. Nivel 2 y 3 — Desayuno $30.000 · Almuerzo $40.000 · Cena $40.000. Se autocompleta con el total diario según su cargo."
-                     tooltipPosition="top"></i>
-                  <p-checkbox [(ngModel)]="incluirAlimentacion" [binary]="true"
-                    (onChange)="onIncluirAlimentacionChange()"
-                    pTooltip="Incluir alimentación en la solicitud" tooltipPosition="top">
-                  </p-checkbox>
+                  <i class="pi pi-info-circle info-icon" pTooltip="Topes por nivel: N1 $125.000/día · N2-N3 $110.000/día" tooltipPosition="top"></i>
+                  <p-checkbox [(ngModel)]="incluirAlimentacion" [binary]="true" (onChange)="onIncluirAlimentacionChange()" pTooltip="Incluir alimentación" tooltipPosition="top"></p-checkbox>
                 </div>
               </div>
               <div class="concepto-card-body" *ngIf="incluirAlimentacion">
@@ -322,17 +284,11 @@
                   </div>
                 </div>
                 <div class="concepto-field concepto-field-grow">
-                  <small class="field-label">
-                    Valor diario
-                    <span class="tope-hint" *ngIf="topesCalculados">(tope: {{ formatCurrency(topesCalculados.alimentacion_diario) }})</span>
-                  </small>
+                  <small class="field-label">Valor diario <span class="tope-hint" *ngIf="topesCalculados">(tope: {{ formatCurrency(topesCalculados.alimentacion_diario || 0) }})</span></small>
                   <p-inputNumber [(ngModel)]="formularioViaje.alimentacion.valor" mode="currency" currency="COP" locale="es-CO" [inputStyle]="{'padding':'0.4rem','width':'100%'}"></p-inputNumber>
                 </div>
               </div>
-              <div class="concepto-card-disabled-msg" *ngIf="!incluirAlimentacion">
-                <i class="pi pi-minus-circle me-2"></i>No incluida en esta solicitud
-              </div>
-              <!-- Desglose D/A/C cuando está activo -->
+              <div class="concepto-card-disabled-msg" *ngIf="!incluirAlimentacion"><i class="pi pi-minus-circle me-2"></i>No incluida</div>
               <div class="desglose-alimentacion" *ngIf="incluirAlimentacion && desglose">
                 <span><i class="pi pi-sun me-1"></i>D: {{ formatCurrency(desglose.desayuno) }}</span>
                 <span><i class="pi pi-circle me-1"></i>A: {{ formatCurrency(desglose.almuerzo) }}</span>
@@ -341,22 +297,14 @@
             </div>
           </div>
 
-          <!-- Hospedaje (con checkbox en header) -->
+          <!-- Hospedaje -->
           <div class="col-md-6">
             <div class="concepto-card" [class.concepto-card-disabled]="!incluirHospedaje">
               <div class="concepto-card-header">
-                <div class="concepto-card-title">
-                  <i class="pi pi-home concepto-icon" [class.concepto-icon-purple]="incluirHospedaje" [class.concepto-icon-gray]="!incluirHospedaje"></i>
-                  <span>Hospedaje</span>
-                </div>
+                <div class="concepto-card-title"><i class="pi pi-home concepto-icon" [class.concepto-icon-purple]="incluirHospedaje" [class.concepto-icon-gray]="!incluirHospedaje"></i><span>Hospedaje</span></div>
                 <div class="concepto-card-actions">
-                  <i class="pi pi-info-circle info-icon"
-                     pTooltip="El hospedaje es opcional y se incluye cuando el viaje requiere pernoctar. Ingrese el valor real del alojamiento. No tiene tope fijo, debe justificarse con soporte."
-                     tooltipPosition="top"></i>
-                  <p-checkbox [(ngModel)]="incluirHospedaje" [binary]="true"
-                    (onChange)="onIncluirHospedajeChange()"
-                    pTooltip="Incluir hospedaje en la solicitud" tooltipPosition="top">
-                  </p-checkbox>
+                  <i class="pi pi-info-circle info-icon" pTooltip="Opcional. Ingrese valor real del alojamiento." tooltipPosition="top"></i>
+                  <p-checkbox [(ngModel)]="incluirHospedaje" [binary]="true" (onChange)="onIncluirHospedajeChange()" pTooltip="Incluir hospedaje" tooltipPosition="top"></p-checkbox>
                 </div>
               </div>
               <div class="concepto-card-body" *ngIf="incluirHospedaje">
@@ -373,21 +321,16 @@
                   <p-inputNumber [(ngModel)]="formularioViaje.hospedaje.valor" mode="currency" currency="COP" locale="es-CO" [inputStyle]="{'padding':'0.4rem','width':'100%'}"></p-inputNumber>
                 </div>
               </div>
-              <div class="concepto-card-disabled-msg" *ngIf="!incluirHospedaje">
-                <i class="pi pi-minus-circle me-2"></i>No incluido en esta solicitud
-              </div>
+              <div class="concepto-card-disabled-msg" *ngIf="!incluirHospedaje"><i class="pi pi-minus-circle me-2"></i>No incluido</div>
             </div>
           </div>
-
         </div>
 
-        <!-- Total -->
         <div class="total-viaje-compacto mb-2">
           <span class="total-label">Total:</span>
           <span class="total-amount">{{ calcularTotalViaje() | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
         </div>
 
-        <!-- Motivo -->
         <div class="row g-2">
           <div class="col-12">
             <label class="form-label-compact">Motivo del Viaje</label>
@@ -411,8 +354,7 @@
             <label class="form-label">Valor</label>
             <p-inputNumber [(ngModel)]="formularioOtros.valor" mode="currency"
               [currency]="formularioOtros.moneda==='pesos'?'COP':formularioOtros.moneda==='dolares'?'USD':'EUR'"
-              [locale]="formularioOtros.moneda==='pesos'?'es-CO':'en-US'" styleClass="w-100">
-            </p-inputNumber>
+              [locale]="formularioOtros.moneda==='pesos'?'es-CO':'en-US'" styleClass="w-100"></p-inputNumber>
           </div>
           <div class="col-12">
             <label class="form-label">Descripción</label>
@@ -424,26 +366,20 @@
           <label class="form-label">Adjuntos</label>
           <div class="file-upload-area">
             <input type="file" #fileInput (change)="onFileSelect($event)" multiple style="display:none">
-            <button class="btn-upload" (click)="fileInput.click()">
-              <i class="pi pi-cloud-upload me-2"></i>Seleccionar archivos
-            </button>
+            <button class="btn-upload" (click)="fileInput.click()"><i class="pi pi-cloud-upload me-2"></i>Seleccionar archivos</button>
             <div *ngIf="formularioOtros.archivos.length > 0" class="archivos-lista mt-2">
-              <div *ngFor="let a of formularioOtros.archivos" class="archivo-item">
-                <i class="pi pi-file me-2"></i>{{ a.name }}
-              </div>
+              <div *ngFor="let a of formularioOtros.archivos" class="archivo-item"><i class="pi pi-file me-2"></i>{{ a.name }}</div>
             </div>
           </div>
         </div>
       </div>
-
     </div>
 
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-end gap-2">
         <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="cerrarNuevaSolicitud()"></p-button>
         <p-button label="Guardar Solicitud" icon="pi pi-check" severity="success" (onClick)="guardarSolicitud()"
-          [disabled]="!usuarioSeleccionado || !motivoSeleccionado">
-        </p-button>
+          [disabled]="!usuarioSeleccionado || !motivoSeleccionado"></p-button>
       </div>
     </ng-template>
   </p-dialog>

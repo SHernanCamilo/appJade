@@ -1,178 +1,200 @@
 <div class="page-container">
-  <!-- Header -->
   <div class="page-header-modern">
     <div class="header-top">
       <button class="btn-back-modern" routerLink="/financiera">
-        <i class="bi bi-arrow-left"></i>
-        <span>Volver a Financiera</span>
+        <i class="pi pi-arrow-left"></i> Volver a Financiera
       </button>
     </div>
-    
     <div class="header-main">
       <div class="header-title-section">
         <h1 class="page-title-modern">
-          <i class="bi bi-gear-fill me-2" style="color: #8b5cf6;"></i>
-          Configuración de Flujos
+          <i class="pi pi-cog me-2" style="color: #8b5cf6;"></i>
+          Configuración de Flujos — Anticipos
         </h1>
-        <p class="page-subtitle-modern">
-          Administración del motor de flujos parametrizable para anticipos
-        </p>
+        <p class="page-subtitle-modern">Administración del motor de flujos parametrizable</p>
       </div>
     </div>
   </div>
 
-  <!-- Content -->
   <div class="dashboard-content">
-    
-    <!-- Tabs -->
     <p-tabView [(activeIndex)]="activeTabIndex">
-      
+
       <!-- TAB 1: FLUJOS -->
-      <p-tabPanel header="Flujos" leftIcon="bi bi-diagram-3">
-        <div class="tab-content">
-          
-          <!-- Tabla de Flujos -->
-          <div class="table-section">
-            <div class="table-header">
-              <h2>
-                <i class="bi bi-diagram-3 me-2"></i>
-                Definiciones de Flujo
-              </h2>
-              <button class="btn-action btn-action-primary" (click)="mostrarModalFlujo = true">
-                <i class="bi bi-plus-lg"></i>
-                <span>Nuevo Flujo</span>
-              </button>
-            </div>
+      <p-tabPanel header="Flujos">
+        <div class="table-section">
+          <div class="table-header">
+            <h2><i class="pi pi-sitemap me-2"></i>Definiciones de Flujo</h2>
+            <button class="btn-action btn-action-primary" (click)="abrirModalFlujo()">
+              <i class="pi pi-plus"></i> Nuevo Flujo
+            </button>
+          </div>
+          <div class="modern-table-container">
+            <p-table [value]="flujos" [loading]="isLoading" styleClass="modern-table"
+              [paginator]="true" [rows]="10" [totalRecords]="totalFlujos">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Código</th><th>Nombre</th><th>Módulo</th><th>Empresa</th><th>Estado</th><th>Acciones</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-flujo>
+                <tr [class.row-selected]="flujoSeleccionado?.id === flujo.id">
+                  <td><code>{{ flujo.codigo }}</code></td>
+                  <td>{{ flujo.nombre }}</td>
+                  <td><p-tag [value]="flujo.modulo" severity="info"></p-tag></td>
+                  <td>{{ flujo.id_empresa ? 'Específica' : 'Todas' }}</td>
+                  <td><p-tag [value]="getEstadoTexto(flujo.estado)" [severity]="getSeverity(flujo.estado)"></p-tag></td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn-action-icon btn-action-primary" (click)="seleccionarFlujo(flujo)" pTooltip="Ver detalles"><i class="pi pi-eye"></i></button>
+                      <button class="btn-action-icon btn-action-success" (click)="abrirModalFlujo(flujo)" pTooltip="Editar"><i class="pi pi-pencil"></i></button>
+                      <button class="btn-action-icon btn-action-danger" (click)="eliminarFlujo(flujo)" pTooltip="Eliminar"><i class="pi pi-trash"></i></button>
+                    </div>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="6" class="text-center py-5">
+                  <i class="pi pi-inbox" style="font-size:3rem;color:#d1d5db"></i>
+                  <p class="text-muted mt-3">No hay flujos configurados</p>
+                </td></tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
 
-            <div class="modern-table-container">
-              <p-table 
-                [value]="flujos" 
-                [loading]="isLoading"
-                styleClass="modern-table"
-                [paginator]="true"
-                [rows]="10"
-                [totalRecords]="totalFlujos"
-                [rowsPerPageOptions]="[10, 20, 50]">
-                
-                <ng-template pTemplate="header">
-                  <tr>
-                    <th style="width: 15%">Código</th>
-                    <th style="width: 25%">Nombre</th>
-                    <th style="width: 15%">Módulo</th>
-                    <th style="width: 15%">Empresa</th>
-                    <th style="width: 10%">Estado</th>
-                    <th style="width: 20%">Acciones</th>
-                  </tr>
-                </ng-template>
-                
-                <ng-template pTemplate="body" let-flujo>
-                  <tr>
-                    <td><span class="text-monospace">{{ flujo.codigo }}</span></td>
-                    <td>{{ flujo.nombre }}</td>
-                    <td><p-tag [value]="flujo.modulo" severity="info"></p-tag></td>
-                    <td>{{ flujo.id_empresa ? 'Específica' : 'Todas' }}</td>
-                    <td>
-                      <p-tag 
-                        [value]="getEstadoTexto(flujo.estado)" 
-                        [severity]="getSeverity(flujo.estado)">
-                      </p-tag>
-                    </td>
-                    <td>
-                      <div class="action-buttons">
-                        <button 
-                          class="btn-action-icon btn-action-primary" 
-                          (click)="seleccionarFlujo(flujo)"
-                          pTooltip="Ver detalles">
-                          <i class="bi bi-eye"></i>
-                        </button>
-                        <button 
-                          class="btn-action-icon btn-action-success" 
-                          pTooltip="Editar">
-                          <i class="bi bi-pencil"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </ng-template>
-                
-                <ng-template pTemplate="emptymessage">
-                  <tr>
-                    <td colspan="6" style="text-align: center; padding: 2rem;">
-                      <i class="bi bi-inbox" style="font-size: 3rem; color: #d1d5db;"></i>
-                      <p style="color: #6b7280; margin-top: 1rem;">No hay flujos configurados</p>
-                    </td>
-                  </tr>
-                </ng-template>
-              </p-table>
+        <!-- Detalle del flujo seleccionado -->
+        <div *ngIf="flujoSeleccionado" class="flujo-detalle mt-4">
+          <h3 class="section-title"><i class="pi pi-info-circle me-2"></i>{{ flujoSeleccionado.nombre }}</h3>
+
+          <!-- Pasos -->
+          <div class="detail-card mb-3">
+            <div class="detail-card-header">
+              <span><i class="pi pi-list me-2"></i>Pasos del Flujo</span>
+              <button class="btn-action btn-action-sm" (click)="abrirModalPaso()"><i class="pi pi-plus me-1"></i>Agregar</button>
+            </div>
+            <div class="detail-card-body">
+              <div class="paso-item" *ngFor="let paso of pasos">
+                <div class="paso-orden">{{ paso.orden }}</div>
+                <div class="paso-info">
+                  <div class="paso-nombre">{{ paso.nombre_paso }}</div>
+                  <div class="paso-rol">{{ paso.rol_aprobador }}</div>
+                </div>
+                <div class="paso-badges">
+                  <span class="badge-sm badge-info" *ngIf="paso.es_opcional">Opcional</span>
+                  <span class="badge-sm badge-warn" *ngIf="paso.permite_rechazo">Permite Rechazo</span>
+                </div>
+                <div class="paso-actions">
+                  <button class="btn-action-icon btn-action-primary btn-xs" (click)="verAprobadores(paso)" pTooltip="Aprobadores"><i class="pi pi-users"></i></button>
+                  <button class="btn-action-icon btn-action-danger btn-xs" (click)="eliminarPaso(paso)" pTooltip="Eliminar"><i class="pi pi-trash"></i></button>
+                </div>
+              </div>
+              <div *ngIf="pasos.length === 0" class="text-muted text-center py-3">Sin pasos configurados</div>
             </div>
           </div>
 
-          <!-- Detalle del Flujo Seleccionado -->
-          <div class="flujo-detalle-card" *ngIf="flujoSeleccionado">
-            <h3>
-              <i class="bi bi-info-circle me-2"></i>
-              Detalle del Flujo: {{ flujoSeleccionado.nombre }}
-            </h3>
-            
-            <p-accordion [multiple]="true" [activeIndex]="[0, 1]">
-              <!-- Pasos -->
-              <p-accordionTab header="Pasos del Flujo">
-                <div class="pasos-lista">
-                  <div class="paso-item" *ngFor="let paso of pasos">
-                    <div class="paso-orden">{{ paso.orden }}</div>
-                    <div class="paso-info">
-                      <div class="paso-nombre">{{ paso.nombre_paso }}</div>
-                      <div class="paso-rol">Rol: {{ paso.rol_aprobador }}</div>
-                    </div>
-                    <div class="paso-badges">
-                      <span class="badge-opcional" *ngIf="paso.es_opcional">Opcional</span>
-                      <span class="badge-rechazo" *ngIf="paso.permite_rechazo">Permite Rechazo</span>
-                    </div>
-                  </div>
-                </div>
-              </p-accordionTab>
-
-              <!-- Reglas -->
-              <p-accordionTab header="Reglas de Asignación">
-                <div class="reglas-lista">
-                  <div class="regla-item" *ngFor="let regla of reglas">
-                    <div class="regla-prioridad">
-                      <i class="bi bi-star-fill"></i>
-                      {{ regla.prioridad }}
-                    </div>
-                    <div class="regla-info">
-                      <div class="regla-descripcion">{{ regla.descripcion || 'Sin descripción' }}</div>
-                      <div class="regla-condiciones">{{ formatCondiciones(regla.condiciones) }}</div>
-                    </div>
-                    <div class="regla-estado">
-                      <p-tag 
-                        [value]="getEstadoTexto(regla.estado)" 
-                        [severity]="getSeverity(regla.estado)">
-                      </p-tag>
-                    </div>
-                  </div>
-                </div>
-              </p-accordionTab>
-            </p-accordion>
+          <!-- Aprobadores del paso seleccionado -->
+          <div *ngIf="pasoParaAprobadores" class="detail-card mb-3">
+            <div class="detail-card-header">
+              <span><i class="pi pi-users me-2"></i>Aprobadores: {{ pasoParaAprobadores.nombre_paso }}</span>
+              <button class="btn-action btn-action-sm" (click)="abrirModalAprobador()"><i class="pi pi-plus me-1"></i>Agregar</button>
+            </div>
+            <div class="detail-card-body">
+              <div class="aprobador-item" *ngFor="let a of aprobadores">
+                <span class="aprobador-estrategia">{{ formatEstrategia(a) }}</span>
+                <span class="badge-sm badge-info" *ngIf="a.es_suplente">Suplente</span>
+                <button class="btn-action-icon btn-action-danger btn-xs" (click)="eliminarAprobador(a)"><i class="pi pi-trash"></i></button>
+              </div>
+              <div *ngIf="aprobadores.length === 0" class="text-muted text-center py-3">Sin aprobadores</div>
+            </div>
           </div>
 
+          <!-- Reglas -->
+          <div class="detail-card mb-3">
+            <div class="detail-card-header">
+              <span><i class="pi pi-sliders-h me-2"></i>Reglas de Asignación</span>
+              <button class="btn-action btn-action-sm" (click)="abrirModalRegla()"><i class="pi pi-plus me-1"></i>Agregar</button>
+            </div>
+            <div class="detail-card-body">
+              <div class="regla-item" *ngFor="let regla of reglas">
+                <div class="regla-prioridad">P{{ regla.prioridad }}</div>
+                <div class="regla-info">
+                  <div class="regla-desc">{{ regla.descripcion || 'Sin descripción' }}</div>
+                  <div class="regla-cond">{{ formatCondiciones(regla.condiciones) }}</div>
+                </div>
+                <p-tag [value]="getEstadoTexto(regla.estado)" [severity]="getSeverity(regla.estado)"></p-tag>
+                <button class="btn-action-icon btn-action-danger btn-xs" (click)="eliminarRegla(regla)"><i class="pi pi-trash"></i></button>
+              </div>
+              <div *ngIf="reglas.length === 0" class="text-muted text-center py-3">Sin reglas configuradas</div>
+            </div>
+          </div>
         </div>
       </p-tabPanel>
 
       <!-- TAB 2: MONITOREO -->
-      <p-tabPanel header="Monitoreo" leftIcon="bi bi-activity">
-        <div class="tab-content">
-          <p class="text-muted">Monitoreo de instancias de flujo en tiempo real (próximamente)</p>
-        </div>
+      <p-tabPanel header="Monitoreo">
+        <p class="text-muted py-4 text-center">Monitoreo de instancias de flujo en tiempo real (próximamente)</p>
       </p-tabPanel>
-
     </p-tabView>
-
   </div>
 </div>
 
-<!-- Toast -->
 <p-toast></p-toast>
-
-<!-- Confirm Dialog -->
 <p-confirmDialog></p-confirmDialog>
+
+<!-- Modal Flujo -->
+<p-dialog header="Flujo" [(visible)]="mostrarModalFlujo" [modal]="true" [style]="{width:'500px'}">
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Código</label><input pInputText [(ngModel)]="flujoForm.codigo" class="w-100"></div>
+    <div class="col-12"><label class="form-label">Nombre</label><input pInputText [(ngModel)]="flujoForm.nombre" class="w-100"></div>
+    <div class="col-12"><label class="form-label">Descripción</label><input pInputText [(ngModel)]="flujoForm.descripcion" class="w-100"></div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalFlujo=false"></p-button>
+    <p-button label="Guardar" icon="pi pi-check" (onClick)="guardarFlujo()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal Paso -->
+<p-dialog header="Paso" [(visible)]="mostrarModalPaso" [modal]="true" [style]="{width:'500px'}">
+  <div class="row g-3">
+    <div class="col-6"><label class="form-label">Orden</label><p-inputNumber [(ngModel)]="pasoForm.orden" [min]="1" styleClass="w-100"></p-inputNumber></div>
+    <div class="col-6"><label class="form-label">Rol</label>
+      <p-dropdown [options]="rolesOptions" [(ngModel)]="pasoForm.rol_aprobador" optionLabel="label" optionValue="value" styleClass="w-100" placeholder="Seleccione"></p-dropdown>
+    </div>
+    <div class="col-12"><label class="form-label">Nombre del Paso</label><input pInputText [(ngModel)]="pasoForm.nombre_paso" class="w-100"></div>
+    <div class="col-6"><p-checkbox [(ngModel)]="pasoForm.es_opcional" [binary]="true" label="Opcional"></p-checkbox></div>
+    <div class="col-6"><p-checkbox [(ngModel)]="pasoForm.permite_rechazo" [binary]="true" label="Permite Rechazo"></p-checkbox></div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalPaso=false"></p-button>
+    <p-button label="Guardar" icon="pi pi-check" (onClick)="guardarPaso()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal Regla -->
+<p-dialog header="Regla" [(visible)]="mostrarModalRegla" [modal]="true" [style]="{width:'500px'}">
+  <div class="row g-3">
+    <div class="col-6"><label class="form-label">Prioridad</label><p-inputNumber [(ngModel)]="reglaForm.prioridad" [min]="1" styleClass="w-100"></p-inputNumber></div>
+    <div class="col-6"><label class="form-label">Descripción</label><input pInputText [(ngModel)]="reglaForm.descripcion" class="w-100"></div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalRegla=false"></p-button>
+    <p-button label="Guardar" icon="pi pi-check" (onClick)="guardarRegla()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal Aprobador -->
+<p-dialog header="Aprobador" [(visible)]="mostrarModalAprobador" [modal]="true" [style]="{width:'500px'}">
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Estrategia</label>
+      <p-dropdown [options]="estrategiasOptions" [(ngModel)]="aprobadorForm.estrategia" optionLabel="label" optionValue="value" styleClass="w-100"></p-dropdown>
+    </div>
+    <div class="col-12" *ngIf="aprobadorForm.estrategia === 'fijo'"><label class="form-label">ID Usuario</label><p-inputNumber [(ngModel)]="aprobadorForm.id_user" styleClass="w-100"></p-inputNumber></div>
+    <div class="col-12" *ngIf="aprobadorForm.estrategia === 'prefijo_sucursal'"><label class="form-label">Prefijo Sucursal</label><input pInputText [(ngModel)]="aprobadorForm.prefijo_sucursal" class="w-100" placeholder="NVA, FLA, TJA..."></div>
+    <div class="col-12"><p-checkbox [(ngModel)]="aprobadorForm.es_suplente" [binary]="true" label="Es suplente"></p-checkbox></div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalAprobador=false"></p-button>
+    <p-button label="Guardar" icon="pi pi-check" (onClick)="guardarAprobador()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>

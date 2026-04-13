@@ -31,7 +31,6 @@ interface EmpleadoUI {
   email?: string | null; raw: Empleado;
 }
 
-// Desglose de alimentación extraído de los items del backend
 interface DesglosAlimentacion {
   desayuno: number; almuerzo: number; cena: number; totalDiario: number;
 }
@@ -76,16 +75,13 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   ciudadesOptions: Ciudad[] = [];
   ciudadSeleccionada: Ciudad | null = null;
 
-  // Topes del backend
   topesCalculados: CalculoTopesResponse | null = null;
   desglose: DesglosAlimentacion | null = null;
   isCalculandoTopes = false;
 
-  // Checkboxes opcionales
   incluirAlimentacion = true;
   incluirHospedaje = false;
 
-  // Formulario viaje — transporte siempre presente, alimentación y hospedaje opcionales
   formularioViaje = {
     pasajeIntermunicipal: { cantidad: 1, valor: 0 },
     transporteInterno: { cantidad: 1, valor: 0 },
@@ -101,9 +97,13 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
 
   estadosOptions = [
     { label: 'Todos', value: null },
-    { label: 'Pendiente', value: 'pendiente' },
-    { label: 'Aprobado', value: 'aprobado' },
-    { label: 'Rechazado', value: 'rechazado' }
+    { label: 'Pendiente Jefe', value: 'pendiente_jefe' },
+    { label: 'Pendiente Financiero', value: 'pendiente_financiero' },
+    { label: 'Autorizado', value: 'autorizado' },
+    { label: 'En Viaje', value: 'en_viaje' },
+    { label: 'Pendiente Legalización', value: 'pendiente_legalizacion' },
+    { label: 'Cerrado', value: 'cerrado' },
+    { label: 'Rechazado', value: 'rechazado_jefe' }
   ];
 
   constructor(
@@ -113,7 +113,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     private personaService: PersonaService,
     private anticipoSolicitudService: AnticipoSolicitudService,
     private ciudadService: AnticipoCiudadService
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     this.iniciarContexto();
@@ -138,10 +138,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
             .map(e => ({ label: `${e.nombre} - ${e.numero_identificacion}`, value: this.mapEmpleadoUI(e) }));
           this.isLoadingEmpleados = false;
         },
-        error: () => {
-          this.isLoadingEmpleados = false;
-          this.toast('error', 'No se pudieron cargar los empleados');
-        }
+        error: () => { this.isLoadingEmpleados = false; this.toast('error', 'No se pudieron cargar los empleados'); }
       })
     );
   }
@@ -170,9 +167,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
         if (Array.isArray(response?.data)) {
           this.solicitudes = response.data; this.totalRecords = response.total ?? response.data.length;
         } else if (Array.isArray(response?.data?.data)) {
-          this.solicitudes = response.data.data; this.totalRecords = response.data.total ?? response.data.data.length;
-        } else if (Array.isArray(response)) {
-          this.solicitudes = response; this.totalRecords = response.length;
+          this.solicitudes = response.data.data; this.totalRecords = response.data.total ?? 0;
         } else { this.solicitudes = []; this.totalRecords = 0; }
         this.isLoading = false;
       },
@@ -189,8 +184,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     this.resetFormulario();
     if (!this.empresaIdActual) this.resolverEmpresaActual();
     if (this.empleadosOptions.length === 0 && this.empresaIdActual && !this.isLoadingEmpleados) {
-      this.empleadosCargados = false;
-      this.cargarEmpleadosEmpresa();
+      this.empleadosCargados = false; this.cargarEmpleadosEmpresa();
     }
   }
 
@@ -202,10 +196,8 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     this.topesCalculados = null; this.desglose = null;
     this.incluirAlimentacion = true; this.incluirHospedaje = false;
     this.formularioViaje = {
-      pasajeIntermunicipal: { cantidad: 1, valor: 0 },
-      transporteInterno: { cantidad: 1, valor: 0 },
-      alimentacion: { cantidad: 1, valor: 0 },
-      hospedaje: { cantidad: 1, valor: 0 },
+      pasajeIntermunicipal: { cantidad: 1, valor: 0 }, transporteInterno: { cantidad: 1, valor: 0 },
+      alimentacion: { cantidad: 1, valor: 0 }, hospedaje: { cantidad: 1, valor: 0 },
       motivo: '', fechaSalida: null, fechaRegreso: null, cobertura: 'nacional'
     };
     this.formularioOtros = { moneda: 'pesos', valor: 0, descripcion: '', archivos: [] };
@@ -219,7 +211,6 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   seleccionarMotivo(motivo: 'viaje' | 'otros'): void { this.motivoSeleccionado = motivo; }
 
   // ── TOPES ─────────────────────────────────────────────────────────────────
-
   onFechaSalidaChange(): void {
     if (this.formularioViaje.fechaRegreso && this.formularioViaje.fechaSalida &&
       this.formularioViaje.fechaRegreso < this.formularioViaje.fechaSalida) {
@@ -257,33 +248,24 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       cobertura: this.formularioViaje.cobertura
     }).subscribe({
       next: (response: any) => {
-        // Normaliza: { success, data: {...} } o directo
         const topes: CalculoTopesResponse = response?.data ?? response;
-
         if (!topes || (!topes.items && topes.alimentacion_diario === undefined)) {
           this.toast('warn', 'No se encontraron topes para los parámetros indicados');
-          this.isCalculandoTopes = false;
-          return;
+          this.isCalculandoTopes = false; return;
         }
-
         this.topesCalculados = topes;
         this.desglose = this.extraerDesglose(topes.items ?? []);
-
         const dias = topes.dias ?? topes.dias_viaje ?? 1;
         const transporteDiario = Number(topes.transporte_diario ?? 0);
 
-        // Transporte interno: siempre obligatorio, se autocompleta
         this.formularioViaje.transporteInterno.cantidad = dias;
         this.formularioViaje.transporteInterno.valor = transporteDiario;
 
-        // Alimentación: se autocompleta si está activa
         if (this.incluirAlimentacion) {
           this.formularioViaje.alimentacion.cantidad = dias;
           this.formularioViaje.alimentacion.valor = Number(topes.alimentacion_diario ?? 0);
         }
-
-        const total = topes.total ?? topes.monto_total_estimado ?? 0;
-        this.toast('success', `Topes calculados — Total estimado: ${this.formatCurrency(total)}`);
+        this.toast('success', `Topes calculados — Total estimado: ${this.formatCurrency(topes.total ?? topes.monto_total_estimado ?? 0)}`);
         this.isCalculandoTopes = false;
       },
       error: (error) => {
@@ -293,15 +275,12 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Extrae Desayuno/Almuerzo/Cena de los items devueltos por el backend */
   private extraerDesglose(items: TopeItem[]): DesglosAlimentacion {
     const find = (desc: string) => {
-      const item = items.find(i => i.descripcion.toLowerCase().includes(desc.toLowerCase()));
+      const item = items.find(i => i.descripcion?.toLowerCase().includes(desc));
       return item ? Number(item.valor_unitario) : 0;
     };
-    const desayuno = find('desayuno');
-    const almuerzo = find('almuerzo');
-    const cena = find('cena');
+    const desayuno = find('desayuno'), almuerzo = find('almuerzo'), cena = find('cena');
     return { desayuno, almuerzo, cena, totalDiario: desayuno + almuerzo + cena };
   }
 
@@ -316,13 +295,10 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   onIncluirHospedajeChange(): void {
-    if (!this.incluirHospedaje) {
-      this.formularioViaje.hospedaje = { cantidad: 1, valor: 0 };
-    }
+    if (!this.incluirHospedaje) this.formularioViaje.hospedaje = { cantidad: 1, valor: 0 };
   }
 
   // ── CÁLCULOS ──────────────────────────────────────────────────────────────
-
   calcularTotalViaje(): number {
     const { pasajeIntermunicipal, transporteInterno, alimentacion, hospedaje } = this.formularioViaje;
     let total = (pasajeIntermunicipal.cantidad * pasajeIntermunicipal.valor)
@@ -341,7 +317,6 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   // ── GUARDAR ───────────────────────────────────────────────────────────────
-
   guardarSolicitud(): void {
     if (!this.usuarioSeleccionado) { this.toast('warn', 'Debe seleccionar un responsable'); return; }
     if (!this.motivoSeleccionado) { this.toast('warn', 'Debe seleccionar un motivo'); return; }
@@ -370,7 +345,6 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       });
     }
 
-    // Transporte: obligatorio
     items.push({
       id_concepto: 2, descripcion: 'Transporte Interno',
       cantidad: this.formularioViaje.transporteInterno.cantidad,
@@ -408,8 +382,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         if (response?.success !== false) {
           this.toast('success', response?.message || 'Solicitud creada correctamente');
-          this.cerrarNuevaSolicitud();
-          this.loadSolicitudes();
+          this.cerrarNuevaSolicitud(); this.loadSolicitudes();
         }
       },
       error: (error) => this.toast('error', error.error?.message || 'No se pudo crear la solicitud')
@@ -418,24 +391,17 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
 
   onFileSelect(event: any): void {
     const files = event.target.files;
-    if (files?.length) {
-      this.formularioOtros.archivos = Array.from(files);
-      this.toast('success', `${files.length} archivo(s) seleccionado(s)`);
-    }
+    if (files?.length) { this.formularioOtros.archivos = Array.from(files); this.toast('success', `${files.length} archivo(s) seleccionado(s)`); }
   }
 
   onEmpleadoSeleccionado(empleado: EmpleadoUI | null): void {
     if (!empleado) return;
-    if (!this.esEmpleadoActivo(empleado)) {
-      this.toast('warn', 'El empleado seleccionado está inactivo');
-      this.usuarioSeleccionado = null; return;
-    }
+    if (!this.esEmpleadoActivo(empleado)) { this.toast('warn', 'El empleado seleccionado está inactivo'); this.usuarioSeleccionado = null; return; }
     this.usuarioSeleccionado = empleado;
     this.calcularTopesAutomatico();
   }
 
   // ── CONTEXTO / EMPRESA ────────────────────────────────────────────────────
-
   private iniciarContexto(): void {
     this.subscriptions.push(
       this.contextoService.contexto$.subscribe(ctx => { if (ctx) this.resolverEmpresaDesdeContexto(ctx); })
@@ -531,7 +497,6 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
-
   private mapEmpleadoUI(e: Empleado): EmpleadoUI {
     return {
       id: e.id, nombre: e.nombre, cedula: e.numero_identificacion,
@@ -551,11 +516,32 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
   }
 
   private toast(severity: string, detail: string): void {
-    this.messageService.add({ severity, summary: severity === 'error' ? 'Error' : severity === 'warn' ? 'Advertencia' : severity === 'info' ? 'Info' : 'Éxito', detail, life: 3500 });
+    this.messageService.add({
+      severity,
+      summary: severity === 'error' ? 'Error' : severity === 'warn' ? 'Advertencia' : severity === 'info' ? 'Info' : 'Éxito',
+      detail, life: 3500
+    });
   }
 
-  getSeverity(estado: string): 'success' | 'warn' | 'danger' | 'info' {
-    const map: any = { aprobado: 'success', pendiente: 'warn', rechazado: 'danger' };
+  getSeverity(estado: string): 'success' | 'warn' | 'danger' | 'info' | 'secondary' {
+    const map: Record<string, any> = {
+      autorizado: 'success', en_viaje: 'success', legalizado: 'success', cerrado: 'secondary',
+      pendiente_jefe: 'warn', pendiente_financiero: 'warn', pendiente_legalizacion: 'warn',
+      pendiente_reintegro: 'warn', pendiente_excedente: 'warn', borrador: 'info',
+      rechazado_jefe: 'danger', rechazado_financiero: 'danger', rechazado_excedente: 'danger'
+    };
     return map[estado] ?? 'info';
+  }
+
+  getEstadoLabel(estado: string): string {
+    const map: Record<string, string> = {
+      borrador: 'Borrador', pendiente_jefe: 'Pendiente Jefe', rechazado_jefe: 'Rechazado Jefe',
+      pendiente_financiero: 'Pendiente Financiero', rechazado_financiero: 'Rechazado Financiero',
+      autorizado: 'Autorizado', en_viaje: 'En Viaje', pendiente_legalizacion: 'Pend. Legalización',
+      legalizado: 'Legalizado', pendiente_reintegro: 'Pend. Reintegro', reintegrado: 'Reintegrado',
+      pendiente_excedente: 'Pend. Excedente', aprobado_excedente: 'Excedente Aprobado',
+      rechazado_excedente: 'Excedente Rechazado', cerrado: 'Cerrado'
+    };
+    return map[estado] ?? estado;
   }
 }
