@@ -70,6 +70,10 @@
 .regla-desc { font-size: 0.813rem; font-weight: 500; color: #1f2937; }
 .regla-cond { font-size: 0.75rem; color: #6b7280; }
 
+/* Cargos */
+.cargo-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6; font-size: 0.813rem; color: #374151; }
+.cargo-item:last-child { border-bottom: none; }
+
 /* Form */
 .form-label { display: block; font-size: 0.813rem; font-weight: 500; color: #374151; margin-bottom: 0.375rem; }
 :host ::ng-deep .p-inputtext { border-radius: 8px; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.813rem; }

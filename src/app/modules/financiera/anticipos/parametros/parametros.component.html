@@ -2,251 +2,146 @@
   <p-toast></p-toast>
   <p-confirmDialog></p-confirmDialog>
 
-  <!-- Header Moderno -->
   <div class="page-header-modern">
     <div class="header-top">
-      <button class="btn-back-modern" routerLink="/financiera">
-        <i class="pi pi-arrow-left"></i>
-        Volver
-      </button>
+      <button class="btn-back-modern" routerLink="/financiera"><i class="pi pi-arrow-left"></i> Volver</button>
     </div>
     <div class="header-main">
       <div class="header-title-section">
-        <h1 class="page-title-modern">
-          <i class="pi pi-cog me-2"></i>
-          Parámetros de Anticipos
-        </h1>
-        <p class="page-subtitle-modern">Configuración de parámetros generales y asignación de reglas por cargo</p>
+        <h1 class="page-title-modern"><i class="pi pi-cog me-2"></i>Parámetros de Anticipos</h1>
+        <p class="page-subtitle-modern">Conceptos, topes por nivel jerárquico y ciudades</p>
       </div>
     </div>
   </div>
 
   <div class="dashboard-content">
-    <!-- Tabs -->
     <p-tabView [(activeIndex)]="activeTabIndex">
-      
-      <!-- TAB 1: CONFIGURACIÓN -->
-      <p-tabPanel header="Configuración" leftIcon="pi pi-cog">
-        <!-- Formulario de Parámetro -->
+
+      <!-- ═══ TAB 1: CONCEPTOS ═══ -->
+      <p-tabPanel header="Conceptos">
+
+        <!-- Formulario -->
         <div class="filters-card">
           <div class="filters-header">
-            <h3>
-              <i class="pi pi-plus-circle me-2"></i>
-              {{ modoEdicion ? 'Editar Parámetro' : 'Nuevo Parámetro' }}
-            </h3>
-            <button 
-              class="btn-clear-filters"
-              *ngIf="modoEdicion"
-              (click)="cancelarEdicion()">
-              <i class="pi pi-times"></i>
-              Cancelar
-            </button>
+            <h3><i class="pi pi-plus-circle me-2"></i>{{ modoEdicionConcepto ? 'Editar Concepto' : 'Nuevo Concepto' }}</h3>
+            <button class="btn-clear-filters" *ngIf="modoEdicionConcepto" (click)="resetConceptoForm()"><i class="pi pi-times me-1"></i>Cancelar</button>
           </div>
-
           <div class="filters-body">
-            <div class="p-fluid p-formgrid p-grid">
-              <div class="p-field p-col-12 p-md-4">
-                <label class="filter-label">
-                  <i class="pi pi-tag me-1"></i>
-                  Código <span style="color: #ef4444;">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  pInputText 
-                  [(ngModel)]="parametroActual.codigo"
-                  placeholder="Ej: DIAS_MAX_ANTICIPO"
-                  [disabled]="modoEdicion">
-                <small style="color: #6b7280; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                  Código único del parámetro (sin espacios, mayúsculas)
-                </small>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="filter-label">Tipo <span class="required">*</span></label>
+                <p-dropdown [options]="tiposOptions" [(ngModel)]="conceptoForm.id_tipo" (onChange)="onTipoChange()"
+                  optionLabel="nombre" optionValue="id" [showClear]="true" placeholder="Seleccione tipo" styleClass="w-100"></p-dropdown>
               </div>
-
-              <div class="p-field p-col-12 p-md-4">
-                <label class="filter-label">
-                  <i class="pi pi-bookmark me-1"></i>
-                  Nombre <span style="color: #ef4444;">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  pInputText 
-                  [(ngModel)]="parametroActual.nombre"
-                  placeholder="Ej: Días máximos para solicitar anticipo">
-                <small style="color: #6b7280; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                  Nombre descriptivo del parámetro
-                </small>
+              <div class="col-md-4">
+                <label class="filter-label">Clase <span class="required">*</span></label>
+                <p-dropdown [options]="clasesOptions" [(ngModel)]="conceptoForm.id_clase" (onChange)="onClaseChange()"
+                  optionLabel="nombre" optionValue="id" [showClear]="true" [disabled]="!conceptoForm.id_tipo"
+                  placeholder="Seleccione clase" styleClass="w-100"></p-dropdown>
               </div>
-
-              <div class="p-field p-col-12 p-md-4">
-                <label class="filter-label">
-                  <i class="pi pi-database me-1"></i>
-                  Tipo de Dato <span style="color: #ef4444;">*</span>
-                </label>
-                <p-dropdown
-                  [options]="tiposDatoOptions"
-                  [(ngModel)]="parametroActual.tipo_dato"
-                  placeholder="Seleccione el tipo"
-                  optionLabel="label"
-                  optionValue="value">
-                </p-dropdown>
-                <small style="color: #6b7280; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                  Tipo de dato que almacenará
-                </small>
-              </div>
-
-              <div class="p-field p-col-12 p-md-4">
-                <label class="filter-label">
-                  <i class="pi pi-pencil me-1"></i>
-                  Valor <span style="color: #ef4444;">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  pInputText 
-                  [(ngModel)]="parametroActual.valor"
-                  placeholder="Ingrese el valor">
-                <small style="color: #6b7280; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                  Valor actual del parámetro
-                </small>
-              </div>
-
-              <div class="p-field p-col-12 p-md-6">
-                <label class="filter-label">
-                  <i class="pi pi-align-left me-1"></i>
-                  Descripción
-                </label>
-                <textarea 
-                  pInputTextarea 
-                  [(ngModel)]="parametroActual.descripcion"
-                  placeholder="Descripción detallada del parámetro y su uso"
-                  rows="3">
-                </textarea>
-                <small style="color: #6b7280; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                  Explique para qué sirve este parámetro
-                </small>
-              </div>
-
-              <div class="p-field p-col-12 p-md-2" style="display: flex; align-items: center; padding-top: 1.5rem;">
-                <p-checkbox 
-                  [(ngModel)]="parametroActual.estado" 
-                  [binary]="true"
-                  inputId="estado"
-                  label="Activo">
-                </p-checkbox>
+              <div class="col-md-4">
+                <label class="filter-label">Modalidad <span class="required">*</span></label>
+                <p-dropdown [options]="modalidadesOptions" [(ngModel)]="conceptoForm.id_modalidad"
+                  optionLabel="nombre" optionValue="id" [showClear]="true" [disabled]="!conceptoForm.id_clase"
+                  placeholder="Seleccione modalidad" styleClass="w-100"></p-dropdown>
               </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-              <button 
-                class="btn-action btn-action-primary"
-                (click)="guardarParametro()">
-                <i class="pi pi-save"></i>
-                {{ modoEdicion ? 'Actualizar' : 'Guardar' }}
+            <!-- Reglas inline -->
+            <div class="reglas-section mt-3">
+              <label class="filter-label"><i class="pi pi-shield me-1"></i>Reglas del Concepto</label>
+              <div class="d-flex gap-2 mb-2">
+                <input pInputText [(ngModel)]="nuevaRegla.descripcion" placeholder="Descripción (ej: Máximo por día)" class="flex-grow-1">
+                <p-inputNumber [(ngModel)]="nuevaRegla.valor_tope" mode="currency" currency="COP" locale="es-CO" [inputStyle]="{'width':'160px'}"></p-inputNumber>
+                <button class="btn-action btn-action-primary" (click)="agregarRegla()"><i class="pi pi-plus"></i></button>
+              </div>
+              <div *ngFor="let r of reglas; let i = index" class="regla-chip">
+                <span>{{ r.descripcion }} — {{ formatCurrency(r.valor_tope) }}</span>
+                <button class="btn-remove" (click)="eliminarRegla(r)"><i class="pi pi-times"></i></button>
+              </div>
+            </div>
+
+            <div class="form-footer mt-3">
+              <p-checkbox [(ngModel)]="conceptoForm.estado" [binary]="true" label="Activo"></p-checkbox>
+              <button class="btn-action btn-action-primary" (click)="guardarConcepto()" [disabled]="isSaving">
+                <i class="pi pi-save me-1"></i>{{ modoEdicionConcepto ? 'Actualizar' : 'Guardar' }}
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Tabla de Parámetros -->
+        <!-- Tabla conceptos -->
         <div class="table-section">
-          <div class="table-header">
-            <h2>
-              <i class="pi pi-list me-2"></i>
-              Parámetros Configurados
-            </h2>
-          </div>
-
+          <div class="table-header"><h2><i class="pi pi-list me-2"></i>Conceptos Configurados</h2></div>
           <div class="modern-table-container">
-            <p-table 
-              [value]="parametros" 
-              [loading]="isLoading"
-              [paginator]="true" 
-              [rows]="10"
-              [showCurrentPageReport]="true"
-              currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} parámetros"
-              [rowsPerPageOptions]="[10, 25, 50]"
-              styleClass="modern-table">
-              
+            <p-table [value]="conceptos" [loading]="isLoading" [paginator]="true" [rows]="10" styleClass="modern-table">
               <ng-template pTemplate="header">
-                <tr>
-                  <th>CÓDIGO</th>
-                  <th>NOMBRE</th>
-                  <th>TIPO DE DATO</th>
-                  <th>VALOR</th>
-                  <th>DESCRIPCIÓN</th>
-                  <th>ESTADO</th>
-                  <th style="text-align: center;">ACCIONES</th>
-                </tr>
+                <tr><th>Tipo</th><th>Clase</th><th>Modalidad</th><th>Reglas</th><th>Estado</th><th>Acciones</th></tr>
               </ng-template>
-              
-              <ng-template pTemplate="body" let-parametro>
+              <ng-template pTemplate="body" let-c>
                 <tr>
+                  <td>{{ getTipoLabel(c) }}</td>
+                  <td>{{ getClaseLabel(c) }}</td>
+                  <td>{{ getModalidadLabel(c) }}</td>
                   <td>
-                    <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 0.813rem; font-weight: 600;">
-                      {{ parametro.codigo }}
-                    </code>
+                    <div *ngFor="let r of c.reglas" class="regla-mini">
+                      <span class="regla-desc">{{ r.descripcion }}</span>
+                      <span class="regla-val">{{ formatCurrency(r.valor_tope) }}</span>
+                    </div>
+                    <span *ngIf="!c.reglas?.length" class="text-muted">Sin reglas</span>
                   </td>
-                  <td style="font-weight: 500;">{{ parametro.nombre }}</td>
-                  <td>
-                    <span style="background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 12px; font-size: 0.813rem; font-weight: 500;">
-                      {{ getTipoDatoLabel(parametro.tipo_dato) }}
-                    </span>
-                  </td>
-                  <td>
-                    <strong style="color: #1f2937;">{{ parametro.valor }}</strong>
-                  </td>
-                  <td>
-                    <span style="font-size: 0.875rem; color: #6b7280;">
-                      {{ parametro.descripcion || 'Sin descripción' }}
-                    </span>
-                  </td>
-                  <td>
-                    <p-tag 
-                      [value]="getEstadoTexto(parametro.estado)" 
-                      [severity]="getSeverity(parametro.estado)">
-                    </p-tag>
-                  </td>
+                  <td><p-tag [value]="getEstadoTexto(c.estado)" [severity]="getSeverity(c.estado)"></p-tag></td>
                   <td>
                     <div class="action-buttons">
-                      <button 
-                        class="btn-action-icon btn-action-primary"
-                        pTooltip="Editar"
-                        tooltipPosition="top"
-                        (click)="editarParametro(parametro)">
-                        <i class="pi pi-pencil"></i>
-                      </button>
-                      <button 
-                        class="btn-action-icon"
-                        style="background: #fef2f2; color: #ef4444;"
-                        pTooltip="Eliminar"
-                        tooltipPosition="top"
-                        (click)="eliminarParametro(parametro)">
-                        <i class="pi pi-trash"></i>
-                      </button>
+                      <button class="btn-action-icon btn-action-primary" (click)="editarConcepto(c)" pTooltip="Editar"><i class="pi pi-pencil"></i></button>
+                      <button class="btn-action-icon btn-action-danger" (click)="eliminarConcepto(c)" pTooltip="Eliminar"><i class="pi pi-trash"></i></button>
                     </div>
                   </td>
                 </tr>
               </ng-template>
-              
               <ng-template pTemplate="emptymessage">
+                <tr><td colspan="6" class="text-center py-4"><i class="pi pi-inbox" style="font-size:2.5rem;color:#9ca3af"></i><p class="text-muted mt-2">Sin conceptos</p></td></tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- ═══ TAB 2: TOPES POR NIVEL ═══ -->
+      <p-tabPanel header="Topes por Nivel">
+        <div class="table-section mb-4">
+          <div class="table-header"><h2><i class="pi pi-star me-2"></i>Topes de Alimentación por Nivel Jerárquico</h2></div>
+          <div class="modern-table-container">
+            <p-table [value]="nivelesJerarquicos" styleClass="modern-table">
+              <ng-template pTemplate="header">
+                <tr><th>Nivel</th><th>Tipo</th><th>Desayuno</th><th>Almuerzo</th><th>Cena</th><th>Total/Día</th></tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-n>
                 <tr>
-                  <td colspan="7" style="text-align: center; padding: 3rem;">
-                    <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
-                    <p style="color: #6b7280; margin-top: 1rem; margin-bottom: 0.25rem; font-weight: 500;">
-                      No hay parámetros registrados
-                    </p>
-                    <small style="color: #9ca3af;">Los parámetros aparecerán aquí una vez agregados</small>
-                  </td>
+                  <td><span class="badge-nivel nivel-{{ n.nivel }}">{{ n.nivel }}</span></td>
+                  <td>{{ n.tipo }}</td>
+                  <td>{{ formatCurrency(n.desayuno) }}</td>
+                  <td>{{ formatCurrency(n.almuerzo) }}</td>
+                  <td>{{ formatCurrency(n.cena) }}</td>
+                  <td><strong>{{ formatCurrency(n.totalDia) }}</strong></td>
                 </tr>
               </ng-template>
+            </p-table>
+          </div>
+        </div>
 
-              <ng-template pTemplate="loadingbody">
-                <tr *ngFor="let i of [1,2,3,4,5]">
-                  <td><p-skeleton></p-skeleton></td>
-                  <td><p-skeleton></p-skeleton></td>
-                  <td><p-skeleton></p-skeleton></td>
-                  <td><p-skeleton></p-skeleton></td>
-                  <td><p-skeleton></p-skeleton></td>
-                  <td><p-skeleton></p-skeleton></td>
-                  <td><p-skeleton></p-skeleton></td>
+        <div class="table-section">
+          <div class="table-header"><h2><i class="pi pi-car me-2"></i>Transporte Interno por Tipo de Ciudad</h2></div>
+          <div class="modern-table-container">
+            <p-table [value]="transportePorCiudad" styleClass="modern-table">
+              <ng-template pTemplate="header">
+                <tr><th>Tipo</th><th>Ciudades</th><th>Valor/Día</th></tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-t>
+                <tr>
+                  <td><span class="badge-tipo-ciudad tipo-{{ t.tipo }}">{{ t.tipo }}</span></td>
+                  <td>{{ t.ciudades }}</td>
+                  <td><strong>{{ formatCurrency(t.valorDia) }}</strong></td>
                 </tr>
               </ng-template>
             </p-table>
@@ -254,212 +149,31 @@
         </div>
       </p-tabPanel>
 
-      <!-- TAB 2: REGLAS/CARGOS -->
-      <p-tabPanel header="Reglas/Cargos" leftIcon="pi pi-users">
-        <!-- Selector de Regla -->
-        <div class="filters-card">
-          <div class="filters-header">
-            <h3>
-              <i class="pi pi-shield me-2"></i>
-              Asignar Reglas a Cargos
-            </h3>
-          </div>
-
-          <div class="filters-body">
-            <div class="p-fluid p-formgrid p-grid">
-              <div class="p-field p-col-12 p-md-6">
-                <label class="filter-label">
-                  <i class="pi pi-list me-1"></i>
-                  Seleccione una Regla <span style="color: #ef4444;">*</span>
-                </label>
-                <p-dropdown
-                  [options]="reglasDisponibles"
-                  [(ngModel)]="reglaSeleccionada"
-                  (onChange)="onReglaChange()"
-                  placeholder="Seleccione una regla"
-                  optionLabel="descripcion"
-                  [showClear]="true">
-                  <ng-template let-regla pTemplate="item">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <span>{{ regla.descripcion }}</span>
-                      <span style="color: #10b981; font-weight: 600;">
-                        {{ regla.valor_tope | currency:'COP':'symbol-narrow':'1.0-0' }}
-                      </span>
-                    </div>
-                  </ng-template>
-                </p-dropdown>
-                <small style="color: #6b7280; font-size: 0.75rem; display: block; margin-top: 0.25rem;">
-                  Seleccione la regla para asignar a los cargos
-                </small>
-              </div>
-
-              <div class="p-field p-col-12 p-md-6" *ngIf="reglaSeleccionada">
-                <label class="filter-label">
-                  <i class="pi pi-info-circle me-1"></i>
-                  Información de la Regla
-                </label>
-                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 0.75rem;">
-                  <div style="font-size: 0.875rem; color: #166534; margin-bottom: 0.25rem;">
-                    <strong>Concepto:</strong> {{ getConceptoInfo(reglaSeleccionada) }}
-                  </div>
-                  <div style="font-size: 0.875rem; color: #166534;">
-                    <strong>Valor Tope:</strong> {{ reglaSeleccionada.valor_tope | currency:'COP':'symbol-narrow':'1.0-0' }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Asignación de Cargos -->
-        <div class="table-section" *ngIf="reglaSeleccionada">
-          <div class="table-header">
-            <h2>
-              <i class="pi pi-briefcase me-2"></i>
-              Cargos Asignados a esta Regla
-            </h2>
-            <button 
-              class="btn-action btn-action-primary"
-              (click)="mostrarModalCargos = true">
-              <i class="pi pi-plus"></i>
-              Asignar Cargos
-            </button>
-          </div>
-
+      <!-- ═══ TAB 3: CIUDADES ═══ -->
+      <p-tabPanel header="Ciudades">
+        <div class="table-section">
+          <div class="table-header"><h2><i class="pi pi-map-marker me-2"></i>Catálogo de Ciudades</h2></div>
           <div class="modern-table-container">
-            <p-table 
-              [value]="cargosAsignados" 
-              [loading]="isLoadingCargos"
-              styleClass="modern-table">
-              
+            <p-table [value]="ciudades" [paginator]="true" [rows]="20" styleClass="modern-table">
               <ng-template pTemplate="header">
+                <tr><th>Ciudad</th><th>Departamento</th><th>Tipo</th><th>Estado</th></tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-c>
                 <tr>
-                  <th>CÓDIGO</th>
-                  <th>NOMBRE DEL CARGO</th>
-                  <th>DEPARTAMENTO</th>
-                  <th style="text-align: center;">ACCIONES</th>
+                  <td>{{ c.nombre }}</td>
+                  <td>{{ c.departamento }}</td>
+                  <td><span class="badge-tipo-ciudad tipo-{{ c.tipo_ciudad }}">{{ c.tipo_ciudad }}</span></td>
+                  <td><p-tag [value]="c.estado !== false ? 'Activa' : 'Inactiva'" [severity]="c.estado !== false ? 'success' : 'danger'"></p-tag></td>
                 </tr>
               </ng-template>
-              
-              <ng-template pTemplate="body" let-cargo>
-                <tr>
-                  <td>
-                    <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 0.813rem; font-weight: 600;">
-                      {{ cargo.codigo }}
-                    </code>
-                  </td>
-                  <td style="font-weight: 500;">{{ cargo.nombre }}</td>
-                  <td>
-                    <span style="font-size: 0.875rem; color: #6b7280;">
-                      {{ cargo.departamento }}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="action-buttons">
-                      <button 
-                        class="btn-action-icon"
-                        style="background: #fef2f2; color: #ef4444;"
-                        pTooltip="Desasignar"
-                        tooltipPosition="top"
-                        (click)="desasignarCargo(cargo)">
-                        <i class="pi pi-times"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </ng-template>
-              
               <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="4" style="text-align: center; padding: 3rem;">
-                    <i class="pi pi-briefcase" style="font-size: 3rem; color: #9ca3af;"></i>
-                    <p style="color: #6b7280; margin-top: 1rem; margin-bottom: 0.25rem; font-weight: 500;">
-                      No hay cargos asignados a esta regla
-                    </p>
-                    <small style="color: #9ca3af;">Haga clic en "Asignar Cargos" para comenzar</small>
-                  </td>
-                </tr>
+                <tr><td colspan="4" class="text-center py-4"><p class="text-muted">Sin ciudades registradas</p></td></tr>
               </ng-template>
             </p-table>
           </div>
         </div>
-
-        <!-- Mensaje cuando no hay regla seleccionada -->
-        <div class="table-section" *ngIf="!reglaSeleccionada">
-          <div style="text-align: center; padding: 4rem 2rem;">
-            <i class="pi pi-arrow-up" style="font-size: 3rem; color: #9ca3af;"></i>
-            <p style="color: #6b7280; margin-top: 1rem; font-size: 1.125rem; font-weight: 500;">
-              Seleccione una regla para gestionar sus cargos
-            </p>
-            <small style="color: #9ca3af;">Use el selector de arriba para elegir una regla</small>
-          </div>
-        </div>
       </p-tabPanel>
+
     </p-tabView>
   </div>
-
-  <!-- Modal para Asignar Cargos -->
-  <p-dialog 
-    [(visible)]="mostrarModalCargos" 
-    [modal]="true"
-    [style]="{width: '700px'}"
-    [draggable]="false"
-    [resizable]="false"
-    header="Asignar Cargos a la Regla">
-    
-    <div style="padding: 1rem 0;">
-      <div style="margin-bottom: 1rem;">
-        <label class="filter-label">
-          <i class="pi pi-search me-1"></i>
-          Buscar Cargo
-        </label>
-        <input 
-          type="text" 
-          pInputText 
-          [(ngModel)]="busquedaCargo"
-          placeholder="Buscar por nombre o código..."
-          style="width: 100%;">
-      </div>
-
-      <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
-        <div 
-          *ngFor="let cargo of cargosFiltrados()"
-          style="padding: 0.75rem 1rem; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; transition: background 0.2s;"
-          [style.background]="isCargoAsignado(cargo) ? '#f0fdf4' : 'white'"
-          (click)="toggleCargo(cargo)">
-          <p-checkbox 
-            [(ngModel)]="cargo.selected"
-            [binary]="true"
-            [disabled]="isCargoAsignado(cargo)">
-          </p-checkbox>
-          <div style="flex: 1;">
-            <div style="font-weight: 500; color: #1f2937;">{{ cargo.nombre }}</div>
-            <div style="font-size: 0.813rem; color: #6b7280;">{{ cargo.departamento }}</div>
-          </div>
-          <span 
-            *ngIf="isCargoAsignado(cargo)"
-            style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
-            Asignado
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <ng-template pTemplate="footer">
-      <button 
-        class="btn-action"
-        style="background: #f3f4f6; color: #6b7280;"
-        (click)="mostrarModalCargos = false">
-        <i class="pi pi-times"></i>
-        Cancelar
-      </button>
-      <button 
-        class="btn-action btn-action-primary"
-        (click)="guardarAsignacionCargos()">
-        <i class="pi pi-check"></i>
-        Guardar Asignación
-      </button>
-    </ng-template>
-  </p-dialog>
-
 </div>
