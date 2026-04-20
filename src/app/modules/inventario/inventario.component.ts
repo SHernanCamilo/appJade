@@ -20,7 +20,9 @@ export class InventarioComponent {
       color: 'primary',
       items: [
         { name: 'Dashboard', route: '/inventario/matrizObsolescencia/dashboardMaObsolescencia', icon: 'bi-speedometer2' },
-        { name: 'Parámetros de Matriz', route: '/inventario/matrizObsolescencia/parametrosMaObsolescencia', icon: 'bi-sliders' }
+        { name: 'Parámetros de Matriz', route: '/inventario/matrizObsolescencia/parametrosMaObsolescencia', icon: 'bi-sliders' },
+        { name: 'Reporte Matriz', route: '/inventario/matrizObsolescencia/reporteMaObsolescencia', icon: 'bi-file-earmark-bar-graph' },
+        { name: 'Cierre de Inventario', route: '/inventario/matrizObsolescencia/cierreInventario', icon: 'bi-lock' }
       ]
     },
     {

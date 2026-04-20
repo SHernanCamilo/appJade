@@ -1,0 +1,518 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- ─── Header ─────────────────────────────────────────────────────────── -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-file-pdf me-2"></i>
+          Reporte Matriz de Obsolescencia
+        </h1>
+        <p class="page-subtitle-modern">
+          Análisis consolidado del estado de los equipos
+          <span class="total-badge ms-2" *ngIf="!isLoadingInicial">
+            {{ activosFiltrados.length }} / {{ todosLosActivos.length }} equipos
+          </span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <p-selectButton
+          [options]="vistaOptions"
+          [(ngModel)]="vistaActual"
+          (onChange)="onVistaChange()"
+          optionLabel="label"
+          optionValue="value">
+        </p-selectButton>
+
+        <button
+          *hasPermission="'exportar-matriz'"
+          class="btn-action btn-action-success ms-2"
+          (click)="exportarReporte()"
+          [disabled]="isExporting || isLoadingInicial">
+          <i class="pi" [ngClass]="isExporting ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+          {{ isExporting ? 'Exportando...' : 'Exportar Excel' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Panel de Filtros ────────────────────────────────────────────────── -->
+  <div class="filters-panel">
+    <div class="filters-panel-header">
+      <div class="filters-title">
+        <i class="pi pi-filter me-2"></i>
+        <span>Filtros</span>
+        <span class="filtros-count-badge" *ngIf="totalFiltrosActivos > 0">
+          {{ totalFiltrosActivos }}
+        </span>
+      </div>
+      <button class="btn-clear-filters" (click)="limpiarFiltros()" *ngIf="hayFiltrosActivos">
+        <i class="pi pi-times me-1"></i>Limpiar todo
+      </button>
+    </div>
+
+    <div class="filters-grid">
+
+      <!-- Empresa (multi) -->
+      <div class="filter-item">
+        <label class="filter-label">
+          <i class="pi pi-building me-1"></i>Empresa
+        </label>
+        <p-multiSelect
+          [options]="empresasOptions"
+          [(ngModel)]="selectedEmpresas"
+          (onChange)="aplicarFiltros()"
+          placeholder="Todas las empresas"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          filterBy="label"
+          [showClear]="true"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} empresas"
+          styleClass="w-100"
+          appendTo="body">
+        </p-multiSelect>
+      </div>
+
+      <!-- Sucursal (multi) -->
+      <div class="filter-item">
+        <label class="filter-label">
+          <i class="pi pi-map-marker me-1"></i>Sucursal
+        </label>
+        <p-multiSelect
+          [options]="sucursalesOptions"
+          [(ngModel)]="selectedSucursales"
+          (onChange)="aplicarFiltros()"
+          placeholder="Todas las sucursales"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          filterBy="label"
+          [showClear]="true"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} sucursales"
+          styleClass="w-100"
+          appendTo="body">
+        </p-multiSelect>
+      </div>
+
+      <!-- Sede (multi) -->
+      <div class="filter-item">
+        <label class="filter-label">
+          <i class="pi pi-home me-1"></i>Sede
+        </label>
+        <p-multiSelect
+          [options]="sedesOptions"
+          [(ngModel)]="selectedSedes"
+          (onChange)="aplicarFiltros()"
+          placeholder="Todas las sedes"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          filterBy="label"
+          [showClear]="true"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} sedes"
+          styleClass="w-100"
+          appendTo="body">
+        </p-multiSelect>
+      </div>
+
+      <!-- Estado (multi) -->
+      <div class="filter-item">
+        <label class="filter-label">
+          <i class="pi pi-tag me-1"></i>Estado
+        </label>
+        <p-multiSelect
+          [options]="estadosOptions"
+          [(ngModel)]="selectedEstados"
+          (onChange)="aplicarFiltros()"
+          placeholder="Todos los estados"
+          optionLabel="label"
+          optionValue="value"
+          [showClear]="true"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} estados"
+          styleClass="w-100"
+          appendTo="body">
+          <ng-template pTemplate="item" let-opt>
+            <div class="d-flex align-items-center gap-2">
+              <span class="estado-dot" [ngClass]="'dot-' + opt.value"></span>
+              {{ opt.label }}
+            </div>
+          </ng-template>
+        </p-multiSelect>
+      </div>
+
+      <!-- Tipo de equipo (multi) -->
+      <div class="filter-item">
+        <label class="filter-label">
+          <i class="pi pi-desktop me-1"></i>Tipo de equipo
+        </label>
+        <p-multiSelect
+          [options]="tiposOptions"
+          [(ngModel)]="selectedTipos"
+          (onChange)="aplicarFiltros()"
+          placeholder="Todos los tipos"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          filterBy="label"
+          [showClear]="true"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} tipos"
+          styleClass="w-100"
+          appendTo="body">
+        </p-multiSelect>
+      </div>
+
+      <!-- Marca (multi) -->
+      <div class="filter-item">
+        <label class="filter-label">
+          <i class="pi pi-bookmark me-1"></i>Marca
+        </label>
+        <p-multiSelect
+          [options]="marcasOptions"
+          [(ngModel)]="selectedMarcas"
+          (onChange)="aplicarFiltros()"
+          placeholder="Todas las marcas"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          filterBy="label"
+          [showClear]="true"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} marcas"
+          styleClass="w-100"
+          appendTo="body">
+        </p-multiSelect>
+      </div>
+
+      <!-- Búsqueda de texto -->
+      <div class="filter-item filter-item-search">
+        <label class="filter-label">
+          <i class="pi pi-search me-1"></i>Búsqueda
+        </label>
+        <div class="search-input-wrapper">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="aplicarFiltros()"
+            placeholder="Nombre, serial, agente, usuario..."
+            class="w-100 search-input">
+          <button class="search-clear-btn" *ngIf="searchTerm" (click)="searchTerm=''; aplicarFiltros()">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Chips de filtros activos -->
+    <div class="active-chips" *ngIf="hayFiltrosActivos">
+      <span class="chips-label">Activos:</span>
+      <div class="chips-list">
+        <span
+          class="filter-chip"
+          *ngFor="let chip of getChipsFiltros()"
+          [ngClass]="'chip-' + chip.tipo">
+          <span class="chip-tipo">{{ chip.tipo | titlecase }}</span>
+          <span class="chip-valor">{{ chip.label }}</span>
+          <button class="chip-remove" (click)="removerChip(chip)">
+            <i class="pi pi-times"></i>
+          </button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Skeleton carga inicial ──────────────────────────────────────────── -->
+  <ng-container *ngIf="isLoadingInicial">
+    <div class="stats-cards-row mb-0">
+      <div class="stat-card" *ngFor="let i of [1,2,3,4,5]">
+        <div class="stat-icon"><p-skeleton shape="circle" size="3rem"></p-skeleton></div>
+        <div class="stat-content">
+          <p-skeleton width="4rem" height="2rem" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="6rem" height="1rem"></p-skeleton>
+        </div>
+      </div>
+    </div>
+    <div class="p-4">
+      <p-skeleton width="100%" height="350px" styleClass="mb-3"></p-skeleton>
+    </div>
+  </ng-container>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA RESUMEN                                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="!isLoadingInicial && vistaActual === 'resumen'">
+
+    <!-- Tarjetas de totales -->
+    <div class="stats-cards-row">
+      <div class="stat-card stat-card-total">
+        <div class="stat-icon"><i class="pi pi-desktop"></i></div>
+        <div class="stat-content">
+          <div class="stat-number">{{ totalGeneral.total }}</div>
+          <div class="stat-label">Total Equipos</div>
+        </div>
+      </div>
+      <div class="stat-card stat-card-optimo">
+        <div class="stat-icon"><i class="pi pi-check-circle"></i></div>
+        <div class="stat-content">
+          <div class="stat-number">{{ totalGeneral.optimo }}</div>
+          <div class="stat-label">Óptimo</div>
+          <div class="stat-pct">{{ getBarWidth(totalGeneral.optimo, totalGeneral.total) }}%</div>
+        </div>
+      </div>
+      <div class="stat-card stat-card-funcional">
+        <div class="stat-icon"><i class="pi pi-info-circle"></i></div>
+        <div class="stat-content">
+          <div class="stat-number">{{ totalGeneral.funcional }}</div>
+          <div class="stat-label">Funcional</div>
+          <div class="stat-pct">{{ getBarWidth(totalGeneral.funcional, totalGeneral.total) }}%</div>
+        </div>
+      </div>
+      <div class="stat-card stat-card-potencial">
+        <div class="stat-icon"><i class="pi pi-exclamation-triangle"></i></div>
+        <div class="stat-content">
+          <div class="stat-number">{{ totalGeneral.potencial }}</div>
+          <div class="stat-label">Potencializar</div>
+          <div class="stat-pct">{{ getBarWidth(totalGeneral.potencial, totalGeneral.total) }}%</div>
+        </div>
+      </div>
+      <div class="stat-card stat-card-obsoleto">
+        <div class="stat-icon"><i class="pi pi-times-circle"></i></div>
+        <div class="stat-content">
+          <div class="stat-number">{{ totalGeneral.obsoleto }}</div>
+          <div class="stat-label">Obsoleto</div>
+          <div class="stat-pct">{{ getBarWidth(totalGeneral.obsoleto, totalGeneral.total) }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="charts-row">
+      <div class="chart-card chart-card-wide">
+        <div class="chart-header">
+          <h3>Distribución por empresa (Top 10)</h3>
+          <small class="text-muted">Equipos por estado de obsolescencia</small>
+        </div>
+        <div class="bar-chart-container" *ngIf="resumenPorEmpresa.length > 0">
+          <p-chart type="bar" [data]="barChartData" [options]="barChartOptions" width="100%" height="350"></p-chart>
+        </div>
+        <div class="empty-chart" *ngIf="resumenPorEmpresa.length === 0">
+          <i class="pi pi-chart-bar"></i><p>Sin datos para los filtros seleccionados</p>
+        </div>
+      </div>
+
+      <div class="chart-card chart-card-narrow">
+        <div class="chart-header">
+          <h3>Estado global</h3>
+          <small class="text-muted">Proporción de equipos</small>
+        </div>
+        <div class="donut-container" *ngIf="totalGeneral.total > 0">
+          <p-chart type="doughnut" [data]="donutChartData" [options]="donutChartOptions" width="280" height="280"></p-chart>
+        </div>
+        <div class="empty-chart" *ngIf="totalGeneral.total === 0">
+          <i class="pi pi-chart-pie"></i><p>Sin datos</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla resumen por empresa -->
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Resumen por empresa</h2>
+        <small class="text-muted">{{ resumenPorEmpresa.length }} empresa(s)</small>
+      </div>
+
+      <div class="modern-table-container">
+        <p-table [value]="resumenPorEmpresa" styleClass="modern-table" responsiveLayout="scroll">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th class="table-header-modern">Empresa</th>
+              <th class="table-header-modern text-center">Total</th>
+              <th class="table-header-modern text-center">Óptimo</th>
+              <th class="table-header-modern text-center">Funcional</th>
+              <th class="table-header-modern text-center">Potencializar</th>
+              <th class="table-header-modern text-center">Obsoleto</th>
+              <th class="table-header-modern">Distribución</th>
+              <th class="table-header-modern text-center">Puntaje Prom.</th>
+              <th class="table-header-modern text-center">Salud</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-row>
+            <tr class="table-row-modern">
+              <td class="table-cell-modern">
+                <div class="empresa-info">
+                  <i class="pi pi-building text-primary me-2"></i>
+                  <span class="fw-semibold">{{ row.empresa_nombre }}</span>
+                </div>
+              </td>
+              <td class="table-cell-modern text-center"><span class="badge-total">{{ row.total }}</span></td>
+              <td class="table-cell-modern text-center"><span class="count-optimo">{{ row.optimo }}</span></td>
+              <td class="table-cell-modern text-center"><span class="count-funcional">{{ row.funcional }}</span></td>
+              <td class="table-cell-modern text-center"><span class="count-potencial">{{ row.potencial }}</span></td>
+              <td class="table-cell-modern text-center"><span class="count-obsoleto">{{ row.obsoleto }}</span></td>
+              <td class="table-cell-modern" style="min-width:180px">
+                <div class="dist-bar">
+                  <div class="dist-seg seg-optimo"    [style.width.%]="getBarWidth(row.optimo,    row.total)" [pTooltip]="'Óptimo: ' + row.optimo"></div>
+                  <div class="dist-seg seg-funcional" [style.width.%]="getBarWidth(row.funcional, row.total)" [pTooltip]="'Funcional: ' + row.funcional"></div>
+                  <div class="dist-seg seg-potencial" [style.width.%]="getBarWidth(row.potencial, row.total)" [pTooltip]="'Potencializar: ' + row.potencial"></div>
+                  <div class="dist-seg seg-obsoleto"  [style.width.%]="getBarWidth(row.obsoleto,  row.total)" [pTooltip]="'Obsoleto: ' + row.obsoleto"></div>
+                </div>
+              </td>
+              <td class="table-cell-modern text-center">
+                <p-tag [value]="row.puntaje_promedio + '%'" [severity]="getPuntajeSeverity(row.puntaje_promedio)"></p-tag>
+              </td>
+              <td class="table-cell-modern text-center">
+                <div class="salud-indicator">
+                  <div class="salud-circle" [style.background]="getSaludColor(row.porcentaje_optimo)">
+                    {{ row.porcentaje_optimo }}%
+                  </div>
+                  <small class="text-muted d-block mt-1">óptimos</small>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="9" class="text-center py-5">
+                <i class="pi pi-inbox text-muted" style="font-size:3rem"></i>
+                <p class="text-muted mt-2">No hay datos para los filtros seleccionados</p>
+              </td>
+            </tr>
+          </ng-template>
+
+        </p-table>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA DETALLE                                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="!isLoadingInicial && vistaActual === 'detalle'">
+
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Detalle de activos</h2>
+        <small class="text-muted">{{ activosFiltrados.length }} resultado(s)</small>
+      </div>
+
+      <div class="modern-table-container">
+        <p-table
+          [value]="activosFiltrados"
+          [paginator]="true"
+          [rows]="rowsPerPage"
+          [rowsPerPageOptions]="[10, 25, 50, 100]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} activos"
+          (onPage)="onPageChange($event)"
+          styleClass="modern-table"
+          responsiveLayout="scroll">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th class="table-header-modern">Estado</th>
+              <th class="table-header-modern">Equipo</th>
+              <th class="table-header-modern">Empresa / Sucursal</th>
+              <th class="table-header-modern">Agente</th>
+              <th class="table-header-modern">Tipo</th>
+              <th class="table-header-modern">Marca</th>
+              <th class="table-header-modern">Procesador</th>
+              <th class="table-header-modern">RAM</th>
+              <th class="table-header-modern">Disco</th>
+              <th class="table-header-modern">Puntaje</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-activo>
+            <tr class="table-row-modern">
+              <td class="table-cell-modern">
+                <p-tag
+                  [value]="getEstadoLabel(getEstadoActivo(activo))"
+                  [severity]="getEstadoSeverity(getEstadoActivo(activo))">
+                </p-tag>
+              </td>
+              <td class="table-cell-modern">
+                <div class="equipment-info">
+                  <div class="equipment-avatar"><i class="pi pi-desktop"></i></div>
+                  <div class="equipment-details">
+                    <div class="equipment-name">{{ activo.nombre_equipo }}</div>
+                    <div class="equipment-id">{{ activo.serial || '-' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="table-cell-modern">
+                <div class="location-info">
+                  <div class="location-name">{{ activo.empresa?.nombre || '-' }}</div>
+                  <div class="location-detail" *ngIf="activo.sucursal">{{ activo.sucursal.nombre }}</div>
+                </div>
+              </td>
+              <td class="table-cell-modern">
+                <span class="equipment-code">{{ activo.agente }}</span>
+              </td>
+              <td class="table-cell-modern">
+                <span class="type-badge">{{ activo.detalle?.tipo || '-' }}</span>
+              </td>
+              <td class="table-cell-modern">
+                {{ activo.detalle?.marca || '-' }}
+              </td>
+              <td class="table-cell-modern">
+                <span class="text-truncate d-block" style="max-width:160px" [pTooltip]="activo.detalle?.procesador || ''">
+                  {{ activo.detalle?.procesador || '-' }}
+                </span>
+              </td>
+              <td class="table-cell-modern">
+                {{ activo.detalle?.tamano_ram ? activo.detalle.tamano_ram + ' GB' : '-' }}
+              </td>
+              <td class="table-cell-modern">
+                {{ activo.detalle?.tamano_disco ? activo.detalle.tamano_disco + ' GB' : '-' }}
+              </td>
+              <td class="table-cell-modern">
+                <div class="score-container">
+                  <span class="score-number">{{ activo.puntaje }}%</span>
+                  <div class="score-bar">
+                    <div class="score-fill"
+                      [style.width.%]="activo.puntaje"
+                      [ngClass]="'score-' + getEstadoActivo(activo)">
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="10" class="text-center py-5">
+                <i class="pi pi-inbox text-muted" style="font-size:3rem"></i>
+                <p class="text-muted mt-2">No se encontraron activos con los filtros aplicados</p>
+              </td>
+            </tr>
+          </ng-template>
+
+        </p-table>
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>

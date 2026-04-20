@@ -25,7 +25,7 @@
           (click)="actualizarDatosConCalculos()" 
           [disabled]="isCalculatingValues">
           <i class="pi pi-refresh" [class.pi-spin]="isCalculatingValues"></i>
-          {{ isCalculatingValues ? 'Calculando...' : 'Actualizar Datos' }}
+          {{ isCalculatingValues ? 'Calculando...' : 'Calcular Datos' }}
         </button>
       </div>
     </div>
@@ -218,7 +218,7 @@
         <!-- Gráfico por Empresa/Concepto -->
         <div class="chart-card mb-4">
           <div class="chart-header">
-            <h3>Gráfica por empresa / concepto</h3>
+            <h3>{{ selectedEmpresa ? 'Gráfica por sucursal / concepto' : 'Gráfica por empresa / concepto' }}</h3>
             <small class="text-muted">Distribución de equipos por estado</small>
           </div>
           

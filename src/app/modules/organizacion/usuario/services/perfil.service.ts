@@ -113,4 +113,21 @@ export class PerfilService {
   getPermisosDisponibles(idModulo: number): Observable<any> {
     return this.http.get<any>(`/permisos-disponibles/${idModulo}`);
   }
+
+  /**
+   * Obtener todos los permisos agrupados por módulo con estado de selección para un perfil
+   * Optimizado para la interfaz visual de gestión de permisos
+   */
+  getPermisosAgrupados(idPerfil: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/${idPerfil}/permisos/agrupados`);
+  }
+
+  /**
+   * Sincronizar permisos de un perfil
+   */
+  syncPermisos(idPerfil: number, permisosIds: number[]): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${idPerfil}/permisos/sync`, {
+      permisos_ids: permisosIds
+    });
+  }
 }

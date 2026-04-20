@@ -1,0 +1,362 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- Header con navegación y acciones -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <p-button 
+        icon="pi pi-arrow-left" 
+        label="Volver"
+        [text]="true"
+        routerLink="/organizacion/servicios"
+        styleClass="btn-back-modern">
+      </p-button>
+    </div>
+    
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-clock me-2"></i>
+          Gestor de Tareas Programadas
+        </h1>
+        <p class="page-subtitle-modern">Administra y monitorea tareas automáticas del sistema</p>
+      </div>
+      
+      <div class="header-actions">
+        <p-button 
+          label="Nueva Tarea" 
+          icon="pi pi-plus"
+          routerLink="./create"
+          styleClass="btn-action btn-action-primary">
+        </p-button>
+        <p-button 
+          icon="pi pi-refresh" 
+          [loading]="loading"
+          (onClick)="refreshStats()"
+          styleClass="btn-action btn-action-secondary"
+          pTooltip="Actualizar estadísticas">
+        </p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content">
+    
+    <!-- Tarjetas de Estadísticas Principales -->
+    <div class="stats-cards-row mb-4">
+      <!-- Spinner de carga para todas las tarjetas -->
+      <ng-container *ngIf="loading">
+        <div class="stat-card" *ngFor="let i of [1,2,3,4]">
+          <div class="stat-icon" style="background: #e5e7eb;">
+            <p-skeleton shape="circle" size="3rem"></p-skeleton>
+          </div>
+          <div class="stat-content">
+            <p-skeleton width="4rem" height="2rem" styleClass="mb-2"></p-skeleton>
+            <p-skeleton width="6rem" height="1rem"></p-skeleton>
+          </div>
+        </div>
+      </ng-container>
+      
+      <!-- Tarjetas con datos -->
+      <ng-container *ngIf="!loading && stats">
+        <div class="stat-card stat-card-pending" (click)="navigateToList('pending')">
+          <div class="stat-icon">
+            <i class="pi pi-hourglass"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.pending }}</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-running" (click)="navigateToList('running')">
+          <div class="stat-icon">
+            <i class="pi pi-spin pi-spinner"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.running }}</div>
+            <div class="stat-label">En Ejecución</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-completed" (click)="navigateToList('completed')">
+          <div class="stat-icon">
+            <i class="pi pi-check-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.completed_today }}</div>
+            <div class="stat-label">Completadas Hoy</div>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card-failed" (click)="navigateToList('failed')">
+          <div class="stat-icon">
+            <i class="pi pi-exclamation-triangle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.failed_today }}</div>
+            <div class="stat-label">Fallidas Hoy</div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <!-- Contenido Principal en Grid -->
+    <div class="main-grid">
+      
+      <!-- Panel Izquierdo: Gráfico de Tareas por Tipo -->
+      <div class="left-panel">
+        <p-card header="Tareas por Tipo" styleClass="chart-card">
+          <ng-template pTemplate="header">
+            <div class="chart-header">
+              <h3>
+                <i class="pi pi-chart-pie me-2"></i>
+                Tareas por Tipo
+              </h3>
+              <small class="text-muted" *ngIf="!isLoadingChart && stats">
+                {{ getTotalTasksByType() }} tareas en total
+              </small>
+            </div>
+          </ng-template>
+          
+          <!-- Gráfico con Chart.js -->
+          <div class="chart-container" *ngIf="!isLoadingChart && stats && stats.by_type && getTypeArray().length > 0">
+            <p-chart 
+              type="doughnut" 
+              [data]="chartData" 
+              [options]="chartOptions"
+              width="300"
+              height="300">
+            </p-chart>
+          </div>
+          
+          <!-- Estado de carga -->
+          <div class="chart-container" *ngIf="isLoadingChart">
+            <div class="text-center py-4">
+              <p-skeleton width="300px" height="300px" borderRadius="50%"></p-skeleton>
+              <p class="text-muted mt-3">Cargando estadísticas...</p>
+            </div>
+          </div>
+          
+          <!-- Estado sin datos -->
+          <div class="chart-container" *ngIf="!isLoadingChart && (!stats || !stats.by_type || getTypeArray().length === 0)">
+            <div class="text-center py-5">
+              <i class="pi pi-chart-pie text-muted" style="font-size: 4rem;"></i>
+              <p class="text-muted mt-3 mb-2">No hay tareas registradas</p>
+              <small class="text-muted">Las estadísticas aparecerán cuando se creen tareas</small>
+            </div>
+          </div>
+        </p-card>
+      </div>
+
+      <!-- Panel Derecho: Fallos Recientes -->
+      <div class="right-panel">
+        <p-card header="Fallos Recientes" styleClass="failures-card">
+          <ng-template pTemplate="header">
+            <div class="chart-header">
+              <h3>
+                <i class="pi pi-exclamation-circle me-2"></i>
+                Fallos Recientes
+              </h3>
+              <small class="text-muted" *ngIf="stats && stats.recent_failures">
+                {{ stats.recent_failures.length }} fallos en las últimas 24h
+              </small>
+            </div>
+          </ng-template>
+          
+          <!-- Lista de fallos -->
+          <div class="failures-list" *ngIf="stats && stats.recent_failures && stats.recent_failures.length > 0">
+            <div class="failure-item" *ngFor="let task of stats.recent_failures">
+              <div class="failure-header">
+                <div class="failure-info">
+                  <div class="failure-name">{{ task.name }}</div>
+                  <div class="failure-type">
+                    <i class="pi {{ getTaskTypeIcon(task.type) }} me-1"></i>
+                    {{ getTypeName(task.type) }}
+                  </div>
+                </div>
+                <div class="failure-date">
+                  <small class="text-muted">{{ formatDate(task.completed_at) }}</small>
+                </div>
+              </div>
+              <div class="failure-error">
+                <i class="pi pi-times-circle text-danger me-2"></i>
+                <span class="error-message">{{ task.error_message || 'Error desconocido' }}</span>
+              </div>
+              <div class="failure-actions mt-2">
+                <p-button 
+                  label="Ver Detalles" 
+                  icon="pi pi-eye"
+                  size="small"
+                  [text]="true"
+                  (onClick)="navigateToTask(task.id)">
+                </p-button>
+                <p-button 
+                  label="Reintentar" 
+                  icon="pi pi-refresh"
+                  size="small"
+                  severity="warn"
+                  [text]="true"
+                  *ngIf="task.can_retry"
+                  (onClick)="retryTask(task)">
+                </p-button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Estado sin fallos -->
+          <div class="no-failures" *ngIf="!stats || !stats.recent_failures || stats.recent_failures.length === 0">
+            <div class="text-center py-4">
+              <i class="pi pi-check-circle text-success" style="font-size: 3rem;"></i>
+              <p class="text-muted mt-3 mb-2">¡Sin fallos recientes!</p>
+              <small class="text-muted">Todas las tareas se han ejecutado correctamente</small>
+            </div>
+          </div>
+        </p-card>
+      </div>
+
+    </div>
+
+    <!-- Tabla de Tareas Recientes -->
+    <div class="table-section">
+      <p-card header="Tareas Recientes" styleClass="table-card">
+        <ng-template pTemplate="header">
+          <div class="table-header">
+            <h3>
+              <i class="pi pi-list me-2"></i>
+              Tareas Recientes
+            </h3>
+            <p-button 
+              label="Ver Todas" 
+              icon="pi pi-external-link"
+              [text]="true"
+              routerLink="./list">
+            </p-button>
+          </div>
+        </ng-template>
+
+        <!-- Tabla de Tareas -->
+        <div class="modern-table-container">
+          <p-table 
+            [value]="recentTasks"
+            [loading]="isLoadingTasks"
+            [paginator]="false"
+            [rows]="5"
+            styleClass="modern-table"
+            responsiveLayout="scroll">
+            
+            <ng-template pTemplate="header">
+              <tr>
+                <th class="table-header-modern">Tarea</th>
+                <th class="table-header-modern">Tipo</th>
+                <th class="table-header-modern">Estado</th>
+                <th class="table-header-modern">Programada</th>
+                <th class="table-header-modern">Duración</th>
+                <th class="table-header-modern">Acciones</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="body" let-task>
+              <tr class="table-row-modern">
+                <td class="table-cell-modern">
+                  <div class="task-info">
+                    <div class="task-name">{{ task.name }}</div>
+                    <div class="task-id">#{{ task.id }}</div>
+                  </div>
+                </td>
+                <td class="table-cell-modern">
+                  <div class="task-type">
+                    <i class="pi {{ getTaskTypeIcon(task.type) }} me-2"></i>
+                    {{ getTypeName(task.type) }}
+                  </div>
+                </td>
+                <td class="table-cell-modern">
+                  <p-tag 
+                    [value]="task.status_label" 
+                    [severity]="getStatusSeverity(task.status)"
+                    [style]="{'font-size': '0.75rem'}">
+                  </p-tag>
+                  <p-tag 
+                    value="Vencida" 
+                    severity="danger"
+                    [style]="{'font-size': '0.75rem', 'margin-left': '0.25rem'}"
+                    *ngIf="task.is_overdue">
+                  </p-tag>
+                </td>
+                <td class="table-cell-modern">
+                  <span class="task-date">{{ formatDate(task.scheduled_at) }}</span>
+                </td>
+                <td class="table-cell-modern">
+                  <span class="task-duration">{{ task.duration_formatted || '-' }}</span>
+                </td>
+                <td class="table-cell-modern">
+                  <div class="action-buttons">
+                    <p-button 
+                      icon="pi pi-eye" 
+                      [text]="true" 
+                      [rounded]="true"
+                      size="small"
+                      severity="info"
+                      pTooltip="Ver detalles"
+                      (onClick)="navigateToTask(task.id)">
+                    </p-button>
+                    <p-button 
+                      icon="pi pi-play" 
+                      [text]="true" 
+                      [rounded]="true"
+                      size="small"
+                      severity="success"
+                      pTooltip="Ejecutar ahora"
+                      *ngIf="task.status === 'pending'"
+                      (onClick)="executeTask(task)">
+                    </p-button>
+                    <p-button 
+                      icon="pi pi-refresh" 
+                      [text]="true" 
+                      [rounded]="true"
+                      size="small"
+                      severity="warn"
+                      pTooltip="Reintentar"
+                      *ngIf="task.status === 'failed' && task.can_retry"
+                      (onClick)="retryTask(task)">
+                    </p-button>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="6" class="text-center py-4">
+                  <i class="pi pi-inbox text-muted" style="font-size: 3rem;"></i>
+                  <p class="text-muted mt-2 mb-0">No hay tareas recientes</p>
+                  <small class="text-muted">Las tareas aparecerán aquí cuando se creen</small>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="loadingbody">
+              <tr *ngFor="let i of [1,2,3,4,5]">
+                <td><p-skeleton></p-skeleton></td>
+                <td><p-skeleton></p-skeleton></td>
+                <td><p-skeleton></p-skeleton></td>
+                <td><p-skeleton></p-skeleton></td>
+                <td><p-skeleton></p-skeleton></td>
+                <td><p-skeleton></p-skeleton></td>
+              </tr>
+            </ng-template>
+
+          </p-table>
+        </div>
+      </p-card>
+    </div>
+
+  </div>
+
+  <!-- Error State -->
+  <div class="alert alert-danger" *ngIf="error">
+    <i class="pi pi-exclamation-triangle me-2"></i>
+    {{ error }}
+  </div>
+</div>

@@ -1,0 +1,566 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i> Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-lock me-2"></i>
+          Cierre de Inventario
+        </h1>
+        <p class="page-subtitle-modern">Fotografías históricas del estado de la Matriz de Obsolescencia</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action btn-action-secondary" (click)="abrirComparacion()" [disabled]="cierres.length < 2">
+          <i class="pi pi-chart-line"></i> Comparar
+        </button>
+        <button class="btn-action btn-action-secondary" (click)="abrirConfig()">
+          <i class="pi pi-cog"></i> Configuración
+        </button>
+        <button *hasPermission="'ejecutar-cierre-inventario'" class="btn-action btn-action-primary" (click)="abrirModalNuevo()">
+          <i class="pi pi-plus"></i> Nuevo Cierre
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de cierres -->
+  <div class="content-section">
+    <div class="section-header">
+      <h2>Historial de Cierres</h2>
+      <small class="text-muted">{{ totalCierres }} cierre(s) registrado(s)</small>
+    </div>
+
+    <div class="modern-table-container">
+      <p-table
+        [value]="cierres"
+        [loading]="isLoadingLista"
+        [paginator]="true"
+        [rows]="rowsCierres"
+        [totalRecords]="totalCierres"
+        [lazy]="true"
+        (onLazyLoad)="onPageCierres($event)"
+        [rowsPerPageOptions]="[10, 25, 50]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} cierres"
+        styleClass="modern-table"
+        responsiveLayout="scroll">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th class="th-mod">Nombre / Período</th>
+            <th class="th-mod text-center">Estado</th>
+            <th class="th-mod text-center">Total</th>
+            <th class="th-mod text-center">Óptimo</th>
+            <th class="th-mod text-center">Funcional</th>
+            <th class="th-mod text-center">Potencializar</th>
+            <th class="th-mod text-center">Obsoleto</th>
+            <th class="th-mod">Distribución</th>
+            <th class="th-mod text-center">Puntaje Prom.</th>
+            <th class="th-mod">Fecha</th>
+            <th class="th-mod text-center">Acciones</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-c>
+          <tr class="tr-mod">
+            <td class="td-mod">
+              <div class="cierre-nombre">{{ c.nombre }}</div>
+              <div class="cierre-periodo" *ngIf="c.periodo">
+                <i class="pi pi-calendar me-1"></i>{{ c.periodo }}
+              </div>
+              <div class="cierre-creador" *ngIf="c.nombre_creador">
+                <i class="pi pi-user me-1"></i>{{ c.nombre_creador }}
+              </div>
+            </td>
+            <td class="td-mod text-center">
+              <p-tag [value]="getEstadoCierreLabel(c.estado)" [severity]="getEstadoCierreSeverity(c.estado)"></p-tag>
+            </td>
+            <td class="td-mod text-center"><span class="badge-total">{{ c.total_activos }}</span></td>
+            <td class="td-mod text-center"><span class="cnt-optimo">{{ c.total_optimo }}</span></td>
+            <td class="td-mod text-center"><span class="cnt-funcional">{{ c.total_funcional }}</span></td>
+            <td class="td-mod text-center"><span class="cnt-potencial">{{ c.total_potencial }}</span></td>
+            <td class="td-mod text-center"><span class="cnt-obsoleto">{{ c.total_obsoleto }}</span></td>
+            <td class="td-mod" style="min-width:140px">
+              <div class="dist-bar" *ngIf="c.estado === 'cerrado'">
+                <div class="ds ds-optimo"    [style.width.%]="getBarWidth(c.total_optimo,    c.total_activos)" [pTooltip]="'Óptimo: '+c.total_optimo"></div>
+                <div class="ds ds-funcional" [style.width.%]="getBarWidth(c.total_funcional, c.total_activos)" [pTooltip]="'Funcional: '+c.total_funcional"></div>
+                <div class="ds ds-potencial" [style.width.%]="getBarWidth(c.total_potencial, c.total_activos)" [pTooltip]="'Potencializar: '+c.total_potencial"></div>
+                <div class="ds ds-obsoleto"  [style.width.%]="getBarWidth(c.total_obsoleto,  c.total_activos)" [pTooltip]="'Obsoleto: '+c.total_obsoleto"></div>
+              </div>
+              <span *ngIf="c.estado !== 'cerrado'" class="text-muted">-</span>
+            </td>
+            <td class="td-mod text-center">
+              <p-tag *ngIf="c.estado === 'cerrado'" [value]="c.puntaje_promedio + '%'" [severity]="c.puntaje_promedio >= 60 ? 'success' : c.puntaje_promedio > 0 ? 'warn' : 'danger'"></p-tag>
+              <span *ngIf="c.estado !== 'cerrado'" class="text-muted">-</span>
+            </td>
+            <td class="td-mod">
+              <div class="fecha-text">{{ formatDate(c.created_at) }}</div>
+              <div class="fecha-fin text-muted" *ngIf="c.fecha_fin_proceso">
+                Fin: {{ formatDate(c.fecha_fin_proceso) }}
+              </div>
+            </td>
+            <td class="td-mod text-center">
+              <div class="action-btns">
+                <p-button *ngIf="c.estado === 'cerrado'" icon="pi pi-eye" [text]="true" [rounded]="true" size="small" severity="info" pTooltip="Ver detalle" (onClick)="verDetalle(c)"></p-button>
+                <p-button *ngIf="c.estado === 'error'" icon="pi pi-info-circle" [text]="true" [rounded]="true" size="small" severity="warn" [pTooltip]="c.mensaje_error ?? 'Error desconocido'"></p-button>
+                <p-button *hasPermission="'ejecutar-cierre-inventario'" icon="pi pi-trash" [text]="true" [rounded]="true" size="small" severity="danger" pTooltip="Eliminar" (onClick)="confirmarEliminar(c)" [disabled]="c.estado === 'procesando'"></p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="11" class="text-center py-5">
+              <i class="pi pi-inbox text-muted" style="font-size:3rem"></i>
+              <p class="text-muted mt-2">No hay cierres registrados</p>
+              <small class="text-muted">Ejecuta el primer cierre con el botón "Nuevo Cierre"</small>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="loadingbody">
+          <tr *ngFor="let i of [1,2,3,4,5]">
+            <td *ngFor="let j of [1,2,3,4,5,6,7,8,9,10,11,12]"><p-skeleton></p-skeleton></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: NUEVO CIERRE                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  header="Nuevo Cierre de Inventario"
+  [(visible)]="mostrarModalNuevo"
+  [modal]="true"
+  [style]="{width: '480px'}"
+  [draggable]="false">
+
+  <div class="modal-form">
+    <div class="form-group">
+      <label class="form-label"><i class="pi pi-tag me-1"></i>Nombre <span class="req">*</span></label>
+      <input type="text" pInputText [(ngModel)]="nuevoCierre.nombre" placeholder="Ej: Cierre Q2 2026" class="w-100">
+    </div>
+    <div class="form-group">
+      <label class="form-label"><i class="pi pi-calendar me-1"></i>Período</label>
+      <input type="text" pInputText [(ngModel)]="nuevoCierre.periodo" placeholder="Ej: 2026-Q2 o 2026-04" class="w-100">
+      <small class="text-muted">Opcional. Facilita la búsqueda y comparación histórica.</small>
+    </div>
+    <div class="form-group">
+      <label class="form-label"><i class="pi pi-align-left me-1"></i>Descripción</label>
+      <textarea pTextarea [(ngModel)]="nuevoCierre.descripcion" placeholder="Descripción opcional del cierre..." rows="3" class="w-100"></textarea>
+    </div>
+
+    <div class="info-box">
+      <i class="pi pi-info-circle me-2"></i>
+      <span>El proceso tomará una fotografía del estado actual de todos los activos.
+      Dependiendo del volumen puede tardar varios segundos.</span>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalNuevo=false" [disabled]="isEjecutando"></p-button>
+    <p-button label="Ejecutar Cierre" icon="pi pi-play" severity="success" (onClick)="ejecutarCierre()" [loading]="isEjecutando" [disabled]="isEjecutando"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: DETALLE DE CIERRE                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  [header]="cierreSeleccionado ? 'Detalle: ' + cierreSeleccionado.nombre : 'Detalle'"
+  [(visible)]="mostrarModalDetalle"
+  [modal]="true"
+  [maximizable]="true"
+  [style]="{width: '90vw', height: '85vh'}"
+  styleClass="cierre-detalle-dialog">
+
+  <ng-container *ngIf="cierreSeleccionado">
+
+    <!-- Tarjetas resumen del cierre -->
+    <div class="stats-row mb-3">
+      <div class="stat-mini stat-total">
+        <div class="sm-icon"><i class="pi pi-desktop"></i></div>
+        <div><div class="sm-num">{{ cierreSeleccionado.total_activos }}</div><div class="sm-lbl">Total</div></div>
+      </div>
+      <div class="stat-mini stat-optimo">
+        <div class="sm-icon"><i class="pi pi-check-circle"></i></div>
+        <div><div class="sm-num">{{ cierreSeleccionado.total_optimo }}</div><div class="sm-lbl">Óptimo</div></div>
+      </div>
+      <div class="stat-mini stat-funcional">
+        <div class="sm-icon"><i class="pi pi-info-circle"></i></div>
+        <div><div class="sm-num">{{ cierreSeleccionado.total_funcional }}</div><div class="sm-lbl">Funcional</div></div>
+      </div>
+      <div class="stat-mini stat-potencial">
+        <div class="sm-icon"><i class="pi pi-exclamation-triangle"></i></div>
+        <div><div class="sm-num">{{ cierreSeleccionado.total_potencial }}</div><div class="sm-lbl">Potencializar</div></div>
+      </div>
+      <div class="stat-mini stat-obsoleto">
+        <div class="sm-icon"><i class="pi pi-times-circle"></i></div>
+        <div><div class="sm-num">{{ cierreSeleccionado.total_obsoleto }}</div><div class="sm-lbl">Obsoleto</div></div>
+      </div>
+      <div class="stat-mini stat-puntaje">
+        <div class="sm-icon"><i class="pi pi-star"></i></div>
+        <div><div class="sm-num">{{ cierreSeleccionado.puntaje_promedio }}%</div><div class="sm-lbl">Prom.</div></div>
+      </div>
+    </div>
+
+    <p-tabView [(activeIndex)]="tabDetalleActivo">
+
+      <!-- Tab 1: Gráficos -->
+      <p-tabPanel header="Gráficos" leftIcon="pi pi-chart-bar">
+        <div class="charts-row-modal">
+          <div class="chart-card-modal">
+            <h4>Estado global</h4>
+            <div class="donut-wrap" *ngIf="!isLoadingResumen && cierreSeleccionado.total_activos > 0">
+              <p-chart type="doughnut" [data]="donutDetalle" [options]="donutOpts" width="280" height="280"></p-chart>
+            </div>
+            <div class="empty-chart" *ngIf="isLoadingResumen">
+              <p-skeleton width="280px" height="280px" borderRadius="50%"></p-skeleton>
+            </div>
+          </div>
+          <div class="chart-card-modal chart-wide">
+            <h4>Por empresa (Top 10)</h4>
+            <div style="height:320px" *ngIf="!isLoadingResumen && resumenEmpresas.length > 0">
+              <p-chart type="bar" [data]="barEmpresa" [options]="barEmpresaOpts" width="100%" height="320"></p-chart>
+            </div>
+            <div *ngIf="isLoadingResumen" class="p-3">
+              <p-skeleton width="100%" height="320px"></p-skeleton>
+            </div>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- Tab 2: Resumen por empresa -->
+      <p-tabPanel header="Por empresa" leftIcon="pi pi-building">
+        <p-table [value]="resumenEmpresas" [loading]="isLoadingResumen" styleClass="p-datatable-sm p-datatable-striped">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Empresa</th>
+              <th class="text-center">Total</th>
+              <th class="text-center">Óptimo</th>
+              <th class="text-center">Funcional</th>
+              <th class="text-center">Potencializar</th>
+              <th class="text-center">Obsoleto</th>
+              <th>Distribución</th>
+              <th class="text-center">Puntaje Prom.</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-r>
+            <tr>
+              <td><i class="pi pi-building text-primary me-1"></i><strong>{{ r.nombre_empresa ?? 'Sin empresa' }}</strong></td>
+              <td class="text-center"><span class="badge-total">{{ r.total }}</span></td>
+              <td class="text-center"><span class="cnt-optimo">{{ r.optimo }}</span></td>
+              <td class="text-center"><span class="cnt-funcional">{{ r.funcional }}</span></td>
+              <td class="text-center"><span class="cnt-potencial">{{ r.potencial }}</span></td>
+              <td class="text-center"><span class="cnt-obsoleto">{{ r.obsoleto }}</span></td>
+              <td style="min-width:140px">
+                <div class="dist-bar">
+                  <div class="ds ds-optimo"    [style.width.%]="getBarWidth(r.optimo,    r.total)"></div>
+                  <div class="ds ds-funcional" [style.width.%]="getBarWidth(r.funcional, r.total)"></div>
+                  <div class="ds ds-potencial" [style.width.%]="getBarWidth(r.potencial, r.total)"></div>
+                  <div class="ds ds-obsoleto"  [style.width.%]="getBarWidth(r.obsoleto,  r.total)"></div>
+                </div>
+              </td>
+              <td class="text-center">
+                <p-tag [value]="r.puntaje_promedio + '%'" [severity]="r.puntaje_promedio >= 60 ? 'success' : r.puntaje_promedio > 0 ? 'warn' : 'danger'"></p-tag>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="8" class="text-center py-4 text-muted">Sin datos</td></tr>
+          </ng-template>
+        </p-table>
+      </p-tabPanel>
+
+      <!-- Tab 3: Activos (snapshot) -->
+      <p-tabPanel header="Activos" leftIcon="pi pi-list">
+        <!-- Filtros -->
+        <div class="detalle-filtros mb-3">
+          <div class="row g-2">
+            <div class="col-12 col-md-5">
+              <span class="p-input-icon-left w-100">
+                <i class="pi pi-search"></i>
+                <input type="text" pInputText [(ngModel)]="searchDetalle" (keyup.enter)="buscarEnDetalle()" placeholder="Buscar equipo, serial, agente..." class="w-100">
+              </span>
+            </div>
+            <div class="col-12 col-md-3">
+              <p-dropdown [options]="estadosDetalleOpts" [(ngModel)]="filtroEstadoDetalle" (onChange)="onFiltroEstadoChange()" placeholder="Todos los estados" optionLabel="label" optionValue="value" [showClear]="true" styleClass="w-100"></p-dropdown>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="d-flex gap-2">
+                <p-button label="Buscar" icon="pi pi-search" (onClick)="buscarEnDetalle()" styleClass="flex-grow-1"></p-button>
+                <p-button label="Limpiar" icon="pi pi-times" [outlined]="true" (onClick)="searchDetalle=''; filtroEstadoDetalle=null; buscarEnDetalle()"></p-button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p-table
+          [value]="detalleActivos"
+          [loading]="isLoadingDetalle"
+          [paginator]="true"
+          [rows]="rowsDetalle"
+          [totalRecords]="totalDetalle"
+          [lazy]="true"
+          (onLazyLoad)="onPageDetalle($event)"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} activos"
+          styleClass="p-datatable-sm p-datatable-striped">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Estado</th>
+              <th>Equipo</th>
+              <th>Empresa / Sucursal</th>
+              <th>Agente</th>
+              <th>Tipo</th>
+              <th>Procesador</th>
+              <th>RAM</th>
+              <th>Disco</th>
+              <th class="text-center">Puntaje</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-a>
+            <tr>
+              <td><p-tag [value]="getEstadoObsLabel(a.estado_obsolescencia)" [severity]="getEstadoObsSeverity(a.estado_obsolescencia)"></p-tag></td>
+              <td>
+                <div class="equip-info">
+                  <div class="equip-avatar"><i class="pi pi-desktop"></i></div>
+                  <div>
+                    <div class="equip-name">{{ a.nombre_equipo }}</div>
+                    <div class="equip-serial">{{ a.serial ?? '-' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="fw-semibold">{{ a.nombre_empresa ?? '-' }}</div>
+                <small class="text-muted" *ngIf="a.nombre_sucursal">{{ a.nombre_sucursal }}</small>
+              </td>
+              <td><span class="code-badge">{{ a.agente }}</span></td>
+              <td>{{ a.tipo ?? '-' }}</td>
+              <td><span class="text-truncate d-block" style="max-width:150px" [pTooltip]="a.procesador ?? ''">{{ a.procesador ?? '-' }}</span></td>
+              <td>{{ a.tamano_ram ? a.tamano_ram + ' GB' : '-' }}</td>
+              <td>{{ a.tamano_disco ? a.tamano_disco + ' GB' : '-' }}</td>
+              <td class="text-center">
+                <div class="score-wrap">
+                  <span class="score-num">{{ a.puntaje }}%</span>
+                  <div class="score-bar"><div class="score-fill" [style.width.%]="a.puntaje" [ngClass]="'sf-'+a.estado_obsolescencia"></div></div>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="9" class="text-center py-4 text-muted">No se encontraron activos</td></tr>
+          </ng-template>
+
+          <ng-template pTemplate="loadingbody">
+            <tr *ngFor="let i of [1,2,3,4,5]">
+              <td *ngFor="let j of [1,2,3,4,5,6,7,8,9]"><p-skeleton></p-skeleton></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-tabPanel>
+
+    </p-tabView>
+  </ng-container>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cerrar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalDetalle=false"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: CONFIGURACION                                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  header="Configuración del Cierre"
+  [(visible)]="mostrarModalConfig"
+  [modal]="true"
+  [style]="{width: '520px'}"
+  [draggable]="false">
+
+  <div class="modal-form" *ngIf="!isLoadingConfig">
+    <div class="config-row">
+      <div class="config-info">
+        <span class="config-label">Recalcular puntajes antes de cerrar</span>
+        <small class="text-muted">Ejecuta el cálculo de valoraciones antes de tomar el snapshot</small>
+      </div>
+      <p-inputSwitch [(ngModel)]="config.recalcular_antes_de_cerrar"></p-inputSwitch>
+    </div>
+    <div class="config-row">
+      <div class="config-info">
+        <span class="config-label">Incluir activos sin puntaje</span>
+        <small class="text-muted">Incluye equipos con puntaje = 0 o sin calcular</small>
+      </div>
+      <p-inputSwitch [(ngModel)]="config.incluir_sin_puntaje"></p-inputSwitch>
+    </div>
+    <div class="config-row">
+      <div class="config-info">
+        <span class="config-label">Incluir activos inactivos</span>
+        <small class="text-muted">Incluye equipos marcados como inactivos en el sistema</small>
+      </div>
+      <p-inputSwitch [(ngModel)]="config.incluir_inactivos"></p-inputSwitch>
+    </div>
+    <div class="config-row">
+      <div class="config-info">
+        <span class="config-label">Notificar al finalizar</span>
+        <small class="text-muted">Envía un email cuando el cierre se complete</small>
+      </div>
+      <p-inputSwitch [(ngModel)]="config.notificar_al_cerrar"></p-inputSwitch>
+    </div>
+    <div class="form-group" *ngIf="config.notificar_al_cerrar">
+      <label class="form-label">Emails de notificación</label>
+      <input type="text" pInputText [(ngModel)]="config.emails_notificacion" placeholder="email1@empresa.com, email2@empresa.com" class="w-100">
+      <small class="text-muted">Separados por coma</small>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Máximo de cierres a conservar</label>
+      <p-inputNumber [(ngModel)]="config.max_cierres_a_conservar" [min]="0" [max]="120" [showButtons]="true" styleClass="w-100"></p-inputNumber>
+      <small class="text-muted">0 = sin límite. Los más antiguos se eliminan automáticamente.</small>
+    </div>
+  </div>
+  <div *ngIf="isLoadingConfig" class="p-4">
+    <p-skeleton width="100%" height="2rem" styleClass="mb-3"></p-skeleton>
+    <p-skeleton width="100%" height="2rem" styleClass="mb-3"></p-skeleton>
+    <p-skeleton width="100%" height="2rem"></p-skeleton>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalConfig=false"></p-button>
+    <p-button label="Guardar" icon="pi pi-save" severity="success" (onClick)="guardarConfig()" [loading]="isSavingConfig"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: COMPARACION                                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  header="Comparar Cierres"
+  [(visible)]="mostrarModalCompar"
+  [modal]="true"
+  [style]="{width: '700px'}"
+  [draggable]="false">
+
+  <div class="modal-form">
+    <div class="row g-3 mb-3">
+      <div class="col-6">
+        <label class="form-label">Cierre anterior</label>
+        <p-dropdown [options]="cierresOptions" [(ngModel)]="cierreAId" placeholder="Seleccionar..." optionLabel="label" optionValue="value" [filter]="true" styleClass="w-100" appendTo="body"></p-dropdown>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Cierre actual</label>
+        <p-dropdown [options]="cierresOptions" [(ngModel)]="cierreBId" placeholder="Seleccionar..." optionLabel="label" optionValue="value" [filter]="true" styleClass="w-100" appendTo="body"></p-dropdown>
+      </div>
+    </div>
+    <p-button label="Comparar" icon="pi pi-chart-line" (onClick)="ejecutarComparacion()" [loading]="isLoadingCompar" styleClass="w-100 mb-3"></p-button>
+
+    <!-- Resultado comparación -->
+    <ng-container *ngIf="comparacion && !isLoadingCompar">
+      <div class="compar-header mb-3">
+        <div class="compar-cierre">
+          <small class="text-muted">Anterior</small>
+          <strong>{{ comparacion.cierre_anterior.nombre }}</strong>
+          <small class="text-muted">{{ comparacion.cierre_anterior.periodo }}</small>
+        </div>
+        <i class="pi pi-arrow-right compar-arrow"></i>
+        <div class="compar-cierre">
+          <small class="text-muted">Actual</small>
+          <strong>{{ comparacion.cierre_actual.nombre }}</strong>
+          <small class="text-muted">{{ comparacion.cierre_actual.periodo }}</small>
+        </div>
+      </div>
+
+      <div class="compar-grid">
+        <div class="compar-item">
+          <span class="compar-label">Total activos</span>
+          <div class="compar-vals">
+            <span class="val-ant">{{ comparacion.comparacion.total_activos.anterior }}</span>
+            <span class="val-act">{{ comparacion.comparacion.total_activos.actual }}</span>
+            <span class="delta" [ngClass]="getDeltaClass(comparacion.comparacion.total_activos.delta)">
+              <i [class]="getDeltaIcon(comparacion.comparacion.total_activos.delta)"></i>
+              {{ comparacion.comparacion.total_activos.delta > 0 ? '+' : '' }}{{ comparacion.comparacion.total_activos.delta }}
+            </span>
+          </div>
+        </div>
+        <div class="compar-item">
+          <span class="compar-label">Óptimo</span>
+          <div class="compar-vals">
+            <span class="val-ant">{{ comparacion.comparacion.total_optimo.anterior }}</span>
+            <span class="val-act">{{ comparacion.comparacion.total_optimo.actual }}</span>
+            <span class="delta" [ngClass]="getDeltaClass(comparacion.comparacion.total_optimo.delta)">
+              <i [class]="getDeltaIcon(comparacion.comparacion.total_optimo.delta)"></i>
+              {{ comparacion.comparacion.total_optimo.delta > 0 ? '+' : '' }}{{ comparacion.comparacion.total_optimo.delta }}
+            </span>
+          </div>
+        </div>
+        <div class="compar-item">
+          <span class="compar-label">Funcional</span>
+          <div class="compar-vals">
+            <span class="val-ant">{{ comparacion.comparacion.total_funcional.anterior }}</span>
+            <span class="val-act">{{ comparacion.comparacion.total_funcional.actual }}</span>
+            <span class="delta" [ngClass]="getDeltaClass(comparacion.comparacion.total_funcional.delta)">
+              <i [class]="getDeltaIcon(comparacion.comparacion.total_funcional.delta)"></i>
+              {{ comparacion.comparacion.total_funcional.delta > 0 ? '+' : '' }}{{ comparacion.comparacion.total_funcional.delta }}
+            </span>
+          </div>
+        </div>
+        <div class="compar-item">
+          <span class="compar-label">Potencializar</span>
+          <div class="compar-vals">
+            <span class="val-ant">{{ comparacion.comparacion.total_potencial.anterior }}</span>
+            <span class="val-act">{{ comparacion.comparacion.total_potencial.actual }}</span>
+            <span class="delta" [ngClass]="getDeltaClassInverso(comparacion.comparacion.total_potencial.delta)">
+              <i [class]="getDeltaIcon(comparacion.comparacion.total_potencial.delta)"></i>
+              {{ comparacion.comparacion.total_potencial.delta > 0 ? '+' : '' }}{{ comparacion.comparacion.total_potencial.delta }}
+            </span>
+          </div>
+        </div>
+        <div class="compar-item">
+          <span class="compar-label">Obsoleto</span>
+          <div class="compar-vals">
+            <span class="val-ant">{{ comparacion.comparacion.total_obsoleto.anterior }}</span>
+            <span class="val-act">{{ comparacion.comparacion.total_obsoleto.actual }}</span>
+            <span class="delta" [ngClass]="getDeltaClassInverso(comparacion.comparacion.total_obsoleto.delta)">
+              <i [class]="getDeltaIcon(comparacion.comparacion.total_obsoleto.delta)"></i>
+              {{ comparacion.comparacion.total_obsoleto.delta > 0 ? '+' : '' }}{{ comparacion.comparacion.total_obsoleto.delta }}
+            </span>
+          </div>
+        </div>
+        <div class="compar-item">
+          <span class="compar-label">Puntaje promedio</span>
+          <div class="compar-vals">
+            <span class="val-ant">{{ comparacion.comparacion.puntaje_promedio.anterior }}%</span>
+            <span class="val-act">{{ comparacion.comparacion.puntaje_promedio.actual }}%</span>
+            <span class="delta" [ngClass]="getDeltaClass(comparacion.comparacion.puntaje_promedio.delta)">
+              <i [class]="getDeltaIcon(comparacion.comparacion.puntaje_promedio.delta)"></i>
+              {{ comparacion.comparacion.puntaje_promedio.delta > 0 ? '+' : '' }}{{ comparacion.comparacion.puntaje_promedio.delta }}%
+            </span>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <div *ngIf="isLoadingCompar" class="p-3">
+      <p-skeleton width="100%" height="200px"></p-skeleton>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cerrar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalCompar=false"></p-button>
+  </ng-template>
+</p-dialog>
