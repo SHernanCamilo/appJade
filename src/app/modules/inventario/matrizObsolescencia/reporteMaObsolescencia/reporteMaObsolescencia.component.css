@@ -340,6 +340,8 @@
 }
 .chart-card-wide   { flex: 2; min-width: 380px; }
 .chart-card-narrow { flex: 1; min-width: 260px; }
+.chart-card-full   { width: 100%; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.line-chart-container { height: 320px; }
 
 .chart-header { margin-bottom: 1rem; }
 .chart-header h3 { font-size: 1rem; font-weight: 600; color: #1f2937; margin: 0; }

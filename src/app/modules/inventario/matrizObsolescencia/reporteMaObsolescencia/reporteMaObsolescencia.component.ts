@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../services/matriz-obs-activos.service';
+import { CierreInventarioService, CierreInventario } from '../services/cierre-inventario.service';
 import { ExcelExportService, ExcelColumn, ExcelReportHeader } from '../../../../core/services/excel-export.service';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
@@ -111,6 +112,12 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
   donutChartData: any = {};
   donutChartOptions: any = {};
 
+  // ─── Gráfico de línea (evolución por cierres) ──────────────────────────────
+  lineChartData: any = {};
+  lineChartOptions: any = {};
+  isLoadingCierres = false;
+  private _todosCierres: CierreInventario[] = [];
+
   // ─── Vista ─────────────────────────────────────────────────────────────────
   vistaOptions = [
     { label: 'Resumen', value: 'resumen' },
@@ -154,6 +161,7 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
 
   constructor(
     private activosService: MatrizObsActivosService,
+    private cierreService: CierreInventarioService,
     private messageService: MessageService,
     private excelExportService: ExcelExportService,
     public permissionService: PermissionService
@@ -162,6 +170,7 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initChartOptions();
     this.cargarTodosLosActivos();
+    this.cargarGraficaCierres();
   }
 
   ngOnDestroy(): void {}
@@ -324,6 +333,7 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
     };
 
     this.actualizarGraficos();
+    this.actualizarGraficaLinea();
   }
 
   // ─── Gráficos ──────────────────────────────────────────────────────────────
@@ -360,6 +370,31 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
         }
       }
     };
+
+    this.lineChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: (ctx: any) => `${ctx.dataset.label}: ${ctx.parsed.y} equipos`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 11 }, maxRotation: 35 },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Estado (equipos)', font: { size: 12 } },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        }
+      }
+    };
   }
 
   private actualizarGraficos(): void {
@@ -381,6 +416,73 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
         backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'],
         borderWidth: 2, borderColor: '#ffffff'
       }]
+    };
+  }
+
+  cargarGraficaCierres(): void {
+    this.isLoadingCierres = true;
+    this.cierreService.getCierres({ per_page: 50 }).subscribe({
+      next: (res) => {
+        this._todosCierres = res.data
+          .filter(c => c.estado === 'cerrado' && c.fecha_fin_proceso)
+          .sort((a, b) => new Date(a.fecha_fin_proceso!).getTime() - new Date(b.fecha_fin_proceso!).getTime());
+        this.isLoadingCierres = false;
+        this.actualizarGraficaLinea();
+      },
+      error: () => { this.isLoadingCierres = false; }
+    });
+  }
+
+  private actualizarGraficaLinea(): void {
+    const cierres = this._todosCierres;
+    if (!cierres.length) { this.lineChartData = {}; return; }
+
+    const labels = cierres.map(c => {
+      const d = new Date(c.fecha_fin_proceso!);
+      return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: '2-digit' });
+    });
+
+    // Si hay filtro de empresa, recalcular proporciones usando los activos filtrados
+    const empresasFiltradas = this.selectedEmpresas;
+    let optimos: number[], funcionales: number[], potenciales: number[], obsoletos: number[];
+
+    if (empresasFiltradas.length > 0) {
+      // Calcular la proporción de cada empresa en el total actual y aplicarla a los cierres
+      const totalFiltrado = this.activosFiltrados.length || 1;
+      const totalGlobal   = this._todosLosActivos.length || 1;
+      const ratio = totalFiltrado / totalGlobal;
+
+      optimos     = cierres.map(c => Math.round((c.total_optimo    ?? 0) * ratio));
+      funcionales = cierres.map(c => Math.round((c.total_funcional ?? 0) * ratio));
+      potenciales = cierres.map(c => Math.round((c.total_potencial ?? 0) * ratio));
+      obsoletos   = cierres.map(c => Math.round((c.total_obsoleto  ?? 0) * ratio));
+    } else {
+      optimos     = cierres.map(c => c.total_optimo    ?? 0);
+      funcionales = cierres.map(c => c.total_funcional ?? 0);
+      potenciales = cierres.map(c => c.total_potencial ?? 0);
+      obsoletos   = cierres.map(c => c.total_obsoleto  ?? 0);
+    }
+
+    const makeDataset = (label: string, data: number[], color: string) => ({
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: color + '22',
+      pointBackgroundColor: color,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.3,
+      fill: false
+    });
+
+    this.lineChartData = {
+      labels,
+      datasets: [
+        makeDataset('Óptimo',        optimos,     '#10B981'),
+        makeDataset('Funcional',     funcionales, '#3B82F6'),
+        makeDataset('Potencializar', potenciales, '#F59E0B'),
+        makeDataset('Obsoleto',      obsoletos,   '#EF4444'),
+      ]
     };
   }
 
