@@ -1,0 +1,463 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/talento-humano">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-calendar me-2"></i>
+          Parametros de Eventos
+        </h1>
+        <p class="page-subtitle-modern">Configuración y gestión </p>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-nav">
+      <button class="tab-btn" [class.active]="activeTab === 'novedad'" (click)="setTab('novedad')">
+        <i class="bi bi-book-half me-2"></i>Novedad
+      </button>
+      <!-- <button class="tab-btn" [class.active]="activeTab === 'gestionar'" (click)="setTab('gestionar')">
+        <i class="pi pi-list me-2"></i>Gestionar
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'configuracion'" (click)="setTab('configuracion')">
+        <i class="pi pi-cog me-2"></i>Configuración
+      </button> -->
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+
+    <!-- ===== Tab: novedad ===== -->
+    <ng-container *ngIf="activeTab === 'novedad'">
+
+      <!-- Tabla novedades para Eventos -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title">Novedades definidas para Eventos</h2>
+          <div class="d-flex gap-2">
+            <button class="btn-action btn-action-secondary" (click)="abrirVincular()">
+              <i class="pi pi-link"></i>Vincular
+            </button>
+            <button class="btn-action btn-action-secondary" (click)="abrirListadoNovedades()">
+              <i class="pi pi-list"></i>Novedades
+            </button>
+            <button class="btn-action btn-action-primary" (click)="abrirFormulario()">
+              <i class="pi pi-plus"></i>Nueva
+            </button>
+          </div>
+        </div>
+        <div class="modern-table-container">
+          <p-table
+            [value]="vinculaciones"
+            [loading]="isLoading"
+            [paginator]="true"
+            [rows]="10"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} registros"
+            [rowsPerPageOptions]="[10, 25, 50]"
+            styleClass="modern-table">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Empresa</th>
+                <th>Código + Novedad</th>
+                <th>Cubre</th>
+                <th>Cargo</th>
+                <th>Activo</th>
+                <th>Fecha Registro</th>
+                <th>Acciones</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="body" let-v>
+              <tr>
+                <td>{{ v.empresa?.nombre || '— Todas —' }}</td>
+                <td>
+                  <span class="fw-semibold text-primary me-1">{{ v.novedad?.codigo }}</span>
+                  {{ v.novedad?.descripcion }}
+                </td>
+                <td>
+                  <p-tag [value]="v.novedad?.cubre ? 'Sí' : 'No'"
+                    [severity]="v.novedad?.cubre ? 'success' : 'secondary'">
+                  </p-tag>
+                </td>
+                <td>{{ v.cargo?.nombre_cargo || '— Todos —' }}</td>
+                <td>
+                  <p-tag [value]="v.activo ? 'Activo' : 'Inactivo'"
+                    [severity]="v.activo ? 'success' : 'danger'">
+                  </p-tag>
+                </td>
+                <td>{{ v.created_at | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn-action-icon btn-action-danger" pTooltip="Desvincular" tooltipPosition="top"
+                      (click)="desvincular(v)">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="7" class="text-center py-5">
+                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                  <p class="text-muted mt-3 mb-1">No hay vinculaciones registradas</p>
+                  <small class="text-muted">Usa "Vincular" para asociar novedades a empresas y cargos</small>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="loadingbody">
+              <tr *ngFor="let i of [1,2,3,4,5]">
+                <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+
+    </ng-container>
+
+    <!-- ===== Tab: Gestionar ===== -->
+    <!-- <ng-container *ngIf="activeTab === 'gestionar'">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title"><i class="pi pi-list me-2"></i>Gestión de Eventos</h2>
+        </div>
+        <div class="modern-table-container">
+          <p-table
+            [value]="[]"
+            [paginator]="true"
+            [rows]="10"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} registros"
+            styleClass="modern-table">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Consecutivo</th>
+                <th>Empleado</th>
+                <th>Tipo Evento</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="6" class="text-center py-5">
+                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                  <p class="text-muted mt-3 mb-1">No hay eventos registrados</p>
+                  <small class="text-muted">Los eventos gestionados aparecerán aquí</small>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </ng-container> -->
+
+    <!-- ===== Tab: Configuración ===== -->
+    <!-- <ng-container *ngIf="activeTab === 'configuracion'">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title"><i class="pi pi-cog me-2"></i>Configuración de Eventos</h2>
+        </div>
+        <div class="section-card-body">
+          <div class="config-grid">
+
+            <div class="config-item">
+              <div class="config-icon config-icon-blue"><i class="pi pi-tag"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Tipos de Novedad</h3>
+                <p class="config-desc">Administra los tipos de novedades disponibles para los eventos laborales.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-green"><i class="pi pi-users"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Aprobadores</h3>
+                <p class="config-desc">Define los aprobadores responsables de validar las solicitudes de eventos.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-purple"><i class="pi pi-sitemap"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Unidades Funcionales</h3>
+                <p class="config-desc">Gestiona las unidades funcionales asociadas a los eventos del personal.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-orange"><i class="pi pi-sliders-h"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Parámetros Generales</h3>
+                <p class="config-desc">Configura los parámetros globales que aplican a todos los eventos laborales.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </ng-container> -->
+
+  </div>
+
+  <!-- Dialog Listado de Novedades -->
+  <p-dialog
+    header="Catálogo de Novedades"
+    [(visible)]="showListadoDialog"
+    [modal]="true"
+    [closable]="true"
+    [maximizable]="true"
+    [style]="{width: '750px'}"
+    styleClass="novedad-dialog">
+
+    <div class="solicitud-form-container">
+
+      <!-- Formulario crear/editar dentro del modal -->
+      <div class="section-card mb-3" *ngIf="showFormEnListado">
+        <div class="section-card-header">
+          <h3 class="section-card-title" style="font-size:1rem;">
+            <i class="pi pi-{{editModeListado ? 'pencil' : 'plus'}} me-2"></i>
+            {{ editModeListado ? 'Editar Novedad' : 'Nueva Novedad' }}
+          </h3>
+          <button class="btn-action-icon" pTooltip="Cerrar formulario" tooltipPosition="top"
+            (click)="showFormEnListado = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="row g-3 p-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Código <span class="text-danger">*</span></label>
+            <input type="text" pInputText [(ngModel)]="formData.codigo"
+              placeholder="Ej: INC, VAC" class="w-100" [ngModelOptions]="{standalone: true}"
+              style="text-transform:uppercase">
+            <small class="text-danger" *ngIf="submittedListado && !formData.codigo">Requerido</small>
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label">Descripción <span class="text-danger">*</span></label>
+            <input type="text" pInputText [(ngModel)]="formData.descripcion"
+              placeholder="Nombre de la novedad" class="w-100" [ngModelOptions]="{standalone: true}">
+            <small class="text-danger" *ngIf="submittedListado && !formData.descripcion">Requerido</small>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label d-block">Cubre período</label>
+            <div class="d-flex align-items-center gap-2 mt-1">
+              <p-inputSwitch [(ngModel)]="formData.cubre" [ngModelOptions]="{standalone: true}"></p-inputSwitch>
+              <span>{{ formData.cubre ? 'Sí cubre' : 'No cubre' }}</span>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label d-block">Estado</label>
+            <div class="d-flex align-items-center gap-2 mt-1">
+              <p-inputSwitch [(ngModel)]="formData.activo" [ngModelOptions]="{standalone: true}"></p-inputSwitch>
+              <span>{{ formData.activo ? 'Activo' : 'Inactivo' }}</span>
+            </div>
+          </div>
+          <div class="col-12 d-flex justify-content-end gap-2">
+            <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
+              (onClick)="showFormEnListado = false; submittedListado = false">
+            </p-button>
+            <p-button [label]="editModeListado ? 'Actualizar' : 'Guardar'" icon="pi pi-save"
+              severity="success" (onClick)="onSubmitListado()" [loading]="isSubmitting">
+            </p-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla del catálogo -->
+      <div class="d-flex justify-content-between align-items-center mb-2" *ngIf="!showFormEnListado">
+        <span class="text-muted" style="font-size:.9rem;">{{ novedadesCatalogo.length }} novedad(es) registrada(s)</span>
+        <button class="btn-action btn-action-primary" (click)="abrirFormEnListado()">
+          <i class="pi pi-plus"></i>Nueva Novedad
+        </button>
+      </div>
+
+      <p-table [value]="novedadesCatalogo" [loading]="isLoadingCatalogo"
+        [paginator]="true" [rows]="5" styleClass="modern-table" *ngIf="!showFormEnListado">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Código</th>
+            <th>Descripción</th>
+            <th>Cubre</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-nov>
+          <tr>
+            <td><strong>{{ nov.codigo }}</strong></td>
+            <td>{{ nov.descripcion }}</td>
+            <td><p-tag [value]="nov.cubre ? 'Sí' : 'No'" [severity]="nov.cubre ? 'success' : 'secondary'"></p-tag></td>
+            <td><p-tag [value]="nov.activo ? 'Activo' : 'Inactivo'" [severity]="nov.activo ? 'success' : 'danger'"></p-tag></td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-action-icon btn-action-primary" pTooltip="Editar" tooltipPosition="top"
+                  (click)="editarNovedadEnListado(nov)">
+                  <i class="pi pi-pencil"></i>
+                </button>
+                <button class="btn-action-icon btn-action-danger" pTooltip="Eliminar" tooltipPosition="top"
+                  (click)="eliminarNovedad(nov)">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="5" class="text-center py-4">
+              <i class="pi pi-inbox" style="font-size:2rem; color:#9ca3af;"></i>
+              <p class="text-muted mt-2 mb-0">No hay novedades registradas</p>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+    </div>
+
+    <ng-template pTemplate="footer" *ngIf="!showFormEnListado">
+      <p-button label="Cerrar" icon="pi pi-times" severity="secondary" [outlined]="true"
+        (onClick)="showListadoDialog = false">
+      </p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Dialog Vincular Novedad -->
+  <p-dialog
+    header="Vincular Novedad"
+    [(visible)]="showVincularDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{width: '560px'}"
+    styleClass="novedad-dialog">
+
+    <div class="solicitud-form-container">
+      <p class="text-muted mb-3">Asocia una novedad existente a una empresa y/o cargo específico.</p>
+
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Novedad <span class="text-danger">*</span></label>
+          <p-dropdown [options]="novedadOptions" [(ngModel)]="vincularData.novedad_id"
+            placeholder="Seleccione novedad" [filter]="true" filterPlaceholder="Buscar..."
+            styleClass="w-100" [ngModelOptions]="{standalone: true}" [appendTo]="'body'">
+          </p-dropdown>
+          <small class="text-danger" *ngIf="submittedVincular && !vincularData.novedad_id">Campo requerido</small>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Empresa <small class="text-muted">(vacío = todas)</small></label>
+          <p-dropdown [options]="empresaOptions" [(ngModel)]="vincularData.empresa_id"
+            placeholder="Todas las empresas" [showClear]="true"
+            styleClass="w-100" [ngModelOptions]="{standalone: true}" [appendTo]="'body'">
+          </p-dropdown>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Cargo <small class="text-muted">(vacío = todos)</small></label>
+          <p-dropdown [options]="cargoOptions" [(ngModel)]="vincularData.cargo_id"
+            placeholder="Todos los cargos" [showClear]="true" [filter]="true"
+            filterPlaceholder="Buscar cargo..."
+            styleClass="w-100" [ngModelOptions]="{standalone: true}" [appendTo]="'body'">
+          </p-dropdown>
+        </div>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-end gap-2">
+        <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
+          (onClick)="showVincularDialog = false">
+        </p-button>
+        <p-button label="Vincular" icon="pi pi-link" severity="success"
+          (onClick)="onVincular()" [loading]="isSubmittingVincular">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Dialog Nueva / Editar Novedad -->
+  <p-dialog
+    [header]="editMode ? 'Editar Novedad' : 'Nueva Novedad'"
+    [(visible)]="showFormDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{width: '500px'}"
+    styleClass="novedad-dialog">
+
+    <div class="solicitud-form-container">
+      <div class="row g-3">
+
+        <div class="col-12 col-md-4">
+          <label class="form-label">Código <span class="text-danger">*</span></label>
+          <input type="text" pInputText [(ngModel)]="formData.codigo"
+            placeholder="Ej: INC, VAC" class="w-100" [ngModelOptions]="{standalone: true}"
+            style="text-transform:uppercase">
+          <small class="text-danger" *ngIf="submitted && !formData.codigo">Campo requerido</small>
+        </div>
+
+        <div class="col-12 col-md-8">
+          <label class="form-label">Descripción <span class="text-danger">*</span></label>
+          <input type="text" pInputText [(ngModel)]="formData.descripcion"
+            placeholder="Nombre de la novedad" class="w-100" [ngModelOptions]="{standalone: true}">
+          <small class="text-danger" *ngIf="submitted && !formData.descripcion">Campo requerido</small>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label d-block">Cubre período</label>
+          <div class="d-flex align-items-center gap-2 mt-1">
+            <p-inputSwitch [(ngModel)]="formData.cubre" [ngModelOptions]="{standalone: true}"></p-inputSwitch>
+            <span>{{ formData.cubre ? 'Sí cubre' : 'No cubre' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label d-block">Estado</label>
+          <div class="d-flex align-items-center gap-2 mt-1">
+            <p-inputSwitch [(ngModel)]="formData.activo" [ngModelOptions]="{standalone: true}"></p-inputSwitch>
+            <span>{{ formData.activo ? 'Activo' : 'Inactivo' }}</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-end gap-2">
+        <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
+          (onClick)="showFormDialog = false">
+        </p-button>
+        <p-button [label]="editMode ? 'Actualizar' : 'Guardar'" icon="pi pi-save" severity="success"
+          (onClick)="onSubmit()" [loading]="isSubmitting">
+        </p-button>
+      </div>
+    </ng-template>
+
+  </p-dialog>
+
+</div>
