@@ -86,6 +86,8 @@
 .btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-action-success  { background: #10B981; color: white; }
 .btn-action-success:hover:not(:disabled) { background: #059669; }
+.btn-action-danger   { background: #EF4444; color: white; }
+.btn-action-danger:hover:not(:disabled) { background: #DC2626; }
 
 /* ─── Panel de Filtros ───────────────────────────────────────────────────── */
 .filters-panel {

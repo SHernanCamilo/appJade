@@ -11,6 +11,8 @@ export interface ScheduledTask {
   scheduled_at?: string;
   started_at?: string;
   completed_at?: string;
+  last_run_at?: string;
+  next_run_at?: string;
   attempts: number;
   max_attempts: number;
   can_retry: boolean;
@@ -20,6 +22,12 @@ export interface ScheduledTask {
   result?: string;
   error_message?: string;
   job_id?: number;
+  is_recurring?: boolean;
+  is_active?: boolean;
+  recurrence_type?: RecurrenceType;
+  recurrence_type_label?: string;
+  recurrence_value?: RecurrenceValue;
+  recurrence_description?: string;
   created_by?: number;
   creator?: TaskCreator;
   created_at: string;
@@ -44,6 +52,33 @@ export type TaskStatus =
   | 'completed' 
   | 'failed' 
   | 'cancelled';
+
+export type RecurrenceType = 
+  | 'every_minute'
+  | 'every_5_minutes'
+  | 'every_15_minutes'
+  | 'every_30_minutes'
+  | 'hourly'
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'custom_days'
+  | 'cron';
+
+export interface RecurrenceValue {
+  time?: string;
+  day_of_week?: number;
+  day?: number | 'last';
+  days?: number[];
+}
+
+export interface RecurrenceTypeConfig {
+  value: RecurrenceType;
+  label: string;
+  description: string;
+  needsConfig: boolean;
+  configFields?: string[];
+}
 
 export interface TaskTypeConfig {
   key: TaskType;
@@ -71,6 +106,9 @@ export interface CreateTaskRequest {
   scheduled_at?: string;
   parameters?: Record<string, any>;
   max_attempts?: number;
+  is_recurring?: boolean;
+  recurrence_type?: RecurrenceType;
+  recurrence_value?: RecurrenceValue;
 }
 
 export interface UpdateTaskRequest {

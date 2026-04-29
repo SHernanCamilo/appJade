@@ -102,6 +102,20 @@ export class TaskSchedulerService {
   }
 
   /**
+   * Obtener tipos de recurrencia disponibles
+   */
+  getRecurrenceTypes(): Observable<{ data: any[] }> {
+    return this.http.get<{ data: any[] }>(`${this.apiUrl}/recurrence-types`);
+  }
+
+  /**
+   * Activar/Desactivar tarea recurrente
+   */
+  toggleTask(id: number): Observable<{ message: string; data: ScheduledTask }> {
+    return this.http.post<{ message: string; data: ScheduledTask }>(`${this.apiUrl}/${id}/toggle`, {});
+  }
+
+  /**
    * Obtener color del badge según el estado
    */
   getStatusBadgeClass(status: string): string {

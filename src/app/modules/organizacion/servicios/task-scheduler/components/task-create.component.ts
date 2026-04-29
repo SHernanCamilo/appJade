@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TaskSchedulerService } from '../services/task-scheduler.service';
-import { CreateTaskRequest, TaskTypeConfig } from '../models/scheduled-task.model';
+import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } from '../models/scheduled-task.model';
 
 @Component({
   selector: 'app-task-create',
@@ -69,8 +69,33 @@ import { CreateTaskRequest, TaskTypeConfig } from '../models/scheduled-task.mode
             </textarea>
           </div>
 
-          <!-- Fecha de Programación -->
-          <div class="form-group">
+          <!-- ========== NUEVO: Checkbox Tarea Recurrente ========== -->
+          <div class="form-group recurring-toggle">
+            <div class="toggle-container">
+              <label class="toggle-label">
+                <input 
+                  type="checkbox" 
+                  class="toggle-input"
+                  [(ngModel)]="task.is_recurring"
+                  name="is_recurring"
+                  (change)="onRecurringChange()"
+                  id="isRecurring"
+                />
+                <span class="toggle-switch"></span>
+                <span class="toggle-text">
+                  <strong>¿Es tarea recurrente?</strong>
+                  <small>{{ task.is_recurring ? 'Activado - Se ejecutará automáticamente' : 'Desactivado - Ejecución única' }}</small>
+                </span>
+              </label>
+            </div>
+            <div class="form-help">
+              <i class="bi bi-info-circle me-2"></i>
+              Las tareas recurrentes se ejecutan automáticamente según la frecuencia configurada
+            </div>
+          </div>
+
+          <!-- SI NO ES RECURRENTE: Fecha y Hora -->
+          <div class="form-group" *ngIf="!task.is_recurring">
             <label class="form-label">Fecha y Hora de Ejecución</label>
             <input 
               type="datetime-local" 
@@ -81,6 +106,148 @@ import { CreateTaskRequest, TaskTypeConfig } from '../models/scheduled-task.mode
             <div class="form-help">
               <i class="bi bi-info-circle me-2"></i>
               Dejar vacío para ejecutar inmediatamente
+            </div>
+          </div>
+
+          <!-- SI ES RECURRENTE: Tipo de Recurrencia -->
+          <div class="form-group" *ngIf="task.is_recurring">
+            <label class="form-label required">Tipo de Recurrencia</label>
+            <select 
+              class="form-select" 
+              [(ngModel)]="task.recurrence_type"
+              name="recurrence_type"
+              required
+              (change)="onRecurrenceTypeChange()">
+              <option [value]="undefined">Seleccione frecuencia...</option>
+              <option *ngFor="let type of recurrenceTypes" [value]="type.key">
+                {{ type.name }}
+              </option>
+            </select>
+            <div class="form-help" *ngIf="task.recurrence_type && recurrenceTypes.length > 0">
+              <i class="bi bi-info-circle me-2"></i>
+              {{ getRecurrenceDescription(task.recurrence_type) }}
+            </div>
+          </div>
+
+          <!-- Si es DAILY -->
+          <div class="form-group" *ngIf="task.is_recurring && task.recurrence_type === 'daily'">
+            <label class="form-label required">Hora de Ejecución</label>
+            <input 
+              type="time" 
+              class="form-control" 
+              [(ngModel)]="recurrenceValue.time"
+              name="recurrence_time"
+              required
+            />
+            <div class="form-help">
+              <i class="bi bi-info-circle me-2"></i>
+              La tarea se ejecutará todos los días a esta hora
+            </div>
+          </div>
+
+          <!-- Si es WEEKLY -->
+          <div *ngIf="task.is_recurring && task.recurrence_type === 'weekly'">
+            <div class="form-group">
+              <label class="form-label required">Día de la Semana</label>
+              <select 
+                class="form-select" 
+                [(ngModel)]="recurrenceValue.day_of_week"
+                name="recurrence_day_of_week"
+                required>
+                <option [value]="0">Domingo</option>
+                <option [value]="1">Lunes</option>
+                <option [value]="2">Martes</option>
+                <option [value]="3">Miércoles</option>
+                <option [value]="4">Jueves</option>
+                <option [value]="5">Viernes</option>
+                <option [value]="6">Sábado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">Hora de Ejecución</label>
+              <input 
+                type="time" 
+                class="form-control" 
+                [(ngModel)]="recurrenceValue.time"
+                name="recurrence_time_weekly"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Si es MONTHLY -->
+          <div *ngIf="task.is_recurring && task.recurrence_type === 'monthly'">
+            <div class="form-group">
+              <label class="form-label required">Día del Mes</label>
+              <select 
+                class="form-select" 
+                [(ngModel)]="recurrenceValue.day"
+                name="recurrence_day"
+                required>
+                <option [value]="1">Día 1 (Inicio de mes)</option>
+                <option [value]="15">Día 15 (Mitad de mes)</option>
+                <option value="last">Último día del mes</option>
+                <option *ngFor="let day of [2,3,4,5,6,7,8,9,10,11,12,13,14,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]" [value]="day">
+                  Día {{day}}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">Hora de Ejecución</label>
+              <input 
+                type="time" 
+                class="form-control" 
+                [(ngModel)]="recurrenceValue.time"
+                name="recurrence_time_monthly"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Si es CUSTOM_DAYS -->
+          <div *ngIf="task.is_recurring && task.recurrence_type === 'custom_days'">
+            <div class="form-group">
+              <label class="form-label required">Días de la Semana</label>
+              <div class="days-selector">
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(1)" (change)="toggleDay(1)">
+                  <span>Lunes</span>
+                </label>
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(2)" (change)="toggleDay(2)">
+                  <span>Martes</span>
+                </label>
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(3)" (change)="toggleDay(3)">
+                  <span>Miércoles</span>
+                </label>
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(4)" (change)="toggleDay(4)">
+                  <span>Jueves</span>
+                </label>
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(5)" (change)="toggleDay(5)">
+                  <span>Viernes</span>
+                </label>
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(6)" (change)="toggleDay(6)">
+                  <span>Sábado</span>
+                </label>
+                <label class="day-checkbox">
+                  <input type="checkbox" [checked]="selectedDays.has(0)" (change)="toggleDay(0)">
+                  <span>Domingo</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">Hora de Ejecución</label>
+              <input 
+                type="time" 
+                class="form-control" 
+                [(ngModel)]="recurrenceValue.time"
+                name="recurrence_time_custom"
+                required
+              />
             </div>
           </div>
 
@@ -117,24 +284,26 @@ import { CreateTaskRequest, TaskTypeConfig } from '../models/scheduled-task.mode
             <!-- Parámetros para cierre_automatico -->
             <div *ngIf="task.type === 'cierre_automatico'" class="parameters-grid">
               <div class="param-group">
-                <label class="required">ID Empresa</label>
+                <label>ID Empresa</label>
                 <input 
                   type="number" 
                   class="form-control" 
                   [(ngModel)]="parameters.empresa_id"
                   name="param_empresa_id_cierre"
-                  required
+                  placeholder="Opcional (dejar vacío para todas)"
                 />
+                <small class="form-help">Dejar vacío para ejecutar en todas las empresas</small>
               </div>
               <div class="param-group">
-                <label class="required">Periodo</label>
+                <label>Periodo</label>
                 <input 
                   type="month" 
                   class="form-control" 
                   [(ngModel)]="parameters.periodo"
                   name="param_periodo"
-                  required
+                  placeholder="Opcional"
                 />
+                <small class="form-help">Dejar vacío para usar el mes actual automáticamente</small>
               </div>
             </div>
 
@@ -242,15 +411,55 @@ import { CreateTaskRequest, TaskTypeConfig } from '../models/scheduled-task.mode
     .form-control:focus,.form-select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
     .form-help{font-size:.75rem;color:#64748b;margin-top:.5rem}
     
+    /* Toggle Switch Mejorado */
+    .recurring-toggle{background:#f8fafc;padding:1.25rem;border-radius:10px;border:2px solid #e2e8f0}
+    .toggle-container{margin-bottom:.5rem}
+    .toggle-label{display:flex;align-items:center;cursor:pointer;gap:1rem}
+    .toggle-input{display:none}
+    .toggle-switch{
+      position:relative;
+      width:52px;
+      height:28px;
+      background:#cbd5e1;
+      border-radius:14px;
+      transition:all .3s ease;
+      flex-shrink:0;
+    }
+    .toggle-switch::before{
+      content:'';
+      position:absolute;
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      background:#fff;
+      top:3px;
+      left:3px;
+      transition:all .3s ease;
+      box-shadow:0 2px 4px rgba(0,0,0,.2);
+    }
+    .toggle-input:checked + .toggle-switch{background:#3b82f6}
+    .toggle-input:checked + .toggle-switch::before{transform:translateX(24px)}
+    .toggle-text{display:flex;flex-direction:column;gap:.25rem}
+    .toggle-text strong{color:#1e293b;font-size:.95rem}
+    .toggle-text small{color:#64748b;font-size:.75rem}
+    
     .parameters-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem;background:#f8fafc;border-radius:8px}
     .param-group{display:flex;flex-direction:column}
     .param-group label{font-size:.75rem;font-weight:500;color:#475569;margin-bottom:.5rem}
     .form-check{padding-left:0}
-    .form-check-input{margin-right:.5rem}
-    .form-switch .form-check-input{width:2.5rem;height:1.25rem}
+    .form-check-input{margin-right:.5rem;cursor:pointer}
+    .form-switch .form-check-input{width:2.5rem;height:1.25rem;cursor:pointer}
+    .form-check-label{cursor:pointer}
+    
+    .days-selector{display:flex;flex-wrap:wrap;gap:.75rem;padding:1rem;background:#f8fafc;border-radius:8px}
+    .day-checkbox{display:flex;align-items:center;padding:.5rem 1rem;background:#fff;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer;transition:all .2s}
+    .day-checkbox:hover{border-color:#3b82f6;background:#eff6ff}
+    .day-checkbox input[type="checkbox"]{margin-right:.5rem;cursor:pointer}
+    .day-checkbox input[type="checkbox"]:checked + span{font-weight:600;color:#3b82f6}
+    .day-checkbox span{font-size:.875rem;color:#475569}
     
     .form-actions{display:flex;gap:1rem;justify-content:flex-end;margin-top:2rem;padding-top:1.5rem;border-top:1px solid #f1f5f9}
-    .btn{padding:.625rem 1.25rem;border-radius:8px;font-weight:500;transition:all .2s;border:none}
+    .btn{padding:.625rem 1.25rem;border-radius:8px;font-weight:500;transition:all .2s;border:none;cursor:pointer}
     .btn-primary{background:#3b82f6;color:#fff}
     .btn-primary:hover:not(:disabled){background:#2563eb}
     .btn-primary:disabled{opacity:.5;cursor:not-allowed}
@@ -264,7 +473,8 @@ export class TaskCreateComponent implements OnInit {
     name: '',
     type: undefined as any,
     description: '',
-    parameters: {}
+    parameters: {},
+    is_recurring: false
   };
   
   taskTypes: TaskTypeConfig[] = [];
@@ -275,6 +485,16 @@ export class TaskCreateComponent implements OnInit {
   submitting = false;
   error: string | null = null;
 
+  // Propiedades para recurrencia
+  recurrenceTypes: any[] = [];
+  recurrenceValue: RecurrenceValue = {
+    time: '00:00',
+    day_of_week: 1,
+    day: 1,
+    days: []
+  };
+  selectedDays: Set<number> = new Set();
+
   constructor(
     private taskService: TaskSchedulerService,
     private router: Router
@@ -282,6 +502,7 @@ export class TaskCreateComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTaskTypes();
+    this.loadRecurrenceTypes();
   }
 
   loadTaskTypes(): void {
@@ -295,10 +516,82 @@ export class TaskCreateComponent implements OnInit {
     });
   }
 
+  loadRecurrenceTypes(): void {
+    this.taskService.getRecurrenceTypes().subscribe({
+      next: (response) => {
+        this.recurrenceTypes = response.data;
+      },
+      error: (err) => {
+        console.error('Error loading recurrence types:', err);
+      }
+    });
+  }
+
   onTypeChange(): void {
     this.selectedType = this.taskTypes.find(t => t.key === this.task.type) || null;
     this.parameters = {};
     this.recipientsString = '';
+  }
+
+  onRecurringChange(): void {
+    if (!this.task.is_recurring) {
+      this.task.recurrence_type = undefined;
+      this.recurrenceValue = {
+        time: '00:00',
+        day_of_week: 1,
+        day: 1,
+        days: []
+      };
+      this.selectedDays.clear();
+    } else {
+      this.scheduledDateTime = '';
+    }
+  }
+
+  onRecurrenceTypeChange(): void {
+    this.recurrenceValue = {
+      time: '00:00',
+      day_of_week: 1,
+      day: 1,
+      days: []
+    };
+    this.selectedDays.clear();
+  }
+
+  toggleDay(day: number): void {
+    if (this.selectedDays.has(day)) {
+      this.selectedDays.delete(day);
+    } else {
+      this.selectedDays.add(day);
+    }
+    this.recurrenceValue.days = Array.from(this.selectedDays);
+  }
+
+  buildRecurrenceValue(): RecurrenceValue | undefined {
+    if (!this.task.recurrence_type) return undefined;
+
+    const type = this.task.recurrence_type;
+    const value: RecurrenceValue = {};
+
+    if (type === 'daily') {
+      value.time = this.recurrenceValue.time;
+    } else if (type === 'weekly') {
+      value.day_of_week = this.recurrenceValue.day_of_week;
+      value.time = this.recurrenceValue.time;
+    } else if (type === 'monthly') {
+      value.day = this.recurrenceValue.day;
+      value.time = this.recurrenceValue.time;
+    } else if (type === 'custom_days') {
+      value.days = Array.from(this.selectedDays);
+      value.time = this.recurrenceValue.time;
+    }
+
+    return Object.keys(value).length > 0 ? value : undefined;
+  }
+
+  getRecurrenceDescription(recurrenceType: string): string {
+    const type = this.recurrenceTypes.find(t => t.key === recurrenceType);
+    return type ? type.description : '';
   }
 
   onSubmit(): void {
@@ -313,9 +606,17 @@ export class TaskCreateComponent implements OnInit {
     // Preparar la tarea
     const taskData: CreateTaskRequest = {
       ...this.task,
-      scheduled_at: this.scheduledDateTime || undefined,
       parameters: Object.keys(this.parameters).length > 0 ? this.parameters : undefined
     };
+
+    // Si es recurrente
+    if (this.task.is_recurring) {
+      taskData.recurrence_type = this.task.recurrence_type;
+      taskData.recurrence_value = this.buildRecurrenceValue();
+    } else {
+      // Si no es recurrente, agregar scheduled_at
+      taskData.scheduled_at = this.scheduledDateTime || undefined;
+    }
 
     this.taskService.createTask(taskData).subscribe({
       next: (response) => {

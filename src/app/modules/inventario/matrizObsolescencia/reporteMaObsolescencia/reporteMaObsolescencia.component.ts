@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../services/matriz-obs-activos.service';
 import { ExcelExportService, ExcelColumn, ExcelReportHeader } from '../../../../core/services/excel-export.service';
+import { PdfReportService, ReportData } from '../../../../core/services/pdf-report.service';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
@@ -72,6 +73,7 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
   // ─── Estado de carga ───────────────────────────────────────────────────────
   isLoadingInicial = false;
   isExporting = false;
+  isGeneratingPdf = false;
 
   // ─── Dataset completo (fuente de verdad) ──────────────────────────────────
   private _todosLosActivos: ActivoMatriz[] = [];
@@ -93,12 +95,30 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
   tiposOptions:      FiltroOption[] = [];
   marcasOptions:     FiltroOption[] = [];
 
+  // Opciones disponibles según filtros en cascada
+  sucursalesDisponibles: FiltroOption[] = [];
+  sedesDisponibles:      FiltroOption[] = [];
+  estadosDisponibles:    FiltroOption[] = [];
+  tiposDisponibles:      FiltroOption[] = [];
+  marcasDisponibles:     FiltroOption[] = [];
+
   estadosOptions: FiltroOption[] = [
     { label: 'Óptimo',        value: 'optimo'    },
     { label: 'Funcional',     value: 'funcional' },
     { label: 'Potencializar', value: 'potencial' },
     { label: 'Obsoleto',      value: 'obsoleto'  }
   ];
+
+  // Control de habilitación de filtros en cascada
+  get isSucursalEnabled(): boolean { 
+    return this.selectedEmpresas && this.selectedEmpresas.length > 0; 
+  }
+  get isSedeEnabled(): boolean { 
+    return this.selectedSucursales && this.selectedSucursales.length > 0; 
+  }
+  get isFiltrosSecundariosEnabled(): boolean { 
+    return this.selectedEmpresas && this.selectedEmpresas.length > 0; 
+  }
 
   // ─── Datos procesados (resultado de aplicar filtros) ──────────────────────
   activosFiltrados: ActivoMatriz[] = [];
@@ -156,6 +176,7 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
     private activosService: MatrizObsActivosService,
     private messageService: MessageService,
     private excelExportService: ExcelExportService,
+    private pdfReportService: PdfReportService,
     public permissionService: PermissionService
   ) {}
 
@@ -209,6 +230,9 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.sedesOptions      = this.mapToOptions(sedMap);
     this.tiposOptions      = Array.from(tipSet).sort().map(v => ({ label: v, value: v }));
     this.marcasOptions     = Array.from(marSet).sort().map(v => ({ label: v, value: v }));
+
+    // Inicializar opciones disponibles (vacías hasta que se seleccione empresa)
+    this.actualizarOpcionesDisponibles();
   }
 
   private mapToOptions(map: Map<number, string>): FiltroOption[] {
@@ -220,47 +244,246 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
   // ─── Filtrado local ────────────────────────────────────────────────────────
 
   aplicarFiltros(): void {
-    this.paginaActual = 0;
-    const term = this.searchTerm.trim().toLowerCase();
+    try {
+      this.paginaActual = 0;
+      const term = this.searchTerm ? this.searchTerm.trim().toLowerCase() : '';
 
-    this.activosFiltrados = this._todosLosActivos.filter(a => {
-      // Empresa
-      if (this.selectedEmpresas.length > 0 && !this.selectedEmpresas.includes(a.id_empresa)) return false;
-      // Sucursal
-      if (this.selectedSucursales.length > 0 && (!a.id_sucursal || !this.selectedSucursales.includes(a.id_sucursal))) return false;
-      // Sede
-      if (this.selectedSedes.length > 0 && (!a.id_sede || !this.selectedSedes.includes(a.id_sede))) return false;
-      // Estado
-      if (this.selectedEstados.length > 0 && !this.selectedEstados.includes(this.getEstadoActivo(a))) return false;
-      // Tipo
-      if (this.selectedTipos.length > 0 && (!a.detalle?.tipo || !this.selectedTipos.includes(a.detalle.tipo))) return false;
-      // Marca
-      if (this.selectedMarcas.length > 0 && (!a.detalle?.marca || !this.selectedMarcas.includes(a.detalle.marca))) return false;
-      // Búsqueda de texto
-      if (term) {
-        const haystack = [
-          a.nombre_equipo, a.agente, a.serial, a.placa,
-          a.empresa?.nombre, a.sucursal?.nombre, a.sede?.nombre,
-          a.detalle?.tipo, a.detalle?.marca, a.detalle?.procesador,
-          a.detalle?.sistema_operativo, a.usuario_glpi
-        ].filter(Boolean).join(' ').toLowerCase();
-        if (!haystack.includes(term)) return false;
-      }
-      return true;
+      this.activosFiltrados = this._todosLosActivos.filter(a => {
+        // Empresa
+        if (this.selectedEmpresas && this.selectedEmpresas.length > 0 && !this.selectedEmpresas.includes(a.id_empresa)) return false;
+        // Sucursal
+        if (this.selectedSucursales && this.selectedSucursales.length > 0 && (!a.id_sucursal || !this.selectedSucursales.includes(a.id_sucursal))) return false;
+        // Sede
+        if (this.selectedSedes && this.selectedSedes.length > 0 && (!a.id_sede || !this.selectedSedes.includes(a.id_sede))) return false;
+        // Estado
+        if (this.selectedEstados && this.selectedEstados.length > 0 && !this.selectedEstados.includes(this.getEstadoActivo(a))) return false;
+        // Tipo
+        if (this.selectedTipos && this.selectedTipos.length > 0 && (!a.detalle?.tipo || !this.selectedTipos.includes(a.detalle.tipo))) return false;
+        // Marca
+        if (this.selectedMarcas && this.selectedMarcas.length > 0 && (!a.detalle?.marca || !this.selectedMarcas.includes(a.detalle.marca))) return false;
+        // Búsqueda de texto
+        if (term) {
+          const haystack = [
+            a.nombre_equipo, a.agente, a.serial, a.placa,
+            a.empresa?.nombre, a.sucursal?.nombre, a.sede?.nombre,
+            a.detalle?.tipo, a.detalle?.marca, a.detalle?.procesador,
+            a.detalle?.sistema_operativo, a.usuario_glpi
+          ].filter(Boolean).join(' ').toLowerCase();
+          if (!haystack.includes(term)) return false;
+        }
+        return true;
+      });
+
+      this.procesarResumen(this.activosFiltrados);
+    } catch (error) {
+      console.error('Error en aplicarFiltros:', error);
+      this.activosFiltrados = [];
+      this.procesarResumen([]);
+    }
+  }
+
+  // ─── Actualización de opciones disponibles en cascada ──────────────────────
+
+  private actualizarOpcionesDisponibles(): void {
+    // Si no hay empresas seleccionadas, limpiar todo
+    if (!this.selectedEmpresas || this.selectedEmpresas.length === 0) {
+      this.sucursalesDisponibles = [];
+      this.sedesDisponibles = [];
+      this.estadosDisponibles = [];
+      this.tiposDisponibles = [];
+      this.marcasDisponibles = [];
+      return;
+    }
+
+    // Filtrar activos por empresas seleccionadas
+    const activosPorEmpresa = this._todosLosActivos.filter(a => 
+      this.selectedEmpresas.includes(a.id_empresa)
+    );
+
+    // Construir sucursales disponibles
+    const sucMap = new Map<number, string>();
+    activosPorEmpresa.forEach(a => {
+      if (a.id_sucursal && a.sucursal) sucMap.set(a.id_sucursal, a.sucursal.nombre);
     });
+    this.sucursalesDisponibles = this.mapToOptions(sucMap);
 
-    this.procesarResumen(this.activosFiltrados);
+    // Si hay sucursales seleccionadas, filtrar por ellas
+    let activosParaFiltrosSecundarios = activosPorEmpresa;
+    if (this.selectedSucursales && this.selectedSucursales.length > 0) {
+      activosParaFiltrosSecundarios = activosPorEmpresa.filter(a =>
+        a.id_sucursal && this.selectedSucursales.includes(a.id_sucursal)
+      );
+
+      // Construir sedes disponibles (solo si hay sucursales seleccionadas)
+      const sedMap = new Map<number, string>();
+      activosParaFiltrosSecundarios.forEach(a => {
+        if (a.id_sede && a.sede) sedMap.set(a.id_sede, a.sede.nombre);
+      });
+      this.sedesDisponibles = this.mapToOptions(sedMap);
+    } else {
+      this.sedesDisponibles = [];
+    }
+
+    // Si hay sedes seleccionadas, filtrar por ellas
+    if (this.selectedSedes && this.selectedSedes.length > 0) {
+      activosParaFiltrosSecundarios = activosParaFiltrosSecundarios.filter(a =>
+        a.id_sede && this.selectedSedes.includes(a.id_sede)
+      );
+    }
+
+    // Construir estados disponibles
+    const estadosSet = new Set<string>();
+    activosParaFiltrosSecundarios.forEach(a => {
+      estadosSet.add(this.getEstadoActivo(a));
+    });
+    this.estadosDisponibles = this.estadosOptions.filter(opt => 
+      estadosSet.has(opt.value)
+    );
+
+    // Construir tipos disponibles
+    const tiposSet = new Set<string>();
+    activosParaFiltrosSecundarios.forEach(a => {
+      if (a.detalle?.tipo) tiposSet.add(a.detalle.tipo);
+    });
+    this.tiposDisponibles = Array.from(tiposSet).sort().map(v => ({ label: v, value: v }));
+
+    // Construir marcas disponibles
+    const marcasSet = new Set<string>();
+    activosParaFiltrosSecundarios.forEach(a => {
+      if (a.detalle?.marca) marcasSet.add(a.detalle.marca);
+    });
+    this.marcasDisponibles = Array.from(marcasSet).sort().map(v => ({ label: v, value: v }));
+  }
+
+  // ─── Manejadores de cambio de filtros en cascada ───────────────────────────
+
+  private isUpdating = false; // Flag para prevenir bucles infinitos
+
+  onEmpresaChange(): void {
+    if (this.isUpdating) return;
+    this.isUpdating = true;
+
+    try {
+      // Limpiar filtros dependientes
+      this.selectedSucursales = [];
+      this.selectedSedes = [];
+      this.selectedEstados = [];
+      this.selectedTipos = [];
+      this.selectedMarcas = [];
+
+      // Actualizar opciones disponibles
+      this.actualizarOpcionesDisponibles();
+
+      // Aplicar filtros
+      this.aplicarFiltros();
+    } catch (error) {
+      console.error('Error en onEmpresaChange:', error);
+    } finally {
+      setTimeout(() => {
+        this.isUpdating = false;
+      }, 50);
+    }
+  }
+
+  onSucursalChange(): void {
+    if (this.isUpdating) return;
+    this.isUpdating = true;
+
+    try {
+      // Limpiar filtros dependientes de sucursal
+      this.selectedSedes = [];
+
+      // Actualizar opciones disponibles
+      this.actualizarOpcionesDisponibles();
+
+      // Limpiar filtros secundarios que ya no son válidos
+      this.limpiarFiltrosSecundariosInvalidos();
+
+      // Aplicar filtros
+      this.aplicarFiltros();
+    } catch (error) {
+      console.error('Error en onSucursalChange:', error);
+    } finally {
+      setTimeout(() => {
+        this.isUpdating = false;
+      }, 50);
+    }
+  }
+
+  onSedeChange(): void {
+    if (this.isUpdating) return;
+    this.isUpdating = true;
+
+    try {
+      // Actualizar opciones disponibles (afecta estados, tipos, marcas)
+      this.actualizarOpcionesDisponibles();
+
+      // Limpiar filtros secundarios que ya no son válidos
+      this.limpiarFiltrosSecundariosInvalidos();
+
+      // Aplicar filtros
+      this.aplicarFiltros();
+    } catch (error) {
+      console.error('Error en onSedeChange:', error);
+    } finally {
+      setTimeout(() => {
+        this.isUpdating = false;
+      }, 50);
+    }
+  }
+
+  onFiltroSecundarioChange(): void {
+    if (this.isUpdating) return;
+    // Solo aplicar filtros, no afecta cascada
+    try {
+      this.aplicarFiltros();
+    } catch (error) {
+      console.error('Error en onFiltroSecundarioChange:', error);
+    }
+  }
+
+  // Limpiar filtros secundarios que ya no son válidos después de cambiar sucursal/sede
+  private limpiarFiltrosSecundariosInvalidos(): void {
+    // Limpiar estados que ya no están disponibles
+    if (this.selectedEstados && this.selectedEstados.length > 0 && this.estadosDisponibles) {
+      const estadosValidos = this.estadosDisponibles.map(e => e.value);
+      this.selectedEstados = this.selectedEstados.filter(e => estadosValidos.includes(e));
+    }
+
+    // Limpiar tipos que ya no están disponibles
+    if (this.selectedTipos && this.selectedTipos.length > 0 && this.tiposDisponibles) {
+      const tiposValidos = this.tiposDisponibles.map(t => t.value);
+      this.selectedTipos = this.selectedTipos.filter(t => tiposValidos.includes(t));
+    }
+
+    // Limpiar marcas que ya no están disponibles
+    if (this.selectedMarcas && this.selectedMarcas.length > 0 && this.marcasDisponibles) {
+      const marcasValidas = this.marcasDisponibles.map(m => m.value);
+      this.selectedMarcas = this.selectedMarcas.filter(m => marcasValidas.includes(m));
+    }
   }
 
   limpiarFiltros(): void {
-    this.selectedEmpresas   = [];
-    this.selectedSucursales = [];
-    this.selectedSedes      = [];
-    this.selectedEstados    = [];
-    this.selectedTipos      = [];
-    this.selectedMarcas     = [];
-    this.searchTerm         = '';
-    this.aplicarFiltros();
+    if (this.isUpdating) return;
+    this.isUpdating = true;
+
+    try {
+      this.selectedEmpresas   = [];
+      this.selectedSucursales = [];
+      this.selectedSedes      = [];
+      this.selectedEstados    = [];
+      this.selectedTipos      = [];
+      this.selectedMarcas     = [];
+      this.searchTerm         = '';
+      this.actualizarOpcionesDisponibles();
+      this.aplicarFiltros();
+    } catch (error) {
+      console.error('Error en limpiarFiltros:', error);
+    } finally {
+      setTimeout(() => {
+        this.isUpdating = false;
+      }, 50);
+    }
   }
 
   onVistaChange(): void {
@@ -458,16 +681,38 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   removerChip(chip: { tipo: string; value: any }): void {
+    if (this.isUpdating) return;
+
     switch (chip.tipo) {
-      case 'empresa':   this.selectedEmpresas   = this.selectedEmpresas.filter(v => v !== chip.value); break;
-      case 'sucursal':  this.selectedSucursales = this.selectedSucursales.filter(v => v !== chip.value); break;
-      case 'sede':      this.selectedSedes      = this.selectedSedes.filter(v => v !== chip.value); break;
-      case 'estado':    this.selectedEstados    = this.selectedEstados.filter(v => v !== chip.value); break;
-      case 'tipo':      this.selectedTipos      = this.selectedTipos.filter(v => v !== chip.value); break;
-      case 'marca':     this.selectedMarcas     = this.selectedMarcas.filter(v => v !== chip.value); break;
-      case 'search':    this.searchTerm = ''; break;
+      case 'empresa':
+        this.selectedEmpresas = this.selectedEmpresas.filter(v => v !== chip.value);
+        this.onEmpresaChange();
+        break;
+      case 'sucursal':
+        this.selectedSucursales = this.selectedSucursales.filter(v => v !== chip.value);
+        this.onSucursalChange();
+        break;
+      case 'sede':
+        this.selectedSedes = this.selectedSedes.filter(v => v !== chip.value);
+        this.onSedeChange();
+        break;
+      case 'estado':
+        this.selectedEstados = this.selectedEstados.filter(v => v !== chip.value);
+        this.onFiltroSecundarioChange();
+        break;
+      case 'tipo':
+        this.selectedTipos = this.selectedTipos.filter(v => v !== chip.value);
+        this.onFiltroSecundarioChange();
+        break;
+      case 'marca':
+        this.selectedMarcas = this.selectedMarcas.filter(v => v !== chip.value);
+        this.onFiltroSecundarioChange();
+        break;
+      case 'search':
+        this.searchTerm = '';
+        this.onFiltroSecundarioChange();
+        break;
     }
-    this.aplicarFiltros();
   }
 
   // ─── Exportar ──────────────────────────────────────────────────────────────
@@ -483,6 +728,121 @@ export class ReporteMaObsolescenciaComponent implements OnInit, OnDestroy {
         this.showError('Error al generar el archivo Excel');
         this.isExporting = false;
       });
+  }
+
+  exportarInformePDF(): void {
+    this.isGeneratingPdf = true;
+
+    try {
+      // Preparar datos para el PDF
+      const reportData: ReportData = {
+        titulo: 'Reporte Matriz de Obsolescencia',
+        fechaGeneracion: new Date().toLocaleDateString('es-CO', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        filtrosAplicados: this.buildFilterDescription(),
+        totalEquipos: this.activosFiltrados.length,
+        resumenGeneral: {
+          total: this.totalGeneral.total,
+          optimo: this.totalGeneral.optimo,
+          funcional: this.totalGeneral.funcional,
+          potencial: this.totalGeneral.potencial,
+          obsoleto: this.totalGeneral.obsoleto,
+          puntajePromedio: this.totalGeneral.puntaje_promedio
+        },
+        resumenPorEmpresa: this.resumenPorEmpresa.map(r => ({
+          empresa: r.empresa_nombre,
+          total: r.total,
+          optimo: r.optimo,
+          funcional: r.funcional,
+          potencial: r.potencial,
+          obsoleto: r.obsoleto,
+          puntajePromedio: r.puntaje_promedio,
+          porcentajeOptimo: r.porcentaje_optimo
+        })),
+        adquisicionesPorAnio: this.calcularAdquisicionesPorAnio(),
+        equiposPorEdad: this.calcularEquiposPorEdad()
+      };
+
+      // Generar PDF
+      this.pdfReportService.generarReporteMatrizObsolescencia(reportData);
+      this.showSuccess('Informe PDF generado correctamente');
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      this.showError('Error al generar el informe PDF');
+    } finally {
+      setTimeout(() => {
+        this.isGeneratingPdf = false;
+      }, 1000);
+    }
+  }
+
+  private calcularAdquisicionesPorAnio(): Array<{ anio: number; cantidad: number; porcentaje: number }> {
+    const adquisicionesPorAnio = new Map<number, number>();
+    
+    this.activosFiltrados.forEach(activo => {
+      if (activo.detalle?.fecha_compra) {
+        const anio = new Date(activo.detalle.fecha_compra).getFullYear();
+        if (!isNaN(anio) && anio > 1990 && anio <= new Date().getFullYear()) {
+          adquisicionesPorAnio.set(anio, (adquisicionesPorAnio.get(anio) || 0) + 1);
+        }
+      }
+    });
+
+    const total = this.activosFiltrados.length;
+    const resultado = Array.from(adquisicionesPorAnio.entries())
+      .map(([anio, cantidad]) => ({
+        anio,
+        cantidad,
+        porcentaje: total > 0 ? (cantidad / total) * 100 : 0
+      }))
+      .sort((a, b) => b.anio - a.anio); // Ordenar por año descendente
+
+    return resultado;
+  }
+
+  private calcularEquiposPorEdad(): Array<{ rangoEdad: string; cantidad: number; estadoPredominante: string }> {
+    const rangos = [
+      { min: 0, max: 2, label: '0-2 años' },
+      { min: 3, max: 4, label: '3-4 años' },
+      { min: 5, max: 6, label: '5-6 años' },
+      { min: 7, max: 999, label: '7+ años' }
+    ];
+
+    return rangos.map(rango => {
+      const equiposEnRango = this.activosFiltrados.filter(activo => {
+        const edad = activo.detalle?.edad ?? 0;
+        return edad >= rango.min && edad <= rango.max;
+      });
+
+      // Calcular estado predominante
+      const estadosCount = {
+        optimo: 0,
+        funcional: 0,
+        potencial: 0,
+        obsoleto: 0
+      };
+
+      equiposEnRango.forEach(activo => {
+        const estado = this.getEstadoActivo(activo);
+        if (estado in estadosCount) {
+          estadosCount[estado as keyof typeof estadosCount]++;
+        }
+      });
+
+      const estadoPredominante = Object.entries(estadosCount)
+        .sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
+
+      return {
+        rangoEdad: rango.label,
+        cantidad: equiposEnRango.length,
+        estadoPredominante: this.getEstadoLabel(estadoPredominante)
+      };
+    });
   }
 
   private async generarExcelReporte(activos: ActivoMatriz[]): Promise<void> {
