@@ -359,11 +359,11 @@
           
           <ng-template pTemplate="header">
             <tr>
-              <th class="table-header-modern">Equipo</th>
-              <th class="table-header-modern">Código ID</th>
-              <th class="table-header-modern">Ubicación</th>
-              <th class="table-header-modern">Frecuencia</th>
-              <th class="table-header-modern">Tipo</th>
+              <th class="table-header-modern">Nombre Equipo</th>
+              <th class="table-header-modern">Tag GLPI</th>
+              <th class="table-header-modern">Empresa</th>
+              <th class="table-header-modern">Procesador</th>
+              <th class="table-header-modern">Seria</th>
               <th class="table-header-modern">Ubicación</th>
               <th class="table-header-modern">Estado</th>
               <th class="table-header-modern">Puntaje</th>
@@ -959,12 +959,13 @@
               <i class="pi pi-box me-1"></i>
               TIPO DE UNIDAD
             </label>
-            <input 
-              type="text" 
-              pInputText 
+            <p-dropdown
+              [options]="tipoUnidadOptions"
               [(ngModel)]="camposEditables.tipo_unidad"
-              placeholder="Ingrese tipo de unidad"
-              class="w-100">
+              placeholder="Seleccione tipo de unidad"
+              [showClear]="true"
+              styleClass="w-100">
+            </p-dropdown>
           </div>
           
           <!-- FECHA DE COMPRA -->
@@ -989,12 +990,13 @@
               <i class="pi pi-shopping-cart me-1"></i>
               MODALIDAD DE COMPRA
             </label>
-            <input 
-              type="text" 
-              pInputText 
+            <p-dropdown
+              [options]="modalidadCompraOptions"
               [(ngModel)]="camposEditables.modalidad"
-              placeholder="Ingrese modalidad de compra"
-              class="w-100">
+              placeholder="Seleccione modalidad de compra"
+              [showClear]="true"
+              styleClass="w-100">
+            </p-dropdown>
           </div>
           
           <!-- PROVEEDOR -->

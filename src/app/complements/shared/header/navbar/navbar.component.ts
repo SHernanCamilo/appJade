@@ -58,16 +58,16 @@ export class NavbarComponent implements OnInit {
 
   initUserMenu(): void {
     const menuItems: MenuItem[] = [
-      {
-        label: 'Mi Perfil',
-        icon: 'pi pi-user',
-        command: () => this.goToProfile()
-      },
-      {
-        label: 'Configuración',
-        icon: 'pi pi-cog',
-        command: () => this.goToSettings()
-      }
+      // {
+      //   label: 'Mi Perfil',
+      //   icon: 'pi pi-user',
+      //   command: () => this.goToProfile()
+      // },
+      // {
+      //   label: 'Configuración',
+      //   icon: 'pi pi-cog',
+      //   command: () => this.goToSettings()
+      // }
     ];
 
     // Agregar opción de personificar si tiene permisos
