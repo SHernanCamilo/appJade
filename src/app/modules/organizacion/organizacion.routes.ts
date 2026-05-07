@@ -79,6 +79,12 @@ export const ORGANIZACION_ROUTES: Routes = [
         loadComponent: () => import('./servicios/configuracion/configuracion.component').then(m => m.ConfiguracionComponent),
         canActivate: [moduleGuard],
         data: { moduleCode: 'ORG_SERV' }
+      },
+      {
+        path: 'task-scheduler',
+        loadChildren: () => import('./servicios/task-scheduler/task-scheduler.routes').then(m => m.TASK_SCHEDULER_ROUTES),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'ORG-SERV-TAREA' }
       }
     ]
   }

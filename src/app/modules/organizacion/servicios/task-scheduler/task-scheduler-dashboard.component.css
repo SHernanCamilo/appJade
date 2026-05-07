@@ -1,0 +1,386 @@
+.page-container {
+  padding: 2rem;
+  background: #f4f6fa;
+  min-height: 100vh;
+}
+
+.page-header-modern {
+  margin-bottom: 2rem;
+}
+
+.header-top {
+  margin-bottom: 1rem;
+}
+
+.btn-back-modern {
+  background: #f1f5f9 !important;
+  border: none !important;
+  color: #475569 !important;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-title-section h1 {
+  color: #263859;
+  font-weight: 700;
+  font-size: 2.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.page-subtitle-modern {
+  color: #6c7a89;
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn-action {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  padding: 0.625rem 1.25rem !important;
+}
+
+.btn-action-primary {
+  background: #1976d2 !important;
+  border: none !important;
+  color: white !important;
+}
+
+.btn-action-secondary {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+.dashboard-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Stats Cards */
+.stats-cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 14px rgba(38,56,89,0.06);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(38,56,89,0.12);
+}
+
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.stat-card-pending .stat-icon {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.stat-card-running .stat-icon {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+.stat-card-completed .stat-icon {
+  background: #d1fae5;
+  color: #10b981;
+}
+
+.stat-card-failed .stat-icon {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
+
+.stat-label {
+  color: #64748b;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Main Grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.left-panel, .right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chart Card */
+.chart-card {
+  height: 100%;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chart-header h3 {
+  font-size: 1.25rem;
+  color: #1976d2;
+  margin: 0;
+  font-weight: 600;
+}
+
+.chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+/* Failures Card */
+.failures-card {
+  height: 100%;
+}
+
+.failures-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.failure-item {
+  padding: 1rem;
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.failure-item:last-child {
+  margin-bottom: 0;
+}
+
+.failure-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.failure-info {
+  flex: 1;
+}
+
+.failure-name {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.failure-type {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.failure-date {
+  text-align: right;
+}
+
+.failure-error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.error-message {
+  flex: 1;
+  word-break: break-word;
+}
+
+.failure-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.no-failures {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+/* Table Section */
+.table-section {
+  margin-bottom: 2rem;
+}
+
+.table-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(38,56,89,0.06);
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.table-header h3 {
+  font-size: 1.25rem;
+  color: #1976d2;
+  margin: 0;
+  font-weight: 600;
+}
+
+.modern-table-container {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.modern-table {
+  border: none;
+}
+
+.table-header-modern {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  text-transform: uppercase !important;
+  padding: 1rem !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+.table-row-modern {
+  transition: background-color 0.2s ease;
+}
+
+.table-row-modern:hover {
+  background: #f8fafc !important;
+}
+
+.table-cell-modern {
+  padding: 1rem !important;
+  vertical-align: middle !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.task-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-name {
+  font-weight: 500;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.task-id {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.task-type {
+  display: flex;
+  align-items: center;
+  color: #475569;
+}
+
+.task-date, .task-duration {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Alert */
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem;
+  }
+
+  .header-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .stats-cards-row {
+    grid-template-columns: 1fr;
+  }
+
+  .main-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}

@@ -19,8 +19,20 @@ export const INVENTARIO_ROUTES: Routes = [
       {
         path: 'parametrosMaObsolescencia',
         loadComponent: () => import('./matrizObsolescencia/parametrosMaObsolescencia/parametrosMaObsolescencia.component').then(m => m.ParametrosMaObsolescenciaComponent),
-        canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
+        canActivate: [moduleGuard],
         data: { moduleCode: 'INV-MATRIX-PARMATRIZ' }
+      },
+      {
+        path: 'reporteMaObsolescencia',
+        loadComponent: () => import('./matrizObsolescencia/reporteMaObsolescencia/reporteMaObsolescencia.component').then(m => m.ReporteMaObsolescenciaComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-MATRIX-REPORTE' }
+      },
+      {
+        path: 'cierreInventario',
+        loadComponent: () => import('./matrizObsolescencia/cierreInventario/cierreInventario.component').then(m => m.CierreInventarioComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-MATRIX-CIERRE' }
       }
     ]
   },

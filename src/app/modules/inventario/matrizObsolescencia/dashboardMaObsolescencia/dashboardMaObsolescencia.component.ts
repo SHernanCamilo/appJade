@@ -652,13 +652,23 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
     const ubicacionMap = new Map<string, { total: number; optimo: number; funcional: number; potencialmente: number; obsoleto: number }>();
     
+    // Si no hay filtro de empresa activo (admin viendo todo), agrupar por empresa.
+    // Si hay empresa seleccionada, agrupar por sucursal/sede para mayor detalle.
+    const agruparPorEmpresa = !this.selectedEmpresa;
+
     activos.forEach(activo => {
       let ubicacion = 'Sin empresa';
       
       if (activo.empresa) {
-        ubicacion = activo.empresa.nombre;
-        if (activo.sucursal) {
-          ubicacion += ` - ${activo.sucursal.nombre}`;
+        if (agruparPorEmpresa) {
+          // Vista admin sin filtro: solo nombre de empresa
+          ubicacion = activo.empresa.nombre;
+        } else {
+          // Vista con empresa seleccionada: empresa + sucursal
+          ubicacion = activo.empresa.nombre;
+          if (activo.sucursal) {
+            ubicacion += ` - ${activo.sucursal.nombre}`;
+          }
         }
       }
       

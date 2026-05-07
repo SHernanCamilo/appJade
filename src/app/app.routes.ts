@@ -48,6 +48,10 @@ export const routes: Routes = [
         path: 'sistema',
         loadChildren: () => import('./modules/sistema/sistema.routes').then(m => m.SISTEMA_ROUTES)
       },
+      { 
+        path: 'talentoHumano', 
+        loadChildren: () => import('./modules/talentoHumano/talentoHumano.routes').then(m => m.TALENTOHUMANO_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí
