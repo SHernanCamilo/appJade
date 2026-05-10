@@ -45,7 +45,8 @@ export class OrganizacionComponent {
       items: [
         { name: 'Reportes', route: '/organizacion/servicios/reportes', icon: 'bi-file-earmark-bar-graph' },
         { name: 'Configuración', route: '/organizacion/servicios/configuracion', icon: 'bi-sliders' },
-        { name: 'Gestor de Tareas', route: '/organizacion/servicios/task-scheduler', icon: 'bi-clock-history' }
+        { name: 'Gestor de Tareas', route: '/organizacion/servicios/task-scheduler', icon: 'bi-clock-history' },
+        { name: 'Secuencia Numérica', route: '/organizacion/servicios/secuenciaNumerica', icon: 'bi-123' }
       ]
     }
   ];

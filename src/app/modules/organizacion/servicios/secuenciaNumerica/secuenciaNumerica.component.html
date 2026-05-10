@@ -1,0 +1,616 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="page-container">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion/servicios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-sort-numeric-up me-2"></i>
+          Secuencias Numéricas
+        </h1>
+        <p class="page-subtitle-modern">
+          Configura los consecutivos automáticos por módulo
+          <span *ngIf="empresaNombre" class="empresa-badge">
+            <i class="pi pi-building me-1"></i>{{ empresaNombre }}
+          </span>
+        </p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action btn-action-outline" (click)="abrirModalPatrones()">
+          <i class="pi pi-palette"></i>
+          Patrones
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Layout dos paneles ─────────────────────────────────────────────── -->
+  <div class="dashboard-content">
+    <div class="two-panel-layout">
+
+      <!-- ══ PANEL IZQUIERDO — Parámetros ══════════════════════════════════ -->
+      <div class="panel-left">
+        <div class="panel-header">
+          <span class="panel-title">PARÁMETROS</span>
+        </div>
+
+        <!-- Selector de empresa -->
+        <div class="param-group">
+          <label class="param-label">Empresa</label>
+          <p-dropdown
+            [options]="empresasOptions"
+            [(ngModel)]="empresaId"
+            (onChange)="onEmpresaChange()"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Seleccionar empresa"
+            [showClear]="true"
+            [filter]="true"
+            [loading]="isLoadingEmpresas"
+            styleClass="w-full"
+            appendTo="body"
+          />
+        </div>
+
+        <!-- Selector de módulo -->
+        <div class="param-group">
+          <label class="param-label">Módulo</label>
+          <p-dropdown
+            [options]="modulosFlat"
+            [(ngModel)]="moduloSeleccionadoId"
+            (onChange)="onModuloChange()"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Seleccionar módulo"
+            [filter]="true"
+            filterBy="nombreOriginal,codigo"
+            [showClear]="true"
+            [loading]="isLoadingModulos"
+            [disabled]="!empresaId"
+            styleClass="w-full"
+            appendTo="body"
+          >
+            <ng-template pTemplate="selectedItem" let-opt>
+              <div *ngIf="opt">
+                <span>{{ opt.nombreOriginal }}</span>
+                <small class="text-muted ms-2">({{ opt.codigo }})</small>
+              </div>
+            </ng-template>
+            <ng-template pTemplate="item" let-opt>
+              <div [style.padding-left.px]="opt.nivel * 16">
+                <span>{{ opt.nombre }}</span>
+                <small class="text-muted ms-2">({{ opt.codigo }})</small>
+              </div>
+            </ng-template>
+          </p-dropdown>
+        </div>
+
+        <!-- Parámetros de la secuencia (solo si hay módulo seleccionado) -->
+        <ng-container *ngIf="moduloSeleccionadoId">
+
+          <p-divider />
+
+          <!-- Skeleton mientras carga -->
+          <ng-container *ngIf="isLoadingSecuencia">
+            <div class="param-group" *ngFor="let i of [1,2,3,4]">
+              <p-skeleton height="1rem" width="5rem" styleClass="mb-2" />
+              <p-skeleton height="2.5rem" />
+            </div>
+          </ng-container>
+
+          <!-- Formulario de parámetros -->
+          <ng-container *ngIf="!isLoadingSecuencia">
+
+            <!-- Badge: secuencia existente o nueva -->
+            <div class="sec-status-badge" [class.exists]="secuenciaActiva" [class.new]="!secuenciaActiva">
+              <i class="pi" [class.pi-check-circle]="secuenciaActiva" [class.pi-plus-circle]="!secuenciaActiva"></i>
+              {{ secuenciaActiva ? 'Secuencia configurada' : 'Nueva secuencia' }}
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">¿Es manual?</label>
+              <p-dropdown
+                [options]="esManualOptions"
+                [(ngModel)]="secForm.es_manual"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+              />
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">Ámbito</label>
+              <p-dropdown
+                [options]="ambitoOptions"
+                [(ngModel)]="secForm.ambito"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+              />
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">¿Es secuencial?</label>
+              <p-dropdown
+                [options]="esSecuencialOptions"
+                [(ngModel)]="secForm.es_secuencial"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+              />
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">Rango (dígitos)</label>
+              <p-inputNumber
+                [(ngModel)]="secForm.rango"
+                [min]="1" [max]="20"
+                [showButtons]="true"
+                styleClass="w-full"
+                [useGrouping]="false"
+              />
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">Estado</label>
+              <p-dropdown
+                [options]="[{label:'Activo', value:true},{label:'Inactivo', value:false}]"
+                [(ngModel)]="secForm.estado"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+              />
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="param-actions">
+              <p-button
+                [label]="secuenciaActiva ? 'Actualizar' : 'Crear Secuencia'"
+                [icon]="secuenciaActiva ? 'pi pi-check' : 'pi pi-plus'"
+                styleClass="w-full"
+                (onClick)="guardarSecuencia()"
+                [loading]="isSavingSecuencia"
+              />
+              <p-button
+                *ngIf="secuenciaActiva"
+                label="Eliminar"
+                icon="pi pi-trash"
+                severity="danger"
+                [outlined]="true"
+                styleClass="w-full mt-2"
+                (onClick)="confirmarEliminarSecuencia()"
+              />
+            </div>
+
+          </ng-container>
+        </ng-container>
+
+        <!-- Estado vacío: sin módulo seleccionado -->
+        <div class="panel-empty" *ngIf="!moduloSeleccionadoId">
+          <i class="pi pi-arrow-up"></i>
+          <p *ngIf="!empresaId">Selecciona una empresa para comenzar</p>
+          <p *ngIf="empresaId">Selecciona un módulo para ver o configurar su secuencia</p>
+        </div>
+
+      </div><!-- /panel-left -->
+
+      <!-- ══ PANEL DERECHO — Detalles de secuencia ═════════════════════════ -->
+      <div class="panel-right">
+        <div class="panel-header">
+          <span class="panel-title">DETALLES DE SECUENCIA</span>
+          <p-button
+            *ngIf="secuenciaActiva"
+            icon="pi pi-plus"
+            label="Agregar"
+            size="small"
+            (onClick)="abrirNuevoDetalle()"
+          />
+        </div>
+
+        <!-- Sin módulo seleccionado -->
+        <div class="panel-empty" *ngIf="!moduloSeleccionadoId">
+          <i class="pi pi-table"></i>
+          <p>Los detalles aparecerán aquí una vez selecciones un módulo</p>
+        </div>
+
+        <!-- Módulo seleccionado pero sin secuencia -->
+        <div class="panel-empty" *ngIf="moduloSeleccionadoId && !isLoadingSecuencia && !secuenciaActiva">
+          <i class="pi pi-info-circle"></i>
+          <p>No hay secuencia configurada para este módulo</p>
+          <small>Configura los parámetros y haz clic en <strong>Crear Secuencia</strong></small>
+        </div>
+
+        <!-- Skeleton cargando -->
+        <div *ngIf="isLoadingSecuencia || isLoadingDetalles" class="detalles-skeleton">
+          <div class="detalle-row-skeleton" *ngFor="let i of [1,2,3]">
+            <p-skeleton height="1.5rem" width="30%" />
+            <p-skeleton height="1.5rem" width="40%" />
+            <p-skeleton height="1.5rem" width="15%" />
+            <p-skeleton height="1.5rem" width="10%" />
+          </div>
+        </div>
+
+        <!-- Tabla de detalles -->
+        <ng-container *ngIf="secuenciaActiva && !isLoadingSecuencia && !isLoadingDetalles">
+
+          <!-- Sin detalles -->
+          <div class="panel-empty" *ngIf="detalles.length === 0">
+            <i class="pi pi-inbox"></i>
+            <p>Sin detalles configurados</p>
+            <small>Haz clic en <strong>Agregar</strong> para añadir una unidad operativa</small>
+          </div>
+
+          <!-- Tabla -->
+          <div class="detalles-table" *ngIf="detalles.length > 0">
+            <div class="detalles-thead">
+              <div class="dth unidad">UNIDAD OPERATIVA</div>
+              <div class="dth patron">PATRÓN DE SECUENCIA</div>
+              <div class="dth siguiente">SIGUIENTE #</div>
+              <div class="dth estado">ESTADO</div>
+              <div class="dth acciones"></div>
+            </div>
+
+            <div class="detalles-row" *ngFor="let det of detalles">
+              <!-- Unidad operativa -->
+              <div class="dtd unidad">
+                <strong>{{ getUnidadOperativa(det) }}</strong>
+              </div>
+
+              <!-- Patrón -->
+              <div class="dtd patron">
+                <code class="patron-chip">{{ det.patron?.patron ?? '—' }}</code>
+                <small class="text-muted d-block" *ngIf="det.patron?.nombre">{{ det.patron!.nombre }}</small>
+              </div>
+
+              <!-- Siguiente número (preview) -->
+              <div class="dtd siguiente">
+                <span class="siguiente-preview" *ngIf="det.patron?.patron">
+                  {{ aplicarPatronPreview(det.patron!.patron, det.siguiente_numero, secuenciaActiva!.rango) }}
+                </span>
+                <span *ngIf="!det.patron?.patron" class="text-muted">{{ det.siguiente_numero }}</span>
+              </div>
+
+              <!-- Estado -->
+              <div class="dtd estado">
+                <p-tag
+                  [value]="det.estado ? 'Activo' : 'Inactivo'"
+                  [severity]="getTagSeverity(det.estado)"
+                />
+              </div>
+
+              <!-- Acciones -->
+              <div class="dtd acciones">
+                <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="info"
+                  size="small" pTooltip="Editar" tooltipPosition="top"
+                  (onClick)="abrirEditarDetalle(det)" />
+                <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger"
+                  size="small" pTooltip="Eliminar" tooltipPosition="top"
+                  (onClick)="confirmarEliminarDetalle(det)" />
+              </div>
+            </div>
+          </div>
+
+        </ng-container>
+      </div><!-- /panel-right -->
+
+    </div><!-- /two-panel-layout -->
+  </div><!-- /dashboard-content -->
+</div><!-- /page-container -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     DIÁLOGO — DETALLE
+══════════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  [(visible)]="showDialogDetalle"
+  [header]="detalleEditando ? 'Editar Detalle' : 'Agregar Detalle de Secuencia'"
+  [modal]="true"
+  [style]="{ width: '520px' }"
+  [draggable]="false"
+>
+  <div class="dialog-form">
+
+    <!-- Patrón -->
+    <div class="form-group">
+      <label>Patrón de secuencia <span class="required">*</span></label>
+      <p-dropdown
+        [options]="patronesOptions"
+        [(ngModel)]="detalleForm.patron_id"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccionar patrón"
+        [showClear]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+      <small class="form-hint">
+        Si no hay patrones disponibles, créalos con el botón <strong>Crear Patrón</strong>
+      </small>
+    </div>
+
+    <!-- Unidad operativa según ámbito -->
+    <ng-container *ngIf="secuenciaActiva?.ambito === 'sucursal'">
+      <div class="form-group">
+        <label>Sucursal</label>
+        <p-dropdown
+          [options]="sucursalesOptions"
+          [(ngModel)]="detalleForm.sucursal_id"
+          (onChange)="onSucursalDetalleChange()"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleccionar sucursal"
+          [showClear]="true"
+          [filter]="true"
+          styleClass="w-full"
+          appendTo="body"
+        />
+        <small class="form-hint">Sucursal a la que aplica este patrón</small>
+      </div>
+
+      <!-- Sede opcional de la sucursal seleccionada -->
+      <div class="form-group" *ngIf="detalleForm.sucursal_id">
+        <label>
+          Sede
+          <span class="optional-badge">opcional</span>
+        </label>
+        <p-dropdown
+          [options]="sedesDetalleOptions"
+          [(ngModel)]="detalleForm.sede_id"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todas las sedes de la sucursal"
+          [showClear]="true"
+          [filter]="sedesDetalleOptions.length > 5"
+          styleClass="w-full"
+          appendTo="body"
+        />
+        <small class="form-hint" *ngIf="sedesDetalleOptions.length === 0">
+          Esta sucursal no tiene sedes registradas
+        </small>
+        <small class="form-hint" *ngIf="sedesDetalleOptions.length > 0">
+          Deja vacío para aplicar a todas las sedes de la sucursal
+        </small>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="secuenciaActiva?.ambito === 'sede'">
+      <div class="form-group">
+        <label>Sede</label>
+        <p-dropdown
+          [options]="sedesOptions"
+          [(ngModel)]="detalleForm.sede_id"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleccionar sede"
+          [showClear]="true"
+          [filter]="true"
+          styleClass="w-full"
+          appendTo="body"
+        />
+        <small class="form-hint">Sede a la que aplica este patrón</small>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="secuenciaActiva?.ambito === 'empresa'">
+      <div class="ambito-info">
+        <i class="pi pi-building"></i>
+        <span>Ámbito <strong>Empresa</strong> — aplica a toda la empresa sin distinción de sucursal o sede</span>
+      </div>
+    </ng-container>
+
+    <!-- Siguiente número -->
+    <div class="form-group">
+      <label>Siguiente número</label>
+      <p-inputNumber
+        [(ngModel)]="detalleForm.siguiente_numero"
+        [min]="1"
+        [showButtons]="true"
+        styleClass="w-full"
+        [useGrouping]="false"
+      />
+      <small class="form-hint">El próximo consecutivo que se generará</small>
+    </div>
+
+    <!-- Estado -->
+    <div class="form-group form-inline">
+      <label>Estado</label>
+      <div class="toggle-wrapper">
+        <p-toggleSwitch [(ngModel)]="detalleForm.estado" />
+      </div>
+      <span class="toggle-label">{{ detalleForm.estado ? 'Activo' : 'Inactivo' }}</span>
+    </div>
+
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [text]="true"
+      (onClick)="showDialogDetalle = false" />
+    <p-button [label]="detalleEditando ? 'Actualizar' : 'Agregar'" icon="pi pi-check"
+      (onClick)="guardarDetalle()" [loading]="isSavingDetalle" />
+  </ng-template>
+</p-dialog>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MODAL — GESTIÓN DE PATRONES
+══════════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  [(visible)]="showModalPatrones"
+  header="Patrones de Secuencia"
+  [modal]="true"
+  [style]="{ width: '780px' }"
+  [draggable]="false"
+  [maximizable]="true"
+>
+
+  <!-- Toolbar: empresa + botón nuevo patrón -->
+  <div class="patrones-toolbar">
+    <div class="patrones-empresa-select">
+      <label>Empresa</label>
+      <p-dropdown
+        [options]="empresasOptions"
+        [(ngModel)]="empresaPatronesId"
+        (onChange)="onEmpresaPatronesChange()"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccionar empresa"
+        [showClear]="true"
+        [filter]="true"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </div>
+    <p-button
+      label="Nuevo Patrón"
+      icon="pi pi-plus"
+      (onClick)="abrirFormNuevoPatron()"
+      [disabled]="!empresaPatronesId"
+    />
+  </div>
+
+  <!-- Formulario inline de nuevo patrón -->
+  <div class="patron-form-inline" *ngIf="showFormNuevoPatron">
+    <div class="patron-form-inline-header">
+      <span><i class="pi pi-plus-circle me-2"></i>Nuevo Patrón</span>
+      <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="secondary"
+        size="small" (onClick)="cancelarFormPatron()" />
+    </div>
+
+    <div class="patron-form-inline-body">
+
+      <div class="form-group">
+        <label>Nombre <span class="required">*</span></label>
+        <input pInputText [(ngModel)]="patronForm.nombre"
+          placeholder="Ej: BOGOTA, GRAL 4 DÍGITOS" class="w-full" />
+      </div>
+
+      <div class="form-group">
+        <label>Patrón <span class="required">*</span></label>
+        <input pInputText [(ngModel)]="patronForm.patron"
+          placeholder="Ej: BTA####" class="w-full"
+          (ngModelChange)="actualizarPrevisualizacion()" />
+      </div>
+
+      <!-- Nota de ejemplos -->
+      <div class="patron-nota">
+        <div class="patron-nota-header">
+          <i class="pi pi-info-circle"></i>
+          <strong>Ejemplos de patrones</strong>
+        </div>
+        <div class="patron-nota-grid">
+          <div class="patron-ejemplo">
+            <code>BTA####</code><span>→</span>
+            <span class="patron-resultado">BTA0001</span>
+            <small>Prefijo fijo + 4 dígitos</small>
+          </div>
+          <div class="patron-ejemplo">
+            <code>####</code><span>→</span>
+            <span class="patron-resultado">0001</span>
+            <small>Solo consecutivo</small>
+          </div>
+          <div class="patron-ejemplo">
+            <code>%Y%M-####</code><span>→</span>
+            <span class="patron-resultado">202605-0001</span>
+            <small>Año + mes + consecutivo</small>
+          </div>
+          <div class="patron-ejemplo">
+            <code>CN-######</code><span>→</span>
+            <span class="patron-resultado">CN-000001</span>
+            <small>Prefijo + 6 dígitos</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-box" *ngIf="previsualizacionPatron">
+        <span class="preview-label">Vista previa:</span>
+        <code class="preview-value">{{ previsualizacionPatron }}</code>
+      </div>
+
+      <div class="form-group form-inline">
+        <label>Estado</label>
+        <div class="toggle-wrapper">
+          <p-toggleSwitch [(ngModel)]="patronForm.estado" />
+        </div>
+        <span class="toggle-label">{{ patronForm.estado ? 'Activo' : 'Inactivo' }}</span>
+      </div>
+
+      <div class="form-group">
+        <label>Descripción</label>
+        <input pInputText [(ngModel)]="patronForm.descripcion"
+          placeholder="Descripción opcional" class="w-full" />
+      </div>
+
+      <div>
+        <p-button label="Guardar" icon="pi pi-check"
+          (onClick)="guardarPatron()" [loading]="isSavingPatron" />
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Tabla de patrones -->
+  <p-table
+    [value]="patronesModal"
+    [loading]="isLoadingPatronesModal"
+    [paginator]="true"
+    [rows]="8"
+    styleClass="p-datatable-sm p-datatable-striped mt-3"
+    [tableStyle]="{'min-width': '40rem'}"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Nombre</th>
+        <th>Patrón</th>
+        <th>Descripción</th>
+        <th style="width:90px">Estado</th>
+        <th style="width:70px"></th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-p>
+      <tr>
+        <td><strong>{{ p.nombre }}</strong></td>
+        <td><code class="patron-chip">{{ p.patron }}</code></td>
+        <td class="text-muted">{{ p.descripcion || '—' }}</td>
+        <td>
+          <p-tag [value]="p.estado ? 'Activo' : 'Inactivo'"
+            [severity]="getTagSeverity(p.estado)" />
+        </td>
+        <td>
+          <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger"
+            size="small" pTooltip="Eliminar" tooltipPosition="top"
+            (onClick)="confirmarEliminarPatron(p)" />
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5" class="text-center py-4 text-muted">
+          <i class="pi pi-inbox" style="font-size:2rem; display:block; margin-bottom:.5rem"></i>
+          {{ empresaPatronesId ? 'No hay patrones para esta empresa' : 'Selecciona una empresa para ver sus patrones' }}
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="loadingbody">
+      <tr *ngFor="let i of [1,2,3]">
+        <td *ngFor="let j of [1,2,3,4,5]"><p-skeleton /></td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cerrar" icon="pi pi-times" severity="secondary"
+      (onClick)="showModalPatrones = false" />
+  </ng-template>
+</p-dialog>
