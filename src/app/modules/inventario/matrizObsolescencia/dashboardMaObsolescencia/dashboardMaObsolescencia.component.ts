@@ -148,6 +148,19 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     proveedor: '',
     max_ram: null as number | null
   };
+
+  // Opciones para selects de campos editables
+  tipoUnidadOptions = [
+    { label: 'ADMINISTRATIVO', value: 'ADMINISTRATIVO' },
+    { label: 'ASISTENCIAL', value: 'ASISTENCIAL' },
+    { label: 'OPERATIVO', value: 'OPERATIVO' }
+  ];
+
+  modalidadCompraOptions = [
+    { label: 'DIRECTA', value: 'DIRECTA' },
+    { label: 'LEASING', value: 'LEASING' },
+    { label: 'RENTING', value: 'RENTING' }
+  ];
   
   // Estado de guardado
   isSavingMatriz = false;

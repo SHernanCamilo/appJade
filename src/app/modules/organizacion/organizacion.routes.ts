@@ -85,7 +85,14 @@ export const ORGANIZACION_ROUTES: Routes = [
         loadChildren: () => import('./servicios/task-scheduler/task-scheduler.routes').then(m => m.TASK_SCHEDULER_ROUTES),
         canActivate: [moduleGuard],
         data: { moduleCode: 'ORG-SERV-TAREA' }
+      },
+      {
+        path: 'secuenciaNumerica',
+        loadComponent: () => import('./servicios/secuenciaNumerica/secuenciaNumerica.component').then(m => m.SecuenciaNumericaComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'ORG-SERV-SECUENCIA' }
       }
     ]
   }
 ];
+

@@ -35,9 +35,22 @@
 
         <button
           *hasPermission="'exportar-matriz'"
+          class="btn-action btn-action-danger ms-2"
+          (click)="exportarInformePDF()"
+          [disabled]="isGeneratingPdf || isLoadingInicial"
+          pTooltip="Generar informe completo en PDF"
+          tooltipPosition="bottom">
+          <i class="pi" [ngClass]="isGeneratingPdf ? 'pi-spin pi-spinner' : 'pi-file-pdf'"></i>
+          {{ isGeneratingPdf ? 'Generando...' : 'Exportar Informe' }}
+        </button>
+
+        <button
+          *hasPermission="'exportar-matriz'"
           class="btn-action btn-action-success ms-2"
           (click)="exportarReporte()"
-          [disabled]="isExporting || isLoadingInicial">
+          [disabled]="isExporting || isLoadingInicial"
+          pTooltip="Exportar datos a Excel"
+          tooltipPosition="bottom">
           <i class="pi" [ngClass]="isExporting ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
           {{ isExporting ? 'Exportando...' : 'Exportar Excel' }}
         </button>
@@ -70,13 +83,13 @@
         <p-multiSelect
           [options]="empresasOptions"
           [(ngModel)]="selectedEmpresas"
-          (onChange)="aplicarFiltros()"
+          (onChange)="onEmpresaChange()"
           placeholder="Todas las empresas"
           optionLabel="label"
           optionValue="value"
           [filter]="true"
           filterBy="label"
-          [showClear]="true"
+          [showClear]="false"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} empresas"
           styleClass="w-100"
@@ -88,19 +101,21 @@
       <div class="filter-item">
         <label class="filter-label">
           <i class="pi pi-map-marker me-1"></i>Sucursal
+          <span class="text-muted ms-1" *ngIf="!isSucursalEnabled">(Seleccione empresa)</span>
         </label>
         <p-multiSelect
-          [options]="sucursalesOptions"
+          [options]="sucursalesDisponibles"
           [(ngModel)]="selectedSucursales"
-          (onChange)="aplicarFiltros()"
+          (onChange)="onSucursalChange()"
           placeholder="Todas las sucursales"
           optionLabel="label"
           optionValue="value"
           [filter]="true"
           filterBy="label"
-          [showClear]="true"
+          [showClear]="false"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} sucursales"
+          [disabled]="!isSucursalEnabled"
           styleClass="w-100"
           appendTo="body">
         </p-multiSelect>
@@ -110,19 +125,21 @@
       <div class="filter-item">
         <label class="filter-label">
           <i class="pi pi-home me-1"></i>Sede
+          <span class="text-muted ms-1" *ngIf="!isSedeEnabled">(Seleccione sucursal)</span>
         </label>
         <p-multiSelect
-          [options]="sedesOptions"
+          [options]="sedesDisponibles"
           [(ngModel)]="selectedSedes"
-          (onChange)="aplicarFiltros()"
+          (onChange)="onSedeChange()"
           placeholder="Todas las sedes"
           optionLabel="label"
           optionValue="value"
           [filter]="true"
           filterBy="label"
-          [showClear]="true"
+          [showClear]="false"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} sedes"
+          [disabled]="!isSedeEnabled"
           styleClass="w-100"
           appendTo="body">
         </p-multiSelect>
@@ -132,17 +149,19 @@
       <div class="filter-item">
         <label class="filter-label">
           <i class="pi pi-tag me-1"></i>Estado
+          <span class="text-muted ms-1" *ngIf="!isFiltrosSecundariosEnabled">(Seleccione empresa)</span>
         </label>
         <p-multiSelect
-          [options]="estadosOptions"
+          [options]="estadosDisponibles"
           [(ngModel)]="selectedEstados"
-          (onChange)="aplicarFiltros()"
+          (onChange)="onFiltroSecundarioChange()"
           placeholder="Todos los estados"
           optionLabel="label"
           optionValue="value"
-          [showClear]="true"
+          [showClear]="false"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} estados"
+          [disabled]="!isFiltrosSecundariosEnabled"
           styleClass="w-100"
           appendTo="body">
           <ng-template pTemplate="item" let-opt>
@@ -158,19 +177,21 @@
       <div class="filter-item">
         <label class="filter-label">
           <i class="pi pi-desktop me-1"></i>Tipo de equipo
+          <span class="text-muted ms-1" *ngIf="!isFiltrosSecundariosEnabled">(Seleccione empresa)</span>
         </label>
         <p-multiSelect
-          [options]="tiposOptions"
+          [options]="tiposDisponibles"
           [(ngModel)]="selectedTipos"
-          (onChange)="aplicarFiltros()"
+          (onChange)="onFiltroSecundarioChange()"
           placeholder="Todos los tipos"
           optionLabel="label"
           optionValue="value"
           [filter]="true"
           filterBy="label"
-          [showClear]="true"
+          [showClear]="false"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} tipos"
+          [disabled]="!isFiltrosSecundariosEnabled"
           styleClass="w-100"
           appendTo="body">
         </p-multiSelect>
@@ -180,19 +201,21 @@
       <div class="filter-item">
         <label class="filter-label">
           <i class="pi pi-bookmark me-1"></i>Marca
+          <span class="text-muted ms-1" *ngIf="!isFiltrosSecundariosEnabled">(Seleccione empresa)</span>
         </label>
         <p-multiSelect
-          [options]="marcasOptions"
+          [options]="marcasDisponibles"
           [(ngModel)]="selectedMarcas"
-          (onChange)="aplicarFiltros()"
+          (onChange)="onFiltroSecundarioChange()"
           placeholder="Todas las marcas"
           optionLabel="label"
           optionValue="value"
           [filter]="true"
           filterBy="label"
-          [showClear]="true"
+          [showClear]="false"
           [maxSelectedLabels]="2"
           selectedItemsLabel="{0} marcas"
+          [disabled]="!isFiltrosSecundariosEnabled"
           styleClass="w-100"
           appendTo="body">
         </p-multiSelect>
@@ -209,10 +232,10 @@
             type="text"
             pInputText
             [(ngModel)]="searchTerm"
-            (ngModelChange)="aplicarFiltros()"
+            (ngModelChange)="onFiltroSecundarioChange()"
             placeholder="Nombre, serial, agente, usuario..."
             class="w-100 search-input">
-          <button class="search-clear-btn" *ngIf="searchTerm" (click)="searchTerm=''; aplicarFiltros()">
+          <button class="search-clear-btn" *ngIf="searchTerm" (click)="searchTerm=''; onFiltroSecundarioChange()">
             <i class="pi pi-times"></i>
           </button>
         </div>
