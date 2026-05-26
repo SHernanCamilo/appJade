@@ -113,7 +113,7 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
     private personaService: PersonaService,
     private anticipoSolicitudService: AnticipoSolicitudService,
     private ciudadService: AnticipoCiudadService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.iniciarContexto();

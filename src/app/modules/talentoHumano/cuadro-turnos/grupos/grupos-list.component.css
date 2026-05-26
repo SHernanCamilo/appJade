@@ -1,0 +1,5 @@
+.fw-600 { font-weight: 600; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.form-field label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+.form-field-full { grid-column: span 2; }

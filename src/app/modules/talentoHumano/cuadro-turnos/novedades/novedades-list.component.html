@@ -1,0 +1,159 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/talentoHumano">
+        <i class="pi pi-arrow-left"></i> Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern"><i class="pi pi-bell me-2"></i>Novedades de Turno</h1>
+        <p class="page-subtitle-modern">Cambios, permisos y novedades del personal</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action btn-action-primary" (click)="abrirNuevo()">
+          <i class="pi pi-plus"></i> Nueva Novedad
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="filters-card mb-4">
+      <div class="filters-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-3">
+            <label class="filter-label">Estado</label>
+            <p-dropdown [options]="estadosOptions" [(ngModel)]="filtroEstado" (onChange)="cargar()"
+              optionLabel="label" optionValue="value" placeholder="Todos" styleClass="w-100">
+            </p-dropdown>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <div class="modern-table-container">
+        <p-table [value]="novedades" [loading]="isLoading" styleClass="modern-table"
+          [paginator]="true" [rows]="15">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Empleado</th><th>Tipo</th><th>Fechas</th>
+              <th>Reemplazo</th><th>Estado</th><th>Acciones</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-n>
+            <tr>
+              <td>{{ n.empleado?.nombre ?? '—' }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <span *ngIf="n.novedad_tipo?.color_hex" class="color-dot" [style.background-color]="n.novedad_tipo.color_hex"></span>
+                  {{ n.novedad_tipo?.nombre ?? '—' }}
+                </div>
+              </td>
+              <td>{{ n.fecha_inicio }} — {{ n.fecha_fin }}</td>
+              <td>{{ n.empleado_reemplaza?.nombre ?? '—' }}</td>
+              <td><p-tag [value]="getLabel(n.estado)" [severity]="getSeverity(n.estado)"></p-tag></td>
+              <td>
+                <div class="action-buttons">
+                  <button *ngIf="n.estado === 'pendiente'" class="btn-action-icon btn-action-success"
+                    (click)="aprobar(n)" pTooltip="Aprobar" tooltipPosition="top">
+                    <i class="pi pi-check"></i>
+                  </button>
+                  <button *ngIf="n.estado === 'pendiente'" class="btn-action-icon btn-action-danger"
+                    (click)="rechazar(n)" pTooltip="Rechazar" tooltipPosition="top">
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="6" class="text-center py-5">
+              <i class="pi pi-bell" style="font-size:3rem;color:#9ca3af"></i>
+              <p class="text-muted mt-3">No hay novedades registradas</p>
+            </td></tr>
+          </ng-template>
+          <ng-template pTemplate="loadingbody">
+            <tr *ngFor="let i of [1,2,3]">
+              <td *ngFor="let j of [1,2,3,4,5,6]"><p-skeleton></p-skeleton></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog Nueva Novedad -->
+<p-dialog header="Nueva Novedad" [(visible)]="showDialog" [modal]="true" [style]="{width:'500px'}">
+  <div class="form-field">
+    <label>Tipo de Novedad *</label>
+    <p-dropdown [options]="tipos" [(ngModel)]="form.id_novedad_tipo" (onChange)="onTipoChange($event.value)"
+      optionLabel="nombre" optionValue="id" placeholder="Seleccione tipo" styleClass="w-100" appendTo="body">
+    </p-dropdown>
+  </div>
+  <div class="form-field">
+    <label>ID Cuadro *</label>
+    <p-inputNumber [(ngModel)]="form.id_cuadro" styleClass="w-100" placeholder="ID del cuadro"></p-inputNumber>
+  </div>
+  <div class="form-field">
+    <label>ID Empleado *</label>
+    <p-inputNumber [(ngModel)]="form.id_empleado" styleClass="w-100" placeholder="ID del empleado"></p-inputNumber>
+  </div>
+  <div class="form-field" *ngIf="tipoSeleccionado?.requiere_reemplazo">
+    <label>ID Empleado Reemplazo *</label>
+    <p-inputNumber [(ngModel)]="form.id_empleado_reemplaza" styleClass="w-100" placeholder="ID del reemplazo"></p-inputNumber>
+  </div>
+  <div class="row g-2">
+    <div class="col-6">
+      <div class="form-field">
+        <label>Fecha Inicio *</label>
+        <p-datepicker [(ngModel)]="form.fecha_inicio_d" dateFormat="dd/mm/yy" [showIcon]="true" styleClass="w-100" appendTo="body"></p-datepicker>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="form-field">
+        <label>Fecha Fin *</label>
+        <p-datepicker [(ngModel)]="form.fecha_fin_d" dateFormat="dd/mm/yy" [showIcon]="true" styleClass="w-100" appendTo="body"></p-datepicker>
+      </div>
+    </div>
+  </div>
+  <div class="form-field">
+    <label>Motivo</label>
+    <textarea pTextarea [(ngModel)]="form.motivo" rows="2" class="w-100" placeholder="Motivo de la novedad..."></textarea>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="showDialog=false"></p-button>
+    <p-button label="Crear" icon="pi pi-check" severity="success" (onClick)="guardar()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Aprobar -->
+<p-dialog header="Aprobar Novedad" [(visible)]="showAprobarDialog" [modal]="true" [style]="{width:'400px'}">
+  <p class="mb-3">¿Aprobar la novedad de <strong>{{ novedadActual?.empleado?.nombre }}</strong>?</p>
+  <div class="form-field">
+    <label>Comentario (opcional)</label>
+    <textarea pTextarea [(ngModel)]="comentarioAprobacion" rows="2" class="w-100"></textarea>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="showAprobarDialog=false"></p-button>
+    <p-button label="Aprobar" icon="pi pi-check" severity="success" (onClick)="confirmarAprobacion()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog Rechazar -->
+<p-dialog header="Rechazar Novedad" [(visible)]="showRechazarDialog" [modal]="true" [style]="{width:'400px'}">
+  <p class="mb-3">¿Rechazar la novedad de <strong>{{ novedadActual?.empleado?.nombre }}</strong>?</p>
+  <div class="form-field">
+    <label>Motivo del rechazo *</label>
+    <textarea pTextarea [(ngModel)]="comentarioAprobacion" rows="2" class="w-100" placeholder="Explique el motivo..."></textarea>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="showRechazarDialog=false"></p-button>
+    <p-button label="Rechazar" icon="pi pi-times" severity="danger" (onClick)="confirmarRechazo()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>

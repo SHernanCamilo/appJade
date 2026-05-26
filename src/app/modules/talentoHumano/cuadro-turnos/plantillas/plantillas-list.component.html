@@ -1,0 +1,110 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/talentoHumano">
+        <i class="pi pi-arrow-left"></i> Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern"><i class="pi pi-palette me-2"></i>Plantillas de Turno</h1>
+        <p class="page-subtitle-modern">Configuración de tipos de turno y horarios</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action btn-action-primary" (click)="abrirNuevo()">
+          <i class="pi pi-plus"></i> Nueva Plantilla
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="table-section">
+      <div class="modern-table-container">
+        <p-table [value]="plantillas" [loading]="isLoading" styleClass="modern-table"
+          [paginator]="true" [rows]="15">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Código</th><th>Nombre</th><th>Horario</th>
+              <th>Horas</th><th>Nocturno</th><th>Estado</th><th>Acciones</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-p>
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="plantilla-badge" [style.background-color]="p.color_hex">{{ p.codigo }}</span>
+                </div>
+              </td>
+              <td>{{ p.nombre }}</td>
+              <td>{{ p.hora_inicio?.slice(0,5) }} — {{ p.hora_fin?.slice(0,5) }}</td>
+              <td>{{ p.duracion_horas }}h</td>
+              <td><p-tag [value]="p.es_nocturno ? 'Sí' : 'No'" [severity]="p.es_nocturno ? 'info' : 'secondary'"></p-tag></td>
+              <td><p-tag [value]="p.estado ? 'Activo' : 'Inactivo'" [severity]="p.estado ? 'success' : 'danger'"></p-tag></td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn-action-icon btn-action-success" (click)="editar(p)" pTooltip="Editar" tooltipPosition="top"><i class="pi pi-pencil"></i></button>
+                  <button class="btn-action-icon btn-action-danger" (click)="eliminar(p)" pTooltip="Eliminar" tooltipPosition="top"><i class="pi pi-trash"></i></button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="7" class="text-center py-5">
+              <i class="pi pi-palette" style="font-size:3rem;color:#9ca3af"></i>
+              <p class="text-muted mt-3">No hay plantillas configuradas</p>
+            </td></tr>
+          </ng-template>
+          <ng-template pTemplate="loadingbody">
+            <tr *ngFor="let i of [1,2,3]">
+              <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p-dialog [header]="editMode ? 'Editar Plantilla' : 'Nueva Plantilla'" [(visible)]="showDialog" [modal]="true" [style]="{width:'500px'}">
+  <div class="form-grid-2">
+    <div class="form-field">
+      <label>Código *</label>
+      <input pInputText [(ngModel)]="form.codigo" placeholder="M7" class="w-100">
+    </div>
+    <div class="form-field">
+      <label>Nombre *</label>
+      <input pInputText [(ngModel)]="form.nombre" placeholder="Mañana 7-3" class="w-100">
+    </div>
+    <div class="form-field">
+      <label>Hora Inicio *</label>
+      <input pInputText type="time" [(ngModel)]="form.hora_inicio" class="w-100">
+    </div>
+    <div class="form-field">
+      <label>Hora Fin *</label>
+      <input pInputText type="time" [(ngModel)]="form.hora_fin" class="w-100">
+    </div>
+    <div class="form-field">
+      <label>Duración (horas)</label>
+      <p-inputNumber [(ngModel)]="form.duracion_horas" [min]="1" [max]="24" styleClass="w-100"></p-inputNumber>
+    </div>
+    <div class="form-field">
+      <label>Color</label>
+      <div class="d-flex gap-2 align-items-center">
+        <input type="color" [(ngModel)]="form.color_hex" style="width:40px;height:36px;border:none;cursor:pointer;border-radius:4px">
+        <input pInputText [(ngModel)]="form.color_hex" placeholder="#3498DB" class="flex-grow-1">
+      </div>
+    </div>
+    <div class="form-field form-field-full d-flex gap-3">
+      <p-checkbox [(ngModel)]="form.es_nocturno" [binary]="true" label="Es nocturno"></p-checkbox>
+      <p-checkbox [(ngModel)]="form.estado" [binary]="true" label="Activo"></p-checkbox>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="showDialog=false"></p-button>
+    <p-button label="Guardar" icon="pi pi-check" severity="success" (onClick)="guardar()" [loading]="isSaving"></p-button>
+  </ng-template>
+</p-dialog>

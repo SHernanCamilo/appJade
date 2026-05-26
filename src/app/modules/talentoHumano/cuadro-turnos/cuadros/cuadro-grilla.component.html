@@ -1,0 +1,224 @@
+<div class="grilla-page" *ngIf="!isLoading; else loadingTpl">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Toolbar -->
+  <div class="grilla-toolbar" *ngIf="grilla">
+    <div class="toolbar-left">
+      <button class="btn-back-modern" routerLink="/talentoHumano/cuadro-turnos/cuadros">
+        <i class="pi pi-arrow-left"></i>
+      </button>
+      <div class="toolbar-info">
+        <span class="toolbar-grupo">{{ grilla.cuadro.grupo?.nombre ?? 'Grupo' }}</span>
+        <span class="toolbar-sep">·</span>
+        <span class="toolbar-periodo">{{ grilla.cuadro.nombre_mes ?? grilla.cuadro.mes }}/{{ grilla.cuadro.anio
+          }}</span>
+        <p-tag [value]="getLabel(grilla.cuadro.estado)" [severity]="getSeverity(grilla.cuadro.estado)"
+          class="ms-2"></p-tag>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <div *ngIf="celdasSeleccionadas.size > 0 && plantillaActiva" class="toolbar-seleccion">
+        <span>{{ celdasSeleccionadas.size }} celdas</span>
+        <button class="btn-action btn-action-primary btn-sm" (click)="asignarSeleccionados()">
+          <i class="pi pi-check me-1"></i>Asignar {{ plantillaActiva.codigo }}
+        </button>
+        <button class="btn-action btn-action-secondary btn-sm" (click)="celdasSeleccionadas.clear()">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+      <button *ngIf="esEditable" class="btn-action btn-action-success" (click)="publicar()">
+        <i class="pi pi-check-circle me-1"></i>Publicar
+      </button>
+      <button class="btn-action btn-action-secondary" (click)="panelVisible = !panelVisible">
+        <i class="pi pi-sidebar me-1"></i>Panel
+      </button>
+    </div>
+  </div>
+
+  <!-- Layout principal -->
+  <div class="grilla-layout">
+
+    <!-- Grilla -->
+    <div class="grilla-wrapper" [class.panel-open]="panelVisible">
+      <div class="grilla-container" *ngIf="grilla">
+        <table class="grilla-table">
+          <thead>
+            <tr>
+              <th class="col-empleado">Empleado</th>
+              <th *ngFor="let dia of grilla.dias; let i = index; trackBy: trackByDia"
+                [class.col-finde]="esFindeSemana(dia)">
+                <div class="th-dia">
+                  <span class="dia-num">{{ dia }}</span>
+                  <span class="dia-letra">{{ diasSemana[i] }}</span>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let emp of grilla.empleados; trackBy: trackByEmpleado">
+              <td class="col-empleado">
+                <div class="empleado-nombre">{{ emp.nombre }}</div>
+                <div class="empleado-cargo">{{ emp.cargo ?? '—' }}</div>
+              </td>
+              <td *ngFor="let dia of grilla.dias; trackBy: trackByDia" [class.col-finde]="esFindeSemana(dia)"
+                [class.celda-selected]="esCeldaSeleccionada(emp.id, dia)" (click)="onCeldaClick($event, emp.id, dia)">
+                <div class="celda-turno" [class]="getCeldaClase(getCelda(emp.id, dia))"
+                  [class.no-editable]="!esEditable" [style.background-color]="getCeldaColor(getCelda(emp.id, dia))"
+                  [pTooltip]="getCeldaTooltip(getCelda(emp.id, dia))" tooltipPosition="top">
+                  {{ getCeldaTexto(getCelda(emp.id, dia)) }}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Sin empleados -->
+      <div *ngIf="grilla && grilla.empleados.length === 0" class="grilla-empty">
+        <i class="pi pi-users" style="font-size:3rem;color:#9ca3af"></i>
+        <p class="text-muted mt-3">Este grupo no tiene empleados asignados</p>
+      </div>
+    </div>
+
+    <!-- Panel lateral -->
+    <div class="grilla-panel" *ngIf="panelVisible">
+      <div class="panel-section">
+        <h4 class="panel-title"><i class="pi pi-palette me-2"></i>Plantillas</h4>
+        <p class="panel-hint">Click para activar · Click en celda para asignar rápido</p>
+        <div class="plantillas-lista">
+          <div *ngFor="let p of plantillas" class="plantilla-chip"
+            [class.plantilla-activa]="plantillaActiva?.id === p.id" [style.border-color]="p.color_hex"
+            (click)="plantillaActiva = plantillaActiva?.id === p.id ? null : p">
+            <span class="plantilla-badge" [style.background-color]="p.color_hex">{{ p.codigo }}</span>
+            <div class="plantilla-info">
+              <span class="plantilla-nombre">{{ p.nombre }}</span>
+              <span class="plantilla-horario">{{ p.hora_inicio.slice(0,5) }} - {{ p.hora_fin.slice(0,5) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section" *ngIf="grilla">
+        <h4 class="panel-title"><i class="pi pi-chart-bar me-2"></i>Resumen</h4>
+        <div class="resumen-item" *ngFor="let r of resumenEntries">
+          <span class="resumen-badge" [style.background-color]="r.plantilla.color_hex">{{ r.plantilla.codigo }}</span>
+          <span class="resumen-nombre">{{ r.plantilla.nombre }}</span>
+          <span class="resumen-count">{{ r.count }}</span>
+        </div>
+        <div class="resumen-item resumen-descanso">
+          <span class="resumen-badge" style="background:#ECEFF1;color:#607D8B">D</span>
+          <span class="resumen-nombre">Descansos</span>
+          <span class="resumen-count">{{ totalDescansos }}</span>
+        </div>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="panel-section">
+        <h4 class="panel-title"><i class="pi pi-info-circle me-2"></i>Leyenda</h4>
+        <div class="leyenda-item">
+          <div class="celda-turno celda-descanso leyenda-celda">D</div><span>Descanso</span>
+        </div>
+        <div class="leyenda-item">
+          <div class="celda-turno celda-festivo leyenda-celda">F</div><span>Festivo</span>
+        </div>
+        <div class="leyenda-item">
+          <div class="celda-turno celda-vacia leyenda-celda"></div><span>Sin asignar</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Loading -->
+<ng-template #loadingTpl>
+  <div class="grilla-loading">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#6366f1"></i>
+    <p class="mt-3 text-muted">Cargando grilla...</p>
+  </div>
+</ng-template>
+
+<!-- Dialog Asignar Turno -->
+<p-dialog [header]="celdaActual?.celda ? 'Editar Asignación' : 'Asignar Turno'" [(visible)]="showDialog" [modal]="true"
+  [style]="{width:'440px'}">
+  <div class="dialog-form" *ngIf="celdaActual">
+    <div class="dialog-fecha">
+      <i class="pi pi-calendar me-2"></i>
+      <strong>{{ celdaActual.fecha }}</strong>
+    </div>
+
+    <!-- Tipo -->
+    <div class="form-field mb-3">
+      <label class="form-label">Tipo de asignación</label>
+      <div class="tipo-options">
+        <div class="tipo-option" [class.active]="formTurno.tipo === 'turno'" (click)="formTurno.tipo = 'turno'">
+          <i class="pi pi-clock me-1"></i>Turno
+        </div>
+        <div class="tipo-option" [class.active]="formTurno.tipo === 'descanso'" (click)="formTurno.tipo = 'descanso'">
+          <i class="pi pi-moon me-1"></i>Descanso
+        </div>
+        <div class="tipo-option" [class.active]="formTurno.tipo === 'festivo'" (click)="formTurno.tipo = 'festivo'">
+          <i class="pi pi-star me-1"></i>Festivo
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector de plantilla -->
+    <div class="form-field mb-3" *ngIf="formTurno.tipo === 'turno'">
+      <label class="form-label">Plantilla *</label>
+      <p-dropdown [options]="plantillas" [(ngModel)]="formTurno.id_plantilla" optionLabel="nombre" optionValue="id"
+        placeholder="Seleccione plantilla" styleClass="w-100" appendTo="body" [filter]="true">
+        <ng-template let-p pTemplate="item">
+          <div class="d-flex align-items-center gap-2">
+            <span class="plantilla-badge-sm" [style.background-color]="p.color_hex">{{ p.codigo }}</span>
+            <span>{{ p.nombre }}</span>
+            <small class="text-muted ms-auto">{{ p.hora_inicio.slice(0,5) }}-{{ p.hora_fin.slice(0,5) }}</small>
+          </div>
+        </ng-template>
+      </p-dropdown>
+    </div>
+
+    <!-- Override horario -->
+    <div class="form-field mb-2" *ngIf="formTurno.tipo === 'turno'">
+      <div class="override-toggle" (click)="formTurno.showOverride = !formTurno.showOverride">
+        <i class="pi" [class.pi-chevron-right]="!formTurno.showOverride"
+          [class.pi-chevron-down]="formTurno.showOverride"></i>
+        Ajustar horario (opcional)
+      </div>
+      <div *ngIf="formTurno.showOverride" class="override-fields">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Hora inicio</label>
+            <input pInputText type="time" [(ngModel)]="formTurno.hora_inicio_override" class="w-100">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Hora fin</label>
+            <input pInputText type="time" [(ngModel)]="formTurno.hora_fin_override" class="w-100">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Observación -->
+    <div class="form-field">
+      <label class="form-label">Observación</label>
+      <textarea pTextarea [(ngModel)]="formTurno.observacion" rows="2" class="w-100"
+        placeholder="Opcional..."></textarea>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="d-flex justify-content-between w-100">
+      <div>
+        <p-button *ngIf="celdaActual?.celda?.id" label="Eliminar" icon="pi pi-trash" severity="danger" [outlined]="true"
+          (onClick)="eliminarAsignacion()"></p-button>
+      </div>
+      <div class="d-flex gap-2">
+        <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="showDialog=false"></p-button>
+        <p-button label="Guardar" icon="pi pi-check" severity="success" (onClick)="guardarAsignacion()"
+          [loading]="isSaving"></p-button>
+      </div>
+    </div>
+  </ng-template>
+</p-dialog>
