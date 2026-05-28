@@ -432,9 +432,19 @@ export class SecuenciaNumericaComponent implements OnInit, OnDestroy {
   }
 
   guardarDetalle(): void {
-    if (!this.detalleForm.patron_id || !this.secuenciaActiva) {
-      this.toast('warn', 'Validación', 'El patrón es obligatorio'); return;
+    if (!this.secuenciaActiva) {
+      this.toast('warn', 'Validación', 'Primero debes crear o cargar una secuencia');
+      return;
     }
+
+    const patronId = this.detalleForm.patron_id as any;
+    if (patronId === null || patronId === undefined || patronId === '') {
+      this.toast('warn', 'Validación', 'El patrón es obligatorio');
+      return;
+    }
+
+    // Asegurar tipo numérico para el backend
+    this.detalleForm.patron_id = Number(patronId);
     this.isSavingDetalle = true;
 
     const obs = this.detalleEditando
@@ -452,6 +462,16 @@ export class SecuenciaNumericaComponent implements OnInit, OnDestroy {
       },
       error: err => { this.toast('error', 'Error', err?.error?.message ?? 'Error al guardar'); this.isSavingDetalle = false; }
     });
+  }
+
+  onPatronDetalleChange(value: any): void {
+    if (value === null || value === undefined || value === '') {
+      this.detalleForm.patron_id = undefined;
+      return;
+    }
+
+    const parsed = Number(value);
+    this.detalleForm.patron_id = Number.isNaN(parsed) ? undefined : parsed;
   }
 
   confirmarEliminarDetalle(d: SecDetalle): void {

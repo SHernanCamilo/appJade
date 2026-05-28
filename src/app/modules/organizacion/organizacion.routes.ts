@@ -33,6 +33,12 @@ export const ORGANIZACION_ROUTES: Routes = [
         loadComponent: () => import('./empresa/modulos/modulos.component').then(m => m.ModulosComponent),
         canActivate: [moduleGuard],
         data: { moduleCode: 'EMP' }
+      },
+      {
+        path: 'unidad-funcional',
+        loadComponent: () => import('./empresa/unidad-funcional/unidad-funcional.component').then(m => m.UnidadFuncionalComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'ORG_UNI_FUN' }
       }
     ]
   },

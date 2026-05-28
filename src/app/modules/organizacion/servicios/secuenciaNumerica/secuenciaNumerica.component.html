@@ -325,6 +325,7 @@
       <p-dropdown
         [options]="patronesOptions"
         [(ngModel)]="detalleForm.patron_id"
+        (onChange)="onPatronDetalleChange($event.value)"
         optionLabel="label"
         optionValue="value"
         placeholder="Seleccionar patrón"

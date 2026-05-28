@@ -22,7 +22,8 @@ export class OrganizacionComponent {
         { name: 'Maestro de Empresas', route: '/organizacion/empresa/maestro', icon: 'bi-building-fill' },
         { name: 'Sucursales', route: '/organizacion/empresa/sucursales', icon: 'bi-shop' },
         { name: 'Sedes', route: '/organizacion/empresa/sedes', icon: 'bi-geo-alt-fill' },
-        { name: 'Módulos', route: '/organizacion/empresa/modulos', icon: 'bi-grid-3x3-gap' }
+        { name: 'Módulos', route: '/organizacion/empresa/modulos', icon: 'bi-grid-3x3-gap' },
+        { name: 'Unidad Funcional', route: '/organizacion/empresa/unidad-funcional', icon: 'bi-diagram-3-fill' }
       ]
     },
     {
