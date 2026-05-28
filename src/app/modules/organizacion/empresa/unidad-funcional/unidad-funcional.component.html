@@ -1,0 +1,474 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-sitemap me-2"></i>
+          Unidad Funcional
+        </h1>
+        <p class="page-subtitle-modern">
+          Gestión de unidades funcionales, usuarios y Usuarios encargados
+          <span class="empresa-badge" *ngIf="!esTransversal && empresaNombre">
+            <i class="pi pi-building me-1"></i>{{ empresaNombre }}
+          </span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-action btn-action-outline" (click)="nuevaUnidad()">
+          <i class="pi pi-plus"></i>
+          Nueva
+        </button>
+        <button
+          class="btn-action btn-action-primary"
+          (click)="guardar()"
+          [disabled]="isSaving || unidadForm.invalid">
+          <i class="pi pi-save" [class.pi-spin]="isSaving"></i>
+          {{ isSaving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="two-panel-layout">
+
+      <!-- Panel izquierdo: Datos Principales -->
+      <div class="panel-left">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Datos Principales</span>
+        </div>
+
+        <form [formGroup]="unidadForm" class="panel-form">
+
+          <!-- Empresa: selector solo para admin/transversal -->
+          <div class="param-group" *ngIf="esTransversal">
+            <label class="param-label">Empresa *</label>
+            <p-dropdown
+              formControlName="id_empresa"
+              [options]="empresasOptions"
+              (onChange)="onEmpresaChange()"
+              placeholder="Seleccionar empresa"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingEmpresas"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+            <small class="p-error" *ngIf="unidadForm.get('id_empresa')?.hasError('required') && unidadForm.get('id_empresa')?.touched">
+              Debe seleccionar una empresa
+            </small>
+          </div>
+
+          <!-- Empresa fija para usuarios con una sola empresa -->
+          <div class="param-group" *ngIf="!esTransversal">
+            <label class="param-label">Empresa</label>
+            <div class="empresa-readonly">
+              <i class="pi pi-building"></i>
+              <span>{{ empresaNombre }}</span>
+            </div>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Código *</label>
+            <div class="codigo-input-group">
+              <input
+                pInputText
+                formControlName="codigo"
+                placeholder="Ej: N01"
+                class="w-100"
+                (keyup.enter)="buscarPorCodigo()"
+                [class.ng-invalid]="unidadForm.get('codigo')?.invalid && unidadForm.get('codigo')?.touched">
+              <button
+                type="button"
+                class="btn-search-codigo"
+                (click)="abrirModalUnidades()"
+                [disabled]="!empresaSeleccionada || isLoadingModal"
+                pTooltip="Ver unidades de la empresa"
+                tooltipPosition="top">
+                <i class="pi" [class.pi-search]="!isLoadingModal" [class.pi-spin]="isLoadingModal" [class.pi-spinner]="isLoadingModal"></i>
+              </button>
+            </div>
+            <small class="form-hint" *ngIf="!empresaSeleccionada">
+              Seleccione una empresa para habilitar el código
+            </small>
+            <small class="form-hint" *ngIf="empresaSeleccionada">
+              Presione Enter para buscar por código en esta empresa
+            </small>
+            <small class="p-error" *ngIf="unidadForm.get('codigo')?.hasError('required') && unidadForm.get('codigo')?.touched">
+              El código es obligatorio
+            </small>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Sucursal *</label>
+            <p-dropdown
+              formControlName="id_sucursal"
+              [options]="sucursalesOptions"
+              (onChange)="onSucursalChange()"
+              placeholder="Seleccionar sucursal"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingSucursales"
+              [disabled]="!empresaSeleccionada"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+            <small class="p-error" *ngIf="unidadForm.get('id_sucursal')?.hasError('required') && unidadForm.get('id_sucursal')?.touched">
+              Debe seleccionar una sucursal
+            </small>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">
+              Sede
+              <span class="optional-badge">Opcional</span>
+            </label>
+            <p-dropdown
+              formControlName="id_sede"
+              [options]="sedesOptions"
+              placeholder="Seleccionar sede"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingSedes"
+              [disabled]="!unidadForm.get('id_sucursal')?.value"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Nombre *</label>
+            <input
+              pInputText
+              formControlName="nombre"
+              placeholder="Ej: URGENCIAS-NVA"
+              class="w-100"
+              [class.ng-invalid]="unidadForm.get('nombre')?.invalid && unidadForm.get('nombre')?.touched">
+            <small class="p-error" *ngIf="unidadForm.get('nombre')?.hasError('required') && unidadForm.get('nombre')?.touched">
+              El nombre es obligatorio
+            </small>
+          </div>
+
+          <div class="param-group param-group-inline">
+            <label class="param-label">Estado</label>
+            <div class="toggle-wrapper">
+              <p-inputSwitch
+                [ngModel]="estadoActivo"
+                (ngModelChange)="onEstadoChange($event)"
+                [ngModelOptions]="{ standalone: true }"
+                inputId="estadoUnidadFuncional">
+              </p-inputSwitch>
+            </div>
+            <span class="toggle-label">{{ estadoActivo ? 'Activo' : 'Inactivo' }}</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Panel derecho: Asignaciones -->
+      <div class="panel-right" [class.panel-disabled]="!puedeGestionarUsuarios">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Asignaciones</span>
+        </div>
+
+        <p-tabView
+          [(activeIndex)]="activeAsignacionTab"
+          styleClass="asignaciones-tabs">
+
+          <!-- Pestaña Usuarios -->
+          <p-tabPanel header="Usuarios">
+            <div class="tab-panel-content">
+              <div class="usuarios-toolbar">
+                <div class="usuario-select-group">
+                  <label class="param-label">Usuarios</label>
+                  <p-multiSelect
+                    [(ngModel)]="selectedUsuarioIds"
+                    [options]="usuariosOptionsDisponibles"
+                    placeholder="Seleccionar usuarios"
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [loading]="isLoadingUsuarios"
+                    [disabled]="!puedeGestionarUsuarios"
+                    optionLabel="label"
+                    optionValue="value"
+                    [maxSelectedLabels]="2"
+                    selectedItemsLabel="{0} usuarios seleccionados"
+                    styleClass="w-full usuario-multiselect"
+                    appendTo="body">
+                  </p-multiSelect>
+                  <small class="form-hint" *ngIf="!puedeGestionarUsuarios">
+                    Busque un código, seleccione una unidad o cree una nueva para gestionar usuarios
+                  </small>
+                  <small class="form-hint" *ngIf="puedeGestionarUsuarios">
+                    Puede seleccionar varios usuarios y agregarlos a la vez
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  class="btn-action btn-action-primary btn-agregar"
+                  (click)="agregarUsuarios()"
+                  [disabled]="!puedeGestionarUsuarios || !selectedUsuarioIds.length">
+                  <i class="pi pi-plus"></i>
+                  Agregar
+                </button>
+              </div>
+
+              <div class="usuarios-table-wrap">
+                <p-table
+                  [value]="usuariosAutorizados"
+                  styleClass="usuarios-table p-datatable-sm p-datatable-striped"
+                  [scrollable]="true"
+                  scrollHeight="flex">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 90px">Usuario</th>
+                      <th>Nombre</th>
+                      <th style="width: 130px">Acción</th>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="body" let-usuario>
+                    <tr>
+                      <td>
+                        <span class="usuario-codigo">{{ usuario.codigo || usuario.id_user }}</span>
+                      </td>
+                      <td>{{ usuario.nombre }}</td>
+                      <td>
+                        <button
+                          type="button"
+                          class="btn-link-danger"
+                          (click)="eliminarUsuario(usuario)"
+                          [disabled]="!puedeGestionarUsuarios">
+                          Eliminar Registro
+                        </button>
+                      </td>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="3" class="text-center py-4">
+                        <i class="pi pi-users text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">No hay usuarios autorizados</p>
+                        <small class="text-muted" *ngIf="puedeGestionarUsuarios">
+                          Seleccione uno o más usuarios y haga clic en Agregar
+                        </small>
+                        <small class="text-muted" *ngIf="!puedeGestionarUsuarios">
+                          Complete primero la selección o creación de la unidad funcional
+                        </small>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+            </div>
+          </p-tabPanel>
+
+          <!-- Pestaña Jefes encargados -->
+          <p-tabPanel header="Usuarios encargados">
+            <div class="tab-panel-content">
+              <div class="usuarios-toolbar">
+                <div class="usuario-select-group">
+                  <label class="param-label">Usuarios encargados</label>
+                  <p-multiSelect
+                    [(ngModel)]="selectedJefeIds"
+                    [options]="jefesOptionsDisponibles"
+                    placeholder="Seleccionar Usuarios"
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [loading]="isLoadingUsuarios"
+                    [disabled]="!puedeGestionarUsuarios"
+                    optionLabel="label"
+                    optionValue="value"
+                    [maxSelectedLabels]="2"
+                    selectedItemsLabel="{0} usuarios seleccionados"
+                    styleClass="w-full usuario-multiselect"
+                    appendTo="body">
+                  </p-multiSelect>
+                  <small class="form-hint" *ngIf="!puedeGestionarUsuarios">
+                    Busque un código, seleccione una unidad o cree una nueva para gestionar Usuarios
+                  </small>
+                  <small class="form-hint" *ngIf="puedeGestionarUsuarios">
+                    Un usuario puede estar asignado a varias unidades funcionales
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  class="btn-action btn-action-primary btn-agregar"
+                  (click)="agregarJefes()"
+                  [disabled]="!puedeGestionarUsuarios || !selectedJefeIds.length">
+                  <i class="pi pi-plus"></i>
+                  Agregar
+                </button>
+              </div>
+
+              <div class="usuarios-table-wrap">
+                <p-table
+                  [value]="jefesEncargados"
+                  styleClass="usuarios-table p-datatable-sm p-datatable-striped"
+                  [scrollable]="true"
+                  scrollHeight="flex">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 90px">Usuarios</th>
+                      <th>Nombre</th>
+                      <th style="width: 130px">Acción</th>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="body" let-jefe>
+                    <tr>
+                      <td>
+                        <span class="usuario-codigo">{{ jefe.codigo || jefe.id_user }}</span>
+                      </td>
+                      <td>{{ jefe.nombre }}</td>
+                      <td>
+                        <button
+                          type="button"
+                          class="btn-link-danger"
+                          (click)="eliminarJefe(jefe)"
+                          [disabled]="!puedeGestionarUsuarios">
+                          Eliminar Registro
+                        </button>
+                      </td>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="3" class="text-center py-4">
+                        <i class="pi pi-user-edit text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">No hay Usuarios encargados</p>
+                        <small class="text-muted" *ngIf="puedeGestionarUsuarios">
+                          Seleccione uno o más usuarios y haga clic en Agregar
+                        </small>
+                        <small class="text-muted" *ngIf="!puedeGestionarUsuarios">
+                          Complete primero la selección o creación de la unidad funcional
+                        </small>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+            </div>
+          </p-tabPanel>
+        </p-tabView>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: listado de unidades por empresa -->
+  <p-dialog
+    header="Unidades Funcionales"
+    [(visible)]="showModalUnidades"
+    [modal]="true"
+    [style]="{ width: '70vw', maxWidth: '900px' }"
+    [breakpoints]="{ '960px': '90vw', '640px': '95vw' }"
+    styleClass="modal-unidades-dialog"
+    (onHide)="cerrarModalUnidades()">
+
+    <div class="modal-unidades-content">
+      <div class="modal-empresa-info" *ngIf="empresaNombre">
+        <i class="pi pi-building me-2"></i>
+        <span>Empresa: <strong>{{ empresaNombre }}</strong></span>
+      </div>
+
+      <div class="modal-search mb-3">
+        <span class="p-input-icon-left w-100">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="modalSearchTerm"
+            placeholder="Buscar por código, nombre, sucursal o sede..."
+            class="w-100">
+        </span>
+      </div>
+
+      <p-table
+        [value]="unidadesModalFiltradas"
+        [loading]="isLoadingModal"
+        [paginator]="true"
+        [rows]="8"
+        [rowsPerPageOptions]="[8, 15, 25]"
+        styleClass="p-datatable-sm p-datatable-striped"
+        responsiveLayout="scroll">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Sucursal</th>
+            <th>Sede</th>
+            <th>Estado</th>
+            <th style="width: 100px">Acción</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-unidad>
+          <tr>
+            <td><span class="codigo-badge">{{ unidad.codigo }}</span></td>
+            <td class="fw-semibold">{{ unidad.nombre }}</td>
+            <td>{{ unidad.sucursal?.nombre || '-' }}</td>
+            <td>{{ unidad.sede?.nombre || '-' }}</td>
+            <td>
+              <p-tag
+                [value]="getEstadoLabel(unidad.estado)"
+                [severity]="getEstadoSeverity(unidad.estado)">
+              </p-tag>
+            </td>
+            <td>
+              <p-button
+                icon="pi pi-check"
+                label="Seleccionar"
+                size="small"
+                severity="info"
+                [text]="true"
+                (onClick)="seleccionarDesdeModal(unidad)">
+              </p-button>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6" class="text-center py-4">
+              <i class="pi pi-inbox text-muted" style="font-size: 2.5rem;"></i>
+              <p class="text-muted mt-2 mb-0">No hay unidades funcionales para esta empresa</p>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cerrar"
+        icon="pi pi-times"
+        styleClass="p-button-text"
+        (onClick)="cerrarModalUnidades()">
+      </p-button>
+    </ng-template>
+  </p-dialog>
+</div>

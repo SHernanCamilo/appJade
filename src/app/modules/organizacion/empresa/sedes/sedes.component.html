@@ -37,7 +37,8 @@
     [header]="editMode ? 'Editar Sede' : 'Nueva Sede'" 
     [modal]="true" 
     [style]="{width: '50vw'}"
-    [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
+    [breakpoints]="{'960px': '75vw', '640px': '90vw'}"
+    [contentStyle]="{'overflow': 'visible'}">
     
     <form [formGroup]="sedeForm" (ngSubmit)="onSubmit()">
       <div class="p-fluid">
@@ -73,6 +74,7 @@
                 [filter]="true"
                 filterBy="nombre"
                 [showClear]="true"
+                appendTo="body"
                 (onChange)="onEmpresaChange($event)">
               </p-dropdown>
             </div>
@@ -90,6 +92,7 @@
                 filterBy="nombre"
                 [showClear]="true"
                 [disabled]="!selectedEmpresa"
+                appendTo="body"
                 [class.ng-invalid]="sedeForm.get('id_Sucursal')?.invalid && sedeForm.get('id_Sucursal')?.touched">
               </p-dropdown>
               <small class="p-error" *ngIf="sedeForm.get('id_Sucursal')?.hasError('required') && sedeForm.get('id_Sucursal')?.touched">

@@ -7,7 +7,7 @@ export interface Usuario {
   name: string;
   cargo?: string;
   email: string;
-  estado?: boolean;
+  estado?: boolean | number;
   created_at?: string;
   roles?: any[];
   permissions?: string[];
@@ -35,6 +35,10 @@ export class UsuarioService {
   // Obtener todos los usuarios
   getUsuarios(): Observable<Usuario[]> {
     return this.http.get<Usuario[]>(this.apiUrl);
+  }
+
+  getUsuariosPorEmpresa(empresaId: number): Observable<Usuario[]> {
+    return this.http.get<Usuario[]>(`${this.apiUrl}-por-empresa/${empresaId}`);
   }
 
   // Obtener un usuario por ID
