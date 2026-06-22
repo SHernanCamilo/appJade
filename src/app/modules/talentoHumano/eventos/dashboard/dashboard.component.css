@@ -327,6 +327,15 @@
   align-items: center;
 }
 
+.flujo-preview {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.25rem;
+}
+.flujo-preview .badge { font-size: 0.78rem; padding: 0.4rem 0.6rem; }
+
 :host ::ng-deep .p-dropdown { width: 100%; }
 :host ::ng-deep .p-calendar { width: 100%; }
 :host ::ng-deep textarea.p-inputtext {
@@ -334,4 +343,38 @@
   font-family: inherit;
   font-size: 0.875rem;
   padding: 0.5rem;
+}
+
+.dropdown-footer-load-more {
+  padding: 6px 8px;
+  border-top: 1px solid #e9ecef;
+  background: #f8f9fa;
+  text-align: center;
+}
+
+.btn-load-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-load-more:hover:not(:disabled) {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.btn-load-more:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

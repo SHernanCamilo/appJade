@@ -1,7 +1,17 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subject, of } from 'rxjs';
+import { takeUntil, switchMap, tap, catchError } from 'rxjs/operators';
+import {
+  TagSeverity,
+  clasificarPuntaje,
+  severityValoracionTexto,
+  formatValoracion,
+  severityValoracionNumerica
+} from '../utils/matriz-obs-clasificacion';
+import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../auth/auth.service';
 import { MatrizObsActivosService, ActivoMatriz, FiltrosActivos } from '../services/matriz-obs-activos.service';
 import { MatrizObsParametrosService } from '../services/matriz-obs-parametros.service';
@@ -72,6 +82,15 @@ interface MatrizItem {
   styleUrl: './dashboardMaObsolescencia.component.css'
 })
 export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
+
+  // Limpieza de suscripciones al destruir el componente
+  private destroy$ = new Subject<void>();
+
+  // Disparadores de recarga (switchMap cancela la petición previa en vuelo)
+  private reloadActivos$ = new Subject<void>();
+  private reloadStats$ = new Subject<void>();
+  private reloadMatrizCompleta$ = new Subject<void>();
+  private reloadEquiposModal$ = new Subject<void>();
   
   // Data
   activos: ActivoMatriz[] = [];
@@ -82,7 +101,6 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   
   // Loading states
   isLoading = false;
-  isLoadingStats = false;
   isLoadingCards = false;
   isCalculatingValues = false;
   
@@ -143,7 +161,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   camposEditables = {
     ubicacion: '',
     tipo_unidad: '',
-    fecha_compra: '',
+    fecha_compra: null as Date | null,
     modalidad: '',
     proveedor: '',
     max_ram: null as number | null
@@ -201,16 +219,160 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     private parametrosService: MatrizObsParametrosService,
     private excelExportService: ExcelExportService,
     private pdfExportService: PdfExportService,
-    public permissionService: PermissionService
+    public permissionService: PermissionService,
+    private ngZone: NgZone
   ) {
     this.initChartOptions();
     this.initBarChartOptions();
   }
 
   ngOnInit(): void {
+    this.initDataStreams();
     this.loadUserPermissions();
+    this.loadEmpresas();
     this.loadActivos();
-    this.loadStats(); // Esto carga todo incluyendo las empresas para los filtros
+    this.loadStats();
+  }
+
+  /**
+   * Construir los filtros base de ubicación (empresa/sucursal/sede) compartidos por las consultas.
+   */
+  private buildFiltrosBase(): FiltrosActivos {
+    const filtros: FiltrosActivos = {};
+    if (this.selectedEmpresa) {
+      filtros.empresa_id = this.selectedEmpresa;
+    }
+    if (this.selectedSucursal) {
+      filtros.sucursal_id = this.selectedSucursal;
+    }
+    if (this.selectedSede) {
+      filtros.sede_id = this.selectedSede;
+    }
+    return filtros;
+  }
+
+  /**
+   * Configurar los flujos de datos disparados por filtros/paginación.
+   * Cada flujo usa switchMap para cancelar la petición anterior si llega una nueva,
+   * y takeUntil(destroy$) para liberarse al destruir el componente.
+   */
+  private initDataStreams(): void {
+    // Tabla principal de activos (paginada)
+    this.reloadActivos$.pipe(
+      tap(() => this.isLoading = true),
+      switchMap(() => {
+        const filtros: FiltrosActivos = {
+          ...this.buildFiltrosBase(),
+          page: this.currentPage,
+          per_page: this.rowsPerPage
+        };
+        if (this.searchTerm) {
+          filtros.search = this.searchTerm;
+        }
+        return this.activosService.getActivosPorPermisos(filtros).pipe(
+          catchError(error => {
+            console.error('Error cargando activos:', error);
+            this.showError('Error al cargar los activos');
+            return of(null);
+          })
+        );
+      }),
+      takeUntil(this.destroy$)
+    ).subscribe(response => {
+      this.activos = response?.data ?? [];
+      this.totalRecords = response?.total ?? 0;
+      this.isLoading = false;
+    });
+
+    // Estadísticas del dashboard (conteos en backend)
+    this.reloadStats$.pipe(
+      tap(() => {
+        this.isLoadingCards = true;
+        this.isLoadingGrafico = true;
+        this.isLoadingBarChart = true;
+      }),
+      switchMap(() => this.activosService.getDashboard(this.buildFiltrosBase()).pipe(
+        catchError(error => {
+          console.error('Error cargando dashboard:', error);
+          return of(null);
+        })
+      )),
+      takeUntil(this.destroy$)
+    ).subscribe(response => {
+      const data = response?.success ? response.data : null;
+
+      this.estadisticasPorEstado = {
+        optimo: data?.estadisticas_por_estado?.optimo || 0,
+        funcional: data?.estadisticas_por_estado?.funcional || 0,
+        potencialmente: data?.estadisticas_por_estado?.potencialmente || 0,
+        obsoleto: data?.estadisticas_por_estado?.obsoleto || 0
+      };
+      this.stats.totalActivos = data?.total_activos || 0;
+      this.estadisticasPorTipo = data?.estadisticas_por_tipo || [];
+      this.estadisticasPorUbicacion = data?.estadisticas_por_ubicacion || [];
+      this.updateChartData();
+      this.updateBarChartData();
+
+      this.isLoadingCards = false;
+      this.isLoadingGrafico = false;
+      this.isLoadingBarChart = false;
+    });
+
+    // Tabla de Matriz Completa (paginada)
+    this.reloadMatrizCompleta$.pipe(
+      tap(() => this.isLoadingMatrizCompleta = true),
+      switchMap(() => {
+        const filtros: FiltrosActivos = {
+          ...this.buildFiltrosBase(),
+          page: this.currentPageCompleta,
+          per_page: this.rowsPerPageCompleta
+        };
+        if (this.searchTermTodos) {
+          filtros.search = this.searchTermTodos;
+        }
+        return this.activosService.getActivosPorPermisos(filtros).pipe(
+          catchError(error => {
+            console.error('Error cargando matriz completa:', error);
+            this.showError('Error al cargar los activos para la matriz completa');
+            return of(null);
+          })
+        );
+      }),
+      takeUntil(this.destroy$)
+    ).subscribe(response => {
+      this.activosMatrizCompleta = response?.data ?? [];
+      this.totalRecordsCompleta = response?.total ?? 0;
+      this.isLoadingMatrizCompleta = false;
+    });
+
+    // Modal de equipos filtrados (click en gráficas)
+    this.reloadEquiposModal$.pipe(
+      tap(() => this.isLoadingModalEquipos = true),
+      switchMap(() => {
+        const filtros = {
+          ...this.filtroActualModal,
+          page: this.currentPageModal,
+          per_page: this.rowsPerPageModal
+        };
+        return this.parametrosService.getEquiposPorFiltro(filtros).pipe(
+          catchError(error => {
+            console.error('Error cargando equipos filtrados:', error);
+            this.showError('Error al cargar los equipos');
+            return of(null);
+          })
+        );
+      }),
+      takeUntil(this.destroy$)
+    ).subscribe(response => {
+      if (response?.success && response.data) {
+        this.equiposFiltrados = response.data;
+        this.totalRecordsModal = response.total || 0;
+      } else {
+        this.equiposFiltrados = [];
+        this.totalRecordsModal = 0;
+      }
+      this.isLoadingModalEquipos = false;
+    });
   }
 
   //Permisos
@@ -292,7 +454,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           if (activeElements && activeElements.length > 0) {
             const index = activeElements[0].index;
             if (this.estadisticasPorUbicacion[index]) {
-              this.abrirModalEquiposPorUbicacion(this.estadisticasPorUbicacion[index].ubicacion);
+              // Chart.js dispara este callback fuera de la zona de Angular;
+              // ejecutar dentro de NgZone para que la vista refleje la carga.
+              this.ngZone.run(() => this.abrirModalEquiposPorUbicacion(this.estadisticasPorUbicacion[index]));
             }
           }
         }
@@ -390,7 +554,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
             const index = activeElements[0].index;
             const principales = this.getTiposPrincipales();
             if (principales[index]) {
-              this.abrirModalEquiposPorTipo(principales[index].tipo);
+              // Chart.js dispara este callback fuera de la zona de Angular;
+              // ejecutar dentro de NgZone para que la vista refleje la carga.
+              this.ngZone.run(() => this.abrirModalEquiposPorTipo(principales[index].tipo));
             }
           }
         }
@@ -463,243 +629,17 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Cargar activos según permisos
+   * Cargar activos según permisos (dispara el flujo con cancelación de la petición previa)
    */
   loadActivos(): void {
-    this.isLoading = true;
-
-    const filtros: FiltrosActivos = {
-      page: this.currentPage,
-      per_page: this.rowsPerPage
-    };
-
-    if (this.searchTerm) {
-      filtros.search = this.searchTerm;
-    }
-
-    if (this.selectedEmpresa) {
-      filtros.empresa_id = this.selectedEmpresa;
-    }
-
-    if (this.selectedSucursal) {
-      filtros.sucursal_id = this.selectedSucursal;
-    }
-
-    if (this.selectedSede) {
-      filtros.sede_id = this.selectedSede;
-    }
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        this.activos = response.data;
-        this.totalRecords = response.total;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error cargando activos:', error);
-        this.showError('Error al cargar los activos');
-        this.isLoading = false;
-        this.activos = [];
-      }
-    });
+    this.reloadActivos$.next();
   }
 
   /**
-   * Cargar estadísticas
+   * Cargar estadísticas del dashboard (conteos calculados en el backend).
    */
   loadStats(): void {
-    this.isLoadingStats = true;
-    this.isLoadingCards = true;
-    
-    // Cargar estadísticas por estado (que ahora calcula todo)
-    this.loadEstadisticasPorEstado();
-    
-    this.isLoadingStats = false;
-  }
-
-  /**
-   * Cargar estadísticas por estado de obsolescencia
-   */
-  private loadEstadisticasPorEstado(): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999
-    };
-
-    if (this.selectedEmpresa) {
-      filtros.empresa_id = this.selectedEmpresa;
-    }
-    if (this.selectedSucursal) {
-      filtros.sucursal_id = this.selectedSucursal;
-    }
-    if (this.selectedSede) {
-      filtros.sede_id = this.selectedSede;
-    }
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          
-          if (!this.selectedEmpresa && !this.selectedSucursal && !this.selectedSede) {
-            this.cargarEmpresasDesdeActivos(activos);
-          }
-          
-          this.estadisticasPorEstado = {
-            optimo: activos.filter(a => Number(a.puntaje) >= 100).length,
-            funcional: activos.filter(a => {
-              const p = Number(a.puntaje);
-              return p >= 60 && p < 100;
-            }).length,
-            potencialmente: activos.filter(a => {
-              const p = Number(a.puntaje);
-              return p > 0 && p < 60;
-            }).length,
-            obsoleto: activos.filter(a => !a.puntaje || Number(a.puntaje) === 0).length
-          };
-          
-          this.stats.totalActivos = activos.length;
-          this.calcularEstadisticasPorTipo(activos);
-          this.calcularEstadisticasPorUbicacion(activos);
-          
-          // Marcar como cargado
-          this.isLoadingCards = false;
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando estadísticas:', error);
-        this.estadisticasPorEstado = {
-          optimo: 0,
-          funcional: 0,
-          potencialmente: 0,
-          obsoleto: 0
-        };
-        this.stats.totalActivos = 0;
-        this.isLoadingCards = false;
-      }
-    });
-  }
-
-  /**
-   * Cargar empresas desde los activos (para los dropdowns de filtros)
-   */
-  private cargarEmpresasDesdeActivos(activos: ActivoMatriz[]): void {
-    const empresasMap = new Map<number, { id: number; nombre: string }>();
-    
-    activos.forEach(activo => {
-      if (activo.empresa && activo.id_empresa) {
-        if (!empresasMap.has(activo.id_empresa)) {
-          empresasMap.set(activo.id_empresa, {
-            id: activo.id_empresa,
-            nombre: activo.empresa.nombre
-          });
-        }
-      }
-    });
-    
-    this.empresasList = Array.from(empresasMap.values())
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-    
-    this.empresasOptions = this.empresasList.map(emp => ({
-      label: emp.nombre,
-      value: emp.id
-    }));
-  }
-
-  /**
-   * Calcular estadísticas por tipo de equipo localmente
-   */
-  private calcularEstadisticasPorTipo(activos: ActivoMatriz[]): void {
-    this.isLoadingGrafico = true;
-
-    const tipoMap = new Map<string, { total: number; optimo: number; funcional: number; potencialmente: number; obsoleto: number }>();
-    
-    activos.forEach(activo => {
-      const tipo = activo.detalle?.tipo || 'Sin tipo';
-      
-      if (!tipoMap.has(tipo)) {
-        tipoMap.set(tipo, { total: 0, optimo: 0, funcional: 0, potencialmente: 0, obsoleto: 0 });
-      }
-      
-      const stats = tipoMap.get(tipo)!;
-      stats.total++;
-      
-      const p = Number(activo.puntaje);
-      if (p >= 100) stats.optimo++;
-      else if (p >= 60 && p < 100) stats.funcional++;
-      else if (p > 0 && p < 60) stats.potencialmente++;
-      else stats.obsoleto++; // Incluye null, undefined y 0
-    });
-    
-    this.estadisticasPorTipo = Array.from(tipoMap.entries()).map(([tipo, stats]) => ({
-      tipo,
-      total: stats.total,
-      optimo: stats.optimo,
-      funcional: stats.funcional,
-      potencialmente: stats.potencialmente,
-      obsoleto: stats.obsoleto
-    }));
-    
-    this.estadisticasPorTipo.sort((a, b) => b.total - a.total);
-    this.updateChartData();
-    this.isLoadingGrafico = false;
-  }
-
-  /**
-   * Calcular estadísticas por ubicación localmente
-   */
-  private calcularEstadisticasPorUbicacion(activos: ActivoMatriz[]): void {
-    this.isLoadingBarChart = true;
-
-    const ubicacionMap = new Map<string, { total: number; optimo: number; funcional: number; potencialmente: number; obsoleto: number }>();
-    
-    // Si no hay filtro de empresa activo (admin viendo todo), agrupar por empresa.
-    // Si hay empresa seleccionada, agrupar por sucursal/sede para mayor detalle.
-    const agruparPorEmpresa = !this.selectedEmpresa;
-
-    activos.forEach(activo => {
-      let ubicacion = 'Sin empresa';
-      
-      if (activo.empresa) {
-        if (agruparPorEmpresa) {
-          // Vista admin sin filtro: solo nombre de empresa
-          ubicacion = activo.empresa.nombre;
-        } else {
-          // Vista con empresa seleccionada: empresa + sucursal
-          ubicacion = activo.empresa.nombre;
-          if (activo.sucursal) {
-            ubicacion += ` - ${activo.sucursal.nombre}`;
-          }
-        }
-      }
-      
-      if (!ubicacionMap.has(ubicacion)) {
-        ubicacionMap.set(ubicacion, { total: 0, optimo: 0, funcional: 0, potencialmente: 0, obsoleto: 0 });
-      }
-      
-      const stats = ubicacionMap.get(ubicacion)!;
-      stats.total++;
-      
-      const p = Number(activo.puntaje);
-      if (p >= 100) stats.optimo++;
-      else if (p >= 60 && p < 100) stats.funcional++;
-      else if (p > 0 && p < 60) stats.potencialmente++;
-      else stats.obsoleto++; // Incluye null, undefined y 0
-    });
-    
-    this.estadisticasPorUbicacion = Array.from(ubicacionMap.entries()).map(([ubicacion, stats]) => ({
-      ubicacion,
-      total: stats.total,
-      distribucion: {
-        optimo: stats.optimo,
-        funcional: stats.funcional,
-        potencialmente: stats.potencialmente,
-        obsoleto: stats.obsoleto
-      }
-    }));
-    
-    this.estadisticasPorUbicacion.sort((a, b) => b.total - a.total);
-    this.updateBarChartData();
-    this.isLoadingBarChart = false;
+    this.reloadStats$.next();
   }
 
 
@@ -736,13 +676,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   /**
    * Obtener severity del tag según puntaje
    */
-  getPuntajeSeverity(puntaje: number): 'success' | 'info' | 'warn' | 'danger' {
-    const p = Number(puntaje);
-    if (!p || p === 0) return 'danger';
-    if (p >= 100) return 'success';
-    if (p >= 60 && p < 100) return 'info';
-    if (p > 0 && p < 60) return 'warn';
-    return 'danger';
+  getPuntajeSeverity(puntaje: number): TagSeverity {
+    return clasificarPuntaje(puntaje).severity;
   }
 
   /**
@@ -818,44 +753,10 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Cargar activos para matriz completa
+   * Cargar activos para matriz completa (dispara el flujo con cancelación de la petición previa)
    */
   loadActivosMatrizCompleta(): void {
-    this.isLoadingMatrizCompleta = true;
-
-    const filtros: FiltrosActivos = {
-      page: this.currentPageCompleta,
-      per_page: this.rowsPerPageCompleta
-    };
-
-    if (this.searchTermTodos) {
-      filtros.search = this.searchTermTodos;
-    }
-
-    // Aplicar filtros usando las mismas variables del dashboard
-    if (this.selectedEmpresa) {
-      filtros.empresa_id = this.selectedEmpresa;
-    }
-    if (this.selectedSucursal) {
-      filtros.sucursal_id = this.selectedSucursal;
-    }
-    if (this.selectedSede) {
-      filtros.sede_id = this.selectedSede;
-    }
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
-      next: (response) => {
-        this.activosMatrizCompleta = response.data || [];
-        this.totalRecordsCompleta = response.total || 0;
-        this.isLoadingMatrizCompleta = false;
-      },
-      error: (error) => {
-        console.error('Error cargando matriz completa:', error);
-        this.showError('Error al cargar los activos para la matriz completa');
-        this.isLoadingMatrizCompleta = false;
-        this.activosMatrizCompleta = [];
-      }
-    });
+    this.reloadMatrizCompleta$.next();
   }
 
   /**
@@ -915,7 +816,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       filtros.search = this.searchTermTodos;
     }
 
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
+    this.activosService.getActivosPorPermisos(filtros).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         if (response.success && response.data && response.data.length > 0) {
           this.generarExcel(response.data);
@@ -944,7 +845,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     if (this.selectedSede)      filtros.sede_id      = this.selectedSede;
     if (this.searchTermTodos)   filtros.search       = this.searchTermTodos;
 
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
+    this.activosService.getActivosPorPermisos(filtros).pipe(takeUntil(this.destroy$)).subscribe({
       next: async (response) => {
         if (!response.success || !response.data?.length) {
           this.showWarn('No hay datos para exportar');
@@ -953,12 +854,15 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
         const activos = response.data;
 
+        const contarPorEstado = (estado: string) =>
+          activos.filter(a => clasificarPuntaje(a.puntaje).key === estado).length;
+
         const stats = [
           { label: 'Total Activos',   value: activos.length },
-          { label: 'Óptimo',          value: activos.filter(a => Number(a.puntaje) >= 100).length },
-          { label: 'Funcional',       value: activos.filter(a => { const p = Number(a.puntaje); return p >= 60 && p < 100; }).length },
-          { label: 'Potencializar',   value: activos.filter(a => { const p = Number(a.puntaje); return p > 0 && p < 60; }).length },
-          { label: 'Obsoleto',        value: activos.filter(a => !a.puntaje || Number(a.puntaje) === 0).length },
+          { label: 'Óptimo',          value: contarPorEstado('optimo') },
+          { label: 'Funcional',       value: contarPorEstado('funcional') },
+          { label: 'Potencializar',   value: contarPorEstado('potencial') },
+          { label: 'Obsoleto',        value: contarPorEstado('obsoleto') },
         ];
 
         const columns = [
@@ -1170,7 +1074,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.camposEditables = {
       ubicacion: activo.ubicacion || '',
       tipo_unidad: (activo.detalle as any)?.tipo_unidad || '',
-      fecha_compra: (activo.detalle as any)?.fecha_compra || '',
+      fecha_compra: this.parseFechaCompra((activo.detalle as any)?.fecha_compra),
       modalidad: (activo.detalle as any)?.modalidad || '',
       proveedor: (activo.detalle as any)?.proveedor || '',
       max_ram: (activo.detalle as any)?.max_ram || null
@@ -1268,13 +1172,13 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     
     const proc = procesador.toLowerCase();
     if (proc.includes('i7') || proc.includes('i9') || proc.includes('ryzen 7') || proc.includes('ryzen 9')) {
-      return 'Sin Datos';
+      return 'Excelente';
     }
     if (proc.includes('i5') || proc.includes('ryzen 5')) {
-      return 'Sin Datos';
+      return 'Bueno';
     }
     if (proc.includes('i3') || proc.includes('ryzen 3')) {
-      return 'Sin Datos';
+      return 'Regular';
     }
     return 'Básico';
   }
@@ -1299,163 +1203,58 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Obtener concepto corto según puntaje (para tag)
    */
   getConceptoCorto(puntaje: number): string {
-    const p = Number(puntaje);
-    if (!p || p === 0) return 'Obsoleto';
-    if (p > 0 && p < 60) return 'Potencializar';
-    if (p >= 60 && p < 100) return 'Funcional';
-    if (p >= 100) return 'Óptimo';
-    return 'Sin clasificar';
+    return clasificarPuntaje(puntaje).label;
   }
 
   /**
-   * Obtener severity para valoraciones
+   * Obtener severity para valoraciones textuales
    */
-  getValoracionSeverity(valoracion: string): 'success' | 'info' | 'warn' | 'danger' {
-    if (!valoracion) return 'info';
-    
-    const val = valoracion.toLowerCase();
-    if (val.includes('excelente') || val.includes('muy bueno')) return 'success';
-    if (val.includes('bueno') || val.includes('aceptable')) return 'info';
-    if (val.includes('regular') || val.includes('medio')) return 'warn';
-    return 'danger';
+  getValoracionSeverity(valoracion: string): TagSeverity {
+    return severityValoracionTexto(valoracion);
   }
 
   /**
-   * Obtener valoración de edad formateada para la tabla
+   * Valoración de edad formateada / severity para la tabla
    */
   getValoracionEdadFormateada(activo: ActivoMatriz): string {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_edad');
-    
-    // Si hay valoración y es numérica, mostrarla
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      // Verificar si es un número
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return numValue.toString();
-      }
-      // Si no es número pero tiene valor, mostrarlo
-      return valoracion;
-    }
-    
-    // Si no hay datos, mostrar "Sin datos"
-    return 'Sin datos';
+    return formatValoracion(this.getDetalleProperty(activo, 'valoracion_edad'));
   }
 
-  /**
-   * Obtener severity para valoración de edad
-   */
   getValoracionEdadSeverity(activo: ActivoMatriz): 'success' | 'danger' {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_edad');
-    
-    // Si hay valoración y es numérica, verde
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return 'success';
-      }
-    }
-    
-    // Si no hay datos, rojo
-    return 'danger';
+    return severityValoracionNumerica(this.getDetalleProperty(activo, 'valoracion_edad'));
   }
 
   /**
-   * Obtener valoración de RAM formateada para la tabla
+   * Valoración de RAM formateada / severity para la tabla
    */
   getValoracionRAMFormateada(activo: ActivoMatriz): string {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_ram');
-    
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return numValue.toString();
-      }
-      return valoracion;
-    }
-    
-    return 'Sin datos';
+    return formatValoracion(this.getDetalleProperty(activo, 'valoracion_ram'));
   }
 
-  /**
-   * Obtener severity para valoración de RAM
-   */
   getValoracionRAMSeverity(activo: ActivoMatriz): 'success' | 'danger' {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_ram');
-    
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return 'success';
-      }
-    }
-    
-    return 'danger';
+    return severityValoracionNumerica(this.getDetalleProperty(activo, 'valoracion_ram'));
   }
 
   /**
-   * Obtener valoración de Procesador formateada para la tabla
+   * Valoración de Procesador formateada / severity para la tabla
    */
   getValoracionProcesadorFormateada(activo: ActivoMatriz): string {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_procesador');
-    
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return numValue.toString();
-      }
-      return valoracion;
-    }
-    
-    return 'Sin datos';
+    return formatValoracion(this.getDetalleProperty(activo, 'valoracion_procesador'));
   }
 
-  /**
-   * Obtener severity para valoración de Procesador
-   */
   getValoracionProcesadorSeverity(activo: ActivoMatriz): 'success' | 'danger' {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_procesador');
-    
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return 'success';
-      }
-    }
-    
-    return 'danger';
+    return severityValoracionNumerica(this.getDetalleProperty(activo, 'valoracion_procesador'));
   }
 
   /**
-   * Obtener valoración de Disco formateada para la tabla
+   * Valoración de Disco formateada / severity para la tabla
    */
   getValoracionDiscoFormateada(activo: ActivoMatriz): string {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_disco');
-    
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return numValue.toString();
-      }
-      return valoracion;
-    }
-    
-    return 'Sin datos';
+    return formatValoracion(this.getDetalleProperty(activo, 'valoracion_disco'));
   }
 
-  /**
-   * Obtener severity para valoración de Disco
-   */
   getValoracionDiscoSeverity(activo: ActivoMatriz): 'success' | 'danger' {
-    const valoracion = this.getDetalleProperty(activo, 'valoracion_disco');
-    
-    if (valoracion !== null && valoracion !== undefined && valoracion !== '') {
-      const numValue = parseFloat(valoracion);
-      if (!isNaN(numValue)) {
-        return 'success';
-      }
-    }
-    
-    return 'danger';
+    return severityValoracionNumerica(this.getDetalleProperty(activo, 'valoracion_disco'));
   }
 
   /**
@@ -1476,7 +1275,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       return;
     }
     
-    const url = `http://aqsolutions.tech/front/computer.form.php?id=${idActivoGlpi}`;
+    const url = `${environment.URL_GLPI}/front/computer.form.php?id=${idActivoGlpi}`;
     window.open(url, '_blank');
   }
 
@@ -1497,7 +1296,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       ubicacion: this.camposEditables.ubicacion,
       detalle: {
         tipo_unidad: this.camposEditables.tipo_unidad,
-        fecha_compra: this.camposEditables.fecha_compra,
+        fecha_compra: this.formatFechaCompraParaApi(this.camposEditables.fecha_compra),
         modalidad: this.camposEditables.modalidad,
         proveedor: this.camposEditables.proveedor,
         max_ram: this.camposEditables.max_ram
@@ -1505,7 +1304,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     };
 
     // Llamar al servicio para actualizar
-    this.activosService.actualizarActivo(datosActualizar).subscribe({
+    this.activosService.actualizarActivo(datosActualizar).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
         if (response.success) {
           this.showSuccess('Activo actualizado correctamente. Recalculando valores...');
@@ -1550,7 +1349,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.parametrosService.ejecutarCalculos({
       activo_id: activoId,
       force: true
-    }).subscribe({
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
         this.isSavingMatriz = false;
         
@@ -1558,7 +1357,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
           this.showSuccess('Valores recalculados correctamente');
           
           // Recargar el activo actualizado desde el servidor
-          this.activosService.getActivo(activoId).subscribe({
+          this.activosService.getActivo(activoId).pipe(takeUntil(this.destroy$)).subscribe({
             next: (activoResponse: any) => {
               if (activoResponse.success && activoResponse.data) {
                 // Actualizar el activo seleccionado con los datos recalculados
@@ -1572,7 +1371,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
                   this.camposEditables = {
                     ubicacion: this.activoSeleccionado.ubicacion || '',
                     tipo_unidad: (this.activoSeleccionado.detalle as any)?.tipo_unidad || '',
-                    fecha_compra: (this.activoSeleccionado.detalle as any)?.fecha_compra || '',
+                    fecha_compra: this.parseFechaCompra((this.activoSeleccionado.detalle as any)?.fecha_compra),
                     modalidad: (this.activoSeleccionado.detalle as any)?.modalidad || '',
                     proveedor: (this.activoSeleccionado.detalle as any)?.proveedor || '',
                     max_ram: (this.activoSeleccionado.detalle as any)?.max_ram || null
@@ -1633,24 +1432,14 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Obtener clase CSS según puntaje
    */
   getPuntajeClass(puntaje: number): string {
-    const p = Number(puntaje);
-    if (!p || p === 0) return 'obsoleto';
-    if (p >= 100) return 'optimo';
-    if (p >= 60 && p < 100) return 'funcional';
-    if (p > 0 && p < 60) return 'potencial';
-    return 'obsoleto';
+    return clasificarPuntaje(puntaje).cssClass;
   }
 
   /**
    * Obtener estado textual según puntaje
    */
   getPuntajeEstado(puntaje: number): string {
-    const p = Number(puntaje);
-    if (!p || p === 0) return 'Obsoleto';
-    if (p > 0 && p < 60) return 'Potencializar';
-    if (p >= 60 && p < 100) return 'Funcional';
-    if (p >= 100) return 'Óptimo';
-    return 'Sin clasificar';
+    return clasificarPuntaje(puntaje).label;
   }
 
   /**
@@ -1740,7 +1529,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       batch_size: 50,
       force: true, // Recalcular todo
       solo_nuevos: false
-    }).subscribe({
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.isCalculatingValues = false;
         
@@ -1818,15 +1607,25 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Abrir modal con equipos filtrados por ubicación
+   * Abrir modal con equipos filtrados por ubicación.
+   * Filtra por IDs (FK indexada) en lugar del nombre con LIKE, evitando
+   * el escaneo completo de tablas y acelerando notablemente la carga.
    */
-  abrirModalEquiposPorUbicacion(ubicacion: string): void {
-    this.tituloModalEquipos = `Equipos en: ${ubicacion}`;
-    this.filtroActualModal = {
-      ubicacion: ubicacion
-      // NO incluir empresa_id, sucursal_id, sede_id aquí
-      // porque la ubicación ya contiene esa información
-    };
+  abrirModalEquiposPorUbicacion(stat: any): void {
+    this.tituloModalEquipos = `Equipos en: ${stat?.ubicacion ?? ''}`;
+
+    const filtro: any = {};
+    if (stat?.empresa_id != null) {
+      filtro.empresa_id = stat.empresa_id;
+      if (stat.sucursal_id != null) {
+        filtro.sucursal_id = stat.sucursal_id;
+      }
+    } else {
+      // Barra "Sin empresa": activos sin empresa asignada
+      filtro.sin_empresa = true;
+    }
+
+    this.filtroActualModal = filtro;
     this.currentPageModal = 1;
     this.cargarEquiposFiltrados();
     this.mostrarModalEquipos = true;
@@ -1836,33 +1635,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Cargar equipos filtrados para el modal
    */
   cargarEquiposFiltrados(): void {
-    this.isLoadingModalEquipos = true;
-
-    const filtros = {
-      ...this.filtroActualModal,
-      page: this.currentPageModal,
-      per_page: this.rowsPerPageModal
-    };
-
-    this.parametrosService.getEquiposPorFiltro(filtros).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.equiposFiltrados = response.data;
-          this.totalRecordsModal = response.total || 0;
-        } else {
-          this.equiposFiltrados = [];
-          this.totalRecordsModal = 0;
-        }
-        this.isLoadingModalEquipos = false;
-      },
-      error: (error) => {
-        console.error('Error cargando equipos filtrados:', error);
-        this.showError('Error al cargar los equipos');
-        this.equiposFiltrados = [];
-        this.totalRecordsModal = 0;
-        this.isLoadingModalEquipos = false;
-      }
-    });
+    this.reloadEquiposModal$.next();
   }
 
   /**
@@ -1897,7 +1670,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
 
     const filtros = { ...this.filtroActualModal, per_page: 9999, page: 1 };
 
-    this.parametrosService.getEquiposPorFiltro(filtros).subscribe({
+    this.parametrosService.getEquiposPorFiltro(filtros).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
         const datos = response?.data || [];
 
@@ -1943,90 +1716,60 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Limpiar recursos al destruir el componente
    */
   ngOnDestroy(): void {
-    // Limpieza si es necesaria
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /**
-   * Cargar lista de empresas desde los activos disponibles
+   * Cargar lista de empresas disponibles (según permisos) para el dropdown
    */
   loadEmpresas(): void {
-    this.loadEntidadesDesdeActivos('empresa', {});
-  }
-
-  /**
-   * Cargar sucursales por empresa desde los activos disponibles
-   */
-  loadSucursalesPorEmpresa(empresaId: number): void {
-    this.loadEntidadesDesdeActivos('sucursal', { empresa_id: empresaId });
-  }
-
-  /**
-   * Cargar sedes por sucursal desde los activos disponibles
-   */
-  loadSedesPorSucursal(sucursalId: number): void {
-    this.loadEntidadesDesdeActivos('sede', { 
-      empresa_id: this.selectedEmpresa!, 
-      sucursal_id: sucursalId 
+    this.activosService.getOpcionesFiltro('empresa').pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        const lista = response.data || [];
+        this.empresasList = lista;
+        this.empresasOptions = lista.map(item => ({ label: item.nombre, value: item.id }));
+      },
+      error: (error) => {
+        console.error('Error cargando empresas:', error);
+        this.showError('Error al cargar las empresas');
+      }
     });
   }
 
   /**
-   * Método genérico para cargar entidades desde activos
+   * Cargar sucursales de una empresa para el dropdown
    */
-  private loadEntidadesDesdeActivos(tipo: 'empresa' | 'sucursal' | 'sede', filtrosExtra: any): void {
-    const filtros: FiltrosActivos = {
-      per_page: 9999,
-      ...filtrosExtra
-    };
-
-    this.activosService.getActivosPorPermisos(filtros).subscribe({
+  loadSucursalesPorEmpresa(empresaId: number): void {
+    this.activosService.getOpcionesFiltro('sucursal', { empresa_id: empresaId }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
-        if (response.success && response.data) {
-          const activos = response.data;
-          const entidadesMap = new Map<number, { id: number; nombre: string }>();
-          
-          activos.forEach(activo => {
-            const entidad = tipo === 'empresa' ? activo.empresa : 
-                          tipo === 'sucursal' ? activo.sucursal : 
-                          activo.sede;
-            const idKey = tipo === 'empresa' ? activo.id_empresa : 
-                        tipo === 'sucursal' ? activo.id_sucursal : 
-                        activo.id_sede;
-            
-            if (entidad && idKey) {
-              if (!entidadesMap.has(idKey)) {
-                entidadesMap.set(idKey, {
-                  id: idKey,
-                  nombre: entidad.nombre
-                });
-              }
-            }
-          });
-          
-          const lista = Array.from(entidadesMap.values())
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
-          
-          const opciones = lista.map(item => ({
-            label: item.nombre,
-            value: item.id
-          }));
-
-          // Asignar a las propiedades correspondientes
-          if (tipo === 'empresa') {
-            this.empresasList = lista;
-            this.empresasOptions = opciones;
-          } else if (tipo === 'sucursal') {
-            this.sucursalesList = lista;
-            this.sucursalesOptions = opciones;
-          } else {
-            this.sedesList = lista;
-            this.sedesOptions = opciones;
-          }
-        }
+        const lista = response.data || [];
+        this.sucursalesList = lista;
+        this.sucursalesOptions = lista.map(item => ({ label: item.nombre, value: item.id }));
       },
       error: (error) => {
-        console.error(`Error cargando ${tipo}s:`, error);
-        this.showError(`Error al cargar las ${tipo}s`);
+        console.error('Error cargando sucursales:', error);
+        this.showError('Error al cargar las sucursales');
+      }
+    });
+  }
+
+  /**
+   * Cargar sedes de una sucursal para el dropdown
+   */
+  loadSedesPorSucursal(sucursalId: number): void {
+    this.activosService.getOpcionesFiltro('sede', {
+      empresa_id: this.selectedEmpresa ?? undefined,
+      sucursal_id: sucursalId
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        const lista = response.data || [];
+        this.sedesList = lista;
+        this.sedesOptions = lista.map(item => ({ label: item.nombre, value: item.id }));
+      },
+      error: (error) => {
+        console.error('Error cargando sedes:', error);
+        this.showError('Error al cargar las sedes');
       }
     });
   }
@@ -2146,7 +1889,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     
     activo.isSyncing = true;
 
-    this.parametrosService.sincronizarActivoEspecifico(activo.id_activo_glpi).subscribe({
+    this.parametrosService.sincronizarActivoEspecifico(activo.id_activo_glpi).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         activo.isSyncing = false;
         
@@ -2219,7 +1962,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     };
 
     // Guardar en el backend
-    this.activosService.actualizarActivo(datosActualizar).subscribe({
+    this.activosService.actualizarActivo(datosActualizar).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
         if (response.success) {
           delete this.clonedActivos[activo.id.toString()];
@@ -2248,5 +1991,29 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     }
     delete this.clonedActivos[activo.id.toString()];
     this.editingMaxRamId = null;
+  }
+
+  /**
+   * Convierte fecha de BD a Date para p-calendar
+   */
+  private parseFechaCompra(fecha: string | Date | null | undefined): Date | null {
+    if (!fecha) return null;
+    if (fecha instanceof Date) return isNaN(fecha.getTime()) ? null : fecha;
+
+    // Soporta formato yyyy-mm-dd y fechas ISO completas
+    const parsed = new Date(fecha);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  /**
+   * Convierte Date a yyyy-mm-dd para enviar al backend
+   */
+  private formatFechaCompraParaApi(fecha: Date | null): string | null {
+    if (!fecha) return null;
+
+    const year = fecha.getFullYear();
+    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+    const day = String(fecha.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

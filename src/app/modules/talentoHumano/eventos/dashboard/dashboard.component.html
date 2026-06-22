@@ -16,28 +16,25 @@
           <i class="pi pi-calendar me-2"></i>
           Eventos Laborales
         </h1>
-        <p class="page-subtitle-modern">Configuración y gestión de eventos del personal</p>
+        <p class="page-subtitle-modern">gestión de eventos del personal</p>
       </div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs-nav">
-      <button class="tab-btn" [class.active]="activeTab === 'cargue'" (click)="setTab('cargue')">
-        <i class="pi pi-upload me-2"></i>Cargue
+      <button class="tab-btn" [class.active]="activeTab === 'Solicitar Evento'" (click)="setTab('Solicitar Evento')">
+        <i class="bi bi-envelope-paper me-2"></i>Solicitar Evento
       </button>
       <button class="tab-btn" [class.active]="activeTab === 'gestionar'" (click)="setTab('gestionar')">
         <i class="pi pi-list me-2"></i>Gestionar
-      </button>
-      <button class="tab-btn" [class.active]="activeTab === 'configuracion'" (click)="setTab('configuracion')">
-        <i class="pi pi-cog me-2"></i>Configuración
       </button>
     </div>
   </div>
 
   <div class="dashboard-content">
 
-    <!-- ===== Tab: Cargue ===== -->
-    <ng-container *ngIf="activeTab === 'cargue'">
+    <!-- ===== Tab: Solicitar Evento ===== -->
+    <ng-container *ngIf="activeTab === 'Solicitar Evento'">
 
       <!-- Filtros -->
       <div class="section-card mb-3">
@@ -59,6 +56,7 @@
                 [showClear]="true"
                 optionLabel="label"
                 optionValue="value"
+                [appendTo]="'body'"
                 styleClass="w-100">
               </p-dropdown>
             </div>
@@ -82,7 +80,7 @@
         </div>
       </div>
 
-      <!-- Tabla Cargue -->
+      <!-- Solicitudes de Novedades -->
       <div class="section-card">
         <div class="section-card-header">
           <h2 class="section-card-title">Solicitudes de Novedades</h2>
@@ -114,19 +112,29 @@
             <ng-template pTemplate="body" let-nov>
               <tr>
                 <td>{{ nov.consecutivo }}</td>
-                <td>{{ nov.empleado }}</td>
-                <td>{{ nov.aprobador || '—' }}</td>
+                <td>{{ nov.empleado?.nombre || nov.empleado || '—' }}</td>
+                <td>{{ nov.aprobador_pendiente || nov.aprobador?.nombre || nov.aprobador || '—' }}</td>
                 <td>{{ nov.unidad_funcional || '—' }}</td>
-                <td>{{ nov.fecha_inicial }}</td>
-                <td>{{ nov.fecha_final }}</td>
-                <td><p-tag [value]="nov.estado | titlecase" [severity]="getEstadoSeverity(nov.estado)"></p-tag></td>
+                <td>{{ formatearFecha(nov.fecha_nov_ini) }}</td>
+                <td>{{ formatearFecha(nov.fecha_nov_fin) }}</td>
+                <td><p-tag [value]="getEstadoLabel(nov.estado)" [severity]="getEstadoSeverity(nov.estado)"></p-tag></td>
                 <td>
                   <div class="action-buttons">
-                    <button class="btn-action-icon btn-action-primary" pTooltip="Editar" tooltipPosition="top" (click)="editarNovedad(nov)">
+                    <button
+                      class="btn-action-icon btn-action-primary"
+                      [pTooltip]="puedeGestionarSolicitud(nov) ? 'Editar' : 'Solo disponible en estado Registrado'"
+                      tooltipPosition="top"
+                      [disabled]="!puedeGestionarSolicitud(nov)"
+                      (click)="editarNovedad(nov)">
                       <i class="pi pi-pencil"></i>
                     </button>
-                    <button class="btn-action-icon btn-action-danger" pTooltip="Eliminar" tooltipPosition="top" (click)="eliminarNovedad(nov)">
-                      <i class="pi pi-trash"></i>
+                    <button
+                      class="btn-action-icon btn-action-danger"
+                      [pTooltip]="puedeGestionarSolicitud(nov) ? 'Anular' : 'Solo disponible en estado Registrado'"
+                      tooltipPosition="top"
+                      [disabled]="!puedeGestionarSolicitud(nov)"
+                      (click)="anularNovedad(nov)">
+                      <i class="pi pi-ban"></i>
                     </button>
                   </div>
                 </td>
@@ -158,96 +166,81 @@
     <ng-container *ngIf="activeTab === 'gestionar'">
       <div class="section-card">
         <div class="section-card-header">
-          <h2 class="section-card-title"><i class="pi pi-list me-2"></i>Gestión de Eventos</h2>
+          <h2 class="section-card-title"><i class="pi pi-inbox me-2"></i>Bandeja de Aprobaciones</h2>
+          <div class="d-flex gap-2">
+            <input type="text" pInputText [(ngModel)]="searchPendientes"
+              (keyup.enter)="loadPendientes()"
+              placeholder="Buscar por empleado, consecutivo...">
+            <button class="btn-action btn-action-secondary" (click)="loadPendientes()">
+              <i class="pi pi-refresh"></i>Actualizar
+            </button>
+          </div>
         </div>
         <div class="modern-table-container">
           <p-table
-            [value]="[]"
+            [value]="pendientes"
+            [loading]="isLoadingPendientes"
             [paginator]="true"
             [rows]="10"
             [showCurrentPageReport]="true"
-            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} registros"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} pendientes"
             styleClass="modern-table">
 
             <ng-template pTemplate="header">
               <tr>
                 <th>Consecutivo</th>
                 <th>Empleado</th>
-                <th>Tipo Evento</th>
-                <th>Fecha</th>
+                <th>U. Funcional</th>
+                <th>Paso actual</th>
+                <th>Inicio</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </ng-template>
 
-            <ng-template pTemplate="emptymessage">
+            <ng-template pTemplate="body" let-ev>
               <tr>
-                <td colspan="6" class="text-center py-5">
-                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
-                  <p class="text-muted mt-3 mb-1">No hay eventos registrados</p>
-                  <small class="text-muted">Los eventos gestionados aparecerán aquí</small>
+                <td>{{ ev.consecutivo }}</td>
+                <td>{{ ev.empleado?.nombre || ev.empleado || '—' }}</td>
+                <td>{{ ev.unidad_funcional || '—' }}</td>
+                <td><span class="badge bg-secondary">{{ ev.paso_actual || '—' }}</span></td>
+                <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
+                <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn-action-icon btn-action-success" pTooltip="Aprobar" tooltipPosition="top"
+                      [disabled]="isProcesando" (click)="aprobarEvento(ev)">
+                      <i class="pi pi-check"></i>
+                    </button>
+                    <button class="btn-action-icon btn-action-danger" pTooltip="Rechazar" tooltipPosition="top"
+                      [disabled]="isProcesando" (click)="abrirRechazo(ev)">
+                      <i class="pi pi-times"></i>
+                    </button>
+                    <button class="btn-action-icon btn-action-primary" pTooltip="Historial" tooltipPosition="top"
+                      (click)="verHistorial(ev)">
+                      <i class="pi pi-history"></i>
+                    </button>
+                  </div>
                 </td>
               </tr>
             </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="7" class="text-center py-5">
+                  <i class="pi pi-check-circle" style="font-size: 3rem; color: #9ca3af;"></i>
+                  <p class="text-muted mt-3 mb-1">No tienes eventos pendientes</p>
+                  <small class="text-muted">Aquí aparecen los eventos que puedes aprobar o rechazar</small>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="loadingbody">
+              <tr *ngFor="let i of [1,2,3,4,5]">
+                <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
+              </tr>
+            </ng-template>
           </p-table>
-        </div>
-      </div>
-    </ng-container>
-
-    <!-- ===== Tab: Configuración ===== -->
-    <ng-container *ngIf="activeTab === 'configuracion'">
-      <div class="section-card">
-        <div class="section-card-header">
-          <h2 class="section-card-title"><i class="pi pi-cog me-2"></i>Configuración de Eventos</h2>
-        </div>
-        <div class="section-card-body">
-          <div class="config-grid">
-
-            <div class="config-item">
-              <div class="config-icon config-icon-blue"><i class="pi pi-tag"></i></div>
-              <div class="config-info">
-                <h3 class="config-title">Tipos de Novedad</h3>
-                <p class="config-desc">Administra los tipos de novedades disponibles para los eventos laborales.</p>
-              </div>
-              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
-                <i class="pi pi-arrow-right"></i>
-              </button>
-            </div>
-
-            <div class="config-item">
-              <div class="config-icon config-icon-green"><i class="pi pi-users"></i></div>
-              <div class="config-info">
-                <h3 class="config-title">Aprobadores</h3>
-                <p class="config-desc">Define los aprobadores responsables de validar las solicitudes de eventos.</p>
-              </div>
-              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
-                <i class="pi pi-arrow-right"></i>
-              </button>
-            </div>
-
-            <div class="config-item">
-              <div class="config-icon config-icon-purple"><i class="pi pi-sitemap"></i></div>
-              <div class="config-info">
-                <h3 class="config-title">Unidades Funcionales</h3>
-                <p class="config-desc">Gestiona las unidades funcionales asociadas a los eventos del personal.</p>
-              </div>
-              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
-                <i class="pi pi-arrow-right"></i>
-              </button>
-            </div>
-
-            <div class="config-item">
-              <div class="config-icon config-icon-orange"><i class="pi pi-sliders-h"></i></div>
-              <div class="config-info">
-                <h3 class="config-title">Parámetros Generales</h3>
-                <p class="config-desc">Configura los parámetros globales que aplican a todos los eventos laborales.</p>
-              </div>
-              <button class="btn-action-icon btn-action-primary" pTooltip="Configurar" tooltipPosition="top">
-                <i class="pi pi-arrow-right"></i>
-              </button>
-            </div>
-
-          </div>
         </div>
       </div>
     </ng-container>
@@ -261,68 +254,277 @@
     [modal]="true"
     [closable]="true"
     [maximizable]="true"
-    [style]="{width: '680px'}"
-    styleClass="novedad-dialog">
+    [style]="{width: '900px', maxWidth: '95vw'}"
+    styleClass="novedad-dialog"
+    [breakpoints]="{'960px': '90vw', '640px': '95vw'}">
 
     <div class="solicitud-form-container">
 
-      <div class="form-section mb-3">
-        <h3 class="section-title"><i class="pi pi-user me-2"></i>Responsable de la Novedad</h3>
+      <!-- Empresa (solo visible si usuario es transversal/admin) -->
+      <div class="form-section mb-3" *ngIf="esTransversal">
         <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label">Empleado <span class="text-danger">*</span></label>
-            <p-dropdown [options]="empleadoOptions" [(ngModel)]="formData.empleado_id"
-              placeholder="Seleccione empleado" [filter]="true" filterPlaceholder="Buscar..."
-              styleClass="w-100" [ngModelOptions]="{standalone: true}">
-            </p-dropdown>
-            <small class="text-danger" *ngIf="submitted && !formData.empleado_id">Campo requerido</small>
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label">Aprobador</label>
-            <p-dropdown [options]="empleadoOptions" [(ngModel)]="formData.aprobador_id"
-              placeholder="Seleccione aprobador" [filter]="true" filterPlaceholder="Buscar..."
-              [showClear]="true" styleClass="w-100" [ngModelOptions]="{standalone: true}">
-            </p-dropdown>
-          </div>
           <div class="col-12">
-            <label class="form-label">Unidad Funcional</label>
-            <input type="text" pInputText [(ngModel)]="formData.unidad_funcional"
-              placeholder="Unidad funcional" class="w-100" [ngModelOptions]="{standalone: true}">
+            <label class="form-label">
+              <i class="pi pi-building me-1"></i>Empresa <span class="text-danger">*</span>
+            </label>
+            <p-dropdown
+              [options]="empresaOptions"
+              [(ngModel)]="formData.empresa_id"
+              placeholder="Seleccione empresa"
+              [filter]="true"
+              filterPlaceholder="Buscar empresa..."
+              styleClass="w-100"
+              [appendTo]="'body'"
+              [ngModelOptions]="{standalone: true}"
+              (onChange)="onEmpresaChange($event.value)">
+            </p-dropdown>
+            <small class="text-danger" *ngIf="submitted && esTransversal && !formData.empresa_id">
+              Campo requerido
+            </small>
           </div>
         </div>
       </div>
 
+      <!-- Responsable -->
       <div class="form-section mb-3">
-        <h3 class="section-title"><i class="pi pi-calendar me-2"></i>Período de la Novedad</h3>
+        <h3 class="section-title">
+          <i class="pi pi-user me-2"></i>
+          Responsable de la Novedad
+        </h3>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Empleado <span class="text-danger">*</span></label>
+            <p-dropdown
+              [options]="empleadoOptions"
+              [(ngModel)]="formData.empleado_id"
+              placeholder="Buscar por identificación o nombre…"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              filterPlaceholder="Escriba para buscar…"
+              [loading]="isLoadingEmpleados || isSearchingEmpleados"
+              styleClass="w-100"
+              [appendTo]="'body'"
+              [ngModelOptions]="{standalone: true}"
+              (onFilter)="onBuscarEmpleado($event)"
+              (onShow)="onPanelEmpleadoAbierto()">
+              <ng-template pTemplate="footer">
+                <div *ngIf="hayMasEmpleados" class="dropdown-footer-load-more">
+                  <button
+                    type="button"
+                    class="btn-load-more"
+                    [disabled]="isSearchingEmpleados"
+                    (click)="cargarMasEmpleados()">
+                    <i class="pi" [ngClass]="isSearchingEmpleados ? 'pi-spin pi-spinner' : 'pi-chevron-down'"></i>
+                    {{ isSearchingEmpleados ? 'Cargando…' : 'Cargar 500 más' }}
+                  </button>
+                </div>
+              </ng-template>
+            </p-dropdown>
+            <small class="text-muted d-block mt-1">Escriba mínimo 2 caracteres para buscar por identificación o nombre.</small>
+            <small class="text-danger" *ngIf="submitted && !formData.empleado_id">Campo requerido</small>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Unidad Funcional <span class="text-danger">*</span></label>
+            <p-dropdown
+              [options]="unidadFuncionalOptions"
+              [(ngModel)]="formData.unidad_funcional_id"
+              placeholder="Buscar por código o nombre…"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              filterPlaceholder="Escriba para buscar…"
+              [loading]="isLoadingUnidadesFuncionales || isSearchingUnidades"
+              [showClear]="true"
+              styleClass="w-100"
+              [appendTo]="'body'"
+              [ngModelOptions]="{standalone: true}"
+              (onFilter)="onBuscarUnidadFuncional($event)"
+              (onShow)="onPanelUnidadAbierto()"
+              (onChange)="actualizarPreviewFlujo()">
+              <ng-template pTemplate="footer">
+                <div *ngIf="hayMasUnidades" class="dropdown-footer-load-more">
+                  <button
+                    type="button"
+                    class="btn-load-more"
+                    [disabled]="isSearchingUnidades"
+                    (click)="cargarMasUnidades()">
+                    <i class="pi" [ngClass]="isSearchingUnidades ? 'pi-spin pi-spinner' : 'pi-chevron-down'"></i>
+                    {{ isSearchingUnidades ? 'Cargando…' : 'Cargar 500 más' }}
+                  </button>
+                </div>
+              </ng-template>
+            </p-dropdown>
+            <small class="text-muted d-block mt-1">Esta es la Unidad Funcional donde se realziar el Evento.</small>
+
+          </div>
+          <div class="col-12">
+            <label class="form-label">Novedad del Evento <span class="text-danger">*</span></label>
+            
+            <!-- Mensaje cuando no hay novedades para la empresa -->
+            <div *ngIf="sinNovedadesEmpresa && esTransversal && formData.empresa_id" class="alert alert-warning d-flex align-items-center">
+              <i class="pi pi-exclamation-triangle me-2"></i>
+              <span>Empresa sin parámetros de Novedades</span>
+            </div>
+            
+            <!-- Mensaje cuando no se ha seleccionado empresa (usuarios transversales) -->
+            <div *ngIf="esTransversal && !formData.empresa_id" class="alert alert-info d-flex align-items-center">
+              <i class="pi pi-info-circle me-2"></i>
+              <span>Seleccione una empresa para ver las novedades disponibles</span>
+            </div>
+            
+            <!-- Dropdown de novedades -->
+            <p-dropdown
+              *ngIf="!sinNovedadesEmpresa && (!esTransversal || formData.empresa_id)"
+              [options]="novedadOptions"
+              [(ngModel)]="formData.novedad_id"
+              placeholder="Seleccione la Novedad del Evento"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterPlaceholder="Buscar..."
+              styleClass="w-150"
+              [appendTo]="'body'"
+              [ngModelOptions]="{standalone: true}"
+              (onChange)="onNovedadChange($event)">
+            </p-dropdown>
+            
+            <small class="text-danger" *ngIf="submitted && !formData.novedad_id && !sinNovedadesEmpresa">Campo requerido</small>
+          </div>
+          <div class="col-12" *ngIf="novedadSeleccionadaCubre">
+            <label class="form-label">
+              Empleado a Cubrir Evento <span class="text-danger">*</span>
+            </label>
+            <p-dropdown
+              [options]="empleadoCubreOptions"
+              [(ngModel)]="formData.empleado_cubre_id"
+              placeholder="Buscar por identificación o nombre…"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              filterPlaceholder="Escriba para buscar…"
+              [loading]="isLoadingEmpleadosCubre || isSearchingEmpleadosCubre"
+              [showClear]="true"
+              styleClass="w-100"
+              [appendTo]="'body'"
+              [ngModelOptions]="{standalone: true}"
+              (onFilter)="onBuscarEmpleadoCubre($event)"
+              (onShow)="onPanelEmpleadoCubreAbierto()">
+              <ng-template pTemplate="footer">
+                <div *ngIf="hayMasEmpleadosCubre" class="dropdown-footer-load-more">
+                  <button
+                    type="button"
+                    class="btn-load-more"
+                    [disabled]="isSearchingEmpleadosCubre"
+                    (click)="cargarMasEmpleadosCubre()">
+                    <i class="pi" [ngClass]="isSearchingEmpleadosCubre ? 'pi-spin pi-spinner' : 'pi-chevron-down'"></i>
+                    {{ isSearchingEmpleadosCubre ? 'Cargando…' : 'Cargar 500 más' }}
+                  </button>
+                </div>
+              </ng-template>
+            </p-dropdown>
+            <small class="text-muted d-block mt-1">Escriba mínimo 2 caracteres para buscar por identificación o nombre.</small>
+            <small class="text-danger" *ngIf="submitted && novedadSeleccionadaCubre && !formData.empleado_cubre_id">
+              Campo requerido
+            </small>
+          </div>
+
+          <!-- Preview del flujo de aprobación -->
+          <div class="col-12" *ngIf="formData.unidad_funcional_id">
+            <div class="flujo-preview">
+              <div class="d-flex align-items-center mb-2">
+                <i class="pi pi-sitemap me-2"></i>
+                <strong>Flujo de aprobación</strong>
+                <span *ngIf="isLoadingFlujo" class="ms-2"><i class="pi pi-spin pi-spinner"></i></span>
+              </div>
+
+              <div *ngIf="!isLoadingFlujo && flujoPreview" class="flujo-steps">
+                <span class="text-muted small d-block mb-2">{{ flujoPreview.nombre }}</span>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <span class="badge bg-light text-dark border">Solicitar</span>
+                  <ng-container *ngFor="let paso of flujoPreview.pasos">
+                    <i class="pi pi-arrow-right text-muted"></i>
+                    <span class="badge bg-info-subtle text-dark border">{{ paso.nombre_paso }}</span>
+                  </ng-container>
+                </div>
+                <div class="flujo-intervinientes small">
+                  <div *ngFor="let paso of flujoPreview.pasos" class="mb-1">
+                    <strong>{{ paso.nombre_paso }}:</strong>
+                    <span class="text-muted ms-1">{{ paso.intervinientes_texto || 'Sin intervinientes configurados' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div *ngIf="!isLoadingFlujo && !flujoPreview" class="alert alert-warning mb-0 py-2 px-3">
+                <i class="pi pi-exclamation-triangle me-1"></i>
+                No hay un flujo configurado para esta unidad funcional. El evento quedará registrado sin aprobación automática.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fechas -->
+      <div class="form-section mb-3">
+        <h3 class="section-title">
+          <i class="pi pi-calendar me-2"></i>
+          Período de la Novedad
+        </h3>
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <label class="form-label">Inicio <span class="text-danger">*</span></label>
-            <p-calendar [(ngModel)]="formData.fecha_inicial" dateFormat="dd/mm/yy"
-              [showTime]="true" hourFormat="24" [showIcon]="true" [appendTo]="'body'"
-              styleClass="w-100" [ngModelOptions]="{standalone: true}" (onSelect)="validarFechas()">
+            <p-calendar
+              [(ngModel)]="formData.fecha_inicial"
+              dateFormat="dd/mm/yy"
+              [showTime]="true"
+              hourFormat="24"
+              [showIcon]="true"
+              [appendTo]="'body'"
+              styleClass="w-100"
+              [ngModelOptions]="{standalone: true}"
+              (onSelect)="validarFechas()">
             </p-calendar>
             <small class="text-danger" *ngIf="submitted && !formData.fecha_inicial">Campo requerido</small>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Fin <span class="text-danger">*</span></label>
-            <p-calendar [(ngModel)]="formData.fecha_final" dateFormat="dd/mm/yy"
-              [showTime]="true" hourFormat="24" [showIcon]="true" [appendTo]="'body'"
-              styleClass="w-100" [ngModelOptions]="{standalone: true}" (onSelect)="validarFechas()">
+            <p-calendar
+              [(ngModel)]="formData.fecha_final"
+              dateFormat="dd/mm/yy"
+              [showTime]="true"
+              hourFormat="24"
+              [showIcon]="true"
+              [appendTo]="'body'"
+              styleClass="w-100"
+              [ngModelOptions]="{standalone: true}"
+              (onSelect)="validarFechas()">
             </p-calendar>
             <small class="text-danger" *ngIf="submitted && !formData.fecha_final">Campo requerido</small>
           </div>
         </div>
         <div *ngIf="fechaInicialInvalida" class="nov-warning mt-2">
           <i class="pi pi-exclamation-triangle me-2"></i>
-          La fecha final no debe ser menor que la inicial.
+          ¡Precaución! La fecha final no debe ser menor que la inicial.
         </div>
       </div>
 
+      <!-- Descripción -->
       <div class="form-section">
-        <h3 class="section-title"><i class="pi pi-file-edit me-2"></i>Descripción</h3>
-        <textarea pInputText [(ngModel)]="formData.descripcion" rows="4"
+        <h3 class="section-title">
+          <i class="pi pi-file-edit me-2"></i>
+          Descripción de la Solicitud
+        </h3>
+        <textarea
+          pInputText
+          [(ngModel)]="formData.descripcion"
+          rows="4"
           placeholder="Describa brevemente el motivo de la solicitud"
-          class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
+          class="w-100"
+          [ngModelOptions]="{standalone: true}"
+          style="resize: vertical;">
         </textarea>
       </div>
 
@@ -333,12 +535,72 @@
         <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
           (onClick)="showFormDialog = false">
         </p-button>
-        <p-button [label]="editMode ? 'Actualizar' : 'Guardar'" icon="pi pi-send" severity="success"
-          (onClick)="onSubmit()" [loading]="isSubmitting">
+        <p-button 
+          [label]="editMode ? 'Actualizar Solicitud' : 'Realizar Solicitud'" 
+          icon="pi pi-send" 
+          severity="success"
+          (onClick)="onSubmit()" 
+          [loading]="isSubmitting"
+          [disabled]="fechaInicialInvalida || sinNovedadesEmpresa">
         </p-button>
       </div>
     </ng-template>
 
+  </p-dialog>
+
+  <!-- Dialog Rechazar evento -->
+  <p-dialog
+    header="Rechazar Evento"
+    [(visible)]="showRechazoDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{width: '480px', maxWidth: '95vw'}">
+    <div class="mb-2">
+      <label class="form-label">Motivo del rechazo <span class="text-danger">*</span></label>
+      <textarea pInputText [(ngModel)]="rechazoMotivo" rows="4"
+        placeholder="Indique el motivo (mínimo 3 caracteres)"
+        class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
+      </textarea>
+      <small class="text-danger" *ngIf="rechazoMotivo && rechazoMotivo.trim().length < 3">
+        El motivo debe tener al menos 3 caracteres
+      </small>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-end gap-2">
+        <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
+          (onClick)="showRechazoDialog = false"></p-button>
+        <p-button label="Rechazar" icon="pi pi-ban" severity="danger"
+          (onClick)="confirmarRechazo()" [loading]="isProcesando"
+          [disabled]="rechazoMotivo.trim().length < 3"></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Dialog Historial -->
+  <p-dialog
+    header="Historial del Evento"
+    [(visible)]="showHistorialDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{width: '620px', maxWidth: '95vw'}">
+    <div *ngIf="isLoadingHistorial" class="text-center py-4">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+    </div>
+    <div *ngIf="!isLoadingHistorial">
+      <p *ngIf="historial.length === 0" class="text-muted text-center py-3">
+        Sin movimientos registrados.
+      </p>
+      <ul class="list-group" *ngIf="historial.length > 0">
+        <li class="list-group-item" *ngFor="let h of historial">
+          <div class="d-flex justify-content-between">
+            <strong>{{ h.accion | titlecase }}</strong>
+            <small class="text-muted">{{ formatearFecha(h.fecha_accion) }}</small>
+          </div>
+          <div><small>Por: {{ h.user?.name || h.user?.nombre || 'Usuario ' + h.id_user }}</small></div>
+          <div *ngIf="h.comentario"><small class="text-muted">{{ h.comentario }}</small></div>
+        </li>
+      </ul>
+    </div>
   </p-dialog>
 
 </div>

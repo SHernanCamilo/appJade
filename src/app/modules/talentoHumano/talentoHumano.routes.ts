@@ -16,11 +16,6 @@ export const TALENTOHUMANO_ROUTES: Routes = [
           .then(m => m.DashboardEventosComponent)
       },
       {
-        path: 'cargue',
-        loadComponent: () => import('./eventos/cargue/cargue.component')
-          .then(m => m.CargueEventosComponent)
-      },
-      {
         path: 'parametros',
         loadComponent: () => import('./eventos/parametros/parametros.component')
           .then(m => m.ParametrosEventosComponent)

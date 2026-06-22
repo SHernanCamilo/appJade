@@ -335,3 +335,27 @@
   font-size: 0.875rem;
   padding: 0.5rem;
 }
+
+/* ─── Lista novedades a vincular ─────────────────────────────────────────── */
+.vincular-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vincular-list-header {
+  background: #f3f4f6;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vincular-list-item {
+  padding: 0.55rem 1rem;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.9rem;
+  background: #fff;
+  transition: background 0.15s;
+}
+.vincular-list-item:hover { background: #f9fafb; }

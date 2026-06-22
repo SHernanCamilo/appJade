@@ -25,6 +25,9 @@
       <button class="tab-btn" [class.active]="activeTab === 'novedad'" (click)="setTab('novedad')">
         <i class="bi bi-book-half me-2"></i>Novedad
       </button>
+      <button class="tab-btn" [class.active]="activeTab === 'flujos'" (click)="setTab('flujos')">
+        <i class="pi pi-sitemap me-2"></i>Flujos
+      </button>
       <!-- <button class="tab-btn" [class.active]="activeTab === 'gestionar'" (click)="setTab('gestionar')">
         <i class="pi pi-list me-2"></i>Gestionar
       </button>
@@ -127,6 +130,89 @@
         </div>
       </div>
 
+    </ng-container>
+
+    <!-- ===== Tab: flujos ===== -->
+    <ng-container *ngIf="activeTab === 'flujos'">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title">Asignación de Flujos por Unidad Funcional</h2>
+          <button class="btn-action btn-action-primary" (click)="guardarFlujoPorUnidad()" [disabled]="isSavingFlujo">
+            <i class="pi pi-save"></i>{{ isSavingFlujo ? 'Guardando...' : 'Guardar Configuración' }}
+          </button>
+        </div>
+        <div class="section-card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-md-4">
+              <label class="form-label">Empresa <span class="text-danger">*</span></label>
+              <p-dropdown
+                [options]="empresaOptions"
+                [(ngModel)]="flujoEmpresaId"
+                placeholder="Seleccione empresa"
+                [filter]="true"
+                [showClear]="true"
+                styleClass="w-100"
+                [appendTo]="'body'"
+                [ngModelOptions]="{standalone: true}"
+                (onChange)="onEmpresaFlujoChange()">
+              </p-dropdown>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Unidad Funcional <span class="text-danger">*</span></label>
+              <p-dropdown
+                [options]="unidadFlujoOptions"
+                [(ngModel)]="flujoUnidadId"
+                placeholder="Seleccione unidad funcional"
+                [filter]="true"
+                [showClear]="true"
+                [loading]="isLoadingFlujos"
+                styleClass="w-100"
+                [appendTo]="'body'"
+                [ngModelOptions]="{standalone: true}"
+                (onChange)="onUnidadFlujoChange()">
+              </p-dropdown>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Flujo <span class="text-danger">*</span></label>
+              <p-dropdown
+                [options]="flujoOptions"
+                [(ngModel)]="flujoSeleccionadoId"
+                placeholder="Seleccione flujo"
+                [filter]="true"
+                [showClear]="true"
+                [loading]="isLoadingFlujos"
+                styleClass="w-100"
+                [appendTo]="'body'"
+                [ngModelOptions]="{standalone: true}"
+                (onChange)="onFlujoSeleccionadoChange()">
+              </p-dropdown>
+            </div>
+          </div>
+
+          <div *ngIf="flujoSeleccionadoId && pasosFlujo.length > 0">
+            <h4 class="mb-3">Responsables por paso</h4>
+            <div class="row g-3">
+              <div class="col-12 col-md-6" *ngFor="let paso of pasosFlujo">
+                <label class="form-label">{{ paso.orden }}. {{ paso.nombre_paso }} <small class="text-muted">({{ paso.rol_aprobador }})</small></label>
+                <p-dropdown
+                  [options]="usuarioOptions"
+                  [(ngModel)]="responsablesPorPaso[paso.id]"
+                  placeholder="Seleccione responsable"
+                  [filter]="true"
+                  [showClear]="true"
+                  [loading]="isLoadingUsuariosFlujo"
+                  styleClass="w-100"
+                  [appendTo]="'body'"
+                  [ngModelOptions]="{standalone: true}">
+                </p-dropdown>
+              </div>
+            </div>
+            <small class="text-muted d-block mt-3">
+              Los responsables se guardan por UF y por paso. Si un paso queda vacío, aplicará la estrategia general del flujo.
+            </small>
+          </div>
+        </div>
+      </div>
     </ng-container>
 
     <!-- ===== Tab: Gestionar ===== -->
@@ -352,34 +438,27 @@
 
   <!-- Dialog Vincular Novedad -->
   <p-dialog
-    header="Vincular Novedad"
+    header="Vincular Novedades"
     [(visible)]="showVincularDialog"
     [modal]="true"
     [closable]="true"
-    [style]="{width: '560px'}"
+    [style]="{width: '620px'}"
     styleClass="novedad-dialog">
 
     <div class="solicitud-form-container">
-      <p class="text-muted mb-3">Asocia una novedad existente a una empresa y/o cargo específico.</p>
 
-      <div class="row g-3">
-        <div class="col-12">
-          <label class="form-label">Novedad <span class="text-danger">*</span></label>
-          <p-dropdown [options]="novedadOptions" [(ngModel)]="vincularData.novedad_id"
-            placeholder="Seleccione novedad" [filter]="true" filterPlaceholder="Buscar..."
-            styleClass="w-100" [ngModelOptions]="{standalone: true}" [appendTo]="'body'">
-          </p-dropdown>
-          <small class="text-danger" *ngIf="submittedVincular && !vincularData.novedad_id">Campo requerido</small>
-        </div>
+      <!-- Paso 1: Empresa y Cargo -->
+      <div class="row g-3 mb-3">
         <div class="col-12 col-md-6">
-          <label class="form-label">Empresa <small class="text-muted">(vacío = todas)</small></label>
+          <label class="form-label">Empresa <small class="text-muted">(opcional)</small></label>
           <p-dropdown [options]="empresaOptions" [(ngModel)]="vincularData.empresa_id"
-            placeholder="Todas las empresas" [showClear]="true"
+            placeholder="Todas las empresas" [showClear]="true" [filter]="true"
+            filterPlaceholder="Buscar empresa..."
             styleClass="w-100" [ngModelOptions]="{standalone: true}" [appendTo]="'body'">
           </p-dropdown>
         </div>
         <div class="col-12 col-md-6">
-          <label class="form-label">Cargo <small class="text-muted">(vacío = todos)</small></label>
+          <label class="form-label">Cargo <small class="text-muted">(opcional)</small></label>
           <p-dropdown [options]="cargoOptions" [(ngModel)]="vincularData.cargo_id"
             placeholder="Todos los cargos" [showClear]="true" [filter]="true"
             filterPlaceholder="Buscar cargo..."
@@ -387,6 +466,44 @@
           </p-dropdown>
         </div>
       </div>
+
+      <!-- Paso 2: Agregar novedades -->
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col">
+          <label class="form-label">Novedad <span class="text-danger">*</span></label>
+          <p-dropdown [options]="novedadOptions" [(ngModel)]="novedadSeleccionada"
+            placeholder="Seleccione novedad" [filter]="true" filterPlaceholder="Buscar..."
+            styleClass="w-100" [ngModelOptions]="{standalone: true}" [appendTo]="'body'">
+          </p-dropdown>
+          <small class="text-danger" *ngIf="submittedVincular && novedadesAVincular.length === 0">
+            Agrega al menos una novedad
+          </small>
+        </div>
+        <div class="col-auto">
+          <button class="btn-action btn-action-primary" (click)="agregarNovedadALista()"
+            style="height:42px; margin-top:24px;">
+            <i class="pi pi-plus"></i> Agregar
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de novedades a vincular -->
+      <div *ngIf="novedadesAVincular.length > 0" class="vincular-list">
+        <div class="vincular-list-header">
+          <span>Novedades a vincular ({{ novedadesAVincular.length }})</span>
+        </div>
+        <div class="vincular-list-item d-flex justify-content-between align-items-center"
+          *ngFor="let n of novedadesAVincular">
+          <span>
+            <strong class="text-primary me-1">{{ n.codigo }}</strong>{{ n.descripcion }}
+          </span>
+          <button class="btn-action-icon btn-action-danger" pTooltip="Quitar" tooltipPosition="top"
+            (click)="quitarNovedadDeLista(n.id)">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+      </div>
+
     </div>
 
     <ng-template pTemplate="footer">
@@ -394,8 +511,9 @@
         <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
           (onClick)="showVincularDialog = false">
         </p-button>
-        <p-button label="Vincular" icon="pi pi-link" severity="success"
-          (onClick)="onVincular()" [loading]="isSubmittingVincular">
+        <p-button label="Vincular todo" icon="pi pi-link" severity="success"
+          (onClick)="onVincular()" [loading]="isSubmittingVincular"
+          [disabled]="novedadesAVincular.length === 0">
         </p-button>
       </div>
     </ng-template>

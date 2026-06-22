@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -26,9 +26,11 @@ import {
   UsuarioAutorizado,
   JefeEncargado
 } from '../services/unidad-funcional.service';
-import { UsuarioService, Usuario } from '../../usuario/services/usuario.service';
+import { EmpleadoService, Empleado } from '../services/empleado.service';
 import { ContextoService, Empresa as EmpresaContexto } from '../../../../core/services/contexto.service';
 import { environment } from '../../../../environments/environment';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-unidad-funcional',
@@ -54,20 +56,39 @@ import { environment } from '../../../../environments/environment';
   templateUrl: './unidad-funcional.component.html',
   styleUrl: './unidad-funcional.component.css'
 })
-export class UnidadFuncionalComponent implements OnInit {
+export class UnidadFuncionalComponent implements OnInit, OnDestroy {
   unidadForm!: FormGroup;
 
   empresasOptions: { label: string; value: number }[] = [];
   sucursalesOptions: { label: string; value: number }[] = [];
   sedesOptions: { label: string; value: number }[] = [];
 
-  usuariosDisponibles: Usuario[] = [];
+  // Personas cache compartido (base para ambos tabs)
+  private personasCache: Empleado[] = [];
+
+  // --- Tab Usuarios ---
   usuariosOptions: { label: string; value: number }[] = [];
   usuariosAutorizados: UsuarioAutorizado[] = [];
   selectedUsuarioIds: number[] = [];
+  isSearchingUsuarios = false;
+  hayMasUsuarios = false;
+  private paginaUsuarios = 1;
+  private terminoUsuarios = '';
+  private readonly searchUsuariosSubject = new Subject<string>();
 
+  // --- Tab Jefes Encargados ---
+  jefesOptions: { label: string; value: number }[] = [];
   jefesEncargados: JefeEncargado[] = [];
   selectedJefeIds: number[] = [];
+  isSearchingJefes = false;
+  hayMasJefes = false;
+  private paginaJefes = 1;
+  private terminoJefes = '';
+  private readonly searchJefesSubject = new Subject<string>();
+
+  private searchSubs: Subscription[] = [];
+  private empresaIdActual: number | null = null;
+  private readonly PAGE_SIZE = 500;
 
   activeAsignacionTab = 0;
 
@@ -95,7 +116,7 @@ export class UnidadFuncionalComponent implements OnInit {
     private sucursalService: SucursalService,
     private sedeService: SedeService,
     private unidadFuncionalService: UnidadFuncionalService,
-    private usuarioService: UsuarioService,
+    private empleadoService: EmpleadoService,
     private contextoService: ContextoService,
     private http: HttpClient,
     private messageService: MessageService
@@ -105,6 +126,170 @@ export class UnidadFuncionalComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadEmpresasDisponibles();
+    this.initSearchStreams();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSubs.forEach(s => s.unsubscribe());
+  }
+
+  private initSearchStreams(): void {
+    // Stream independiente para tab Usuarios
+    this.searchSubs.push(
+      this.searchUsuariosSubject.pipe(
+        debounceTime(350),
+        distinctUntilChanged(),
+        switchMap(term => {
+          if (!this.empresaIdActual) return [];
+          this.terminoUsuarios = term;
+          this.paginaUsuarios = 1;
+          this.isSearchingUsuarios = true;
+          return this.empleadoService.buscarPersonas(this.empresaIdActual, term, 1, this.PAGE_SIZE);
+        })
+      ).subscribe({
+        next: (personas) => {
+          this.hayMasUsuarios = personas.length === this.PAGE_SIZE;
+          this.setUsuariosOptions(personas, false);
+          this.isSearchingUsuarios = false;
+        },
+        error: () => { this.isSearchingUsuarios = false; }
+      })
+    );
+
+    // Stream independiente para tab Jefes
+    this.searchSubs.push(
+      this.searchJefesSubject.pipe(
+        debounceTime(350),
+        distinctUntilChanged(),
+        switchMap(term => {
+          if (!this.empresaIdActual) return [];
+          this.terminoJefes = term;
+          this.paginaJefes = 1;
+          this.isSearchingJefes = true;
+          return this.empleadoService.buscarPersonas(this.empresaIdActual, term, 1, this.PAGE_SIZE);
+        })
+      ).subscribe({
+        next: (personas) => {
+          this.hayMasJefes = personas.length === this.PAGE_SIZE;
+          this.setJefesOptions(personas, false);
+          this.isSearchingJefes = false;
+        },
+        error: () => { this.isSearchingJefes = false; }
+      })
+    );
+  }
+
+  /** Reemplaza (append=false) o añade (append=true) opciones del tab Usuarios */
+  private setUsuariosOptions(personas: Empleado[], append: boolean): void {
+    if (append) {
+      const mapa = new Map(this.personasCache.map(p => [p.id, p]));
+      personas.forEach(p => mapa.set(p.id, p));
+      this.personasCache = Array.from(mapa.values());
+    } else {
+      const mapa = new Map<number, Empleado>();
+      // Conservar los ya seleccionados
+      this.personasCache
+        .filter(p => (this.selectedUsuarioIds ?? []).includes(p.id) || this.usuariosAutorizados.some(u => u.id_user === p.id))
+        .forEach(p => mapa.set(p.id, p));
+      personas.forEach(p => mapa.set(p.id, p));
+      this.personasCache = Array.from(mapa.values());
+    }
+    this.usuariosOptions = this.personasCache.map(p => ({
+      label: this.formatPersonaLabel(p),
+      value: p.id
+    }));
+  }
+
+  /** Reemplaza (append=false) o añade (append=true) opciones del tab Jefes */
+  private setJefesOptions(personas: Empleado[], append: boolean): void {
+    if (append) {
+      const mapa = new Map(this.personasCache.map(p => [p.id, p]));
+      personas.forEach(p => mapa.set(p.id, p));
+      this.personasCache = Array.from(mapa.values());
+    } else {
+      const mapa = new Map<number, Empleado>();
+      this.personasCache
+        .filter(p => (this.selectedJefeIds ?? []).includes(p.id) || this.jefesEncargados.some(j => j.id_user === p.id))
+        .forEach(p => mapa.set(p.id, p));
+      personas.forEach(p => mapa.set(p.id, p));
+      this.personasCache = Array.from(mapa.values());
+    }
+    this.jefesOptions = this.personasCache.map(p => ({
+      label: this.formatPersonaLabel(p),
+      value: p.id
+    }));
+  }
+
+  onFiltrarUsuarios(event: any): void {
+    const term: string = (event?.filter ?? '').trim();
+    if (term.length >= 2) {
+      this.searchUsuariosSubject.next(term);
+    } else if (term.length === 0 && this.terminoUsuarios !== '') {
+      this.searchUsuariosSubject.next('');
+    }
+  }
+
+  onFiltrarJefes(event: any): void {
+    const term: string = (event?.filter ?? '').trim();
+    if (term.length >= 2) {
+      this.searchJefesSubject.next(term);
+    } else if (term.length === 0 && this.terminoJefes !== '') {
+      this.searchJefesSubject.next('');
+    }
+  }
+
+  onSelectedUsuariosChange(value: number[] | null): void {
+    this.selectedUsuarioIds = value ?? [];
+  }
+
+  onSelectedJefesChange(value: number[] | null): void {
+    this.selectedJefeIds = value ?? [];
+  }
+
+  /** Al abrir el panel de Usuarios: resetea a página 1 si había búsqueda activa */
+  onPanelUsuariosAbierto(): void {
+    if (!this.empresaIdActual) return;
+    if (this.terminoUsuarios !== '') {
+      this.searchUsuariosSubject.next('');
+    }
+  }
+
+  /** Al abrir el panel de Jefes: resetea a página 1 si había búsqueda activa */
+  onPanelJefesAbierto(): void {
+    if (!this.empresaIdActual) return;
+    if (this.terminoJefes !== '') {
+      this.searchJefesSubject.next('');
+    }
+  }
+
+  cargarMasUsuarios(): void {
+    if (!this.empresaIdActual || !this.hayMasUsuarios || this.isSearchingUsuarios) return;
+    this.isSearchingUsuarios = true;
+    this.paginaUsuarios++;
+    this.empleadoService.buscarPersonas(this.empresaIdActual, this.terminoUsuarios, this.paginaUsuarios, this.PAGE_SIZE)
+      .subscribe({
+        next: (personas) => {
+          this.hayMasUsuarios = personas.length === this.PAGE_SIZE;
+          this.setUsuariosOptions(personas, true);
+          this.isSearchingUsuarios = false;
+        },
+        error: () => { this.paginaUsuarios--; this.isSearchingUsuarios = false; }
+      });
+  }
+
+  cargarMasJefes(): void {
+    if (!this.empresaIdActual || !this.hayMasJefes || this.isSearchingJefes) return;
+    this.isSearchingJefes = true;
+    this.paginaJefes++;
+    this.empleadoService.buscarPersonas(this.empresaIdActual, this.terminoJefes, this.paginaJefes, this.PAGE_SIZE)
+      .subscribe({
+        next: (personas) => {
+          this.hayMasJefes = personas.length === this.PAGE_SIZE;
+          this.setJefesOptions(personas, true);
+          this.isSearchingJefes = false;
+        },
+        error: () => { this.paginaJefes--; this.isSearchingJefes = false; }
+      });
   }
 
   private initForm(): void {
@@ -133,7 +318,7 @@ export class UnidadFuncionalComponent implements OnInit {
 
   get jefesOptionsDisponibles(): { label: string; value: number }[] {
     const idsAsignados = new Set(this.jefesEncargados.map(j => j.id_user));
-    return this.usuariosOptions.filter(o => !idsAsignados.has(o.value));
+    return this.jefesOptions.filter(o => !idsAsignados.has(o.value));
   }
 
   get estadoActivo(): boolean {
@@ -226,36 +411,48 @@ export class UnidadFuncionalComponent implements OnInit {
 
   private habilitarGestionUsuarios(empresaId: number): void {
     this.unidadListaParaUsuarios = true;
-    this.loadUsuariosPorEmpresa(empresaId);
+    this.loadPersonasPorEmpresa(empresaId);
   }
 
   private limpiarUsuariosDisponibles(): void {
-    this.usuariosDisponibles = [];
+    this.personasCache = [];
     this.usuariosOptions = [];
+    this.jefesOptions = [];
     this.selectedUsuarioIds = [];
+    this.empresaIdActual = null;
+    this.paginaUsuarios = 1;
+    this.paginaJefes = 1;
+    this.hayMasUsuarios = false;
+    this.hayMasJefes = false;
+    this.terminoUsuarios = '';
+    this.terminoJefes = '';
   }
 
-  private mapearUsuariosOptions(usuarios: Usuario[]): void {
-    this.usuariosDisponibles = usuarios.filter(u => u.estado === true || u.estado === 1);
-    this.usuariosOptions = this.usuariosDisponibles.map(u => ({
-      label: `${u.name} (${u.email})`,
-      value: u.id
-    }));
+  private formatPersonaLabel(persona: Empleado): string {
+    const doc = persona.numero_identificacion ? persona.numero_identificacion.trim() : '';
+    return doc ? `${doc} - ${persona.nombre}` : persona.nombre;
   }
 
-  loadUsuariosPorEmpresa(empresaId: number): void {
+  loadPersonasPorEmpresa(empresaId: number): void {
     this.isLoadingUsuarios = true;
     this.limpiarUsuariosDisponibles();
+    this.empresaIdActual = empresaId;
 
-    this.usuarioService.getUsuariosPorEmpresa(empresaId).subscribe({
-      next: (usuarios) => {
-        this.mapearUsuariosOptions(usuarios);
+    this.empleadoService.buscarPersonas(empresaId, '', 1, this.PAGE_SIZE).subscribe({
+      next: (personas) => {
+        // Carga inicial: ambos tabs reciben el mismo listado independientemente
+        this.hayMasUsuarios = personas.length === this.PAGE_SIZE;
+        this.hayMasJefes = personas.length === this.PAGE_SIZE;
+        this.personasCache = [...personas];
+        const opts = personas.map(p => ({ label: this.formatPersonaLabel(p), value: p.id }));
+        this.usuariosOptions = [...opts];
+        this.jefesOptions = [...opts];
         this.isLoadingUsuarios = false;
       },
       error: () => {
         this.limpiarUsuariosDisponibles();
         this.isLoadingUsuarios = false;
-        this.showError('Error al cargar los usuarios de la empresa');
+        this.showError('Error al cargar las personas de la empresa');
       }
     });
   }
@@ -518,7 +715,8 @@ export class UnidadFuncionalComponent implements OnInit {
       return;
     }
 
-    if (!this.selectedUsuarioIds.length) {
+    const idsSeleccionados = this.selectedUsuarioIds ?? [];
+    if (!idsSeleccionados.length) {
       this.showWarn('Seleccione al menos un usuario');
       return;
     }
@@ -526,19 +724,19 @@ export class UnidadFuncionalComponent implements OnInit {
     const nuevos: UsuarioAutorizado[] = [];
     let duplicados = 0;
 
-    for (const id of this.selectedUsuarioIds) {
+    for (const id of idsSeleccionados) {
       if (this.usuariosAutorizados.some(u => u.id_user === id)) {
         duplicados++;
         continue;
       }
 
-      const usuario = this.usuariosDisponibles.find(u => u.id === id);
-      if (!usuario) continue;
+      const persona = this.personasCache.find(p => p.id === id);
+      if (!persona) continue;
 
       nuevos.push({
-        id_user: usuario.id,
-        codigo: String(usuario.id).padStart(3, '0'),
-        nombre: usuario.name
+        id_user: persona.id,
+        codigo: persona.numero_identificacion || String(persona.id).padStart(3, '0'),
+        nombre: persona.nombre
       });
     }
 
@@ -568,7 +766,8 @@ export class UnidadFuncionalComponent implements OnInit {
       return;
     }
 
-    if (!this.selectedJefeIds.length) {
+    const idsSeleccionados = this.selectedJefeIds ?? [];
+    if (!idsSeleccionados.length) {
       this.showWarn('Seleccione al menos un jefe encargado');
       return;
     }
@@ -576,19 +775,19 @@ export class UnidadFuncionalComponent implements OnInit {
     const nuevos: JefeEncargado[] = [];
     let duplicados = 0;
 
-    for (const id of this.selectedJefeIds) {
+    for (const id of idsSeleccionados) {
       if (this.jefesEncargados.some(j => j.id_user === id)) {
         duplicados++;
         continue;
       }
 
-      const jefe = this.usuariosDisponibles.find(u => u.id === id);
+      const jefe = this.personasCache.find(p => p.id === id);
       if (!jefe) continue;
 
       nuevos.push({
         id_user: jefe.id,
-        codigo: String(jefe.id).padStart(3, '0'),
-        nombre: jefe.name
+        codigo: jefe.numero_identificacion || String(jefe.id).padStart(3, '0'),
+        nombre: jefe.nombre
       });
     }
 

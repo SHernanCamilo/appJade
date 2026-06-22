@@ -97,6 +97,48 @@ export interface FiltrosActivos {
   per_page?: number;
 }
 
+export interface DistribucionEstado {
+  optimo: number;
+  funcional: number;
+  potencialmente: number;
+  obsoleto: number;
+}
+
+export interface EstadisticaPorTipo extends DistribucionEstado {
+  tipo: string;
+  total: number;
+}
+
+export interface EstadisticaPorUbicacion {
+  ubicacion: string;
+  empresa_id: number | null;
+  sucursal_id: number | null;
+  total: number;
+  distribucion: DistribucionEstado;
+}
+
+export interface DashboardData {
+  total_activos: number;
+  estadisticas_por_estado: DistribucionEstado;
+  estadisticas_por_tipo: EstadisticaPorTipo[];
+  estadisticas_por_ubicacion: EstadisticaPorUbicacion[];
+}
+
+export interface DashboardResponse {
+  success: boolean;
+  data: DashboardData;
+}
+
+export interface OpcionFiltro {
+  id: number;
+  nombre: string;
+}
+
+export interface OpcionesFiltroResponse {
+  success: boolean;
+  data: OpcionFiltro[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -252,6 +294,39 @@ export class MatrizObsActivosService {
 
   getEstadisticas(): Observable<any> {
     return this.http.get(`${this.apiUrl}/estadisticas`)
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Datos agregados del dashboard (conteos por estado/tipo/ubicación) calculados en el backend.
+   */
+  getDashboard(filtros?: FiltrosActivos): Observable<DashboardResponse> {
+    let params = new HttpParams();
+
+    if (filtros) {
+      if (filtros.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
+      if (filtros.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
+      if (filtros.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
+      if (filtros.search) params = params.set('search', filtros.search);
+    }
+
+    return this.http.get<DashboardResponse>(`${this.apiUrl}/dashboard`, { params })
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Opciones para los dropdowns de filtros (empresa/sucursal/sede) según permisos.
+   */
+  getOpcionesFiltro(
+    tipo: 'empresa' | 'sucursal' | 'sede',
+    filtros?: { empresa_id?: number; sucursal_id?: number }
+  ): Observable<OpcionesFiltroResponse> {
+    let params = new HttpParams().set('tipo', tipo);
+
+    if (filtros?.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
+    if (filtros?.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
+
+    return this.http.get<OpcionesFiltroResponse>(`${this.apiUrl}/filtros`, { params })
       .pipe(catchError(this.handleError.bind(this)));
   }
 

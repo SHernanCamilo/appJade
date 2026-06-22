@@ -280,7 +280,6 @@
                   <!-- Buscador -->
                   <div class="p-3 border-bottom">
                     <div class="p-input-icon-left w-100">
-                      <i class="pi pi-search"></i>
                       <input 
                         type="text" 
                         pInputText 
@@ -404,35 +403,6 @@
           <p-tabPanel header="Parámetros Agentes">
             <div class="tab-content-wrapper">
               <div class="row g-4">
-                <!-- Sincronización de equipos -->
-                <div class="col-12">
-                  <div class="form-group">
-                    <label class="form-label">
-                      <i class="bi bi-arrow-repeat me-2 text-primary"></i>
-                      Sincronización de equipos
-                    </label>
-                    <div class="d-flex gap-2 align-items-center">
-                      <input 
-                        type="number"
-                        [(ngModel)]="valorSincronizacion"
-                        min="1"
-                        max="168"
-                        class="form-control"
-                        style="flex: 1; max-width: 200px;">
-                      <span class="text-muted">Dias</span>
-                      <p-button 
-                        label="Guardar" 
-                        icon="pi pi-save"
-                        (onClick)="guardarSincronizacion()"
-                        styleClass="p-button-success">
-                      </p-button>
-                    </div>
-                    <small class="form-text text-muted">
-                      Configuración del parámetro de sincronización de equipos cada cuantos dias
-                    </small>
-                  </div>
-                </div>
-
                 <!-- Tabla de Agentes -->
                 <div class="col-12">
                   <div class="card">
@@ -466,6 +436,7 @@
                       <!-- Tabla con estilos globales de PrimeNG -->
                       <p-table 
                         *ngIf="!isLoadingAgentes"
+                        #dtAgentes
                         [value]="agentes" 
                         [paginator]="true" 
                         [rows]="10"
@@ -483,6 +454,57 @@
                             <th>SEDE</th>
                             <th>FECHA CREACIÓN</th>
                             <th>ACCIONES</th>
+                          </tr>
+                          <tr>
+                            <th>
+                              <input
+                                pInputText
+                                type="text"
+                                class="w-100 p-inputtext-sm"
+                                placeholder="Filtrar TAG"
+                                (input)="dtAgentes.filter($any($event.target).value, 'tag', 'contains')">
+                            </th>
+                            <th>
+                              <input
+                                pInputText
+                                type="text"
+                                class="w-100 p-inputtext-sm"
+                                placeholder="Filtrar nomenclatura"
+                                (input)="dtAgentes.filter($any($event.target).value, 'nomenclatura', 'contains')">
+                            </th>
+                            <th>
+                              <input
+                                pInputText
+                                type="text"
+                                class="w-100 p-inputtext-sm"
+                                placeholder="Filtrar empresa"
+                                (input)="dtAgentes.filter($any($event.target).value, 'empresa.nombre', 'contains')">
+                            </th>
+                            <th>
+                              <input
+                                pInputText
+                                type="text"
+                                class="w-100 p-inputtext-sm"
+                                placeholder="Filtrar sucursal"
+                                (input)="dtAgentes.filter($any($event.target).value, 'sucursal.nombre', 'contains')">
+                            </th>
+                            <th>
+                              <input
+                                pInputText
+                                type="text"
+                                class="w-100 p-inputtext-sm"
+                                placeholder="Filtrar sede"
+                                (input)="dtAgentes.filter($any($event.target).value, 'sede.nombre', 'contains')">
+                            </th>
+                            <th>
+                              <input
+                                pInputText
+                                type="text"
+                                class="w-100 p-inputtext-sm"
+                                placeholder="Filtrar fecha"
+                                (input)="dtAgentes.filter($any($event.target).value, 'created_at', 'contains')">
+                            </th>
+                            <th></th>
                           </tr>
                         </ng-template>
                         

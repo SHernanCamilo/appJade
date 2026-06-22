@@ -31,6 +31,28 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+export interface FlujoEventoPaso {
+  id: number;
+  orden: number;
+  nombre_paso: string;
+  rol_aprobador: string;
+}
+
+export interface FlujoEventoConfig {
+  id: number;
+  codigo: string;
+  nombre: string;
+  descripcion?: string;
+  pasos: FlujoEventoPaso[];
+}
+
+export interface ConfiguracionFlujoUnidad {
+  unidad_funcional_id: number;
+  empresa_id: number;
+  flujo_id: number | null;
+  responsables: Record<string, number>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class EventNovedadService {
 
@@ -107,8 +129,40 @@ export class EventNovedadService {
   }
 
   getCargos(): Observable<{ label: string; value: number }[]> {
-    return this.http.get<ApiResponse<any[]>>(`${this.base}/cargos`).pipe(
+    return this.http.get<ApiResponse<any[]>>('/talento-humano/eventos/cargos').pipe(
       map(r => r.data.map((c: any) => ({ label: c.nombre_cargo, value: c.id_cargo })))
     );
+  }
+
+  getUnidadesFuncionalesEmpresa(empresaId: number): Observable<{ label: string; value: number }[]> {
+    const params = new HttpParams().set('empresa_id', empresaId.toString()).set('limit', '500');
+    return this.http.get<{ success: boolean; data: any[] }>(`${this.base}/unidades-funcionales`, { params }).pipe(
+      map(r => (r.data || []).map((u: any) => ({ label: `${u.codigo} - ${u.nombre}`, value: u.id })))
+    );
+  }
+
+  getUsuariosPorEmpresa(empresaId: number): Observable<{ label: string; value: number }[]> {
+    return this.http.get<any[]>(`/users-por-empresa/${empresaId}`).pipe(
+      map(data => (data || []).map((u: any) => ({ label: `${u.name} (${u.email})`, value: u.id })))
+    );
+  }
+
+  getCatalogoFlujosEventos(): Observable<FlujoEventoConfig[]> {
+    return this.http.get<ApiResponse<FlujoEventoConfig[]>>(`${this.base}/flujos/catalogo`)
+      .pipe(map(r => r.data || []));
+  }
+
+  getConfiguracionFlujoUnidad(unidadFuncionalId: number): Observable<ConfiguracionFlujoUnidad> {
+    const params = new HttpParams().set('unidad_funcional_id', unidadFuncionalId.toString());
+    return this.http.get<ApiResponse<ConfiguracionFlujoUnidad>>(`${this.base}/flujos/configuracion-unidad`, { params })
+      .pipe(map(r => r.data));
+  }
+
+  guardarConfiguracionFlujoUnidad(payload: {
+    unidad_funcional_id: number;
+    flujo_id: number;
+    responsables: { id_paso: number; id_user: number }[];
+  }): Observable<any> {
+    return this.http.post<ApiResponse<any>>(`${this.base}/flujos/configuracion-unidad`, payload);
   }
 }
