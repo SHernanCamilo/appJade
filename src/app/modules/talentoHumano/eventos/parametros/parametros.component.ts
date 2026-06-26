@@ -2,7 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { EventNovedadService, EventNovedad, EventNovedadCargo } from './services/event-novedad.service';
+import {
+  EventNovedadService,
+  EventNovedad,
+  EventNovedadCargo,
+  FlujoEventoConfig,
+  ConfiguracionFlujoUnidad
+} from './services/event-novedad.service';
 
 // PrimeNG
 import { TableModule } from 'primeng/table';
@@ -34,7 +40,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 })
 export class ParametrosEventosComponent implements OnInit {
 
-  activeTab: 'novedad' | 'gestionar' | 'configuracion' = 'novedad';
+  activeTab: 'novedad' | 'flujos' | 'gestionar' | 'configuracion' = 'novedad';
 
   novedades: EventNovedad[] = [];
   novedadesFiltradas: EventNovedad[] = [];
@@ -48,12 +54,28 @@ export class ParametrosEventosComponent implements OnInit {
 
   // Form vincular
   vincularData = { novedad_id: null as number | null, empresa_id: null as number | null, cargo_id: null as number | null };
+  novedadSeleccionada: number | null = null;
+  novedadesAVincular: EventNovedad[] = [];
   submittedVincular = false;
   isSubmittingVincular = false;
 
   isLoading = false;
   isLoadingCatalogo = false;
   isSubmitting = false;
+
+  // ─── Flujos por unidad funcional ──────────────────────────────────────────
+  flujoEmpresaId: number | null = null;
+  flujoUnidadId: number | null = null;
+  flujoSeleccionadoId: number | null = null;
+  flujoOptions: { label: string; value: number }[] = [];
+  flujoList: FlujoEventoConfig[] = [];
+  unidadFlujoOptions: { label: string; value: number }[] = [];
+  usuarioOptions: { label: string; value: number }[] = [];
+  pasosFlujo: FlujoEventoConfig['pasos'] = [];
+  responsablesPorPaso: Record<number, number | null> = {};
+  isLoadingFlujos = false;
+  isLoadingUsuariosFlujo = false;
+  isSavingFlujo = false;
 
   // Dialogs
   showFormDialog    = false;
@@ -78,10 +100,14 @@ export class ParametrosEventosComponent implements OnInit {
   ngOnInit(): void {
     this.loadNovedades();
     this.loadVinculaciones();
+    this.cargarCatalogosFlujos();
   }
 
-  setTab(tab: 'novedad' | 'gestionar' | 'configuracion'): void {
+  setTab(tab: 'novedad' | 'flujos' | 'gestionar' | 'configuracion'): void {
     this.activeTab = tab;
+    if (tab === 'flujos' && this.empresaOptions.length === 0) {
+      this.cargarCatalogosFlujos();
+    }
   }
 
   emptyForm() {
@@ -232,9 +258,30 @@ export class ParametrosEventosComponent implements OnInit {
 
   abrirVincular(): void {
     this.vincularData = { novedad_id: null, empresa_id: null, cargo_id: null };
+    this.novedadSeleccionada = null;
+    this.novedadesAVincular = [];
     this.submittedVincular = false;
     this.showVincularDialog = true;
     this.loadOpcionesVincular();
+  }
+
+  agregarNovedadALista(): void {
+    if (!this.novedadSeleccionada) return;
+    const yaExiste = this.novedadesAVincular.some(n => n.id === this.novedadSeleccionada);
+    if (yaExiste) {
+      this.messageService.add({ severity: 'warn', summary: 'Aviso', detail: 'Esa novedad ya está en la lista' });
+      return;
+    }
+    const novedad = this.novedades.find(n => n.id === this.novedadSeleccionada)
+      || this.novedadesCatalogo.find(n => n.id === this.novedadSeleccionada);
+    if (novedad) {
+      this.novedadesAVincular.push(novedad);
+      this.novedadSeleccionada = null;
+    }
+  }
+
+  quitarNovedadDeLista(id: number): void {
+    this.novedadesAVincular = this.novedadesAVincular.filter(n => n.id !== id);
   }
 
   loadOpcionesVincular(): void {
@@ -254,23 +301,154 @@ export class ParametrosEventosComponent implements OnInit {
 
   onVincular(): void {
     this.submittedVincular = true;
-    if (!this.vincularData.novedad_id) return;
+    if (this.novedadesAVincular.length === 0) return;
 
     this.isSubmittingVincular = true;
-    this.svc.vincular({
-      novedad_id: this.vincularData.novedad_id!,
-      empresa_id: this.vincularData.empresa_id,
-      cargo_id:   this.vincularData.cargo_id
+    const requests = this.novedadesAVincular.map(n =>
+      this.svc.vincular({
+        novedad_id: n.id,
+        empresa_id: this.vincularData.empresa_id,
+        cargo_id:   this.vincularData.cargo_id
+      })
+    );
+
+    // Ejecutar todas en paralelo con forkJoin
+    import('rxjs').then(({ forkJoin }) => {
+      forkJoin(requests).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Éxito', detail: `${this.novedadesAVincular.length} novedad(es) vinculada(s)` });
+          this.showVincularDialog = false;
+          this.isSubmittingVincular = false;
+          this.loadVinculaciones();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al vincular' });
+          this.isSubmittingVincular = false;
+        }
+      });
+    });
+  }
+
+  // ─── Flujos por UF ─────────────────────────────────────────────────────────
+
+  cargarCatalogosFlujos(): void {
+    this.isLoadingFlujos = true;
+    this.svc.getEmpresas().subscribe({
+      next: (empresas) => { this.empresaOptions = empresas; },
+      error: () => { this.empresaOptions = []; }
+    });
+
+    this.svc.getCatalogoFlujosEventos().subscribe({
+      next: (flujos) => {
+        this.flujoList = flujos || [];
+        this.flujoOptions = this.flujoList.map(f => ({ label: `${f.codigo} - ${f.nombre}`, value: f.id }));
+        this.isLoadingFlujos = false;
+      },
+      error: () => {
+        this.flujoList = [];
+        this.flujoOptions = [];
+        this.isLoadingFlujos = false;
+      }
+    });
+  }
+
+  onEmpresaFlujoChange(): void {
+    this.flujoUnidadId = null;
+    this.flujoSeleccionadoId = null;
+    this.pasosFlujo = [];
+    this.responsablesPorPaso = {};
+    this.unidadFlujoOptions = [];
+    this.usuarioOptions = [];
+
+    if (!this.flujoEmpresaId) return;
+
+    this.isLoadingFlujos = true;
+    this.isLoadingUsuariosFlujo = true;
+
+    this.svc.getUnidadesFuncionalesEmpresa(this.flujoEmpresaId).subscribe({
+      next: (ops) => {
+        this.unidadFlujoOptions = ops;
+        this.isLoadingFlujos = false;
+      },
+      error: () => {
+        this.unidadFlujoOptions = [];
+        this.isLoadingFlujos = false;
+      }
+    });
+
+    this.svc.getUsuariosPorEmpresa(this.flujoEmpresaId).subscribe({
+      next: (ops) => {
+        this.usuarioOptions = ops;
+        this.isLoadingUsuariosFlujo = false;
+      },
+      error: () => {
+        this.usuarioOptions = [];
+        this.isLoadingUsuariosFlujo = false;
+      }
+    });
+  }
+
+  onUnidadFlujoChange(): void {
+    this.flujoSeleccionadoId = null;
+    this.pasosFlujo = [];
+    this.responsablesPorPaso = {};
+
+    if (!this.flujoUnidadId) return;
+
+    this.isLoadingFlujos = true;
+    this.svc.getConfiguracionFlujoUnidad(this.flujoUnidadId).subscribe({
+      next: (cfg: ConfiguracionFlujoUnidad) => {
+        this.flujoSeleccionadoId = cfg.flujo_id;
+        this.actualizarPasosPorFlujo();
+        const map: Record<number, number | null> = {};
+        Object.entries(cfg.responsables || {}).forEach(([idPaso, idUser]) => {
+          map[Number(idPaso)] = Number(idUser);
+        });
+        this.responsablesPorPaso = map;
+        this.isLoadingFlujos = false;
+      },
+      error: () => { this.isLoadingFlujos = false; }
+    });
+  }
+
+  onFlujoSeleccionadoChange(): void {
+    this.actualizarPasosPorFlujo();
+    const nextMap: Record<number, number | null> = {};
+    this.pasosFlujo.forEach(p => {
+      nextMap[p.id] = this.responsablesPorPaso[p.id] ?? null;
+    });
+    this.responsablesPorPaso = nextMap;
+  }
+
+  private actualizarPasosPorFlujo(): void {
+    const flujo = this.flujoList.find(f => f.id === this.flujoSeleccionadoId);
+    this.pasosFlujo = flujo?.pasos || [];
+  }
+
+  guardarFlujoPorUnidad(): void {
+    if (!this.flujoUnidadId || !this.flujoSeleccionadoId) {
+      this.messageService.add({ severity: 'warn', summary: 'Validación', detail: 'Seleccione unidad funcional y flujo' });
+      return;
+    }
+
+    const responsables = this.pasosFlujo
+      .map(p => ({ id_paso: p.id, id_user: this.responsablesPorPaso[p.id] }))
+      .filter(r => !!r.id_user)
+      .map(r => ({ id_paso: r.id_paso, id_user: Number(r.id_user) }));
+
+    this.isSavingFlujo = true;
+    this.svc.guardarConfiguracionFlujoUnidad({
+      unidad_funcional_id: this.flujoUnidadId,
+      flujo_id: this.flujoSeleccionadoId,
+      responsables,
     }).subscribe({
-      next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Novedad vinculada correctamente' });
-        this.showVincularDialog = false;
-        this.isSubmittingVincular = false;
-        this.loadVinculaciones();
+      next: (res) => {
+        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: res.message || 'Flujo configurado correctamente' });
+        this.isSavingFlujo = false;
       },
       error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al vincular' });
-        this.isSubmittingVincular = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'No se pudo guardar configuración del flujo' });
+        this.isSavingFlujo = false;
       }
     });
   }

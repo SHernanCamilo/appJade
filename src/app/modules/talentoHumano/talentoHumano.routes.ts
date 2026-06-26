@@ -17,12 +17,12 @@ export const TALENTOHUMANO_ROUTES: Routes = [
           .then(m => m.DashboardEventosComponent),
         data: { title: 'Eventos - Dashboard' }
       },
+      /*
       {
         path: 'cargue',
         loadComponent: () => import('./eventos/cargue/cargue.component')
-          .then(m => m.CargueEventosComponent),
-        data: { title: 'Cargue de Eventos' }
-      },
+          .then(m => m.CargueEventosComponent)
+      },*/
       {
         path: 'parametros',
         loadComponent: () => import('./eventos/parametros/parametros.component')

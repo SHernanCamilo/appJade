@@ -22,7 +22,7 @@ import { FormsModule } from '@angular/forms';
 
 // Services
 import { MatrizObsParametrosService, GrupoParametro, Parametro } from '../services/matriz-obs-parametros.service';
-import { MatrizObsAgentesService, MatrizObsAgente, SincronizacionParametro } from '../services/matriz-obs-agentes.service';
+import { MatrizObsAgentesService, MatrizObsAgente } from '../services/matriz-obs-agentes.service';
 import { EmpresaService, Empresa } from '../../../organizacion/empresa/services/empresa.service';
 import { SucursalService, Sucursal } from '../../../organizacion/empresa/services/sucursal.service';
 import { SedeService, Sede } from '../../../organizacion/empresa/services/sede.service';
@@ -119,8 +119,6 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
 
   // Agentes
   agentes: MatrizObsAgente[] = [];
-  sincronizacionParametro: SincronizacionParametro | null = null;
-  valorSincronizacion: string = '24'; // Valor por defecto visible
 
   // Procesadores
   procesadores: Procesador[] = [];
@@ -213,7 +211,6 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
   ngOnInit(): void {
     this.cargarDatos();
     this.cargarAgentes();
-    this.cargarSincronizacionParametro();
     this.cargarEmpresas();
     this.cargarTodosParametros();
     this.cargarProcesadores();
@@ -867,52 +864,6 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
           life: 3000
         });
         this.isLoadingAgentes = false;
-      }
-    });
-  }
-
-  /**
-   * Cargar parámetro de sincronización
-   */
-  cargarSincronizacionParametro(): void {
-    this.agentesService.getSincronizacionParametro().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.sincronizacionParametro = response.data;
-          this.valorSincronizacion = response.data.valor;
-        }
-      },
-      error: (error) => {
-        console.error('Error al cargar parámetro de sincronización:', error);
-        // Si no existe, usar valor por defecto
-        this.valorSincronizacion = '24';
-      }
-    });
-  }
-
-  /**
-   * Guardar parámetro de sincronización
-   */
-  guardarSincronizacion(): void {
-    this.agentesService.updateSincronizacionParametro(this.valorSincronizacion).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Guardado',
-            detail: 'Parámetro de sincronización actualizado correctamente',
-            life: 3000
-          });
-        }
-      },
-      error: (error) => {
-        console.error('Error:', error);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudo guardar el parámetro de sincronización',
-          life: 3000
-        });
       }
     });
   }

@@ -134,6 +134,7 @@ export class MatrizObsParametrosService {
     empresa_id?: number;
     sucursal_id?: number;
     sede_id?: number;
+    sin_empresa?: boolean;
     page?: number;
     per_page?: number;
   }): Observable<PaginatedApiResponse<any[]>> {
@@ -144,6 +145,7 @@ export class MatrizObsParametrosService {
     if (filtros.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
     if (filtros.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
     if (filtros.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
+    if (filtros.sin_empresa) params = params.set('sin_empresa', '1');
     if (filtros.page) params = params.set('page', filtros.page.toString());
     if (filtros.per_page) params = params.set('per_page', filtros.per_page.toString());
     

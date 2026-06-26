@@ -201,33 +201,48 @@
                 <div class="usuario-select-group">
                   <label class="param-label">Usuarios</label>
                   <p-multiSelect
-                    [(ngModel)]="selectedUsuarioIds"
+                    [ngModel]="selectedUsuarioIds"
+                    (ngModelChange)="onSelectedUsuariosChange($event)"
                     [options]="usuariosOptionsDisponibles"
-                    placeholder="Seleccionar usuarios"
+                    placeholder="Buscar por identificación o nombre…"
                     [showClear]="true"
                     [filter]="true"
                     filterBy="label"
-                    [loading]="isLoadingUsuarios"
+                    [loading]="isLoadingUsuarios || isSearchingUsuarios"
                     [disabled]="!puedeGestionarUsuarios"
                     optionLabel="label"
                     optionValue="value"
                     [maxSelectedLabels]="2"
-                    selectedItemsLabel="{0} usuarios seleccionados"
+                    selectedItemsLabel="{0} personas seleccionadas"
                     styleClass="w-full usuario-multiselect"
-                    appendTo="body">
+                    appendTo="body"
+                    (onFilter)="onFiltrarUsuarios($event)"
+                    (onShow)="onPanelUsuariosAbierto()">
+                    <ng-template pTemplate="footer">
+                      <div *ngIf="hayMasUsuarios" class="ms-footer-load-more">
+                        <button
+                          type="button"
+                          class="btn-load-more"
+                          [disabled]="isSearchingUsuarios"
+                          (click)="cargarMasUsuarios()">
+                          <i class="pi" [ngClass]="isSearchingUsuarios ? 'pi-spin pi-spinner' : 'pi-chevron-down'"></i>
+                          {{ isSearchingUsuarios ? 'Cargando…' : 'Cargar 500 más' }}
+                        </button>
+                      </div>
+                    </ng-template>
                   </p-multiSelect>
                   <small class="form-hint" *ngIf="!puedeGestionarUsuarios">
-                    Busque un código, seleccione una unidad o cree una nueva para gestionar usuarios
+                    Busque un código, seleccione una unidad o cree una nueva para gestionar personas
                   </small>
                   <small class="form-hint" *ngIf="puedeGestionarUsuarios">
-                    Puede seleccionar varios usuarios y agregarlos a la vez
+                    Escriba mínimo 2 caracteres para buscar por identificación o nombre
                   </small>
                 </div>
                 <button
                   type="button"
                   class="btn-action btn-action-primary btn-agregar"
                   (click)="agregarUsuarios()"
-                  [disabled]="!puedeGestionarUsuarios || !selectedUsuarioIds.length">
+                  [disabled]="!puedeGestionarUsuarios || !(selectedUsuarioIds?.length)">
                   <i class="pi pi-plus"></i>
                   Agregar
                 </button>
@@ -291,33 +306,48 @@
                 <div class="usuario-select-group">
                   <label class="param-label">Usuarios encargados</label>
                   <p-multiSelect
-                    [(ngModel)]="selectedJefeIds"
+                    [ngModel]="selectedJefeIds"
+                    (ngModelChange)="onSelectedJefesChange($event)"
                     [options]="jefesOptionsDisponibles"
-                    placeholder="Seleccionar Usuarios"
+                    placeholder="Buscar por identificación o nombre…"
                     [showClear]="true"
                     [filter]="true"
                     filterBy="label"
-                    [loading]="isLoadingUsuarios"
+                    [loading]="isLoadingUsuarios || isSearchingJefes"
                     [disabled]="!puedeGestionarUsuarios"
                     optionLabel="label"
                     optionValue="value"
                     [maxSelectedLabels]="2"
-                    selectedItemsLabel="{0} usuarios seleccionados"
+                    selectedItemsLabel="{0} personas seleccionadas"
                     styleClass="w-full usuario-multiselect"
-                    appendTo="body">
+                    appendTo="body"
+                    (onFilter)="onFiltrarJefes($event)"
+                    (onShow)="onPanelJefesAbierto()">
+                    <ng-template pTemplate="footer">
+                      <div *ngIf="hayMasJefes" class="ms-footer-load-more">
+                        <button
+                          type="button"
+                          class="btn-load-more"
+                          [disabled]="isSearchingJefes"
+                          (click)="cargarMasJefes()">
+                          <i class="pi" [ngClass]="isSearchingJefes ? 'pi-spin pi-spinner' : 'pi-chevron-down'"></i>
+                          {{ isSearchingJefes ? 'Cargando…' : 'Cargar 500 más' }}
+                        </button>
+                      </div>
+                    </ng-template>
                   </p-multiSelect>
                   <small class="form-hint" *ngIf="!puedeGestionarUsuarios">
-                    Busque un código, seleccione una unidad o cree una nueva para gestionar Usuarios
+                    Busque un código, seleccione una unidad o cree una nueva para gestionar encargados
                   </small>
                   <small class="form-hint" *ngIf="puedeGestionarUsuarios">
-                    Un usuario puede estar asignado a varias unidades funcionales
+                    Escriba mínimo 2 caracteres para buscar por identificación o nombre
                   </small>
                 </div>
                 <button
                   type="button"
                   class="btn-action btn-action-primary btn-agregar"
                   (click)="agregarJefes()"
-                  [disabled]="!puedeGestionarUsuarios || !selectedJefeIds.length">
+                  [disabled]="!puedeGestionarUsuarios || !(selectedJefeIds?.length)">
                   <i class="pi pi-plus"></i>
                   Agregar
                 </button>
