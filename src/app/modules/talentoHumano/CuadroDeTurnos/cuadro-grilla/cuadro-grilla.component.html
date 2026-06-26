@@ -1,0 +1,105 @@
+<div class="grilla-container">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="grilla-header">
+    <button class="btn-back" routerLink="/talentoHumano/turnos/dashboard">
+      <i class="pi pi-arrow-left"></i> Volver
+    </button>
+    <h1><i class="pi pi-th-large me-2"></i>Cuadro de Turnos - Vista General</h1>
+    <p>Visualiza los turnos de todos los empleados de una unidad funcional</p>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filtros-bar">
+    <div class="filtro">
+      <label>Empresa</label>
+      <p-dropdown [(ngModel)]="selectedEmpresa" [options]="empresasOptions"
+        optionLabel="label" optionValue="value" (onChange)="onEmpresaChange()"
+        placeholder="Seleccionar empresa" styleClass="w-100">
+      </p-dropdown>
+    </div>
+    <div class="filtro">
+      <label>Sucursal</label>
+      <p-dropdown [(ngModel)]="selectedSucursal" [options]="sucursalesOptions"
+        optionLabel="label" optionValue="value" (onChange)="onSucursalChange()"
+        placeholder="Seleccionar sucursal" [disabled]="sucursalesOptions.length === 0" styleClass="w-100">
+      </p-dropdown>
+    </div>
+    <div class="filtro">
+      <label>Sede</label>
+      <p-dropdown [(ngModel)]="selectedSede" [options]="sedesOptions"
+        optionLabel="label" optionValue="value" (onChange)="onSedeChange()"
+        placeholder="Seleccionar sede" [disabled]="sedesOptions.length === 0" styleClass="w-100">
+      </p-dropdown>
+    </div>
+    <div class="filtro">
+      <label>Unidad Funcional</label>
+      <p-dropdown [(ngModel)]="selectedUnidad" [options]="unidadOptions"
+        optionLabel="label" optionValue="value" (onChange)="onUnidadChange()"
+        placeholder="Seleccionar unidad" [disabled]="unidadOptions.length === 0" styleClass="w-100">
+      </p-dropdown>
+    </div>
+    <div class="filtro filtro-mes">
+      <label>Mes</label>
+      <p-dropdown [(ngModel)]="selectedMes" [options]="mesOptions"
+        (onChange)="onMesAnioChange()" styleClass="w-100"></p-dropdown>
+    </div>
+    <div class="filtro filtro-anio">
+      <label>Año</label>
+      <p-dropdown [(ngModel)]="selectedAnio" [options]="anioOptions"
+        (onChange)="onMesAnioChange()" styleClass="w-100"></p-dropdown>
+    </div>
+  </div>
+
+  <!-- Loader -->
+  <div *ngIf="isLoading" class="loading">
+    <p-skeleton width="100%" height="400px"></p-skeleton>
+  </div>
+
+  <!-- Grilla -->
+  <div *ngIf="!isLoading && empleados.length > 0" class="grilla-wrapper">
+    <div class="grilla-titulo">
+      <h2>{{ getNombreMes() }} {{ selectedAnio }}</h2>
+      <span class="badge-empleados">{{ empleados.length }} empleados</span>
+    </div>
+
+    <div class="grilla-scroll">
+      <table class="grilla-table">
+        <thead>
+          <tr>
+            <th class="col-empleado">Empleado</th>
+            <th *ngFor="let dia of diasMes" class="col-dia">{{ dia }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let emp of empleados">
+            <td class="col-empleado">{{ emp.nombre }}</td>
+            <td *ngFor="let dia of diasMes" class="col-dia"
+              [style.background-color]="getTurnoColor(emp, dia) ? getTurnoColor(emp, dia) + '22' : ''"
+              [pTooltip]="getTurno(emp, dia)?.plantilla?.nombre || (getTurno(emp, dia)?.es_descanso ? 'Descanso' : '')"
+              tooltipPosition="top">
+              <span *ngIf="getTurno(emp, dia)" class="turno-badge"
+                [style.background-color]="getTurnoColor(emp, dia)">
+                {{ getTurnoLabel(emp, dia) }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="!isLoading && empleados.length === 0 && selectedUnidad" class="empty-state">
+    <i class="pi pi-calendar-times"></i>
+    <h3>Sin turnos asignados</h3>
+    <p>No hay turnos registrados para esta unidad en el período seleccionado.</p>
+  </div>
+
+  <div *ngIf="!selectedUnidad && !isLoading" class="empty-state">
+    <i class="pi pi-info-circle"></i>
+    <h3>Selecciona una unidad funcional</h3>
+    <p>Elige una unidad para ver los turnos del mes.</p>
+  </div>
+</div>

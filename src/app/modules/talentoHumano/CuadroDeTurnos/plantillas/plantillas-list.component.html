@@ -1,0 +1,215 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/talentoHumano/turnos/dashboard">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-clock me-2"></i>
+          Plantillas de Turnos
+        </h1>
+        <p class="page-subtitle-modern">Define los horarios estándar disponibles</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="section-card">
+      <div class="section-card-header">
+        <h2 class="section-card-title"><i class="pi pi-list me-2"></i>Plantillas Registradas</h2>
+        <button 
+          pButton 
+          type="button" 
+          label="Nueva Plantilla" 
+          icon="pi pi-plus" 
+          class="p-button-success"
+          (click)="abrirFormulario()">
+        </button>
+      </div>
+
+      <div class="section-card-body">
+        <!-- Filtros -->
+        <div class="filter-section">
+          <div class="filter-group">
+            <input 
+              type="text" 
+              [(ngModel)]="searchTerm" 
+              (input)="aplicarFiltros()"
+              placeholder="Buscar plantilla..."
+              class="form-control">
+          </div>
+          <button 
+            pButton 
+            type="button" 
+            label="Limpiar" 
+            icon="pi pi-times" 
+            class="p-button-text"
+            (click)="limpiarFiltros()">
+          </button>
+        </div>
+
+        <!-- Tabla -->
+        <div class="modern-table-container">
+          <p-table
+            [value]="plantillasFiltradas"
+            [paginator]="true"
+            [rows]="10"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} plantillas"
+            styleClass="modern-table">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Hora Inicio</th>
+                <th>Hora Fin</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="body" let-plantilla>
+              <tr>
+                <td>{{ plantilla.nombre }}</td>
+                <td>{{ plantilla.descripcion }}</td>
+                <td>{{ plantilla.hora_inicio }}</td>
+                <td>{{ plantilla.hora_fin }}</td>
+                <td>
+                  <p-tag 
+                    [value]="plantilla.activo ? 'Activo' : 'Inactivo'" 
+                    [severity]="plantilla.activo ? 'success' : 'danger'">
+                  </p-tag>
+                </td>
+                <td>
+                  <button 
+                    pButton 
+                    type="button" 
+                    icon="pi pi-pencil" 
+                    class="p-button-rounded p-button-text p-button-sm"
+                    pTooltip="Editar" 
+                    tooltipPosition="top"
+                    (click)="editarPlantilla(plantilla)">
+                  </button>
+                  <button 
+                    pButton 
+                    type="button" 
+                    icon="pi pi-trash" 
+                    class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                    pTooltip="Eliminar" 
+                    tooltipPosition="top"
+                    (click)="eliminarPlantilla(plantilla)">
+                  </button>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="6" class="text-center py-5">
+                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                  <p class="text-muted mt-3 mb-1">No hay plantillas registradas</p>
+                  <small class="text-muted">Crea una nueva plantilla para comenzar</small>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulario Dialog -->
+  <p-dialog 
+    [(visible)]="showFormDialog" 
+    [header]="editMode ? 'Editar Plantilla' : 'Nueva Plantilla'" 
+    [modal]="true" 
+    [style]="{ width: '500px' }"
+    [maximizable]="true">
+
+    <form (ngSubmit)="onSubmit()" #form="ngForm">
+      <div class="form-group">
+        <label class="form-label">Nombre *</label>
+        <input 
+          type="text" 
+          [(ngModel)]="formData.nombre" 
+          name="nombre"
+          placeholder="Ej: Turno Mañana"
+          class="form-control"
+          [class.is-invalid]="submitted && !formData.nombre">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea 
+          [(ngModel)]="formData.descripcion" 
+          name="descripcion"
+          placeholder="Descripción del turno"
+          class="form-control"
+          rows="3">
+        </textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Hora Inicio *</label>
+          <input 
+            type="time" 
+            [(ngModel)]="formData.hora_inicio" 
+            name="hora_inicio"
+            class="form-control"
+            [class.is-invalid]="submitted && !formData.hora_inicio">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hora Fin *</label>
+          <input 
+            type="time" 
+            [(ngModel)]="formData.hora_fin" 
+            name="hora_fin"
+            class="form-control"
+            [class.is-invalid]="submitted && !formData.hora_fin">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-checkbox">
+          <input 
+            type="checkbox" 
+            [(ngModel)]="formData.activo" 
+            name="activo">
+          <span>Activo</span>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button 
+          pButton 
+          type="button" 
+          label="Cancelar" 
+          icon="pi pi-times" 
+          class="p-button-text"
+          (click)="showFormDialog = false">
+        </button>
+        <button 
+          pButton 
+          type="submit" 
+          [label]="editMode ? 'Actualizar' : 'Crear'" 
+          icon="pi pi-check" 
+          class="p-button-primary"
+          [loading]="isSubmitting">
+        </button>
+      </div>
+    </form>
+
+  </p-dialog>
+
+</div>

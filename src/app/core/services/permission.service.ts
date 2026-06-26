@@ -9,16 +9,26 @@ export interface UserPermission {
   estado: boolean;
 }
 
+export interface Sede {
+  id: number;
+  nombre: string;
+  codigo?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class PermissionService {
   private permissionsSubject = new BehaviorSubject<UserPermission[]>([]);
   public permissions$ = this.permissionsSubject.asObservable();
+  
+  private sedesSubject = new BehaviorSubject<Sede[]>([]);
+  public sedes$ = this.sedesSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    // Cargar permisos desde localStorage si existen
+    // Cargar permisos y sedes desde localStorage si existen
     this.loadPermissionsFromStorage();
+    this.loadSedesFromStorage();
   }
 
   /**
@@ -30,7 +40,6 @@ export class PermissionService {
       try {
         const user = JSON.parse(userStr);
         if (user.permissions && Array.isArray(user.permissions)) {
-          // console.log('✅ Cargando permisos desde localStorage:', user.permissions);
           this.setPermissions(user.permissions);
         }
       } catch (e) {
@@ -40,26 +49,33 @@ export class PermissionService {
   }
 
   /**
+   * Carga las sedes desde localStorage al iniciar
+   */
+  private loadSedesFromStorage(): void {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.sedes && Array.isArray(user.sedes)) {
+          this.setSedes(user.sedes);
+        }
+      } catch (e) {
+        console.error('❌ Error cargando sedes desde localStorage:', e);
+      }
+    }
+  }
+
+  /**
    * Carga los permisos del usuario desde el backend
    */
   loadUserPermissions(): void {
-    // console.log('🔄 Iniciando carga de permisos...');
-    
-    // Verificar si hay un token de autenticación
     const token = localStorage.getItem('token');
     if (!token) {
-      // console.log('⚠️ No hay token, no se cargarán permisos');
       return;
     }
 
-    // console.log('✅ Token encontrado, consultando permisos al backend...');
-    
     this.http.get<any>('/auth/me').subscribe({
       next: (response) => {
-        // console.log('📦 Respuesta completa del backend:', response);
-        // console.log('🔑 Permisos del usuario:', response.permissions);
-        
-        // Manejar diferentes formatos de respuesta
         let permissionsCodes: string[] = [];
         
         if (Array.isArray(response.permissions)) {
@@ -70,10 +86,6 @@ export class PermissionService {
           permissionsCodes = response.permisos;
         }
         
-        // console.log('📋 Códigos de permisos procesados:', permissionsCodes);
-        
-        
-        // Convertir los códigos de permisos a objetos UserPermission
         const permissions: UserPermission[] = permissionsCodes.map((codigo: string) => ({
           codigo: codigo,
           nombre: codigo,
@@ -81,14 +93,10 @@ export class PermissionService {
           estado: true
         }));
         
-        // console.log('✅ Permisos cargados:', permissions.length);
         this.permissionsSubject.next(permissions);
       },
       error: (error) => {
         console.error('❌ Error cargando permisos:', error);
-        console.error('Status:', error.status);
-        console.error('Message:', error.message);
-        
       }
     });
   }
@@ -147,7 +155,6 @@ export class PermissionService {
    * Establece los permisos del usuario
    */
   setPermissions(permissions: any[]): void {
-    // Convertir permisos del backend al formato UserPermission
     const userPermissions: UserPermission[] = permissions.map(p => ({
       codigo: p.codigo || p,
       nombre: p.nombre || p,
@@ -158,16 +165,37 @@ export class PermissionService {
   }
 
   /**
-   * Limpia los permisos (útil al hacer logout)
+   * Obtiene las sedes del usuario
    */
-  clearPermissions(): void {
-    this.permissionsSubject.next([]);
+  getSedes(): Sede[] {
+    return this.sedesSubject.value;
   }
 
   /**
-   * Recarga los permisos del usuario
+   * Establece las sedes del usuario
+   */
+  setSedes(sedes: any[]): void {
+    const sedesData: Sede[] = sedes.map(s => ({
+      id: s.id,
+      nombre: s.nombre || s.name,
+      codigo: s.codigo || s.code
+    }));
+    this.sedesSubject.next(sedesData);
+  }
+
+  /**
+   * Limpia los permisos y sedes (útil al hacer logout)
+   */
+  clearPermissions(): void {
+    this.permissionsSubject.next([]);
+    this.sedesSubject.next([]);
+  }
+
+  /**
+   * Recarga los permisos y sedes del usuario
    */
   reloadPermissions(): void {
     this.loadUserPermissions();
+    this.loadSedesFromStorage();
   }
 }

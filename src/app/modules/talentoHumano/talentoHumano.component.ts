@@ -5,7 +5,7 @@ import { CardModule } from 'primeng/card';
 import { RippleModule } from 'primeng/ripple';
 
 @Component({
-  selector: 'app-contabilidad',
+  selector: 'app-talento-humano',
   standalone: true,
   imports: [CommonModule, RouterModule, CardModule, RippleModule],
   templateUrl: './talentoHumano.component.html',
@@ -14,14 +14,24 @@ import { RippleModule } from 'primeng/ripple';
 export class talentoHumanoComponent {
   dashboardCards = [
     {
-      title: 'Personas',
-      icon: 'bi-people',
-      description: 'Gestión de terceros y personas',
+      title: 'Eventos',
+      icon: 'bi-calendar-event',
+      description: 'Gestión de eventos y novedades',
       color: 'primary',
       items: [
-        { name: 'Dashboard de Personas', route: '/contabilidad/personas/dashboard', icon: 'bi-speedometer2' },
-        { name: 'Terceros', route: '/contabilidad/personas/terceros', icon: 'bi-briefcase' },
-        { name: 'Personas', route: '/contabilidad/personas/personas', icon: 'bi-person' }
+        { name: 'Dashboard', route: '/talentoHumano/eventos/dashboard', icon: 'bi-speedometer2' },
+        { name: 'Cargue', route: '/talentoHumano/eventos/cargue', icon: 'bi-upload' },
+        { name: 'Parámetros', route: '/talentoHumano/eventos/parametros', icon: 'bi-gear' }
+      ]
+    },
+    {
+      title: 'Cuadro de Turnos',
+      icon: 'bi-calendar-week',
+      description: 'Gestión de horarios y turnos',
+      color: 'secondary',
+      items: [
+        { name: 'Dashboard', route: '/talentoHumano/turnos/dashboard', icon: 'bi-speedometer2' },
+        { name: 'Plantillas', route: '/talentoHumano/turnos/plantillas', icon: 'bi-clock' }
       ]
     }
   ];

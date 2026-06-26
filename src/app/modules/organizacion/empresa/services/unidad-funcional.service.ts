@@ -50,6 +50,7 @@ export interface CreateUnidadFuncionalRequest {
 })
 export class UnidadFuncionalService {
   private apiUrl = '/unidades-funcionales';
+  private turnosApiUrl = '/turnos/unidades-funcionales';
 
   constructor(private http: HttpClient) {}
 
@@ -64,6 +65,49 @@ export class UnidadFuncionalService {
       { params }
     ).pipe(
       map(response => Array.isArray(response) ? response : (response.data ?? []))
+    );
+  }
+
+  /**
+   * Obtiene las unidades funcionales del usuario autenticado
+   * Filtra por las empresas asignadas al usuario
+   */
+  getUnidadesFuncionalesDelUsuario(): Observable<UnidadFuncional[]> {
+    return this.http.get<{ success?: boolean; data: UnidadFuncional[] }>(
+      `${this.turnosApiUrl}/del-usuario`
+    ).pipe(
+      map(response => response.data ?? [])
+    );
+  }
+
+  /**
+   * Obtiene las unidades funcionales de una empresa específica
+   */
+  getUnidadesFuncionalesPorEmpresa(empresaId: number): Observable<UnidadFuncional[]> {
+    return this.getUnidadesFuncionales(empresaId).pipe(
+      map(unidades => unidades.map(u => ({
+        ...u,
+        nombre_con_prefijo: u.empresa?.prefijo ? `${u.empresa.prefijo}-${u.nombre}` : u.nombre,
+        prefijo: u.empresa?.prefijo || 'N/A',
+        sede_nombre: u.sede?.nombre || 'No especificada'
+      })))
+    );
+  }
+
+  /**
+   * Obtiene los empleados de una unidad funcional
+   */
+  getEmpleadosUnidad(idUnidad: number, search?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (search) {
+      params = params.set('search', search);
+    }
+
+    return this.http.get<{ success?: boolean; data: any[] }>(
+      `${this.turnosApiUrl}/${idUnidad}/empleados`,
+      { params }
+    ).pipe(
+      map(response => response.data ?? [])
     );
   }
 
