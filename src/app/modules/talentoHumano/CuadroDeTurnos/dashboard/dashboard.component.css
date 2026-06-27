@@ -1,0 +1,479 @@
+/* ============================================================================
+   PAGE CONTAINER & LAYOUT
+   ============================================================================ */
+
+.page-container {
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 0;
+}
+
+/* ============================================================================
+   HEADER STYLES
+   ============================================================================ */
+
+.page-header-modern {
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+}
+
+.header-top {
+  margin-bottom: 1rem;
+}
+
+.btn-back-modern {
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  transition: color 0.2s;
+}
+
+.btn-back-modern:hover {
+  color: #764ba2;
+}
+
+.header-main {
+  margin-bottom: 1.5rem;
+}
+
+.header-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.page-title-modern {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-subtitle-modern {
+  font-size: 0.95rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+/* ============================================================================
+   TABS NAVIGATION
+   ============================================================================ */
+
+.tabs-nav {
+  display: flex;
+  gap: 0.5rem;
+  border-top: 1px solid #e9ecef;
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tab-btn:hover {
+  color: #667eea;
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+/* ============================================================================
+   DASHBOARD CONTENT
+   ============================================================================ */
+
+.dashboard-content {
+  padding: 0 2rem 2rem;
+}
+
+/* ============================================================================
+   SECTION CARD
+   ============================================================================ */
+
+.section-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.section-card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-card-body {
+  padding: 2rem;
+}
+
+/* ============================================================================
+   SELECTOR GRID
+   ============================================================================ */
+
+.selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  align-items: flex-end;
+}
+
+.selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.selector-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.selector-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+.p-dropdown-panel {
+  z-index: 9999 !important;
+}
+::ng-deep .selector-actions .p-button {
+  min-width: 140px;
+}
+
+/* ============================================================================
+   MODERN TABLE
+   ============================================================================ */
+
+.modern-table-container {
+  overflow-x: auto;
+}
+
+::ng-deep .modern-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+::ng-deep .modern-table thead tr {
+  background: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+}
+
+::ng-deep .modern-table thead th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+::ng-deep .modern-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s;
+}
+
+::ng-deep .modern-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+::ng-deep .modern-table tbody td {
+  padding: 1rem;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+/* ============================================================================
+   CONFIG GRID
+   ============================================================================ */
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s;
+}
+
+.config-item:hover {
+  background: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.config-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: white;
+  flex-shrink: 0;
+}
+
+.config-icon-blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.config-icon-green {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.config-icon-purple {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  color: #2c3e50;
+}
+
+.config-icon-orange {
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%);
+}
+
+.config-info {
+  flex: 1;
+}
+
+
+.config-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 0.25rem 0;
+}
+
+.config-desc {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+.btn-action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-action-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-action-primary:hover {
+  background: #764ba2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.w-100 {
+  width: 100%;
+}
+
+.me-2 {
+  margin-right: 0.5rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.py-5 {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.mt-3 {
+  margin-top: 1rem;
+}
+
+.mb-1 {
+  margin-bottom: 0.25rem;
+}
+
+.text-muted {
+  color: #6c757d;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .page-header-modern {
+    padding: 1rem;
+  }
+
+  .page-title-modern {
+    font-size: 1.5rem;
+  }
+
+  .tabs-nav {
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .dashboard-content {
+    padding: 0 1rem 1rem;
+  }
+
+  .section-card-body {
+    padding: 1rem;
+  }
+
+  .selector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .selector-actions {
+    flex-direction: column;
+  }
+
+  ::ng-deep .selector-actions .p-button {
+    width: 100%;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-item {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .config-info {
+    width: 100%;
+  }
+}
+
+/* ============================================================================
+   SEDE INFO BOX
+   ============================================================================ */
+
+.sede-info-box {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f0f4ff 0%, #f8f9ff 100%);
+  border: 2px solid #e0e7ff;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.sede-info-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e7ff;
+}
+
+.sede-info-header i {
+  font-size: 1.25rem;
+  color: #667eea;
+}
+
+.sede-info-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.sede-info-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-row span {
+  font-size: 0.95rem;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.badge-prefijo {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  width: fit-content;
+}

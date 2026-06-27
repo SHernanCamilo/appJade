@@ -1,0 +1,144 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/talentoHumano/turnos/dashboard">
+        <i class="pi pi-arrow-left"></i> Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-building me-2"></i> Unidades Funcionales
+        </h1>
+        <p class="page-subtitle-modern">Catálogo de unidades funcionales de la organización</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="section-card">
+      <div class="section-card-header">
+        <h2 class="section-card-title"><i class="pi pi-list me-2"></i>Unidades Registradas</h2>
+        <button pButton type="button" label="Nueva Unidad" icon="pi pi-plus"
+          class="p-button-success" (click)="abrirFormulario()"></button>
+      </div>
+
+      <div class="section-card-body">
+        <div class="filter-section">
+          <div class="filter-group">
+            <input type="text" [(ngModel)]="searchTerm" (input)="aplicarFiltros()"
+              placeholder="Buscar por nombre o código..." class="form-control">
+          </div>
+          <button pButton type="button" label="Limpiar" icon="pi pi-times"
+            class="p-button-text" (click)="limpiarFiltros()"></button>
+        </div>
+
+        <div class="modern-table-container">
+          <p-table [value]="unidadesFiltradas" [paginator]="true" [rows]="10"
+            [showCurrentPageReport]="true" [loading]="isLoading"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} unidades"
+            styleClass="modern-table">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Empresa</th>
+                <th>Sede</th>
+                <th>Estado</th>
+                <th style="width: 130px;">Acciones</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="body" let-u>
+              <tr>
+                <td><strong>{{ u.codigo }}</strong></td>
+                <td>{{ u.nombre }}</td>
+                <td>{{ u.empresa?.nombre || empresaNombre(u.id_empresa) }}</td>
+                <td>{{ u.sede?.nombre || '—' }}</td>
+                <td>
+                  <p-tag [value]="u.estado ? 'Activo' : 'Inactivo'"
+                    [severity]="u.estado ? 'success' : 'danger'"></p-tag>
+                </td>
+                <td>
+                  <button pButton type="button" icon="pi pi-pencil"
+                    class="p-button-rounded p-button-text p-button-sm"
+                    pTooltip="Editar" tooltipPosition="top" (click)="editarUnidad(u)"></button>
+                  <button pButton type="button" icon="pi pi-trash"
+                    class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                    pTooltip="Desactivar" tooltipPosition="top" (click)="eliminarUnidad(u)"></button>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="6" class="text-center py-5">
+                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                  <p class="text-muted mt-3 mb-1">No hay unidades funcionales</p>
+                  <small class="text-muted">Crea una nueva para comenzar</small>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Formulario ===== -->
+  <p-dialog [(visible)]="showFormDialog"
+    [header]="editMode ? 'Editar Unidad Funcional' : 'Nueva Unidad Funcional'"
+    [modal]="true" [style]="{ width: '550px' }">
+
+    <form (ngSubmit)="onSubmit()" #form="ngForm">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Código *</label>
+          <input type="text" [(ngModel)]="formData.codigo" name="codigo"
+            placeholder="Ej: TIC, OPE, LOG" class="form-control"
+            [class.is-invalid]="submitted && !formData.codigo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input type="text" [(ngModel)]="formData.nombre" name="nombre"
+            placeholder="Ej: Tecnología" class="form-control"
+            [class.is-invalid]="submitted && !formData.nombre">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Empresa *</label>
+        <p-dropdown [(ngModel)]="formData.id_empresa" name="id_empresa"
+          [options]="empresasOptions" placeholder="Selecciona una empresa"
+          [showClear]="true" [filter]="true" styleClass="w-100"
+          (onChange)="onEmpresaChange()"></p-dropdown>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sede (opcional)</label>
+        <p-dropdown [(ngModel)]="formData.id_sede" name="id_sede"
+          [options]="sedesOptions" [disabled]="!formData.id_empresa"
+          placeholder="Selecciona una sede o deja vacío"
+          [showClear]="true" [filter]="true" styleClass="w-100"></p-dropdown>
+      </div>
+
+      <div class="form-group">
+        <p-checkbox [(ngModel)]="formData.estado" name="estado"
+          [binary]="true" label="Activa"></p-checkbox>
+      </div>
+
+      <div class="form-actions">
+        <button pButton type="button" label="Cancelar" icon="pi pi-times"
+          class="p-button-text" (click)="showFormDialog = false"></button>
+        <button pButton type="submit" [label]="editMode ? 'Actualizar' : 'Crear'"
+          icon="pi pi-check" class="p-button-primary"
+          [loading]="isSubmitting"></button>
+      </div>
+    </form>
+  </p-dialog>
+</div>

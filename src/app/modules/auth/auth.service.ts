@@ -49,19 +49,22 @@ export class AuthService {
         if (resp.user) {
           localStorage.setItem('user', JSON.stringify(resp.user));
           this.currentUserSubject.next(resp.user);
+          
           // Cargar permisos del usuario
           if (resp.user.permissions) {
             this.permissionService.setPermissions(resp.user.permissions);
+          }
+          
+          // Cargar sedes del usuario
+          if (resp.user.sedes) {
+            this.permissionService.setSedes(resp.user.sedes);
           }
         }
 
         // Cargar módulos del sidebar si vienen en la respuesta
         if (resp.sidebar && resp.sidebar.length > 0) {
-          // console.log('✅ Módulos del sidebar recibidos en login:', resp.sidebar);
           this.sidebarService.cargarModulosDesdeLogin(resp.sidebar);
         } else {
-          // console.log('⚠️ No se recibieron módulos en login, cargando con endpoint separado');
-          // Si no vienen en el login, cargarlos con endpoint separado
           this.loadSidebarModules();
         }
 
@@ -169,6 +172,10 @@ export class AuthService {
         // Cargar permisos si existen
         if (user.permissions) {
           this.permissionService.setPermissions(user.permissions);
+        }
+        // Cargar sedes si existen
+        if (user.sedes) {
+          this.permissionService.setSedes(user.sedes);
         }
         // Cargar módulos del sidebar
         this.loadSidebarModules();

@@ -1,0 +1,293 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/talentoHumano">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-calendar-week me-2"></i>
+          Cuadro de Turnos
+        </h1>
+        <p class="page-subtitle-modern">Gestión de horarios y turnos del personal</p>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-nav">
+      <button class="tab-btn" [class.active]="activeTab === 'selector'" (click)="setTab('selector')">
+        <i class="pi pi-calendar me-2"></i>Selector
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'gestionar'" (click)="setTab('gestionar')">
+        <i class="pi pi-list me-2"></i>Gestionar
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'configuracion'" (click)="setTab('configuracion')">
+        <i class="pi pi-cog me-2"></i>Configuración
+      </button>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+
+    <!-- ===== Tab: Selector ===== -->
+    <ng-container *ngIf="activeTab === 'selector'">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title"><i class="pi pi-calendar me-2"></i>Seleccionar Período</h2>
+        </div>
+        <div class="section-card-body">
+          <div class="selector-grid">
+            <div class="selector-group">
+              <label class="selector-label">Empresa / Clínica</label>
+              <p-dropdown
+                [(ngModel)]="selectedEmpresa"
+                [options]="empresasOptions"
+                placeholder="Selecciona una empresa"
+                [showClear]="true"
+                [loading]="isLoadingEmpresas"
+                (onChange)="onEmpresaChange()"
+                appendTo="body"
+                styleClass="w-100">
+              </p-dropdown>
+            </div>
+            <div class="selector-group">
+              <label class="selector-label">Unidad Funcional</label>
+              <p-dropdown
+                [(ngModel)]="selectedUnidadFuncional"
+                [options]="unidadesFuncionalesOptions"
+                placeholder="Selecciona una unidad"
+                [showClear]="true"
+                [loading]="isLoadingUnidades"
+                [disabled]="!selectedEmpresa"
+                (onChange)="onUnidadFuncionalChange()"
+                appendTo="body"
+                styleClass="w-100">
+              </p-dropdown>
+            </div>
+            <div class="selector-group">
+              <label class="selector-label">Empleado</label>
+              <p-dropdown
+                [(ngModel)]="selectedEmpleado"
+                [options]="empleadosOptions"
+                placeholder="Selecciona un empleado"
+                [showClear]="true"
+                [loading]="isLoadingEmpleados"
+                [disabled]="!selectedUnidadFuncional"
+                appendTo="body"
+                styleClass="w-100">
+              </p-dropdown>
+            </div>
+            <div class="selector-group">
+              <label class="selector-label">Grupo de Trabajo</label>
+              <p-dropdown
+                [(ngModel)]="selectedGrupo"
+                [options]="gruposOptions"
+                placeholder="Selecciona un grupo"
+                [showClear]="true"
+                appendTo="body"
+                styleClass="w-100">
+              </p-dropdown>
+            </div>
+            <div class="selector-group">
+              <label class="selector-label">Mes y Año</label>
+              <p-dropdown
+                [(ngModel)]="selectedMes"
+                [options]="mesesOptions"
+                placeholder="Selecciona un mes"
+                [showClear]="true"
+                [filter]="true"
+                appendTo="body"
+                styleClass="w-100">
+              </p-dropdown>
+            </div>
+            <div class="selector-actions">
+              <button pButton type="button" label="Ver Cuadro" icon="pi pi-eye" class="p-button-primary" (click)="verCuadro()"></button>
+              <button pButton type="button" label="Crear Nuevo" icon="pi pi-plus" class="p-button-success" (click)="crearNuevoCuadro()"></button>
+              <button pButton type="button" label="Actualizar" icon="pi pi-refresh" class="p-button-info" (click)="refrescarPagina()"></button>
+            </div>
+          </div>
+
+          <!-- Información de Sede (solo lectura) -->
+          <div class="sede-info-box" *ngIf="sedeInfo">
+            <div class="sede-info-header">
+              <i class="pi pi-map-marker"></i>
+              <h3>Información de la Unidad</h3>
+            </div>
+            <div class="sede-info-content">
+              <div class="info-row">
+                <label>Unidad Funcional:</label>
+                <span>{{ sedeInfo.nombre }}</span>
+              </div>
+              <div class="info-row">
+                <label>Prefijo:</label>
+                <span class="badge-prefijo">{{ sedeInfo.prefijo }}</span>
+              </div>
+              <div class="info-row">
+                <label>Código:</label>
+                <span>{{ sedeInfo.codigo }}</span>
+              </div>
+              <div class="info-row">
+                <label>Sede:</label>
+                <span>{{ sedeInfo.sede }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- ===== Tab: Gestionar ===== -->
+    <ng-container *ngIf="activeTab === 'gestionar'">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title"><i class="pi pi-list me-2"></i>Cuadros Recientes</h2>
+        </div>
+        <div class="modern-table-container">
+          <p-table
+            [value]="cuadros"
+            [paginator]="true"
+            [rows]="10"
+            [showCurrentPageReport]="true"
+            [loading]="isLoadingCuadros"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} cuadros"
+            styleClass="modern-table">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Grupo</th>
+                <th>Mes</th>
+                <th>Año</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="body" let-cuadro>
+              <tr>
+                <td>{{ cuadro.grupo_id }}</td>
+                <td>{{ cuadro.mes }}</td>
+                <td>{{ cuadro.year }}</td>
+                <td>
+                  <p-tag 
+                    [value]="cuadro.estado" 
+                    [severity]="getEstadoSeverity(cuadro.estado)">
+                  </p-tag>
+                </td>
+                <td>
+                  <button 
+                    pButton 
+                    type="button" 
+                    icon="pi pi-eye" 
+                    class="p-button-rounded p-button-text p-button-sm"
+                    pTooltip="Ver Cuadro" 
+                    tooltipPosition="top"
+                    (click)="verCuadroDetalle(cuadro)">
+                  </button>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="5" class="text-center py-5">
+                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                  <p class="text-muted mt-3 mb-1">No hay cuadros registrados</p>
+                  <small class="text-muted">Los cuadros aparecerán aquí una vez creados</small>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- ===== Tab: Configuración ===== -->
+    <ng-container *ngIf="activeTab === 'configuracion'">
+      <div class="section-card">
+        <div class="section-card-header">
+          <h2 class="section-card-title"><i class="pi pi-cog me-2"></i>Configuración</h2>
+        </div>
+        <div class="section-card-body">
+          <div class="config-grid">
+
+            <div class="config-item">
+              <div class="config-icon config-icon-blue"><i class="pi pi-users"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Grupos de Trabajo</h3>
+                <p class="config-desc">Administra los grupos y unidades funcionales del personal.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Ir a Grupos" tooltipPosition="top" routerLink="/talentoHumano/turnos/grupos">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-blue"><i class="pi pi-building"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Unidades Funcionales</h3>
+                <p class="config-desc">Catálogo de áreas/departamentos de la organización.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Ir a Unidades Funcionales" tooltipPosition="top" routerLink="/talentoHumano/turnos/unidades-funcionales">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-green"><i class="pi pi-clock"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Plantillas de Turnos</h3>
+                <p class="config-desc">Define los horarios estándar (turnos) disponibles.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Ir a Plantillas" tooltipPosition="top" routerLink="/talentoHumano/turnos/plantillas">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-purple"><i class="pi pi-exclamation-circle"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Novedades</h3>
+                <p class="config-desc">Gestiona cambios especiales (vacaciones, incapacidades, etc.).</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Ir a Novedades" tooltipPosition="top" routerLink="/talentoHumano/turnos/novedades">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-orange"><i class="pi pi-sliders-h"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Cuadros</h3>
+                <p class="config-desc">Visualiza y gestiona todos los cuadros de turnos creados.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Seleccionar Mes" tooltipPosition="top" routerLink="/talentoHumano/turnos/mes-selector">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="config-item">
+              <div class="config-icon config-icon-red"><i class="pi pi-lock"></i></div>
+              <div class="config-info">
+                <h3 class="config-title">Permisos</h3>
+                <p class="config-desc">Gestiona permisos de acceso al cuadro de turnos por usuario y sede.</p>
+              </div>
+              <button class="btn-action-icon btn-action-primary" pTooltip="Gestionar Permisos" tooltipPosition="top" routerLink="/talentoHumano/turnos/permisos">
+                <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+  </div>
+
+</div>

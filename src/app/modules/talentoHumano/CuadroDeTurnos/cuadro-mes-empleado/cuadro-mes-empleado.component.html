@@ -1,0 +1,432 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- HEADER -->
+  <div class="page-header-simple">
+    <button class="btn-back-simple" routerLink="/talentoHumano/turnos/dashboard">
+      <i class="pi pi-arrow-left"></i> Volver
+    </button>
+    <div class="header-content">
+      <h1 class="page-title-simple">
+        <i class="pi pi-calendar-week"></i>
+        Cuadro de Turnos
+      </h1>
+      <p class="page-subtitle-simple">Gestiona y visualiza los turnos del personal</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FILTROS: Versión limpia y compacta                     -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="filtros-card filtros-limpios">
+    <div class="filtros-row-main">
+      
+      <!-- Empresa -->
+      <div class="filtro-item-vertical">
+        <label>Empresa</label>
+        <p-dropdown
+          [(ngModel)]="selectedEmpresa"
+          [options]="empresasOptions"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onEmpresaChange()"
+          placeholder="Seleccionar empresa"
+          [showClear]="false"
+          [filter]="true"
+          styleClass="w-100 dropdown-compact">
+        </p-dropdown>
+      </div>
+
+      <!-- Sucursal -->
+      <div class="filtro-item-vertical">
+        <label>Sucursal</label>
+        <p-dropdown
+          [(ngModel)]="selectedSucursal"
+          [options]="sucursalesOptions"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onSucursalChange()"
+          placeholder="Seleccionar sucursal"
+          [disabled]="sucursalesOptions.length === 0"
+          [showClear]="false"
+          [filter]="true"
+          styleClass="w-100 dropdown-compact">
+        </p-dropdown>
+      </div>
+
+      <!-- Sede -->
+      <div class="filtro-item-vertical">
+        <label>Sede</label>
+        <p-dropdown
+          [(ngModel)]="selectedSede"
+          [options]="sedesOptions"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onSedeChange()"
+          placeholder="Seleccionar sede"
+          [disabled]="sedesOptions.length === 0"
+          [showClear]="false"
+          [filter]="true"
+          styleClass="w-100 dropdown-compact">
+        </p-dropdown>
+      </div>
+
+      <!-- Unidad Funcional -->
+      <div class="filtro-item-vertical">
+        <label>Unidad Funcional</label>
+        <p-dropdown
+          [(ngModel)]="selectedUnidad"
+          [options]="unidadOptions"
+          optionLabel="label"
+          optionValue="value"
+          (onChange)="onUnidadChange()"
+          placeholder="Seleccionar unidad"
+          [disabled]="unidadOptions.length === 0"
+          [showClear]="false"
+          [filter]="true"
+          styleClass="w-100 dropdown-compact">
+        </p-dropdown>
+      </div>
+
+      <!-- Usuario -->
+      <div class="filtro-item-vertical">
+        <label>Usuario</label>
+        <p-dropdown
+          [(ngModel)]="selectedEmpleado"
+          [options]="empleadoOptions"
+          [disabled]="empleados.length === 0"
+          (onChange)="onEmpleadoChange()"
+          placeholder="Seleccionar usuario"
+          [showClear]="true"
+          [filter]="true"
+          styleClass="w-100 dropdown-compact">
+        </p-dropdown>
+      </div>
+
+      <!-- Mes y Año (selector integrado) -->
+      <div class="filtro-mes-anio">
+        <button class="btn-mes-anio" (click)="mostrarSelectorMesAnio()">
+          <i class="pi pi-chevron-left"></i>
+          <span class="mes-anio-texto">{{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</span>
+          <i class="pi pi-chevron-right"></i>
+        </button>
+      </div>
+
+      <!-- Acciones -->
+      <div class="filtro-acciones">
+        <button pButton type="button" icon="pi pi-clock"
+          class="p-button-rounded p-button-info p-button-lg btn-accion-horas"
+          pTooltip="Ver resumen de horas" tooltipPosition="top"
+          [disabled]="!selectedEmpleado"
+          (click)="abrirResumenModal()"></button>
+
+        <button pButton type="button" icon="pi pi-trash"
+          class="p-button-rounded p-button-danger p-button-lg btn-accion-eliminar"
+          pTooltip="Eliminar cuadro" tooltipPosition="top"
+          [disabled]="!selectedEmpleado || isLoading"
+          (click)="eliminarCuadroCompleto()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- SELECTOR MES/AÑO (Overlay)                             -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <p-overlayPanel #mesAnioPanel [showCloseIcon]="true">
+    <ng-template pTemplate="content">
+      <div class="selector-mes-anio">
+        <div class="selector-header">
+          <button class="btn-year" (click)="toggleModoAnio()">
+            {{ selectedAnio }}
+          </button>
+        </div>
+
+        <!-- Modo Mes -->
+        <div *ngIf="!modoSeleccionarAnio" class="selector-meses">
+          <h4>{{ selectedAnio }}</h4>
+          <div class="meses-grid">
+            <button *ngFor="let mes of mesOptions; let i = index"
+              class="btn-mes"
+              [class.activo]="mes.value === selectedMes"
+              (click)="seleccionarMes(mes.value); mesAnioPanel.hide()">
+              {{ mes.label.substring(0, 3) }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Modo Año -->
+        <div *ngIf="modoSeleccionarAnio" class="selector-anios">
+          <div class="anios-grid">
+            <button *ngFor="let anio of anioOptions"
+              class="btn-anio"
+              [class.activo]="anio.value === selectedAnio"
+              (click)="seleccionarAnio(anio.value); modoSeleccionarAnio = false">
+              {{ anio.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </ng-template>
+  </p-overlayPanel>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CALENDARIO (SIN RESUMEN LATERAL - ANCHO COMPLETO)       -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div *ngIf="!isLoading" class="cuadro-main-grid">
+    <!-- Calendario -->
+    <div class="calendario-card calendario-fullwidth">
+      <div class="calendario-header">
+        <h2>{{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</h2>
+        <div class="calendario-leyenda">
+          <span class="leyenda-item"><span class="dot turno"></span> Turno</span>
+          <span class="leyenda-item"><span class="dot descanso"></span> Descanso</span>
+          <span class="leyenda-item"><span class="dot festivo"></span> Festivo</span>
+        </div>
+      </div>
+
+      <div class="calendario-grid">
+        <div class="dia-cabecera" *ngFor="let d of diasSemana">{{ d }}</div>
+
+        <div *ngFor="let dia of calendario; trackBy: trackByFecha"
+             class="dia-celda"
+             [class.fuera-mes]="!dia.esDelMes"
+             [class.es-hoy]="dia.esHoy"
+             [class.es-festivo]="dia.esFestivo && dia.esDelMes"
+             [class.seleccionado]="diaSeleccionado?.fecha === dia.fecha"
+             [class.deshabilitado]="!selectedEmpleado"
+             (click)="seleccionarDia(dia)"
+             (dblclick)="abrirEdicion(dia)"
+             [pTooltip]="dia.nombreFestivo || ''"
+             tooltipPosition="top">
+
+          <div class="dia-numero">{{ dia.numero }}</div>
+
+          <div *ngIf="dia.esDelMes && dia.nombreFestivo" class="dia-festivo-tag">
+            <i class="pi pi-flag-fill"></i>
+          </div>
+
+          <div *ngIf="dia.turno && !dia.turno.es_descanso" class="dia-turno"
+               [style.background-color]="dia.turno.plantilla?.color_hex || '#6366f1'">
+            <i class="pi pi-clock"></i>
+            <span>{{ dia.turno.plantilla?.nombre }}</span>
+          </div>
+
+          <div *ngIf="dia.turno?.es_descanso" class="dia-descanso">
+            <i class="pi pi-moon"></i> D
+          </div>
+
+          <button *ngIf="dia.esDelMes && selectedEmpleado" class="btn-edit-dia"
+                  (click)="$event.stopPropagation(); abrirEdicion(dia)">
+            <i class="pi pi-pencil"></i>
+          </button>
+        </div>
+    <!-- Panel resumen -->
+    <div *ngIf="cuadro" class="resumen-card">
+      <h3>Resumen del mes</h3>
+      <div class="totales-grid">
+        <div class="total-box">
+          <span class="total-label">Horas Normales</span>
+          <span class="total-valor">{{ formatHoras(cuadro.totales.normales) }}</span>
+        </div>
+        <div class="total-box">
+          <span class="total-label">Horas Nocturnas</span>
+          <span class="total-valor">{{ formatHoras(cuadro.totales.nocturnas) }}</span>
+        </div>
+        <div class="total-box">
+          <span class="total-label">Horas Festivas</span>
+          <span class="total-valor">{{ formatHoras(cuadro.totales.festivas) }}</span>
+        </div>
+        <div class="total-box">
+          <span class="total-label">Horas Festivas Nocturnas</span>
+          <span class="total-valor">{{ formatHoras(cuadro.totales.festivas_nocturnas) }}</span>
+        </div>
+        <div class="total-box total-mes" style="grid-column: span 2;">
+          <span class="total-label">Total del Mes</span>
+          <span class="total-valor">{{ formatHoras(cuadro.totales.total) }}</span>
+        </div>
+      </div>
+
+      <!-- Detalle del día seleccionado -->
+      <div *ngIf="diaSeleccionado" class="detalle-dia">
+        <h4>{{ diaSeleccionado.fecha }}</h4>
+        <div *ngIf="diaSeleccionado.nombreFestivo" class="festivo-tag">
+          <i class="pi pi-flag-fill"></i> {{ diaSeleccionado.nombreFestivo }}
+        </div>
+
+        <ng-container *ngIf="diaSeleccionado.turno && !diaSeleccionado.turno.es_descanso; else sinTurnoTpl">
+          <div class="rangos-list">
+            <div *ngFor="let r of diaSeleccionado.turno.rangos" class="rango-row">
+              <i class="pi pi-clock"></i> {{ r.inicio?.substring(0,5) }} - {{ r.fin?.substring(0,5) }}
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-template #sinTurnoTpl>
+          <p class="sin-turno">
+            <ng-container *ngIf="diaSeleccionado.turno?.es_descanso">Descanso programado</ng-container>
+            <ng-container *ngIf="!diaSeleccionado.turno">Sin turno asignado</ng-container>
+          </p>
+        </ng-template>
+
+        <button pButton type="button" label="Editar" icon="pi pi-pencil"
+          class="p-button p-button-primary p-button-sm w-100 mt-3" 
+          (click)="abrirEdicion(diaSeleccionado)"></button>
+      </div>
+    </div>
+    </div>
+
+  <!-- Estado vacío - Solo si no hay usuario y no hay cuadro -->
+  <div *ngIf="!isLoading && !selectedEmpleado && !cuadro && false" class="empty-state">
+    <i class="pi pi-info-circle"></i>
+    <h3>Selecciona un usuario</h3>
+    <p>Selecciona un usuario para visualizar y editar sus turnos del mes.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- MODAL: RESUMEN Y DETALLES (Cuando se selecciona usuario) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <p-dialog [(visible)]="showResumenModal" [modal]="true" [style]="{width: '90%', maxWidth: '600px'}"
+            [header]="'📊 Resumen: ' + nombreEmpleadoResumen"
+            [closable]="true" styleClass="dialog-resumen-custom">
+    <div class="resumen-modal-content">
+      <!-- Info Unidad -->
+      <div *ngIf="unidadActual" class="unidad-info-modal">
+        <div class="info-header">
+          <i class="pi pi-sitemap"></i>
+          <h4>{{ unidadActual.nombre }}</h4>
+        </div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-icon"><i class="pi pi-code"></i></span>
+            <span class="info-val">{{ unidadActual.codigo }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-icon"><i class="pi pi-map-marker"></i></span>
+            <span class="info-val">{{ unidadActual.sede?.nombre || 'N/A' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totales -->
+      <div *ngIf="cuadro" class="totales-modal">
+        <h4>Totales del mes</h4>
+        <div class="totales-grid-modal">
+          <div class="total-box-modal">
+            <span class="total-label">Normales</span>
+            <span class="total-valor-modal">{{ formatHoras(cuadro.totales.normales) }}</span>
+          </div>
+          <div class="total-box-modal">
+            <span class="total-label">Nocturnas</span>
+            <span class="total-valor-modal">{{ formatHoras(cuadro.totales.nocturnas) }}</span>
+          </div>
+          <div class="total-box-modal">
+            <span class="total-label">Festivas</span>
+            <span class="total-valor-modal">{{ formatHoras(cuadro.totales.festivas) }}</span>
+          </div>
+          <div class="total-box-modal">
+            <span class="total-label">Fest. Noct.</span>
+            <span class="total-valor-modal">{{ formatHoras(cuadro.totales.festivas_nocturnas) }}</span>
+          </div>
+          <div class="total-box-modal total-principal">
+            <span class="total-label">TOTAL</span>
+            <span class="total-valor-modal">{{ formatHoras(cuadro.totales.total) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalle día si está seleccionado -->
+      <div *ngIf="diaSeleccionado" class="detalle-dia-modal">
+        <h4>{{ diaSeleccionado.fecha }}</h4>
+        <div *ngIf="diaSeleccionado.nombreFestivo" class="festivo-tag-modal">
+          <i class="pi pi-flag-fill"></i> {{ diaSeleccionado.nombreFestivo }}
+        </div>
+        <ng-container *ngIf="diaSeleccionado.turno && !diaSeleccionado.turno.es_descanso; else sinTurnoModal">
+          <div class="rangos-list-modal">
+            <div *ngFor="let r of diaSeleccionado.turno.rangos" class="rango-row-modal">
+              <i class="pi pi-clock"></i> {{ r.inicio?.substring(0,5) }} - {{ r.fin?.substring(0,5) }}
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #sinTurnoModal>
+          <p class="sin-turno-modal">
+            <ng-container *ngIf="diaSeleccionado.turno?.es_descanso">Descanso programado</ng-container>
+            <ng-container *ngIf="!diaSeleccionado.turno">Sin turno asignado</ng-container>
+          </p>
+        </ng-template>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <button pButton type="button" label="Cerrar" icon="pi pi-times"
+        class="p-button-text p-button-secondary" (click)="cerrarResumenModal()"></button>
+    </ng-template>
+  </p-dialog>
+  <p-dialog [(visible)]="showEditDialog" [modal]="true" [style]="{width: '550px'}"
+            header="📅 Editar Turno" [closable]="!isSavingDay"
+            styleClass="dialog-custom">
+    <div class="edit-form">
+      <p class="edit-fecha"><i class="pi pi-calendar me-2"></i> {{ editForm.fecha }}</p>
+
+      <div class="form-row">
+        <p-checkbox [(ngModel)]="editForm.esDescanso" [binary]="true" 
+          label="Es día de descanso" styleClass="checkbox-custom"></p-checkbox>
+      </div>
+
+      <ng-container *ngIf="!editForm.esDescanso">
+        <div class="form-row">
+          <label>Plantilla / Turno</label>
+          <p-dropdown
+            [(ngModel)]="editForm.idPlantilla"
+            [options]="plantillaOptions"
+            (onChange)="onPlantillaChange()"
+            placeholder="Selecciona una plantilla"
+            [showClear]="true"
+            [filter]="true"
+            styleClass="w-100"></p-dropdown>
+        </div>
+
+        <h4 class="seccion-titulo">Horario 1</h4>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Hora inicio</label>
+            <input type="time" pInputText [(ngModel)]="editForm.horaInicioOverride" class="w-100">
+          </div>
+          <div class="form-row">
+            <label>Hora fin</label>
+            <input type="time" pInputText [(ngModel)]="editForm.horaFinOverride" class="w-100">
+          </div>
+        </div>
+
+        <h4 class="seccion-titulo">Horario 2 <span class="opcional">(opcional)</span></h4>
+        <div class="form-grid-2">
+          <div class="form-row">
+            <label>Hora inicio</label>
+            <input type="time" pInputText [(ngModel)]="editForm.horaInicio2Override" class="w-100">
+          </div>
+          <div class="form-row">
+            <label>Hora fin</label>
+            <input type="time" pInputText [(ngModel)]="editForm.horaFin2Override" class="w-100">
+          </div>
+        </div>
+      </ng-container>
+
+      <div class="form-row">
+        <label>Observación</label>
+        <input type="text" pInputText [(ngModel)]="editForm.observacion" class="w-100"
+          placeholder="Notas o comentarios">
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="dialog-footer-custom">
+        <button pButton type="button" label="Eliminar turno" icon="pi pi-trash"
+          class="p-button p-button-danger p-button-outlined" [disabled]="isSavingDay" 
+          (click)="eliminarTurnoDelDia()"></button>
+        <div style="flex: 1;"></div>
+        <button pButton type="button" label="Guardar" icon="pi pi-check"
+          class="p-button p-button-success" [loading]="isSavingDay" 
+          (click)="guardarDia()"></button>
+      </div>
+    </ng-template>
+  </p-dialog>
+</div>

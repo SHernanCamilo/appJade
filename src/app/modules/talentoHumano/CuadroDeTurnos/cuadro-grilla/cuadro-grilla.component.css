@@ -1,0 +1,60 @@
+.grilla-container { padding: 1.5rem; max-width: 1600px; margin: 0 auto; }
+
+.grilla-header {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 1rem; padding: 1.5rem 2rem; color: #fff; margin-bottom: 1.5rem;
+}
+.grilla-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0.5rem 0 0.25rem; }
+.grilla-header p { margin: 0; opacity: 0.85; font-size: 0.9rem; }
+.btn-back {
+  background: rgba(255,255,255,0.18); color: #fff; border: none;
+  padding: 0.4rem 0.9rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+}
+.btn-back:hover { background: rgba(255,255,255,0.28); }
+
+.filtros-bar {
+  background: #fff; border-radius: 12px; padding: 1rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 1.5rem;
+  display: grid; grid-template-columns: 2fr 1fr 1fr 0.7fr; gap: 1rem; align-items: end;
+}
+.filtro label { display: block; font-size: 0.82rem; color: #4b5563; font-weight: 600; margin-bottom: 0.4rem; }
+input[readonly] { background-color: #f3f4f6 !important; color: #6b7280 !important; }
+
+.grilla-wrapper {
+  background: #fff; border-radius: 12px; padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.grilla-titulo { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.grilla-titulo h2 { margin: 0; font-size: 1.2rem; font-weight: 700; color: #1f2937; }
+.badge-empleados {
+  background: #eef2ff; color: #6366f1; padding: 0.25rem 0.75rem;
+  border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+}
+
+.grilla-scroll { overflow-x: auto; }
+
+.grilla-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.grilla-table th, .grilla-table td { border: 1px solid #e5e7eb; padding: 0.35rem 0.25rem; text-align: center; }
+.grilla-table thead th { background: #f9fafb; font-weight: 600; color: #4b5563; position: sticky; top: 0; z-index: 1; }
+.col-empleado { min-width: 180px; max-width: 220px; text-align: left !important; padding-left: 0.5rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.col-dia { min-width: 36px; max-width: 40px; }
+
+.turno-badge {
+  display: inline-block; color: #fff; font-size: 0.65rem; font-weight: 700;
+  padding: 2px 4px; border-radius: 3px; min-width: 22px;
+}
+
+.empty-state {
+  background: #fff; border-radius: 12px; padding: 3rem 2rem; text-align: center;
+  color: #6b7280; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.empty-state i { font-size: 3rem; color: #6366f1; margin-bottom: 0.5rem; }
+.empty-state h3 { margin: 0.5rem 0 0.25rem; color: #1f2937; }
+
+.loading { padding: 1rem; }
+.w-100 { width: 100%; }
+.me-2 { margin-right: 0.5rem; }
+
+@media (max-width: 900px) {
+  .filtros-bar { grid-template-columns: 1fr 1fr; }
+}
