@@ -134,85 +134,393 @@
 
     <!-- ===== Tab: flujos ===== -->
     <ng-container *ngIf="activeTab === 'flujos'">
-      <div class="section-card">
-        <div class="section-card-header">
-          <h2 class="section-card-title">Asignación de Flujos por Unidad Funcional</h2>
-          <button class="btn-action btn-action-primary" (click)="guardarFlujoPorUnidad()" [disabled]="isSavingFlujo">
-            <i class="pi pi-save"></i>{{ isSavingFlujo ? 'Guardando...' : 'Guardar Configuración' }}
+
+      <div class="flujos-header-bar">
+        <div>
+          <h2 class="flujos-title">Asignación de Flujos</h2>
+          <p class="flujos-subtitle">Configure flujos compartidos por grupo WF o independientes por unidad funcional</p>
+        </div>
+        <div class="header-actions">
+          <button
+            *ngIf="flujoPorGrupo"
+            class="btn-action btn-action-outline"
+            type="button"
+            (click)="nuevoGrupoFlujo()">
+            <i class="pi pi-plus"></i>
+            Nuevo
+          </button>
+          <button
+            class="btn-action btn-action-primary"
+            type="button"
+            (click)="guardarFlujo()"
+            [disabled]="isSavingFlujo || !puedeConfigurarFlujo || !flujoSeleccionadoId">
+            <i class="pi pi-save" [class.pi-spin]="isSavingFlujo"></i>
+            {{ isSavingFlujo ? 'Guardando...' : 'Guardar' }}
           </button>
         </div>
-        <div class="section-card-body">
-          <div class="row g-3 mb-3">
-            <div class="col-12 col-md-4">
-              <label class="form-label">Empresa <span class="text-danger">*</span></label>
+      </div>
+
+      <div class="two-panel-layout">
+
+        <!-- Panel izquierdo: Datos Principales -->
+        <div class="panel-left">
+          <div class="panel-header panel-header-accent">
+            <span class="panel-title">Datos Principales</span>
+          </div>
+
+          <div class="panel-form">
+
+            <div class="param-group">
+              <label class="param-label">Empresa *</label>
               <p-dropdown
                 [options]="empresaOptions"
                 [(ngModel)]="flujoEmpresaId"
-                placeholder="Seleccione empresa"
+                placeholder="Seleccionar empresa"
                 [filter]="true"
                 [showClear]="true"
-                styleClass="w-100"
-                [appendTo]="'body'"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+                appendTo="body"
                 [ngModelOptions]="{standalone: true}"
                 (onChange)="onEmpresaFlujoChange()">
               </p-dropdown>
             </div>
-            <div class="col-12 col-md-4">
-              <label class="form-label">Unidad Funcional <span class="text-danger">*</span></label>
-              <p-dropdown
-                [options]="unidadFlujoOptions"
-                [(ngModel)]="flujoUnidadId"
-                placeholder="Seleccione unidad funcional"
-                [filter]="true"
-                [showClear]="true"
-                [loading]="isLoadingFlujos"
-                styleClass="w-100"
-                [appendTo]="'body'"
+
+            <div class="param-group param-group-checkbox">
+              <p-checkbox
+                [(ngModel)]="flujoPorGrupo"
+                [binary]="true"
+                inputId="flujoPorGrupo"
                 [ngModelOptions]="{standalone: true}"
-                (onChange)="onUnidadFlujoChange()">
-              </p-dropdown>
+                (onChange)="onModoFlujoChange()">
+              </p-checkbox>
+              <label for="flujoPorGrupo" class="checkbox-label">
+                Flujo por grupo WF
+                <span class="checkbox-hint">(varias unidades funcionales comparten el mismo flujo)</span>
+              </label>
             </div>
-            <div class="col-12 col-md-4">
-              <label class="form-label">Flujo <span class="text-danger">*</span></label>
-              <p-dropdown
-                [options]="flujoOptions"
-                [(ngModel)]="flujoSeleccionadoId"
-                placeholder="Seleccione flujo"
-                [filter]="true"
-                [showClear]="true"
-                [loading]="isLoadingFlujos"
-                styleClass="w-100"
-                [appendTo]="'body'"
-                [ngModelOptions]="{standalone: true}"
-                (onChange)="onFlujoSeleccionadoChange()">
-              </p-dropdown>
+
+            <div class="param-group" *ngIf="!flujoPorGrupo">
+              <small class="form-hint modo-hint">
+                <i class="pi pi-info-circle me-1"></i>
+                Modo unidad funcional: flujo independiente por cada UF
+              </small>
+            </div>
+
+            <!-- Modo: Grupo WF -->
+            <ng-container *ngIf="flujoPorGrupo">
+
+              <div class="param-group">
+                <label class="param-label">Nombre *</label>
+                <div class="codigo-input-group">
+                  <input
+                    pInputText
+                    [(ngModel)]="flujoGrupoNombre"
+                    placeholder="Ej: Asistenciales Neiva"
+                    class="w-100"
+                    [disabled]="!flujoEmpresaId"
+                    [ngModelOptions]="{standalone: true}"
+                    (keyup.enter)="buscarGrupoPorNombre()">
+                  <button
+                    type="button"
+                    class="btn-search-codigo"
+                    (click)="abrirModalGrupos()"
+                    [disabled]="!flujoEmpresaId || isLoadingModalGrupos"
+                    pTooltip="Ver grupos de la empresa"
+                    tooltipPosition="top">
+                    <i class="pi" [class.pi-search]="!isLoadingModalGrupos" [class.pi-spin]="isLoadingModalGrupos" [class.pi-spinner]="isLoadingModalGrupos"></i>
+                  </button>
+                </div>
+                <small class="form-hint" *ngIf="!flujoEmpresaId">Seleccione una empresa para habilitar la búsqueda</small>
+                <small class="form-hint" *ngIf="flujoEmpresaId">Presione Enter para buscar por nombre</small>
+              </div>
+
+              <div class="param-group">
+                <label class="param-label">
+                  Descripción
+                  <span class="optional-badge">Opcional</span>
+                </label>
+                <input
+                  pInputText
+                  [(ngModel)]="flujoGrupoDescripcion"
+                  placeholder="Descripción del grupo"
+                  class="w-100"
+                  [disabled]="!flujoEmpresaId"
+                  [ngModelOptions]="{standalone: true}">
+              </div>
+
+            </ng-container>
+
+            <!-- Modo: Unidad Funcional -->
+            <ng-container *ngIf="!flujoPorGrupo">
+
+              <div class="param-group">
+                <label class="param-label">Unidad Funcional *</label>
+                <p-dropdown
+                  [options]="unidadFlujoOptions"
+                  [(ngModel)]="flujoUnidadId"
+                  placeholder="Seleccionar unidad funcional"
+                  [filter]="true"
+                  [showClear]="true"
+                  [loading]="isLoadingFlujos"
+                  [disabled]="!flujoEmpresaId"
+                  optionLabel="label"
+                  optionValue="value"
+                  styleClass="w-full"
+                  appendTo="body"
+                  [ngModelOptions]="{standalone: true}"
+                  (onChange)="onUnidadFlujoChange()">
+                </p-dropdown>
+                <small class="form-hint" *ngIf="!flujoEmpresaId">Seleccione una empresa para habilitar la unidad</small>
+              </div>
+
+            </ng-container>
+
+          </div>
+        </div>
+
+        <!-- Panel derecho: dos secciones apiladas -->
+        <div class="panel-right-column">
+
+          <!-- Sección 1: Flujo y responsables -->
+          <div class="panel-right" [class.panel-disabled]="!puedeConfigurarFlujo">
+            <div class="panel-header panel-header-accent">
+              <span class="panel-title">Configuración del Flujo</span>
+            </div>
+
+            <div class="tab-panel-content flujo-config-content">
+
+              <div class="flujo-toolbar">
+                <div class="flujo-select-group">
+                  <label class="param-label">Flujo *</label>
+                  <p-dropdown
+                    [options]="flujoOptions"
+                    [(ngModel)]="flujoSeleccionadoId"
+                    placeholder="Seleccionar flujo"
+                    [filter]="true"
+                    [showClear]="true"
+                    [loading]="isLoadingFlujos"
+                    [disabled]="!puedeConfigurarFlujo"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body"
+                    [ngModelOptions]="{standalone: true}"
+                    (onChange)="onFlujoSeleccionadoChange()">
+                  </p-dropdown>
+                </div>
+              </div>
+
+              <div class="pasos-table-wrap" *ngIf="flujoSeleccionadoId && pasosFlujo.length > 0">
+                <h4 class="pasos-title">Responsables por paso</h4>
+                <div class="pasos-grid">
+                  <div class="paso-item" *ngFor="let paso of pasosFlujo">
+                    <label class="param-label">
+                      {{ paso.orden }}. {{ paso.nombre_paso }}
+                      <small class="text-muted">({{ paso.rol_aprobador }})</small>
+                    </label>
+                    <p-multiSelect
+                      [(ngModel)]="responsablesPorPaso[paso.id]"
+                      [options]="usuarioOptions"
+                      placeholder="Seleccionar responsables"
+                      [filter]="true"
+                      filterBy="label"
+                      [showClear]="true"
+                      [loading]="isLoadingUsuariosFlujo"
+                      [disabled]="!puedeConfigurarFlujo || !flujoEmpresaId"
+                      optionLabel="label"
+                      optionValue="value"
+                      [maxSelectedLabels]="2"
+                      selectedItemsLabel="{0} personas seleccionadas"
+                      styleClass="w-full responsables-multiselect"
+                      appendTo="body"
+                      [ngModelOptions]="{standalone: true}">
+                    </p-multiSelect>
+                    <small class="form-hint" *ngIf="flujoEmpresaId && !isLoadingUsuariosFlujo && usuarioOptions.length === 0">
+                      No hay usuarios asignados a esta empresa en el módulo de usuarios
+                    </small>
+                  </div>
+                </div>
+                <small class="form-hint pasos-hint">
+                  <span *ngIf="flujoPorGrupo">Puede asignar varias personas por paso. Los responsables aplican al grupo completo.</span>
+                  <span *ngIf="!flujoPorGrupo">Puede asignar varias personas por paso. Los responsables se guardan por UF.</span>
+                  Debe asignar al menos un responsable por paso. Si la UF no está parametrizada, no se podrá crear el evento.
+                </small>
+              </div>
+
+              <div class="flujo-empty-state" *ngIf="!flujoSeleccionadoId || pasosFlujo.length === 0">
+                <i class="pi pi-sitemap text-muted" style="font-size: 2.5rem;"></i>
+                <p class="text-muted mt-3 mb-1">Seleccione un flujo para configurar responsables</p>
+                <small class="text-muted" *ngIf="!puedeConfigurarFlujo">
+                  Complete primero la selección de empresa y {{ flujoPorGrupo ? 'datos del grupo' : 'unidad funcional' }}
+                </small>
+              </div>
+
             </div>
           </div>
 
-          <div *ngIf="flujoSeleccionadoId && pasosFlujo.length > 0">
-            <h4 class="mb-3">Responsables por paso</h4>
-            <div class="row g-3">
-              <div class="col-12 col-md-6" *ngFor="let paso of pasosFlujo">
-                <label class="form-label">{{ paso.orden }}. {{ paso.nombre_paso }} <small class="text-muted">({{ paso.rol_aprobador }})</small></label>
-                <p-dropdown
-                  [options]="usuarioOptions"
-                  [(ngModel)]="responsablesPorPaso[paso.id]"
-                  placeholder="Seleccione responsable"
-                  [filter]="true"
-                  [showClear]="true"
-                  [loading]="isLoadingUsuariosFlujo"
-                  styleClass="w-100"
-                  [appendTo]="'body'"
-                  [ngModelOptions]="{standalone: true}">
-                </p-dropdown>
+          <!-- Sección 2: Unidades funcionales del grupo (solo modo grupo) -->
+          <div
+            class="panel-right"
+            *ngIf="flujoPorGrupo"
+            [class.panel-disabled]="!puedeGestionarUnidadesGrupo">
+            <div class="panel-header panel-header-accent">
+              <span class="panel-title">Unidades Funcionales</span>
+            </div>
+
+            <div class="tab-panel-content ufs-grupo-content">
+              <div class="ufs-toolbar">
+                <div class="ufs-select-group">
+                  <label class="param-label">Unidades funcionales *</label>
+                  <p-multiSelect
+                    [(ngModel)]="flujoGrupoUfIds"
+                    [options]="unidadFlujoOptions"
+                    placeholder="Buscar y seleccionar unidades funcionales…"
+                    [filter]="true"
+                    filterBy="label"
+                    [showClear]="true"
+                    [loading]="isLoadingFlujos"
+                    [disabled]="!puedeGestionarUnidadesGrupo"
+                    optionLabel="label"
+                    optionValue="value"
+                    [maxSelectedLabels]="2"
+                    selectedItemsLabel="{0} unidades seleccionadas"
+                    styleClass="w-full ufs-multiselect"
+                    appendTo="body"
+                    [ngModelOptions]="{standalone: true}">
+                  </p-multiSelect>
+                  <small class="form-hint" *ngIf="!puedeGestionarUnidadesGrupo">
+                    Seleccione una empresa y defina el grupo en Datos Principales
+                  </small>
+                  <small class="form-hint" *ngIf="puedeGestionarUnidadesGrupo">
+                    Las UFs seleccionadas compartirán el mismo flujo de aprobación
+                  </small>
+                </div>
+              </div>
+
+              <div class="ufs-table-wrap">
+                <p-table
+                  [value]="unidadesGrupoSeleccionadas"
+                  styleClass="ufs-table p-datatable-sm p-datatable-striped"
+                  [scrollable]="true"
+                  scrollHeight="flex">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 110px">Código</th>
+                      <th>Nombre</th>
+                      <th style="width: 130px">Acción</th>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="body" let-uf>
+                    <tr>
+                      <td><span class="codigo-badge">{{ uf.codigo }}</span></td>
+                      <td>{{ uf.nombre }}</td>
+                      <td>
+                        <button
+                          type="button"
+                          class="btn-link-danger"
+                          (click)="quitarUnidadGrupo(uf.id)"
+                          [disabled]="!puedeGestionarUnidadesGrupo">
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="3" class="text-center py-4">
+                        <i class="pi pi-building text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">No hay unidades funcionales en el grupo</p>
+                        <small class="text-muted">Seleccione una o más unidades en el campo superior</small>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
               </div>
             </div>
-            <small class="text-muted d-block mt-3">
-              Los responsables se guardan por UF y por paso. Si un paso queda vacío, aplicará la estrategia general del flujo.
-            </small>
           </div>
+
         </div>
+
       </div>
+
+      <!-- Modal: listado de grupos WF -->
+      <p-dialog
+        header="Grupos WF"
+        [(visible)]="showModalGrupos"
+        [modal]="true"
+        [style]="{ width: '70vw', maxWidth: '900px' }"
+        [breakpoints]="{ '960px': '90vw', '640px': '95vw' }"
+        styleClass="modal-grupos-dialog"
+        (onHide)="cerrarModalGrupos()">
+
+        <div class="modal-grupos-content">
+          <div class="modal-search mb-3">
+            <span class="p-input-icon-left w-100">
+              <i class="pi pi-search"></i>
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="modalGrupoSearchTerm"
+                placeholder="Buscar por nombre..."
+                class="w-100"
+                [ngModelOptions]="{standalone: true}">
+            </span>
+          </div>
+
+          <p-table
+            [value]="gruposModalFiltrados"
+            [loading]="isLoadingModalGrupos"
+            [paginator]="true"
+            [rows]="8"
+            [rowsPerPageOptions]="[8, 15, 25]"
+            styleClass="p-datatable-sm p-datatable-striped"
+            responsiveLayout="scroll">
+
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Nombre</th>
+                <th>UFs</th>
+                <th style="width: 110px">Acción</th>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="body" let-grupo>
+              <tr>
+                <td class="fw-semibold">{{ grupo.nombre }}</td>
+                <td>{{ grupo.unidades_funcionales?.length || 0 }}</td>
+                <td>
+                  <p-button
+                    icon="pi pi-check"
+                    label="Seleccionar"
+                    size="small"
+                    severity="info"
+                    [text]="true"
+                    (onClick)="seleccionarGrupoDesdeModal(grupo)">
+                  </p-button>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="3" class="text-center py-4">
+                  <i class="pi pi-inbox text-muted" style="font-size: 2.5rem;"></i>
+                  <p class="text-muted mt-2 mb-0">No hay grupos WF para esta empresa</p>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <ng-template pTemplate="footer">
+          <p-button label="Cerrar" icon="pi pi-times" styleClass="p-button-text" (onClick)="cerrarModalGrupos()"></p-button>
+        </ng-template>
+      </p-dialog>
+
     </ng-container>
 
     <!-- ===== Tab: Gestionar ===== -->

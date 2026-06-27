@@ -378,3 +378,285 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ===== Detalle evento — gestionar ===== */
+:host ::ng-deep .evento-detalle-dialog .p-dialog-header {
+  display: none !important;
+}
+:host ::ng-deep .evento-detalle-dialog .p-dialog-content {
+  padding: 0;
+  border-radius: 16px 16px 0 0;
+  overflow-y: auto;
+  max-height: calc(90vh - 80px);
+}
+:host ::ng-deep .evento-detalle-dialog.p-dialog {
+  border-radius: 16px;
+  overflow: hidden;
+  max-height: 90vh;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+:host ::ng-deep .evento-detalle-dialog .p-dialog-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #eef1f5;
+  background: #fafbfc;
+}
+
+.evento-detalle {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hero */
+.detalle-hero {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 1.5rem 1.75rem 1.25rem;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #3b82f6 100%);
+  color: #fff;
+  overflow: hidden;
+}
+.detalle-hero::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  width: 160px;
+  height: 160px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+.detalle-hero-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  z-index: 2;
+}
+.detalle-hero-close:hover { background: rgba(255, 255, 255, 0.32); }
+
+.detalle-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.detalle-avatar {
+  flex-shrink: 0;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.detalle-hero-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+.detalle-hero-consecutivo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.85;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.detalle-hero-consecutivo i { font-size: 0.7rem; }
+
+.detalle-hero-nombre {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.detalle-hero-uf {
+  font-size: 0.82rem;
+  opacity: 0.92;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.detalle-hero-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.detalle-paso-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Body */
+.detalle-body {
+  padding: 1.5rem 1.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Tarjeta horas */
+.horas-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+  border: 1px solid #dbe5ff;
+  flex-wrap: wrap;
+}
+
+.horas-card-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.horas-card-content { display: flex; flex-direction: column; }
+.horas-card-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+.horas-card-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1d4ed8;
+  line-height: 1.1;
+}
+
+.horas-card-rango {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+  background: #fff;
+  border: 1px solid #e5edff;
+  border-radius: 10px;
+  padding: 0.5rem 0.85rem;
+}
+.horas-rango-item { display: flex; flex-direction: column; gap: 0.1rem; }
+.horas-rango-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.horas-rango-label i { font-size: 0.6rem; }
+.horas-rango-fecha { font-size: 0.82rem; font-weight: 600; color: #334155; }
+.horas-rango-sep { color: #cbd5e1; }
+
+/* Secciones */
+.detalle-section { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.detalle-section-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eef1f5;
+}
+.detalle-section-title i { color: #2563eb; }
+
+.detalle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.25rem;
+}
+
+.detalle-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detalle-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.detalle-label i { font-size: 0.7rem; color: #94a3b8; }
+
+.detalle-value {
+  font-size: 0.9375rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.detalle-descripcion {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #475569;
+  background: #f8fafc;
+  border-left: 3px solid #2563eb;
+  border-radius: 0 8px 8px 0;
+  padding: 0.75rem 1rem;
+}
+
+.rechazo-detalle {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.rechazo-detalle .form-label { color: #b91c1c; font-weight: 600; }
+
+@media (max-width: 576px) {
+  .detalle-grid { grid-template-columns: 1fr; }
+  .horas-card-rango { margin-left: 0; width: 100%; justify-content: space-between; }
+}

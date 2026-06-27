@@ -359,3 +359,385 @@
   transition: background 0.15s;
 }
 .vincular-list-item:hover { background: #f9fafb; }
+
+/* ─── Flujos: two-panel layout (estilo Unidad Funcional) ─────────────────── */
+.flujos-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.flujos-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem;
+}
+
+.flujos-subtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-action-outline {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-action-outline:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.btn-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.two-panel-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.panel-left,
+.panel-right {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-right.panel-disabled .flujo-toolbar,
+.panel-right.panel-disabled .pasos-table-wrap,
+.panel-right.panel-disabled .flujo-config-content > .flujo-empty-state,
+.panel-right.panel-disabled .ufs-toolbar,
+.panel-right.panel-disabled .ufs-table-wrap {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.panel-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 0;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid #dbeafe;
+}
+
+.panel-header-accent {
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+}
+
+.panel-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e40af;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.panel-form {
+  padding-bottom: 1rem;
+}
+
+.param-group {
+  padding: 0.75rem 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.param-group-checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding-bottom: 0.25rem;
+}
+
+.checkbox-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.checkbox-hint {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.modo-hint {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  color: #166534;
+}
+
+.param-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.optional-badge {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+.codigo-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-search-codigo {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.btn-search-codigo:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.btn-search-codigo:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.tab-panel-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.flujo-config-content {
+  min-height: 280px;
+}
+
+.ufs-grupo-content {
+  min-height: 280px;
+}
+
+.ufs-toolbar {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.ufs-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ufs-table-wrap {
+  flex: 1;
+  min-height: 220px;
+  overflow: hidden;
+}
+
+:host ::ng-deep .ufs-table .p-datatable-thead > tr > th {
+  background: #f9fafb !important;
+  color: #374151 !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+:host ::ng-deep .ufs-table .p-datatable-tbody > tr > td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.btn-link-danger {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.btn-link-danger:hover:not(:disabled) {
+  color: #1d4ed8;
+}
+
+.btn-link-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.flujo-toolbar {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.flujo-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pasos-table-wrap {
+  flex: 1;
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+}
+
+.pasos-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 1rem;
+}
+
+.pasos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.paso-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pasos-hint {
+  display: block;
+  margin-top: 1rem;
+}
+
+.flujo-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.codigo-badge {
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.fw-semibold { font-weight: 600; }
+.text-muted { color: #6b7280; }
+
+.modal-grupos-content { min-height: 200px; }
+
+.modal-search { max-width: 100%; }
+
+:host ::ng-deep .modal-search .p-input-icon-left {
+  display: block;
+  width: 100%;
+}
+
+:host ::ng-deep .modal-search .p-input-icon-left > i {
+  left: 0.75rem;
+}
+
+:host ::ng-deep .modal-search input {
+  padding-left: 2.25rem;
+  width: 100%;
+}
+
+:host ::ng-deep .param-group .p-dropdown,
+:host ::ng-deep .flujo-select-group .p-dropdown,
+:host ::ng-deep .param-group .p-multiselect,
+:host ::ng-deep .ufs-select-group .p-multiselect,
+:host ::ng-deep .responsables-multiselect.p-multiselect {
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .two-panel-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .flujos-header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .pasos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .header-actions .btn-action {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -193,6 +193,7 @@
                 <th>U. Funcional</th>
                 <th>Paso actual</th>
                 <th>Inicio</th>
+                <th>Fin</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -205,18 +206,15 @@
                 <td>{{ ev.unidad_funcional || '—' }}</td>
                 <td><span class="badge bg-secondary">{{ ev.paso_actual || '—' }}</span></td>
                 <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
+                <td>{{ formatearFecha(ev.fecha_nov_fin) }}</td>
                 <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
                 <td>
                   <div class="action-buttons">
-                    <button class="btn-action-icon btn-action-success" pTooltip="Aprobar" tooltipPosition="top"
-                      [disabled]="isProcesando" (click)="aprobarEvento(ev)">
-                      <i class="pi pi-check"></i>
+                    <button class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
+                      (click)="abrirDetalleEvento(ev)">
+                      <i class="pi pi-eye"></i>
                     </button>
-                    <button class="btn-action-icon btn-action-danger" pTooltip="Rechazar" tooltipPosition="top"
-                      [disabled]="isProcesando" (click)="abrirRechazo(ev)">
-                      <i class="pi pi-times"></i>
-                    </button>
-                    <button class="btn-action-icon btn-action-primary" pTooltip="Historial" tooltipPosition="top"
+                    <button class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
                       (click)="verHistorial(ev)">
                       <i class="pi pi-history"></i>
                     </button>
@@ -227,7 +225,7 @@
 
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="7" class="text-center py-5">
+                <td colspan="8" class="text-center py-5">
                   <i class="pi pi-check-circle" style="font-size: 3rem; color: #9ca3af;"></i>
                   <p class="text-muted mt-3 mb-1">No tienes eventos pendientes</p>
                   <small class="text-muted">Aquí aparecen los eventos que puedes aprobar o rechazar</small>
@@ -237,7 +235,7 @@
 
             <ng-template pTemplate="loadingbody">
               <tr *ngFor="let i of [1,2,3,4,5]">
-                <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
+                <td *ngFor="let j of [1,2,3,4,5,6,7,8]"><p-skeleton></p-skeleton></td>
               </tr>
             </ng-template>
           </p-table>
@@ -308,7 +306,8 @@
               [appendTo]="'body'"
               [ngModelOptions]="{standalone: true}"
               (onFilter)="onBuscarEmpleado($event)"
-              (onShow)="onPanelEmpleadoAbierto()">
+              (onShow)="onPanelEmpleadoAbierto()"
+              (onChange)="actualizarPreviewFlujo()">
               <ng-template pTemplate="footer">
                 <div *ngIf="hayMasEmpleados" class="dropdown-footer-load-more">
                   <button
@@ -342,8 +341,7 @@
               [appendTo]="'body'"
               [ngModelOptions]="{standalone: true}"
               (onFilter)="onBuscarUnidadFuncional($event)"
-              (onShow)="onPanelUnidadAbierto()"
-              (onChange)="actualizarPreviewFlujo()">
+              (onShow)="onPanelUnidadAbierto()">
               <ng-template pTemplate="footer">
                 <div *ngIf="hayMasUnidades" class="dropdown-footer-load-more">
                   <button
@@ -357,7 +355,7 @@
                 </div>
               </ng-template>
             </p-dropdown>
-            <small class="text-muted d-block mt-1">Esta es la Unidad Funcional donde se realziar el Evento.</small>
+            <small class="text-muted d-block mt-1">Unidad donde se realizará el evento (puede ser distinta a la del empleado).</small>
 
           </div>
           <div class="col-12">
@@ -433,7 +431,7 @@
           </div>
 
           <!-- Preview del flujo de aprobación -->
-          <div class="col-12" *ngIf="formData.unidad_funcional_id">
+          <div class="col-12" *ngIf="formData.empleado_id">
             <div class="flujo-preview">
               <div class="d-flex align-items-center mb-2">
                 <i class="pi pi-sitemap me-2"></i>
@@ -441,26 +439,39 @@
                 <span *ngIf="isLoadingFlujo" class="ms-2"><i class="pi pi-spin pi-spinner"></i></span>
               </div>
 
-              <div *ngIf="!isLoadingFlujo && flujoPreview" class="flujo-steps">
-                <span class="text-muted small d-block mb-2">{{ flujoPreview.nombre }}</span>
+              <div *ngIf="!isLoadingFlujo && flujoPreview?.parametrizada" class="flujo-steps">
+                <span class="text-muted small d-block mb-1">{{ flujoPreview!.nombre }}</span>
+                <span class="text-muted small d-block mb-2" *ngIf="flujoPreview!.unidad_funcional_flujo">
+                  Según UF del empleado:
+                  <strong>{{ flujoPreview!.unidad_funcional_flujo!.codigo }} - {{ flujoPreview!.unidad_funcional_flujo!.nombre }}</strong>
+                  <span *ngIf="flujoPreview!.modo_parametrizacion === 'grupo'" class="ms-1">(vía grupo WF)</span>
+                </span>
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                   <span class="badge bg-light text-dark border">Solicitar</span>
-                  <ng-container *ngFor="let paso of flujoPreview.pasos">
+                  <ng-container *ngFor="let paso of flujoPreview!.pasos">
                     <i class="pi pi-arrow-right text-muted"></i>
                     <span class="badge bg-info-subtle text-dark border">{{ paso.nombre_paso }}</span>
                   </ng-container>
                 </div>
                 <div class="flujo-intervinientes small">
-                  <div *ngFor="let paso of flujoPreview.pasos" class="mb-1">
+                  <div *ngFor="let paso of flujoPreview!.pasos" class="mb-1">
                     <strong>{{ paso.nombre_paso }}:</strong>
                     <span class="text-muted ms-1">{{ paso.intervinientes_texto || 'Sin intervinientes configurados' }}</span>
                   </div>
                 </div>
               </div>
 
+              <div *ngIf="!isLoadingFlujo && flujoPreview && !flujoPreview.parametrizada" class="alert alert-danger mb-0 py-2 px-3">
+                <i class="pi pi-exclamation-triangle me-1"></i>
+                {{ flujoPreview.mensaje || 'Unidad Funcional No parametrizada para eventos' }}
+                <span *ngIf="flujoPreview.unidad_funcional_flujo" class="d-block small mt-1">
+                  UF del empleado: {{ flujoPreview.unidad_funcional_flujo.codigo }} - {{ flujoPreview.unidad_funcional_flujo.nombre }}
+                </span>
+              </div>
+
               <div *ngIf="!isLoadingFlujo && !flujoPreview" class="alert alert-warning mb-0 py-2 px-3">
                 <i class="pi pi-exclamation-triangle me-1"></i>
-                No hay un flujo configurado para esta unidad funcional. El evento quedará registrado sin aprobación automática.
+                No se pudo determinar el flujo de aprobación para el empleado seleccionado.
               </div>
             </div>
           </div>
@@ -546,6 +557,122 @@
       </div>
     </ng-template>
 
+  </p-dialog>
+
+  <!-- Dialog Detalle evento (gestionar) -->
+  <p-dialog
+    [(visible)]="showDetalleDialog"
+    [modal]="true"
+    [closable]="true"
+    [showHeader]="false"
+    [dismissableMask]="true"
+    [style]="{width: '680px', maxWidth: '96vw'}"
+    styleClass="evento-detalle-dialog"
+    (onHide)="cerrarDetalleEvento()">
+
+    <div *ngIf="detalleEvento" class="evento-detalle">
+
+      <!-- Hero header -->
+      <div class="detalle-hero">
+        <button type="button" class="detalle-hero-close" (click)="cerrarDetalleEvento()">
+          <i class="pi pi-times"></i>
+        </button>
+        <div class="detalle-hero-top">
+          <div class="detalle-avatar">{{ getIniciales(getEmpleadoNombre(detalleEvento.empleado)) }}</div>
+          <div class="detalle-hero-info">
+            <span class="detalle-hero-consecutivo"><i class="pi pi-hashtag"></i>{{ detalleEvento.consecutivo }}</span>
+            <h3 class="detalle-hero-nombre">{{ getEmpleadoNombre(detalleEvento.empleado) }}</h3>
+            <span class="detalle-hero-uf"><i class="pi pi-sitemap"></i>{{ detalleEvento.unidad_funcional || 'Sin unidad funcional' }}</span>
+          </div>
+        </div>
+        <div class="detalle-hero-tags">
+          <p-tag [value]="getEstadoLabel(detalleEvento.estado)" [severity]="getEstadoSeverity(detalleEvento.estado)"></p-tag>
+          <span class="detalle-paso-pill"><i class="pi pi-flag"></i>{{ detalleEvento.paso_actual || '—' }}</span>
+        </div>
+      </div>
+
+      <div class="detalle-body">
+
+        <!-- Tarjeta destacada: horas -->
+        <div class="horas-card">
+          <div class="horas-card-icon"><i class="pi pi-clock"></i></div>
+          <div class="horas-card-content">
+            <span class="horas-card-label">Horas del evento</span>
+            <span class="horas-card-value">{{ calcularHorasEvento(detalleEvento.fecha_nov_ini, detalleEvento.fecha_nov_fin) }}</span>
+          </div>
+          <div class="horas-card-rango">
+            <div class="horas-rango-item">
+              <span class="horas-rango-label"><i class="pi pi-play"></i>Inicio</span>
+              <span class="horas-rango-fecha">{{ formatearFecha(detalleEvento.fecha_nov_ini) }}</span>
+            </div>
+            <div class="horas-rango-sep"><i class="pi pi-arrow-right"></i></div>
+            <div class="horas-rango-item">
+              <span class="horas-rango-label"><i class="pi pi-stop"></i>Fin</span>
+              <span class="horas-rango-fecha">{{ formatearFecha(detalleEvento.fecha_nov_fin) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Datos del evento -->
+        <div class="detalle-section">
+          <h4 class="detalle-section-title"><i class="pi pi-info-circle"></i>Información del evento</h4>
+          <div class="detalle-grid">
+            <div class="detalle-item">
+              <span class="detalle-label"><i class="pi pi-bookmark"></i>Novedad</span>
+              <span class="detalle-value">{{ getNovedadLabel(detalleEvento) }}</span>
+            </div>
+            <div class="detalle-item">
+              <span class="detalle-label"><i class="pi pi-calendar-plus"></i>Fecha solicitud</span>
+              <span class="detalle-value">{{ formatearFecha(detalleEvento.fecha_solicitud) }}</span>
+            </div>
+            <div class="detalle-item" *ngIf="getEmpleadoNombre(detalleEvento.empleado_cubre) !== '—'">
+              <span class="detalle-label"><i class="pi pi-users"></i>Empleado a cubrir</span>
+              <span class="detalle-value">{{ getEmpleadoNombre(detalleEvento.empleado_cubre) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Descripción -->
+        <div class="detalle-section" *ngIf="detalleEvento.coment_solicitante">
+          <h4 class="detalle-section-title"><i class="pi pi-align-left"></i>Descripción</h4>
+          <p class="detalle-descripcion">{{ detalleEvento.coment_solicitante }}</p>
+        </div>
+
+        <!-- Motivo de rechazo -->
+        <div *ngIf="mostrarMotivoRechazoDetalle" class="rechazo-detalle">
+          <label class="form-label"><i class="pi pi-exclamation-triangle me-1"></i>Motivo del rechazo <span class="text-danger">*</span></label>
+          <textarea pInputText [(ngModel)]="rechazoMotivo" rows="3"
+            placeholder="Indique el motivo (mínimo 3 caracteres)"
+            class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
+          </textarea>
+          <small class="text-danger" *ngIf="rechazoMotivo && rechazoMotivo.trim().length < 3">
+            El motivo debe tener al menos 3 caracteres
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
+        <p-button label="Cerrar" icon="pi pi-times" severity="secondary" [text]="true"
+          (onClick)="cerrarDetalleEvento()"></p-button>
+        <div class="d-flex gap-2" *ngIf="detalleEvento">
+          <ng-container *ngIf="!mostrarMotivoRechazoDetalle">
+            <p-button label="Rechazar" icon="pi pi-ban" severity="danger" [outlined]="true"
+              [disabled]="isProcesando" (onClick)="mostrarMotivoRechazoDetalle = true"></p-button>
+            <p-button label="Aprobar" icon="pi pi-check" severity="success"
+              [disabled]="isProcesando" (onClick)="aprobarEventoDesdeDetalle()"></p-button>
+          </ng-container>
+          <ng-container *ngIf="mostrarMotivoRechazoDetalle">
+            <p-button label="Cancelar" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
+              (onClick)="mostrarMotivoRechazoDetalle = false; rechazoMotivo = ''"></p-button>
+            <p-button label="Confirmar rechazo" icon="pi pi-ban" severity="danger"
+              (onClick)="confirmarRechazoDesdeDetalle()" [loading]="isProcesando"
+              [disabled]="rechazoMotivo.trim().length < 3"></p-button>
+          </ng-container>
+        </div>
+      </div>
+    </ng-template>
   </p-dialog>
 
   <!-- Dialog Rechazar evento -->

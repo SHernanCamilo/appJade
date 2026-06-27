@@ -201,6 +201,10 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   rechazoTarget?: EventSolicitud;
   isProcesando = false;
 
+  showDetalleDialog = false;
+  detalleEvento?: EventSolicitud;
+  mostrarMotivoRechazoDetalle = false;
+
   showHistorialDialog = false;
   historial: any[] = [];
   isLoadingHistorial = false;
@@ -216,7 +220,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     });
   }
 
-  aprobarEvento(evento: EventSolicitud): void {
+  aprobarEvento(evento: EventSolicitud, cerrarDetalle = false): void {
     this.confirmationService.confirm({
       message: `¿Aprobar el paso "${evento.paso_actual || ''}" del evento ${evento.consecutivo}?`,
       header: 'Confirmar aprobación',
@@ -230,6 +234,9 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
           next: () => {
             this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento aprobado' });
             this.isProcesando = false;
+            if (cerrarDetalle) {
+              this.cerrarDetalleEvento();
+            }
             this.loadPendientes();
             this.loadNovedades();
           },
@@ -240,6 +247,88 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  abrirDetalleEvento(evento: EventSolicitud): void {
+    this.detalleEvento = evento;
+    this.mostrarMotivoRechazoDetalle = false;
+    this.rechazoMotivo = '';
+    this.showDetalleDialog = true;
+  }
+
+  cerrarDetalleEvento(): void {
+    this.showDetalleDialog = false;
+    this.detalleEvento = undefined;
+    this.mostrarMotivoRechazoDetalle = false;
+    this.rechazoMotivo = '';
+  }
+
+  aprobarEventoDesdeDetalle(): void {
+    if (!this.detalleEvento) return;
+    this.aprobarEvento(this.detalleEvento, true);
+  }
+
+  confirmarRechazoDesdeDetalle(): void {
+    if (!this.detalleEvento || this.rechazoMotivo.trim().length < 3) return;
+    this.isProcesando = true;
+    this.solicitudService.rechazarEvento(this.detalleEvento.id, this.rechazoMotivo.trim()).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento rechazado' });
+        this.isProcesando = false;
+        this.cerrarDetalleEvento();
+        this.loadPendientes();
+        this.loadNovedades();
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al rechazar' });
+        this.isProcesando = false;
+      }
+    });
+  }
+
+  calcularHorasEvento(inicio: string, fin: string): string {
+    if (!inicio || !fin) return '—';
+    try {
+      const parse = (f: string) => new Date(f.includes(' ') ? f.replace(' ', 'T') : f);
+      const dIni = parse(inicio);
+      const dFin = parse(fin);
+      if (isNaN(dIni.getTime()) || isNaN(dFin.getTime())) return '—';
+
+      const diffMs = dFin.getTime() - dIni.getTime();
+      if (diffMs <= 0) return '0 h';
+
+      const totalMin = Math.round(diffMs / 60000);
+      const horas = Math.floor(totalMin / 60);
+      const minutos = totalMin % 60;
+      const decimal = (totalMin / 60).toFixed(2);
+
+      const legible = minutos === 0 ? `${horas} h` : `${horas} h ${minutos} min`;
+      return `${legible} (${decimal} h)`;
+    } catch {
+      return '—';
+    }
+  }
+
+  getEmpleadoNombre(empleado: EventSolicitud['empleado'] | EventSolicitud['empleado_cubre'] | undefined): string {
+    if (!empleado) return '—';
+    if (typeof empleado === 'string') return empleado;
+    return empleado.nombre || '—';
+  }
+
+  getIniciales(nombre: string): string {
+    if (!nombre || nombre === '—') return '?';
+    const partes = nombre.trim().split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return '?';
+    if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+  }
+
+  getNovedadLabel(evento: EventSolicitud): string {
+    const n = evento.novedad;
+    if (!n) return '—';
+    if (typeof n === 'string') return n;
+    const codigo = n.codigo ? `${n.codigo} - ` : '';
+    return `${codigo}${n.descripcion || '—'}`;
   }
 
   abrirRechazo(evento: EventSolicitud): void {
@@ -684,7 +773,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
       empleado_cubre_id: novedad.empleado_cubre_id ?? null,
       fecha_inicial:     new Date(novedad.fecha_nov_ini),
       fecha_final:       new Date(novedad.fecha_nov_fin),
-      descripcion:       novedad.descripcion ?? ''
+      descripcion:       novedad.coment_solicitante ?? novedad.descripcion ?? ''
     };
     // Evaluar si la novedad guardada requiere cubrir
     const opt = this.novedadOptions.find((n: any) => Number(n.value) === Number(novedad.novedad_id));
@@ -708,16 +797,17 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     return this.mostrarEmpleadoCubre;
   }
 
-  /** Carga el preview del flujo cuando hay empresa + unidad funcional. */
+  /** Carga el preview del flujo según la UF del empleado seleccionado. */
   actualizarPreviewFlujo(): void {
     const empresaId = this.formData.empresa_id ?? this.empresaSeleccionada;
-    if (!this.formData.unidad_funcional_id) {
+    if (!this.formData.empleado_id) {
       this.flujoPreview = null;
       return;
     }
     this.isLoadingFlujo = true;
     this.solicitudService.getFlujoPreview({
       empresa_id: empresaId,
+      empleado_id: this.formData.empleado_id,
       unidad_funcional_id: this.formData.unidad_funcional_id,
       novedad_id: this.formData.novedad_id
     }).subscribe({
@@ -761,7 +851,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     // Validaciones básicas
     if (!this.formData.empleado_id || !this.formData.fecha_inicial || !this.formData.fecha_final || this.fechaInicialInvalida) return;
     
-    // Unidad funcional obligatoria: define el flujo de aprobación
+    // Unidad funcional obligatoria: lugar donde se realiza el evento (el flujo usa la UF del empleado)
     if (!this.formData.unidad_funcional_id) return;
 
     // Validar que hay novedad seleccionada (solo si no es empresa sin novedades)
@@ -776,6 +866,15 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         severity: 'warn', 
         summary: 'Advertencia', 
         detail: 'No se puede crear la solicitud. La empresa seleccionada no tiene parámetros de novedades configurados.' 
+      });
+      return;
+    }
+
+    if (!this.flujoPreview?.parametrizada) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: this.flujoPreview?.mensaje || 'Unidad Funcional No parametrizada para eventos'
       });
       return;
     }

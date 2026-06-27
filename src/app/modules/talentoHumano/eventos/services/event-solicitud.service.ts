@@ -14,9 +14,14 @@ export interface EventSolicitud {
   unidad_funcional?: string;
   id_unidad_funcional?: number;
   novedad_id?: number;
+  novedad?: { id: number; codigo?: string; descripcion?: string } | string;
   empleado_cubre_id?: number;
+  empleado_cubre?: string | { id: number; nombre: string };
   fecha_nov_ini: string;
   fecha_nov_fin: string;
+  fecha_solicitud?: string;
+  coment_solicitante?: string;
+  /** Alias legacy del comentario del solicitante */
   descripcion?: string;
   estado: number | 'proceso' | 'rechazada' | 'aprobada' | 'autorizada' | 'registrado' | 'digitalizado' | 'digitalizada' | 'anulado' | 'anulada';
   motivo_rechazo?: string;
@@ -66,8 +71,12 @@ export interface FlujoPreviewPaso {
 }
 
 export interface FlujoPreview {
-  codigo: string;
-  nombre: string;
+  parametrizada?: boolean;
+  mensaje?: string;
+  codigo?: string;
+  nombre?: string;
+  unidad_funcional_flujo?: { id: number; codigo: string; nombre: string } | null;
+  modo_parametrizacion?: 'uf' | 'grupo' | null;
   pasos: FlujoPreviewPaso[];
 }
 
@@ -246,10 +255,16 @@ export class EventSolicitudService {
     );
   }
 
-  /** Previsualiza el flujo que aplicaría según empresa + unidad funcional + novedad. */
-  getFlujoPreview(params: { empresa_id?: number | null; unidad_funcional_id?: number | null; novedad_id?: number | null }): Observable<FlujoPreview | null> {
+  /** Previsualiza el flujo según la UF del empleado (no la UF del evento). */
+  getFlujoPreview(params: {
+    empresa_id?: number | null;
+    empleado_id?: number | null;
+    unidad_funcional_id?: number | null;
+    novedad_id?: number | null;
+  }): Observable<FlujoPreview | null> {
     let httpParams = new HttpParams();
     if (params.empresa_id) httpParams = httpParams.set('empresa_id', String(params.empresa_id));
+    if (params.empleado_id) httpParams = httpParams.set('empleado_id', String(params.empleado_id));
     if (params.unidad_funcional_id) httpParams = httpParams.set('unidad_funcional_id', String(params.unidad_funcional_id));
     if (params.novedad_id) httpParams = httpParams.set('novedad_id', String(params.novedad_id));
 
