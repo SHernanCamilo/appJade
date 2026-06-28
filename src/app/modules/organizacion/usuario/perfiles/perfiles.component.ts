@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { PerfilService, Perfil, CreatePerfilRequest } from '../services/perfil.service';
 import { PermisoService, Permiso } from '../services/permiso.service';
 
@@ -68,7 +69,26 @@ export class PerfilesComponent implements OnInit {
   moduloFiltroId: number | null = null;
   modulosParaFiltro: any[] = [];
   permisosFiltrados: Permiso[] = [];
-  
+
+  // Árbol de permisos (rediseño tipo árbol con Sí/No por acción)
+  arbolPermisos: any[] = [];
+  arbolMostrado: any[] = [];
+  isLoadingPermisos = false;
+  filtroPermiso = '';
+  // Fuente única de selección para el árbol (la usan tanto el form como el modal "Ver permisos")
+  private _permisosSeleccionados: number[] = [];
+  permisosSeleccionadosSet = new Set<number>();
+  isSavingPermisosModal = false;
+
+  get permisosSeleccionados(): number[] {
+    return this._permisosSeleccionados;
+  }
+
+  set permisosSeleccionados(ids: number[]) {
+    this._permisosSeleccionados = ids || [];
+    this.permisosSeleccionadosSet = new Set(this._permisosSeleccionados);
+  }
+
   perfilForm!: FormGroup;
   isLoading = false;
   isSubmitting = false;
@@ -138,61 +158,281 @@ export class PerfilesComponent implements OnInit {
   }
 
   /**
-   * Cargar TODOS los permisos de TODOS los módulos
+   * Cargar TODOS los módulos y permisos en una sola pasada (2 peticiones en paralelo).
+   * Reemplaza el esquema anterior que hacía una petición HTTP por cada módulo (N+1).
    */
   loadTodosLosPermisos(): void {
-    // console.log('🔍 Cargando TODOS los permisos de todos los módulos');
-    
-    // Obtener todos los módulos de la jerarquía
-    const todosLosModulos = this.obtenerTodosLosModulosPlanos(this.modulosJerarquia);
-    // console.log('📦 Total de módulos:', todosLosModulos.length, todosLosModulos.map(m => m.nombre));
-    
-    // Cargar permisos de todos los módulos
+    this.isLoadingPermisos = true;
     this.permisosDisponibles = [];
-    let permisosCompletos = 0;
-    
-    if (todosLosModulos.length === 0) {
-      console.warn('⚠️ No hay módulos para cargar');
-      this.generarPermisosAgrupadosTodos();
-      return;
-    }
-    
-    todosLosModulos.forEach(modulo => {
-      this.perfilService.getPermisosDisponibles(modulo.id).subscribe({
-        next: (response: any) => {
-          const permisos = response.data?.permisos || [];
-          // console.log(`✅ Permisos cargados para ${modulo.nombre}:`, permisos.length);
-          
-          // Agregar información del módulo a cada permiso
-          const permisosConModulo = permisos.map((permiso: any) => ({
-            ...permiso,
-            modulo_nombre: modulo.nombre,
-            modulo_id: modulo.id,
-            modulo_nivel: modulo.nivel
-          }));
-          
-          this.permisosDisponibles = [...this.permisosDisponibles, ...permisosConModulo];
-          
-          permisosCompletos++;
-          
-          // Cuando todos los permisos estén cargados, generar la agrupación
-          if (permisosCompletos === todosLosModulos.length) {
-            // console.log('🎉 Todos los permisos cargados. Total:', this.permisosDisponibles.length);
-            this.generarPermisosAgrupadosTodos();
-            this.prepararModulosParaFiltro(); // Preparar módulos para el filtro
-          }
-        },
-        error: (error) => {
-          console.error(`❌ Error cargando permisos del módulo ${modulo.nombre}:`, error);
-          permisosCompletos++;
-          
-          if (permisosCompletos === todosLosModulos.length) {
-            // console.log('⚠️ Carga completada con errores');
-            this.generarPermisosAgrupadosTodos();
-          }
-        }
+    this.arbolPermisos = [];
+    this.arbolMostrado = [];
+
+    forkJoin({
+      modulos: this.permisoService.getModulos(),
+      permisos: this.permisoService.getPermisos()
+    }).subscribe({
+      next: ({ modulos, permisos }) => {
+        const modulosData: any[] = (modulos as any).data || (modulos as any) || [];
+        const permisosData: any[] = (permisos as any).data || (permisos as any) || [];
+
+        // Solo permisos activos disponibles para asignar
+        const permisosActivos = permisosData.filter((p: any) => !!p.estado);
+
+        // Mapa id_modulo -> nombre (para enriquecer permisos que no traen el nombre del módulo)
+        const moduloNombre = new Map<number, string>();
+        modulosData.forEach((m: any) => moduloNombre.set(m.id, m.nombre));
+
+        this.permisosDisponibles = permisosActivos.map((p: any) => ({
+          ...p,
+          modulo_id: p.id_modulo,
+          modulo_nombre: p.modulo_nombre || moduloNombre.get(p.id_modulo) || 'Sin módulo'
+        }));
+
+        this.construirArbolPermisos(modulosData, this.permisosDisponibles);
+        this.prepararModulosParaFiltro();
+        this.isLoadingPermisos = false;
+      },
+      error: (error) => {
+        console.error('❌ Error cargando módulos/permisos:', error);
+        this.isLoadingPermisos = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudieron cargar los permisos'
+        });
+      }
+    });
+  }
+
+  /**
+   * Construye el árbol jerárquico de módulos con sus permisos.
+   * Solo se incluyen módulos que tienen permisos en su subárbol.
+   */
+  construirArbolPermisos(modulos: any[], permisos: any[]): void {
+    // Agrupar permisos por módulo
+    const permisosPorModulo = new Map<number, any[]>();
+    permisos.forEach((p: any) => {
+      if (!permisosPorModulo.has(p.id_modulo)) {
+        permisosPorModulo.set(p.id_modulo, []);
+      }
+      permisosPorModulo.get(p.id_modulo)!.push(p);
+    });
+    permisosPorModulo.forEach(arr => arr.sort((a, b) => (a.orden || 0) - (b.orden || 0)));
+
+    // Crear nodos
+    const nodeMap = new Map<number, any>();
+    modulos.forEach((m: any) => {
+      nodeMap.set(m.id, {
+        ...m,
+        permisos: permisosPorModulo.get(m.id) || [],
+        hijos: []
       });
     });
+
+    // Enlazar jerarquía
+    const raiz: any[] = [];
+    modulos.forEach((m: any) => {
+      const node = nodeMap.get(m.id)!;
+      if (m.id_modulo_padre && nodeMap.has(m.id_modulo_padre)) {
+        nodeMap.get(m.id_modulo_padre)!.hijos.push(node);
+      } else {
+        raiz.push(node);
+      }
+    });
+
+    // Ordenar recursivamente por 'orden'
+    const ordenar = (nodes: any[]) => {
+      nodes.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+      nodes.forEach(n => ordenar(n.hijos));
+    };
+    ordenar(raiz);
+
+    // Filtrar módulos sin permisos en su subárbol
+    const tienePermisos = (node: any): boolean =>
+      node.permisos.length > 0 || node.hijos.some((h: any) => tienePermisos(h));
+    const filtrar = (nodes: any[]): any[] =>
+      nodes
+        .filter(n => tienePermisos(n))
+        .map(n => ({ ...n, hijos: filtrar(n.hijos) }));
+
+    this.arbolPermisos = filtrar(raiz);
+
+    // Precomputar IDs de permisos por subárbol (para conteos O(1) en la vista)
+    const indexar = (nodo: any): number[] => {
+      let ids = (nodo.permisos || []).map((p: any) => p.id);
+      (nodo.hijos || []).forEach((h: any) => {
+        ids = ids.concat(indexar(h));
+      });
+      nodo._idsPermisos = ids;
+      return ids;
+    };
+    this.arbolPermisos.forEach(indexar);
+
+    // El árbol mostrado arranca igual al completo
+    this.arbolMostrado = this.arbolPermisos;
+
+    // Colapsar todo por defecto
+    this.modulosColapsados.clear();
+    const colapsar = (nodes: any[]) => nodes.forEach(n => {
+      this.modulosColapsados.add(n.id);
+      colapsar(n.hijos);
+    });
+    colapsar(this.arbolPermisos);
+  }
+
+  /**
+   * IDs de todos los permisos de un nodo (incluyendo hijos), precomputado en construirArbolPermisos.
+   */
+  private idsPermisosNodo(nodo: any): number[] {
+    return nodo._idsPermisos || [];
+  }
+
+  contarPermisosNodo(nodo: any): number {
+    return this.idsPermisosNodo(nodo).length;
+  }
+
+  contarSeleccionadosNodo(nodo: any): number {
+    let n = 0;
+    for (const id of this.idsPermisosNodo(nodo)) {
+      if (this.permisosSeleccionadosSet.has(id)) n++;
+    }
+    return n;
+  }
+
+  nodoTodoSeleccionado(nodo: any): boolean {
+    const ids = this.idsPermisosNodo(nodo);
+    if (ids.length === 0) return false;
+    return ids.every((id: number) => this.permisosSeleccionadosSet.has(id));
+  }
+
+  nodoParcialSeleccionado(nodo: any): boolean {
+    const ids = this.idsPermisosNodo(nodo);
+    if (ids.length === 0) return false;
+    const seleccionados = this.contarSeleccionadosNodo(nodo);
+    return seleccionados > 0 && seleccionados < ids.length;
+  }
+
+  /**
+   * Activa o desactiva todos los permisos de un módulo (y sus hijos).
+   */
+  toggleSeleccionNodo(nodo: any, event?: Event): void {
+    event?.stopPropagation();
+    const idsNodo = this.idsPermisosNodo(nodo);
+    const seleccion = [...this.permisosSeleccionados];
+    const todos = idsNodo.length > 0 && idsNodo.every((id: number) => this.permisosSeleccionadosSet.has(id));
+
+    if (todos) {
+      const remover = new Set(idsNodo);
+      this.permisosSeleccionados = seleccion.filter((id: number) => !remover.has(id));
+    } else {
+      const actuales = new Set(seleccion);
+      idsNodo.forEach((id: number) => {
+        if (!actuales.has(id)) seleccion.push(id);
+      });
+      this.permisosSeleccionados = seleccion;
+    }
+  }
+
+  /**
+   * Establece explícitamente el estado Sí/No de un permiso.
+   */
+  setPermiso(permiso: any, valor: boolean, event?: Event): void {
+    event?.stopPropagation();
+    const ids = [...this.permisosSeleccionados];
+    const idx = ids.indexOf(permiso.id);
+    if (valor && idx === -1) {
+      ids.push(permiso.id);
+    } else if (!valor && idx > -1) {
+      ids.splice(idx, 1);
+    }
+    this.permisosSeleccionados = ids;
+  }
+
+  /**
+   * Da todos los permisos disponibles.
+   */
+  darTodosLosPermisos(): void {
+    this.permisosSeleccionados = this.permisosDisponibles.map((p: any) => p.id);
+  }
+
+  /**
+   * Quita todos los permisos.
+   */
+  quitarTodosLosPermisos(): void {
+    this.permisosSeleccionados = [];
+  }
+
+  /**
+   * Indica si hay un texto de búsqueda activo.
+   */
+  hayFiltroPermiso(): boolean {
+    return !!this.filtroPermiso && this.filtroPermiso.trim().length > 0;
+  }
+
+  /**
+   * Recalcula el árbol visible. Se llama SOLO cuando cambia el texto de búsqueda,
+   * evitando reconstruir el árbol en cada ciclo de detección de cambios (causa de bloqueos).
+   */
+  onFiltroPermisoChange(): void {
+    this.arbolMostrado = this.hayFiltroPermiso()
+      ? this.filtrarArbol(this.arbolPermisos, this.filtroPermiso)
+      : this.arbolPermisos;
+  }
+
+  trackByNodo = (_: number, nodo: any) => nodo.id;
+  trackByPermiso = (_: number, permiso: any) => permiso.id;
+
+  /**
+   * Un nodo se considera expandido si hay búsqueda activa (auto-expandir)
+   * o si no está marcado como colapsado.
+   */
+  estaNodoExpandido(nodo: any): boolean {
+    return this.hayFiltroPermiso() || !this.isModuloColapsado(nodo.id);
+  }
+
+  /**
+   * Filtra el árbol por nombre/código de módulo o de permiso.
+   */
+  filtrarArbol(nodos: any[], termino: string): any[] {
+    const t = termino.trim().toLowerCase();
+    const norm = (s: any) => (s ? String(s).toLowerCase() : '');
+
+    const filtrarNodo = (nodo: any): any | null => {
+      const moduloMatch = norm(nodo.nombre).includes(t) || norm(nodo.codigo).includes(t);
+      const permisosFiltrados = moduloMatch
+        ? nodo.permisos
+        : (nodo.permisos || []).filter(
+            (p: any) => norm(p.nombre).includes(t) || norm(p.codigo).includes(t)
+          );
+      const hijosFiltrados = (nodo.hijos || [])
+        .map(filtrarNodo)
+        .filter((n: any) => n !== null);
+
+      if (moduloMatch || permisosFiltrados.length > 0 || hijosFiltrados.length > 0) {
+        return { ...nodo, permisos: permisosFiltrados, hijos: hijosFiltrados };
+      }
+      return null;
+    };
+
+    return nodos.map(filtrarNodo).filter((n: any) => n !== null);
+  }
+
+  limpiarFiltroPermiso(): void {
+    this.filtroPermiso = '';
+    this.onFiltroPermisoChange();
+  }
+
+  expandirTodosArbol(): void {
+    this.modulosColapsados.clear();
+  }
+
+  colapsarTodosArbol(): void {
+    this.modulosColapsados.clear();
+    const colapsar = (nodes: any[]) => nodes.forEach(n => {
+      this.modulosColapsados.add(n.id);
+      colapsar(n.hijos);
+    });
+    colapsar(this.arbolPermisos);
   }
 
   /**
@@ -330,6 +570,8 @@ export class PerfilesComponent implements OnInit {
     this.showForm = !this.showForm;
     if (this.showForm && !this.editMode) {
       // Cargar todos los permisos al abrir el formulario
+      this.permisosSeleccionados = [];
+      this.filtroPermiso = '';
       this.loadTodosLosPermisos();
     }
     if (!this.showForm) {
@@ -341,6 +583,10 @@ export class PerfilesComponent implements OnInit {
       this.currentPerfilId = undefined;
       this.permisosDisponibles = [];
       this.permisosAgrupados = [];
+      this.arbolPermisos = [];
+      this.arbolMostrado = [];
+      this.permisosSeleccionados = [];
+      this.filtroPermiso = '';
       this.modulosColapsados.clear();
     }
   }
@@ -353,7 +599,10 @@ export class PerfilesComponent implements OnInit {
 
     this.isSubmitting = true;
 
-    const perfilData: CreatePerfilRequest = this.perfilForm.value;
+    const perfilData: CreatePerfilRequest = {
+      ...this.perfilForm.value,
+      permisos_ids: this.permisosSeleccionados
+    };
 
     if (this.editMode && this.currentPerfilId) {
       this.perfilService.updatePerfil(this.currentPerfilId, perfilData).subscribe({
@@ -408,18 +657,19 @@ export class PerfilesComponent implements OnInit {
   editPerfil(perfil: Perfil): void {
     this.editMode = true;
     this.currentPerfilId = perfil.id;
-    
+    this.filtroPermiso = '';
+
+    // Selección inicial = permisos actuales del perfil
+    this.permisosSeleccionados = perfil.permisos?.map(p => p.id) || [];
+
     // Cargar todos los permisos
     this.loadTodosLosPermisos();
-    
-    // Extraer IDs de permisos si vienen en la relación
-    const permisosIds = perfil.permisos?.map(p => p.id) || [];
-    
+
     this.perfilForm.patchValue({
       nombre: perfil.nombre,
       codigo: perfil.codigo,
       descripcion: perfil.descripcion,
-      permisos_ids: permisosIds,
+      permisos_ids: this.permisosSeleccionados,
       estado: perfil.estado
     });
     this.showForm = true;
@@ -541,6 +791,12 @@ export class PerfilesComponent implements OnInit {
     this.currentPerfil = perfil;
     this.selectedModuloId = undefined;
     this.permisosDelModulo = [];
+    this.filtroPermiso = '';
+
+    // Selección inicial = permisos actuales del perfil + cargar el árbol
+    this.permisosSeleccionados = perfil.permisos?.map(p => p.id) || [];
+    this.loadTodosLosPermisos();
+
     this.showPermisosModal = true;
   }
 
@@ -549,6 +805,43 @@ export class PerfilesComponent implements OnInit {
     this.currentPerfil = undefined;
     this.selectedModuloId = undefined;
     this.permisosDelModulo = [];
+    this.permisosSeleccionados = [];
+    this.arbolPermisos = [];
+    this.arbolMostrado = [];
+    this.permisosDisponibles = [];
+    this.filtroPermiso = '';
+  }
+
+  /**
+   * Guarda los permisos seleccionados en el modal "Ver permisos".
+   */
+  guardarPermisosModal(): void {
+    if (!this.currentPerfil) return;
+
+    this.isSavingPermisosModal = true;
+    this.perfilService.updatePerfil(this.currentPerfil.id, {
+      permisos_ids: this.permisosSeleccionados
+    }).subscribe({
+      next: (response: any) => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Éxito',
+          detail: response.message || 'Permisos actualizados exitosamente'
+        });
+        this.isSavingPermisosModal = false;
+        this.closePermisosModal();
+        this.loadPerfiles();
+      },
+      error: (error) => {
+        console.error('Error guardando permisos:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.error?.message || 'Error al guardar los permisos'
+        });
+        this.isSavingPermisosModal = false;
+      }
+    });
   }
 
   onModuloChange(event: any): void {
@@ -765,8 +1058,7 @@ export class PerfilesComponent implements OnInit {
 
   isPermisoSeleccionado(permiso: any): boolean {
     if (!permiso) return false;
-    const permisosIds = this.perfilForm.get('permisos_ids')?.value || [];
-    return permisosIds.includes(permiso.id);
+    return this.permisosSeleccionadosSet.has(permiso.id);
   }
 
   togglePermisoMatriz(permiso: any): void {

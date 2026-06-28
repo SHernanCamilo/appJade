@@ -248,109 +248,10 @@
         </div>
       </div>
 
-      <!-- Columna Derecha: Matriz de Permisos -->
+      <!-- Columna Derecha: Árbol de Permisos -->
       <div class="perfil-form-right">
         <div class="permisos-section">
-          <div class="permisos-header">
-            <div class="permisos-header-left">
-              <h3 class="section-title">Permisos del Perfil</h3>
-              <small class="text-muted" *ngIf="permisosDisponibles.length > 0">
-                <i class="bi bi-check-circle me-1"></i>
-                <strong>{{ (perfilForm.get('permisos_ids')?.value || []).length }}</strong> de {{ permisosDisponibles.length }} seleccionados
-              </small>
-            </div>
-            <div class="permisos-header-actions" *ngIf="permisosDisponibles.length > 0">
-              <button type="button" class="btn-collapse" (click)="seleccionarTodosPermisos()" title="Seleccionar todos">
-                <i class="bi bi-check-all"></i>
-              </button>
-              <button type="button" class="btn-collapse" (click)="deseleccionarTodosPermisos()" title="Deseleccionar todos">
-                <i class="bi bi-x-lg"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- Selector de Módulo para filtrar -->
-          <div class="modulo-filter-section mb-3">
-            <label for="modulo_filter" class="form-label">Filtrar por Módulo</label>
-            <p-dropdown 
-              id="modulo_filter"
-              [(ngModel)]="moduloFiltroId"
-              [ngModelOptions]="{standalone: true}"
-              [options]="modulosParaFiltro"
-              optionLabel="nombre"
-              optionValue="id"
-              placeholder="Todos los módulos"
-              [filter]="true"
-              filterBy="nombre,codigo"
-              [showClear]="true"
-              (onChange)="onModuloFiltroChange()"
-              [style]="{'width': '100%'}">
-              <ng-template pTemplate="selectedItem" let-option>
-                <div *ngIf="option">
-                  <i class="bi bi-folder2-open me-2"></i>
-                  <span>{{ option.nombre }}</span>
-                </div>
-              </ng-template>
-              <ng-template pTemplate="item" let-option>
-                <div [style.padding-left.px]="option.nivel * 16">
-                  <span class="modulo-icono" *ngIf="option.nivel === 0">📁</span>
-                  <span class="modulo-icono" *ngIf="option.nivel === 1">📂</span>
-                  <span class="modulo-icono" *ngIf="option.nivel > 1">📄</span>
-                  <span>{{ option.nombre }}</span>
-                  <span class="badge-count ms-2">{{ option.permisos_count || 0 }}</span>
-                </div>
-              </ng-template>
-            </p-dropdown>
-          </div>
-
-          <div *ngIf="permisosDisponibles.length === 0" class="empty-permisos">
-            <i class="bi bi-inbox"></i>
-            <p>Cargando permisos...</p>
-          </div>
-
-          <!-- Lista de permisos filtrados -->
-          <div *ngIf="permisosDisponibles.length > 0" class="permisos-list-wrapper">
-            <div class="permisos-count-info mb-2">
-              <span class="text-muted">
-                Mostrando <strong>{{ getPermisosFiltrados().length }}</strong> permisos
-                <span *ngIf="moduloFiltroId"> del módulo seleccionado</span>
-              </span>
-            </div>
-
-            <div class="permisos-list-scroll">
-              <div class="permisos-grid">
-                <div class="permiso-card" 
-                     *ngFor="let permiso of getPermisosFiltrados()"
-                     [class.selected]="isPermisoSeleccionado(permiso)"
-                     (click)="togglePermisoMatriz(permiso)">
-                  <div class="permiso-card-header">
-                    <div class="permiso-card-checkbox">
-                      <p-checkbox 
-                        [binary]="true"
-                        [ngModel]="isPermisoSeleccionado(permiso)"
-                        [ngModelOptions]="{standalone: true}">
-                      </p-checkbox>
-                    </div>
-                    <div class="permiso-card-info">
-                      <div class="permiso-nombre">{{ permiso.nombre }}</div>
-                    </div>
-                  </div>
-                  <div class="permiso-card-footer">
-                    <span class="modulo-badge">
-                      <i class="bi bi-folder2"></i>
-                      {{ getModuloNombreCorto(permiso.id_modulo) }}
-                    </span>
-                    <span class="tipo-badge" [class]="'tipo-' + permiso.tipo">
-                      {{ permiso.tipo }}
-                    </span>
-                    <span class="estado-badge" [class.active]="permiso.estado">
-                      <i [class]="permiso.estado ? 'bi bi-check-circle-fill' : 'bi bi-x-circle-fill'"></i>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ng-container *ngTemplateOutlet="permisosPanelTpl"></ng-container>
         </div>
       </div>
     </div>
@@ -381,83 +282,8 @@
   [style]="{width: '900px'}"
   [breakpoints]="{'960px': '95vw'}">
   
-  <div class="permisos-modal-content">
-    <div class="mb-4">
-      <label for="modulo_selector" class="fw-bold d-block mb-2">Seleccionar Módulo</label>
-      <p-dropdown 
-        id="modulo_selector"
-        [(ngModel)]="selectedModuloId"
-        [options]="modulosParaDropdown"
-        optionLabel="nombre"
-        optionValue="id"
-        placeholder="Selecciona un módulo para ver sus permisos"
-        [filter]="true"
-        filterBy="nombreOriginal,codigo"
-        (onChange)="onModuloChange($event)"
-        [style]="{'width': '100%'}">
-        <ng-template pTemplate="selectedItem" let-option>
-          <div *ngIf="option">
-            <span>{{ option.nombreOriginal }}</span>
-          </div>
-        </ng-template>
-        <ng-template pTemplate="item" let-option>
-          <div>
-            <span>{{ option.nombre }}</span>
-          </div>
-        </ng-template>
-      </p-dropdown>
-    </div>
-
-    <div *ngIf="!selectedModuloId" class="empty-state-small">
-      <i class="bi bi-folder-open"></i>
-      <p>Selecciona un módulo para ver sus permisos disponibles</p>
-    </div>
-
-    <div *ngIf="selectedModuloId && permisosDelModulo.length === 0" class="empty-state-small">
-      <i class="bi bi-inbox"></i>
-      <p>Este módulo no tiene permisos configurados</p>
-    </div>
-
-    <div *ngIf="selectedModuloId && permisosDelModulo.length > 0" class="permisos-list">
-      <h6 class="mb-3">Permisos Disponibles ({{ permisosDelModulo.length }})</h6>
-      
-      <!-- Agrupar permisos por módulo -->
-      <ng-container *ngFor="let moduloGrupo of getPermisosAgrupadosPorModulo()">
-        <div class="modulo-grupo mb-4">
-          <div class="modulo-grupo-header">
-            <i class="bi bi-folder2-open me-2"></i>
-            <strong>{{ moduloGrupo.modulo_nombre }}</strong>
-            <span class="badge bg-secondary ms-2">{{ moduloGrupo.permisos.length }}</span>
-          </div>
-          
-          <div class="permisos-grupo-content">
-            <div class="permiso-item" *ngFor="let permiso of moduloGrupo.permisos">
-              <div class="permiso-item-left">
-                <p-checkbox 
-                  [binary]="true"
-                  (onChange)="togglePermisoEnPerfil(permiso)">
-                </p-checkbox>
-                <div class="permiso-item-info">
-                  <div class="permiso-item-nombre">{{ permiso.nombre }}</div>
-                  <div class="permiso-item-meta">
-                    <code>{{ permiso.codigo }}</code>
-                    <span class="tipo-badge" [class]="'tipo-' + permiso.tipo">
-                      {{ permiso.tipo }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="permiso-item-right">
-                <i *ngIf="permiso.icono" [class]="'bi bi-' + permiso.icono" class="permiso-icon"></i>
-                <span class="status-badge" [class.active]="permiso.estado" [class.inactive]="!permiso.estado">
-                  {{ permiso.estado ? 'Activo' : 'Inactivo' }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </ng-container>
-    </div>
+  <div class="permisos-modal-content permisos-modal-tree">
+    <ng-container *ngTemplateOutlet="permisosPanelTpl"></ng-container>
   </div>
 
   <div class="d-flex justify-content-end gap-2 mt-4">
@@ -468,7 +294,144 @@
     </p-button>
     <p-button 
       label="Guardar Cambios" 
-      icon="pi pi-check">
+      icon="pi pi-check"
+      [loading]="isSavingPermisosModal"
+      (onClick)="guardarPermisosModal()">
     </p-button>
   </div>
 </p-dialog>
+
+<!-- Panel reutilizable del árbol de permisos (form de edición + modal "Ver permisos") -->
+<ng-template #permisosPanelTpl>
+  <div class="permisos-header">
+    <div class="permisos-header-left">
+      <h3 class="section-title">Permisos del Perfil</h3>
+      <small class="text-muted" *ngIf="!isLoadingPermisos && permisosDisponibles.length > 0">
+        <i class="bi bi-check-circle me-1"></i>
+        <strong>{{ permisosSeleccionados.length }}</strong> de {{ permisosDisponibles.length }} permisos
+      </small>
+    </div>
+    <div class="permisos-header-actions" *ngIf="!isLoadingPermisos && permisosDisponibles.length > 0">
+      <button type="button" class="btn-tree-action give" (click)="darTodosLosPermisos()" title="Dar todos los permisos">
+        <i class="bi bi-check2-all"></i> Dar todos
+      </button>
+      <button type="button" class="btn-tree-action remove" (click)="quitarTodosLosPermisos()" title="Quitar todos los permisos">
+        <i class="bi bi-x-lg"></i> Quitar todos
+      </button>
+      <button type="button" class="btn-collapse" (click)="expandirTodosArbol()" title="Expandir todo">
+        <i class="bi bi-arrows-expand"></i>
+      </button>
+      <button type="button" class="btn-collapse" (click)="colapsarTodosArbol()" title="Colapsar todo">
+        <i class="bi bi-arrows-collapse"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="permisos-search" *ngIf="!isLoadingPermisos && arbolPermisos.length > 0">
+    <i class="bi bi-search search-icon"></i>
+    <input
+      type="text"
+      class="permisos-search-input"
+      [(ngModel)]="filtroPermiso"
+      [ngModelOptions]="{standalone: true}"
+      (ngModelChange)="onFiltroPermisoChange()"
+      placeholder="Buscar módulo o permiso...">
+    <button
+      type="button"
+      class="search-clear"
+      *ngIf="hayFiltroPermiso()"
+      (click)="limpiarFiltroPermiso()"
+      title="Limpiar búsqueda">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <!-- Cargando -->
+  <div *ngIf="isLoadingPermisos" class="empty-permisos">
+    <div class="spinner"></div>
+    <p>Cargando permisos...</p>
+  </div>
+
+  <!-- Sin permisos -->
+  <div *ngIf="!isLoadingPermisos && arbolPermisos.length === 0" class="empty-permisos">
+    <i class="bi bi-inbox"></i>
+    <p>No hay permisos disponibles</p>
+  </div>
+
+  <!-- Sin resultados de búsqueda -->
+  <div *ngIf="!isLoadingPermisos && arbolPermisos.length > 0 && arbolMostrado.length === 0" class="empty-permisos">
+    <i class="bi bi-search"></i>
+    <p>Sin resultados para "{{ filtroPermiso }}"</p>
+  </div>
+
+  <!-- Árbol de permisos -->
+  <div *ngIf="!isLoadingPermisos && arbolMostrado.length > 0" class="permisos-tree-wrapper">
+    <div class="permisos-tree-scroll">
+      <ng-container *ngFor="let nodo of arbolMostrado; trackBy: trackByNodo">
+        <ng-container *ngTemplateOutlet="nodoPermisoTpl; context: { nodo: nodo, nivel: 0 }"></ng-container>
+      </ng-container>
+    </div>
+  </div>
+</ng-template>
+
+<!-- Plantilla recursiva del árbol de permisos -->
+<ng-template #nodoPermisoTpl let-nodo="nodo" let-nivel="nivel">
+  <div class="tree-modulo" [class.nivel-0]="nivel === 0">
+    <!-- Cabecera del módulo -->
+    <div class="tree-modulo-header"
+         [style.padding-left.px]="12 + nivel * 18"
+         (click)="toggleModuloColapsado(nodo.id)">
+      <i class="bi toggle-icon"
+         [ngClass]="estaNodoExpandido(nodo) ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+
+      <label class="tree-check"
+             [class.parcial]="nodoParcialSeleccionado(nodo)"
+             (click)="$event.stopPropagation()">
+        <p-checkbox
+          [binary]="true"
+          [ngModel]="nodoTodoSeleccionado(nodo)"
+          [ngModelOptions]="{standalone: true}"
+          (onChange)="toggleSeleccionNodo(nodo)">
+        </p-checkbox>
+      </label>
+
+      <i class="bi tree-modulo-icon"
+         [ngClass]="nivel === 0 ? 'bi-folder-fill' : 'bi-folder2'"></i>
+      <span class="tree-modulo-nombre">{{ nodo.nombre }}</span>
+      <code class="tree-modulo-codigo" *ngIf="nodo.codigo">{{ nodo.codigo }}</code>
+      <span class="tree-modulo-count">{{ contarSeleccionadosNodo(nodo) }}/{{ contarPermisosNodo(nodo) }}</span>
+    </div>
+
+    <!-- Cuerpo expandible -->
+    <div class="tree-modulo-body" *ngIf="estaNodoExpandido(nodo)">
+      <!-- Permisos (acciones) del módulo -->
+      <div class="tree-permiso"
+           *ngFor="let permiso of nodo.permisos; trackBy: trackByPermiso"
+           [class.selected]="isPermisoSeleccionado(permiso)"
+           [style.padding-left.px]="44 + nivel * 18"
+           (click)="setPermiso(permiso, !isPermisoSeleccionado(permiso))">
+        <div class="tree-permiso-info">
+          <span class="tree-permiso-nombre">{{ permiso.nombre }}</span>
+          <span class="tipo-badge" [class]="'tipo-' + permiso.tipo">{{ permiso.tipo }}</span>
+          <code class="permiso-codigo" *ngIf="permiso.codigo">{{ permiso.codigo }}</code>
+        </div>
+        <div class="si-no-toggle" (click)="$event.stopPropagation()">
+          <button type="button"
+                  class="sn-btn si"
+                  [class.active]="isPermisoSeleccionado(permiso)"
+                  (click)="setPermiso(permiso, true, $event)">Sí</button>
+          <button type="button"
+                  class="sn-btn no"
+                  [class.active]="!isPermisoSeleccionado(permiso)"
+                  (click)="setPermiso(permiso, false, $event)">No</button>
+        </div>
+      </div>
+
+      <!-- Submódulos (recursivo) -->
+      <ng-container *ngFor="let hijo of nodo.hijos; trackBy: trackByNodo">
+        <ng-container *ngTemplateOutlet="nodoPermisoTpl; context: { nodo: hijo, nivel: nivel + 1 }"></ng-container>
+      </ng-container>
+    </div>
+  </div>
+</ng-template>
