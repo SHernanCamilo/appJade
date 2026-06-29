@@ -8,6 +8,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
 import { MessageService } from 'primeng/api';
+import { esTranslation } from './core/config/primeng-es.translation';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -24,7 +25,8 @@ export const appConfig: ApplicationConfig = {
             order: 'tailwind-base, primeng, tailwind-utilities'
           }
         }
-      }
+      },
+      translation: esTranslation
     }),
     MessageService
   ]

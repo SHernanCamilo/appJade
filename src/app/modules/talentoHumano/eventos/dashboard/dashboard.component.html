@@ -121,6 +121,13 @@
                 <td>
                   <div class="action-buttons">
                     <button
+                      class="btn-action-icon btn-action-secondary"
+                      pTooltip="Ver detalle"
+                      tooltipPosition="top"
+                      (click)="abrirDetalleSolicitud(nov)">
+                      <i class="pi pi-eye"></i>
+                    </button>
+                    <button
                       class="btn-action-icon btn-action-primary"
                       [pTooltip]="puedeGestionarSolicitud(nov) ? 'Editar' : 'Solo disponible en estado Registrado'"
                       tooltipPosition="top"
@@ -164,9 +171,8 @@
 
     <!-- ===== Tab: Gestionar ===== -->
     <ng-container *ngIf="activeTab === 'gestionar'">
-      <div class="section-card">
+      <div class="section-card mb-3">
         <div class="section-card-header">
-          <h2 class="section-card-title"><i class="pi pi-inbox me-2"></i>Bandeja de Aprobaciones</h2>
           <div class="d-flex gap-2">
             <input type="text" pInputText [(ngModel)]="searchPendientes"
               (keyup.enter)="loadPendientes()"
@@ -174,68 +180,111 @@
             <button class="btn-action btn-action-secondary" (click)="loadPendientes()">
               <i class="pi pi-refresh"></i>Actualizar
             </button>
+            <button class="btn-action btn-action-primary" (click)="abrirGestionados()">
+              <i class="pi pi-history"></i>Mis gestionados
+            </button>
           </div>
         </div>
+      </div>
+
+      <!-- Bandejas dinámicas por paso -->
+      <ng-container *ngFor="let bandeja of bandejasPorPaso">
+        <div class="section-card mb-3">
+          <div class="section-card-header bandeja-paso-header">
+            <h3 class="bandeja-paso-title" [ngClass]="'bandeja-paso-title--' + bandeja.estilo">
+              <i class="pi me-2" [ngClass]="bandeja.icono"></i>{{ bandeja.titulo }}
+              <span class="bandeja-paso-count" [ngClass]="'bandeja-paso-count--' + bandeja.estilo">{{ bandeja.items.length }}</span>
+            </h3>
+            <button
+              *ngIf="cantidadSeleccionados(bandeja.paso) > 0"
+              type="button"
+              class="btn-action btn-action-primary bandeja-bulk-btn"
+              [disabled]="isProcesandoMasivo || isProcesando"
+              (click)="aprobarSeleccionados(bandeja.paso)">
+              <i class="pi" [ngClass]="isProcesandoMasivo ? 'pi-spin pi-spinner' : 'pi-check'"></i>
+              Aceptar seleccionados ({{ cantidadSeleccionados(bandeja.paso) }})
+            </button>
+          </div>
+          <div class="modern-table-container">
+            <p-table
+              [value]="bandeja.items"
+              [(selection)]="seleccionPorPaso[bandeja.paso]"
+              dataKey="id"
+              selectionMode="multiple"
+              [loading]="isLoadingPendientes"
+              [paginator]="bandeja.items.length > 10"
+              [rows]="10"
+              [showCurrentPageReport]="bandeja.items.length > 10"
+              [currentPageReportTemplate]="'Mostrando {first} a {last} de {totalRecords} ' + bandeja.titulo.toLowerCase()"
+              styleClass="modern-table">
+
+              <ng-template pTemplate="header">
+                <tr>
+                  <th style="width: 3rem">
+                    <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+                  </th>
+                  <th>Consecutivo</th>
+                  <th>Empleado</th>
+                  <th>U. Funcional</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="body" let-ev>
+                <tr [pSelectableRow]="ev">
+                  <td>
+                    <p-tableCheckbox [value]="ev"></p-tableCheckbox>
+                  </td>
+                  <td>{{ ev.consecutivo }}</td>
+                  <td>{{ ev.empleado?.nombre || ev.empleado || '—' }}</td>
+                  <td>{{ ev.unidad_funcional || '—' }}</td>
+                  <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
+                  <td>{{ formatearFecha(ev.fecha_nov_fin) }}</td>
+                  <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
+                  <td>
+                    <div class="action-buttons">
+                      <button type="button" class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
+                        (click)="$event.stopPropagation(); abrirDetalleEvento(ev)">
+                        <i class="pi pi-eye"></i>
+                      </button>
+                      <button type="button" class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
+                        (click)="$event.stopPropagation(); verHistorial(ev)">
+                        <i class="pi pi-history"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="loadingbody">
+                <tr *ngFor="let i of [1,2,3]">
+                  <td *ngFor="let j of [1,2,3,4,5,6,7,8]"><p-skeleton></p-skeleton></td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Sin pendientes -->
+      <div class="section-card mb-3" *ngIf="!isLoadingPendientes && !hayBandejasPendientes">
+        <div class="bandeja-vacia text-center py-5">
+          <i class="pi pi-check-circle" style="font-size: 3rem; color: #9ca3af;"></i>
+          <p class="text-muted mt-3 mb-1">No tienes eventos pendientes</p>
+          <small class="text-muted">Aquí aparecen los eventos que puedes aprobar o autorizar</small>
+        </div>
+      </div>
+
+      <!-- Cargando sin datos previos -->
+      <div class="section-card mb-3" *ngIf="isLoadingPendientes && !hayBandejasPendientes">
         <div class="modern-table-container">
-          <p-table
-            [value]="pendientes"
-            [loading]="isLoadingPendientes"
-            [paginator]="true"
-            [rows]="10"
-            [showCurrentPageReport]="true"
-            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} pendientes"
-            styleClass="modern-table">
-
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Consecutivo</th>
-                <th>Empleado</th>
-                <th>U. Funcional</th>
-                <th>Paso actual</th>
-                <th>Inicio</th>
-                <th>Fin</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </ng-template>
-
-            <ng-template pTemplate="body" let-ev>
-              <tr>
-                <td>{{ ev.consecutivo }}</td>
-                <td>{{ ev.empleado?.nombre || ev.empleado || '—' }}</td>
-                <td>{{ ev.unidad_funcional || '—' }}</td>
-                <td><span class="badge bg-secondary">{{ ev.paso_actual || '—' }}</span></td>
-                <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
-                <td>{{ formatearFecha(ev.fecha_nov_fin) }}</td>
-                <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
-                      (click)="abrirDetalleEvento(ev)">
-                      <i class="pi pi-eye"></i>
-                    </button>
-                    <button class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
-                      (click)="verHistorial(ev)">
-                      <i class="pi pi-history"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </ng-template>
-
-            <ng-template pTemplate="emptymessage">
-              <tr>
-                <td colspan="8" class="text-center py-5">
-                  <i class="pi pi-check-circle" style="font-size: 3rem; color: #9ca3af;"></i>
-                  <p class="text-muted mt-3 mb-1">No tienes eventos pendientes</p>
-                  <small class="text-muted">Aquí aparecen los eventos que puedes aprobar o rechazar</small>
-                </td>
-              </tr>
-            </ng-template>
-
+          <p-table [value]="[]" [loading]="true" styleClass="modern-table">
             <ng-template pTemplate="loadingbody">
-              <tr *ngFor="let i of [1,2,3,4,5]">
-                <td *ngFor="let j of [1,2,3,4,5,6,7,8]"><p-skeleton></p-skeleton></td>
+              <tr *ngFor="let i of [1,2,3]">
+                <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
               </tr>
             </ng-template>
           </p-table>
@@ -291,8 +340,44 @@
         </h3>
         <div class="row g-3">
           <div class="col-12 col-md-6">
-            <label class="form-label">Empleado <span class="text-danger">*</span></label>
+            <label class="form-label">Empleado<span *ngIf="!editMode">s</span> <span class="text-danger">*</span></label>
+
+            <p-multiSelect
+              *ngIf="!editMode"
+              [options]="empleadoOptions"
+              [(ngModel)]="formData.empleado_ids"
+              placeholder="Buscar por identificación o nombre…"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              filterPlaceholder="Escriba para buscar…"
+              [loading]="isLoadingEmpleados || isSearchingEmpleados"
+              [showClear]="true"
+              [maxSelectedLabels]="2"
+              selectedItemsLabel="{0} empleados seleccionados"
+              styleClass="w-100 empleado-multiselect"
+              [appendTo]="'body'"
+              [ngModelOptions]="{standalone: true}"
+              (onFilter)="onBuscarEmpleado($event)"
+              (onShow)="onPanelEmpleadoAbierto()"
+              (onChange)="actualizarPreviewFlujo()">
+              <ng-template pTemplate="footer">
+                <div *ngIf="hayMasEmpleados" class="dropdown-footer-load-more">
+                  <button
+                    type="button"
+                    class="btn-load-more"
+                    [disabled]="isSearchingEmpleados"
+                    (click)="cargarMasEmpleados()">
+                    <i class="pi" [ngClass]="isSearchingEmpleados ? 'pi-spin pi-spinner' : 'pi-chevron-down'"></i>
+                    {{ isSearchingEmpleados ? 'Cargando…' : 'Cargar 500 más' }}
+                  </button>
+                </div>
+              </ng-template>
+            </p-multiSelect>
+
             <p-dropdown
+              *ngIf="editMode"
               [options]="empleadoOptions"
               [(ngModel)]="formData.empleado_id"
               placeholder="Buscar por identificación o nombre…"
@@ -322,7 +407,7 @@
               </ng-template>
             </p-dropdown>
             <small class="text-muted d-block mt-1">Escriba mínimo 2 caracteres para buscar por identificación o nombre.</small>
-            <small class="text-danger" *ngIf="submitted && !formData.empleado_id">Campo requerido</small>
+            <small class="text-danger" *ngIf="submitted && !tieneEmpleadosSeleccionados()">Campo requerido</small>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Unidad Funcional <span class="text-danger">*</span></label>
@@ -341,7 +426,8 @@
               [appendTo]="'body'"
               [ngModelOptions]="{standalone: true}"
               (onFilter)="onBuscarUnidadFuncional($event)"
-              (onShow)="onPanelUnidadAbierto()">
+              (onShow)="onPanelUnidadAbierto()"
+              (onChange)="actualizarPreviewFlujo()">
               <ng-template pTemplate="footer">
                 <div *ngIf="hayMasUnidades" class="dropdown-footer-load-more">
                   <button
@@ -431,7 +517,7 @@
           </div>
 
           <!-- Preview del flujo de aprobación -->
-          <div class="col-12" *ngIf="formData.empleado_id">
+          <div class="col-12" *ngIf="formData.unidad_funcional_id && tieneEmpleadosSeleccionados()">
             <div class="flujo-preview">
               <div class="d-flex align-items-center mb-2">
                 <i class="pi pi-sitemap me-2"></i>
@@ -442,7 +528,7 @@
               <div *ngIf="!isLoadingFlujo && flujoPreview?.parametrizada" class="flujo-steps">
                 <span class="text-muted small d-block mb-1">{{ flujoPreview!.nombre }}</span>
                 <span class="text-muted small d-block mb-2" *ngIf="flujoPreview!.unidad_funcional_flujo">
-                  Según UF del empleado:
+                  Según UF del evento:
                   <strong>{{ flujoPreview!.unidad_funcional_flujo!.codigo }} - {{ flujoPreview!.unidad_funcional_flujo!.nombre }}</strong>
                   <span *ngIf="flujoPreview!.modo_parametrizacion === 'grupo'" class="ms-1">(vía grupo WF)</span>
                 </span>
@@ -465,13 +551,13 @@
                 <i class="pi pi-exclamation-triangle me-1"></i>
                 {{ flujoPreview.mensaje || 'Unidad Funcional No parametrizada para eventos' }}
                 <span *ngIf="flujoPreview.unidad_funcional_flujo" class="d-block small mt-1">
-                  UF del empleado: {{ flujoPreview.unidad_funcional_flujo.codigo }} - {{ flujoPreview.unidad_funcional_flujo.nombre }}
+                  UF del evento: {{ flujoPreview.unidad_funcional_flujo.codigo }} - {{ flujoPreview.unidad_funcional_flujo.nombre }}
                 </span>
               </div>
 
               <div *ngIf="!isLoadingFlujo && !flujoPreview" class="alert alert-warning mb-0 py-2 px-3">
                 <i class="pi pi-exclamation-triangle me-1"></i>
-                No se pudo determinar el flujo de aprobación para el empleado seleccionado.
+                No se pudo determinar el flujo de aprobación para la unidad funcional seleccionada.
               </div>
             </div>
           </div>
@@ -496,7 +582,10 @@
               [appendTo]="'body'"
               styleClass="w-100"
               [ngModelOptions]="{standalone: true}"
-              (onSelect)="validarFechas()">
+              (onSelect)="validarFechas()"
+              (onBlur)="validarFechas()"
+              (onInput)="validarFechas()"
+              (ngModelChange)="validarFechas()">
             </p-calendar>
             <small class="text-danger" *ngIf="submitted && !formData.fecha_inicial">Campo requerido</small>
           </div>
@@ -511,7 +600,10 @@
               [appendTo]="'body'"
               styleClass="w-100"
               [ngModelOptions]="{standalone: true}"
-              (onSelect)="validarFechas()">
+              (onSelect)="validarFechas()"
+              (onBlur)="validarFechas()"
+              (onInput)="validarFechas()"
+              (ngModelChange)="validarFechas()">
             </p-calendar>
             <small class="text-danger" *ngIf="submitted && !formData.fecha_final">Campo requerido</small>
           </div>
@@ -547,7 +639,7 @@
           (onClick)="showFormDialog = false">
         </p-button>
         <p-button 
-          [label]="editMode ? 'Actualizar Solicitud' : 'Realizar Solicitud'" 
+          [label]="submitLabel" 
           icon="pi pi-send" 
           severity="success"
           (onClick)="onSubmit()" 
@@ -638,16 +730,52 @@
           <p class="detalle-descripcion">{{ detalleEvento.coment_solicitante }}</p>
         </div>
 
-        <!-- Motivo de rechazo -->
-        <div *ngIf="mostrarMotivoRechazoDetalle" class="rechazo-detalle">
+        <!-- Motivo de rechazo (consulta) -->
+        <div class="detalle-section rechazo-info" *ngIf="esEstadoRechazado(detalleEvento.estado)">
+          <h4 class="detalle-section-title"><i class="pi pi-exclamation-triangle"></i>MOTIVO DE RECHAZO:</h4>
+          <div *ngIf="isLoadingHistorialDetalle" class="text-muted small">
+            <i class="pi pi-spin pi-spinner me-1"></i>Cargando información del rechazo...
+          </div>
+          <ng-container *ngIf="!isLoadingHistorialDetalle">
+            <p class="rechazo-linea mb-1" *ngIf="getRechazadoPorNombre()">
+              Rechazado por <strong>{{ getRechazadoPorNombre() }}</strong>
+            </p>
+            <p class="rechazo-linea mb-2" *ngIf="getRechazadoPaso()">
+              Paso: {{ getRechazadoPaso() }}
+            </p>
+            <p class="detalle-descripcion rechazo-motivo mb-0" *ngIf="getMotivoRechazo(detalleEvento)">
+              {{ getMotivoRechazo(detalleEvento) }}
+            </p>
+            <p class="text-muted small mb-0" *ngIf="!getMotivoRechazo(detalleEvento)">
+              No se registró motivo de rechazo.
+            </p>
+          </ng-container>
+        </div>
+
+        <!-- Motivo de rechazo (formulario aprobador) -->
+        <div *ngIf="!detalleSoloLectura && mostrarMotivoRechazoDetalle" class="rechazo-detalle">
           <label class="form-label"><i class="pi pi-exclamation-triangle me-1"></i>Motivo del rechazo <span class="text-danger">*</span></label>
-          <textarea pInputText [(ngModel)]="rechazoMotivo" rows="3"
-            placeholder="Indique el motivo (mínimo 3 caracteres)"
+          <p-dropdown
+            [options]="motivosRechazoOptions"
+            [(ngModel)]="rechazoMotivoId"
+            placeholder="Seleccione el motivo de rechazo"
+            optionLabel="label"
+            optionValue="value"
+            [filter]="true"
+            filterPlaceholder="Buscar motivo..."
+            [loading]="isLoadingMotivosRechazo"
+            [showClear]="true"
+            styleClass="w-100"
+            [appendTo]="'body'"
+            [ngModelOptions]="{standalone: true}">
+          </p-dropdown>
+          <small class="text-danger d-block mt-1" *ngIf="!rechazoMotivoId">Debe seleccionar un motivo</small>
+
+          <label class="form-label mt-3"><i class="pi pi-comment me-1"></i>Comentario adicional</label>
+          <textarea pInputText [(ngModel)]="rechazoComentario" rows="3"
+            placeholder="Opcional: agregue un comentario adicional"
             class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
           </textarea>
-          <small class="text-danger" *ngIf="rechazoMotivo && rechazoMotivo.trim().length < 3">
-            El motivo debe tener al menos 3 caracteres
-          </small>
         </div>
       </div>
     </div>
@@ -657,18 +785,29 @@
         <p-button label="Cerrar" icon="pi pi-times" severity="secondary" [text]="true"
           (onClick)="cerrarDetalleEvento()"></p-button>
         <div class="d-flex gap-2" *ngIf="detalleEvento">
-          <ng-container *ngIf="!mostrarMotivoRechazoDetalle">
-            <p-button label="Rechazar" icon="pi pi-ban" severity="danger" [outlined]="true"
-              [disabled]="isProcesando" (onClick)="mostrarMotivoRechazoDetalle = true"></p-button>
-            <p-button label="Aprobar" icon="pi pi-check" severity="success"
-              [disabled]="isProcesando" (onClick)="aprobarEventoDesdeDetalle()"></p-button>
+          <ng-container *ngIf="detalleSoloLectura">
+            <p-button
+              label="Historial"
+              icon="pi pi-history"
+              severity="secondary"
+              [outlined]="true"
+              (onClick)="verHistorial(detalleEvento)">
+            </p-button>
           </ng-container>
-          <ng-container *ngIf="mostrarMotivoRechazoDetalle">
-            <p-button label="Cancelar" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
-              (onClick)="mostrarMotivoRechazoDetalle = false; rechazoMotivo = ''"></p-button>
-            <p-button label="Confirmar rechazo" icon="pi pi-ban" severity="danger"
-              (onClick)="confirmarRechazoDesdeDetalle()" [loading]="isProcesando"
-              [disabled]="rechazoMotivo.trim().length < 3"></p-button>
+          <ng-container *ngIf="!detalleSoloLectura">
+            <ng-container *ngIf="!mostrarMotivoRechazoDetalle">
+              <p-button label="Rechazar" icon="pi pi-ban" severity="danger" [outlined]="true"
+                [disabled]="isProcesando" (onClick)="mostrarMotivoRechazoDetalle = true; loadMotivosRechazo()"></p-button>
+              <p-button label="Aceptar" icon="pi pi-check" severity="success"
+                [disabled]="isProcesando" (onClick)="aprobarEventoDesdeDetalle()"></p-button>
+            </ng-container>
+            <ng-container *ngIf="mostrarMotivoRechazoDetalle">
+              <p-button label="Cancelar" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
+                (onClick)="mostrarMotivoRechazoDetalle = false; resetFormularioRechazo()"></p-button>
+              <p-button label="Confirmar rechazo" icon="pi pi-ban" severity="danger"
+                (onClick)="confirmarRechazoDesdeDetalle()" [loading]="isProcesando"
+                [disabled]="!rechazoMotivoId"></p-button>
+            </ng-container>
           </ng-container>
         </div>
       </div>
@@ -684,13 +823,27 @@
     [style]="{width: '480px', maxWidth: '95vw'}">
     <div class="mb-2">
       <label class="form-label">Motivo del rechazo <span class="text-danger">*</span></label>
-      <textarea pInputText [(ngModel)]="rechazoMotivo" rows="4"
-        placeholder="Indique el motivo (mínimo 3 caracteres)"
+      <p-dropdown
+        [options]="motivosRechazoOptions"
+        [(ngModel)]="rechazoMotivoId"
+        placeholder="Seleccione el motivo de rechazo"
+        optionLabel="label"
+        optionValue="value"
+        [filter]="true"
+        filterPlaceholder="Buscar motivo..."
+        [loading]="isLoadingMotivosRechazo"
+        [showClear]="true"
+        styleClass="w-100"
+        [appendTo]="'body'"
+        [ngModelOptions]="{standalone: true}">
+      </p-dropdown>
+      <small class="text-danger d-block mt-1" *ngIf="!rechazoMotivoId">Debe seleccionar un motivo</small>
+
+      <label class="form-label mt-3">Comentario adicional</label>
+      <textarea pInputText [(ngModel)]="rechazoComentario" rows="3"
+        placeholder="Opcional: agregue un comentario adicional"
         class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
       </textarea>
-      <small class="text-danger" *ngIf="rechazoMotivo && rechazoMotivo.trim().length < 3">
-        El motivo debe tener al menos 3 caracteres
-      </small>
     </div>
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-end gap-2">
@@ -698,7 +851,7 @@
           (onClick)="showRechazoDialog = false"></p-button>
         <p-button label="Rechazar" icon="pi pi-ban" severity="danger"
           (onClick)="confirmarRechazo()" [loading]="isProcesando"
-          [disabled]="rechazoMotivo.trim().length < 3"></p-button>
+          [disabled]="!rechazoMotivoId"></p-button>
       </div>
     </ng-template>
   </p-dialog>
@@ -727,6 +880,100 @@
           <div *ngIf="h.comentario"><small class="text-muted">{{ h.comentario }}</small></div>
         </li>
       </ul>
+    </div>
+  </p-dialog>
+
+  <!-- Dialog: Mis eventos gestionados -->
+  <p-dialog
+    header="Mis eventos gestionados"
+    [(visible)]="showGestionadosDialog"
+    [modal]="true"
+    [closable]="true"
+    [maximizable]="true"
+    [style]="{width: '1100px', maxWidth: '96vw'}"
+    [breakpoints]="{'960px': '95vw'}">
+
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <input type="text" pInputText [(ngModel)]="searchGestionados"
+        (keyup.enter)="loadGestionados()"
+        placeholder="Buscar por empleado, consecutivo...">
+      <button class="btn-action btn-action-secondary" (click)="loadGestionados()">
+        <i class="pi pi-refresh"></i>Actualizar
+      </button>
+      <button class="btn-action btn-action-success ms-auto"
+        [disabled]="isExportandoExcel || gestionados.length === 0"
+        (click)="exportarGestionadosExcel()">
+        <i class="pi" [ngClass]="isExportandoExcel ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+        Exportar a Excel
+      </button>
+    </div>
+
+    <div class="modern-table-container">
+      <p-table
+        [value]="gestionados"
+        [loading]="isLoadingGestionados"
+        [paginator]="gestionados.length > 15"
+        [rows]="15"
+        [showCurrentPageReport]="gestionados.length > 15"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} eventos"
+        styleClass="modern-table">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Consecutivo</th>
+            <th>Empleado</th>
+            <th>U. Funcional</th>
+            <th>Mi acción</th>
+            <th>Paso</th>
+            <th>Fecha acción</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-ev>
+          <tr>
+            <td>{{ ev.consecutivo }}</td>
+            <td>{{ nombreEmpleado(ev) }}</td>
+            <td>{{ ev.unidad_funcional || '—' }}</td>
+            <td><p-tag [value]="getAccionLabel(ev.mi_accion)" [severity]="getAccionSeverity(ev.mi_accion)"></p-tag></td>
+            <td>{{ ev.mi_paso || '—' }}</td>
+            <td>{{ formatearFecha(ev.mi_fecha_accion) }}</td>
+            <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
+            <td>{{ formatearFecha(ev.fecha_nov_fin) }}</td>
+            <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
+            <td>
+              <div class="action-buttons">
+                <button type="button" class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
+                  (click)="abrirDetalleEvento(ev)">
+                  <i class="pi pi-eye"></i>
+                </button>
+                <button type="button" class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
+                  (click)="verHistorial(ev)">
+                  <i class="pi pi-history"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="10" class="text-center py-4">
+              <i class="pi pi-inbox" style="font-size: 2rem; color: #9ca3af;"></i>
+              <p class="text-muted mt-2 mb-0">Aún no has gestionado eventos</p>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="loadingbody">
+          <tr *ngFor="let i of [1,2,3,4,5]">
+            <td *ngFor="let j of [1,2,3,4,5,6,7,8,9,10]"><p-skeleton></p-skeleton></td>
+          </tr>
+        </ng-template>
+      </p-table>
     </div>
   </p-dialog>
 

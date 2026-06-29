@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
-import { EventSolicitudService, EventSolicitud, CreateEventSolicitudRequest, UnidadFuncionalOption, FlujoPreview, EmpleadoOption, formatEmpleadoLabel, formatUnidadFuncionalLabel } from '../services/event-solicitud.service';
+import { Subject, debounceTime, distinctUntilChanged, forkJoin, of, switchMap } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
+import { EventSolicitudService, EventSolicitud, CreateEventSolicitudRequest, UnidadFuncionalOption, FlujoPreview, EmpleadoOption, MotivoRechazoOption, formatEmpleadoLabel, formatUnidadFuncionalLabel, formatMotivoRechazoLabel } from '../services/event-solicitud.service';
 import { ContextoService, Empresa } from '../../../../core/services/contexto.service';
+import { ExcelExportService, ExcelColumn } from '../../../../core/services/excel-export.service';
 import { environment } from '../../../../environments/environment';
 
 // PrimeNG
@@ -21,7 +23,16 @@ import { DropdownModule } from 'primeng/dropdown';
 import { CalendarModule } from 'primeng/calendar';
 import { TextareaModule } from 'primeng/textarea';
 import { SkeletonModule } from 'primeng/skeleton';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { MessageService, ConfirmationService } from 'primeng/api';
+
+interface BandejaPasoPendiente {
+  paso: string;
+  items: EventSolicitud[];
+  titulo: string;
+  icono: string;
+  estilo: 'aprobar' | 'autorizar' | 'digitalizar' | 'otros';
+}
 
 @Component({
   selector: 'app-dashboard-eventos',
@@ -30,7 +41,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, DialogModule,
     ToastModule, ConfirmDialogModule, TagModule, TooltipModule,
-    DropdownModule, CalendarModule, TextareaModule, SkeletonModule
+    DropdownModule, CalendarModule, TextareaModule, SkeletonModule, MultiSelectModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './dashboard.component.html',
@@ -97,6 +108,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   formData: {
     empresa_id: number | null;
     empleado_id: number | null;
+    empleado_ids: number[];
     aprobador_id: number | null;
     unidad_funcional_id: number | null;
     novedad_id: number | null;
@@ -111,12 +123,14 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     private contextoService: ContextoService,
     private http: HttpClient,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private excelExportService: ExcelExportService
   ) {}
 
   ngOnInit(): void {
     this.loadNovedades();
     this.loadEmpresasDisponibles();
+    this.loadMotivosRechazo();
 
     // Búsqueda lazy de empleados de mis UF — por identificación o nombre
     this.busquedaEmpleado$.pipe(
@@ -188,79 +202,418 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.activeTab = tab;
     if (tab === 'gestionar') {
       this.loadPendientes();
+      this.loadMotivosRechazo();
     }
+  }
+
+  loadMotivosRechazo(): void {
+    this.isLoadingMotivosRechazo = true;
+    this.solicitudService.getMotivosRechazo().subscribe({
+      next: (data) => {
+        this.motivosRechazoOptions = (data || []).map(m => ({
+          label: formatMotivoRechazoLabel(m),
+          value: m.id
+        }));
+        this.isLoadingMotivosRechazo = false;
+      },
+      error: () => {
+        this.motivosRechazoOptions = [];
+        this.isLoadingMotivosRechazo = false;
+      }
+    });
+  }
+
+  resetFormularioRechazo(): void {
+    this.rechazoMotivoId = null;
+    this.rechazoComentario = '';
+  }
+
+  private puedeConfirmarRechazo(): boolean {
+    return !!this.rechazoMotivoId;
   }
 
   // ===== Bandeja de gestión (aprobaciones) =====
   pendientes: EventSolicitud[] = [];
+  bandejasPorPaso: BandejaPasoPendiente[] = [];
   isLoadingPendientes = false;
   searchPendientes = '';
+  seleccionPorPaso: Record<string, EventSolicitud[]> = {};
+  isProcesandoMasivo = false;
 
   showRechazoDialog = false;
-  rechazoMotivo = '';
+  rechazoMotivoId: number | null = null;
+  rechazoComentario = '';
   rechazoTarget?: EventSolicitud;
+  motivosRechazoOptions: { label: string; value: number }[] = [];
+  isLoadingMotivosRechazo = false;
   isProcesando = false;
 
   showDetalleDialog = false;
   detalleEvento?: EventSolicitud;
+  detalleSoloLectura = false;
+  historialDetalle: any[] = [];
+  isLoadingHistorialDetalle = false;
   mostrarMotivoRechazoDetalle = false;
 
   showHistorialDialog = false;
   historial: any[] = [];
   isLoadingHistorial = false;
 
+  // ===== Eventos gestionados (revisión + exportación) =====
+  showGestionadosDialog = false;
+  gestionados: EventSolicitud[] = [];
+  isLoadingGestionados = false;
+  searchGestionados = '';
+  isExportandoExcel = false;
+
   loadPendientes(): void {
     this.isLoadingPendientes = true;
     this.solicitudService.getPendientes(this.searchPendientes.trim() || undefined).subscribe({
       next: (res) => {
         this.pendientes = res.data || [];
+        this.inicializarSeleccionBandejas();
+        this.recalcularBandejas();
         this.isLoadingPendientes = false;
       },
-      error: () => { this.pendientes = []; this.isLoadingPendientes = false; }
+      error: () => {
+        this.pendientes = [];
+        this.seleccionPorPaso = {};
+        this.recalcularBandejas();
+        this.isLoadingPendientes = false;
+      }
     });
   }
 
+  cantidadSeleccionados(paso: string): number {
+    return this.seleccionPorPaso[paso]?.length || 0;
+  }
+
+  aprobarSeleccionados(paso: string): void {
+    const seleccionados = [...(this.seleccionPorPaso[paso] || [])];
+    if (seleccionados.length === 0 || this.isProcesandoMasivo) return;
+
+    this.isProcesandoMasivo = true;
+    forkJoin(
+      seleccionados.map(evento =>
+        this.solicitudService.aprobarEvento(evento.id).pipe(
+          map(() => ({ ok: true as const, evento })),
+          catchError(err => of({
+            ok: false as const,
+            evento,
+            message: err.error?.message || 'Error al aprobar'
+          }))
+        )
+      )
+    ).subscribe({
+      next: (results) => {
+        const exitosos = results.filter(r => r.ok).length;
+        const fallidos = results.filter(r => !r.ok);
+
+        if (exitosos > 0) {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: exitosos === 1 ? '1 evento procesado' : `${exitosos} eventos procesados`
+          });
+        }
+        if (fallidos.length > 0) {
+          const detalle = fallidos
+            .map(f => `${f.evento.consecutivo}: ${f.message}`)
+            .join('; ');
+          this.messageService.add({
+            severity: fallidos.length === seleccionados.length ? 'error' : 'warn',
+            summary: 'Algunos eventos no se procesaron',
+            detail: detalle
+          });
+        }
+
+        this.seleccionPorPaso[paso] = [];
+        this.isProcesandoMasivo = false;
+        this.loadPendientes();
+        this.loadNovedades();
+      },
+      error: () => {
+        this.isProcesandoMasivo = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Error al procesar la selección' });
+      }
+    });
+  }
+
+  abrirGestionados(): void {
+    this.showGestionadosDialog = true;
+    if (this.gestionados.length === 0) {
+      this.loadGestionados();
+    }
+  }
+
+  loadGestionados(): void {
+    this.isLoadingGestionados = true;
+    this.solicitudService.getGestionados(this.searchGestionados.trim() || undefined).subscribe({
+      next: (res) => {
+        this.gestionados = res.data || [];
+        this.isLoadingGestionados = false;
+      },
+      error: () => {
+        this.gestionados = [];
+        this.isLoadingGestionados = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los eventos gestionados' });
+      }
+    });
+  }
+
+  nombreEmpleado(ev: EventSolicitud): string {
+    const emp: any = ev.empleado;
+    if (!emp) return '—';
+    return typeof emp === 'string' ? emp : (emp.nombre || '—');
+  }
+
+  getAccionLabel(accion?: string | null): string {
+    const valor = (accion || '').toLowerCase();
+    if (valor === 'aprobado') return 'Aprobado';
+    if (valor === 'rechazado') return 'Rechazado';
+    return accion || '—';
+  }
+
+  getAccionSeverity(accion?: string | null): 'success' | 'danger' | 'info' {
+    const valor = (accion || '').toLowerCase();
+    if (valor === 'aprobado') return 'success';
+    if (valor === 'rechazado') return 'danger';
+    return 'info';
+  }
+
+  async exportarGestionadosExcel(): Promise<void> {
+    if (this.gestionados.length === 0 || this.isExportandoExcel) return;
+
+    this.isExportandoExcel = true;
+    try {
+      const columnas: ExcelColumn[] = [
+        { header: 'Consecutivo', key: 'consecutivo', width: 16 },
+        { header: 'Empleado', key: 'empleado', width: 32 },
+        { header: 'U. Funcional', key: 'unidad_funcional', width: 28 },
+        { header: 'Mi acción', key: 'mi_accion', width: 14 },
+        { header: 'Paso', key: 'mi_paso', width: 18 },
+        { header: 'Fecha acción', key: 'mi_fecha_accion', width: 20 },
+        { header: 'Inicio', key: 'fecha_nov_ini', width: 20 },
+        { header: 'Fin', key: 'fecha_nov_fin', width: 20 },
+        { header: 'Estado', key: 'estado', width: 16 },
+        { header: 'Comentario', key: 'mi_comentario', width: 40 },
+      ];
+
+      const datos = this.gestionados.map(ev => ({
+        consecutivo: ev.consecutivo,
+        empleado: this.nombreEmpleado(ev),
+        unidad_funcional: ev.unidad_funcional || '—',
+        mi_accion: this.getAccionLabel(ev.mi_accion),
+        mi_paso: ev.mi_paso || '—',
+        mi_fecha_accion: this.formatearFecha(ev.mi_fecha_accion),
+        fecha_nov_ini: this.formatearFecha(ev.fecha_nov_ini),
+        fecha_nov_fin: this.formatearFecha(ev.fecha_nov_fin),
+        estado: this.getEstadoLabel(ev.estado),
+        mi_comentario: ev.mi_comentario || '',
+      }));
+
+      await this.excelExportService.exportToExcel(
+        datos,
+        columnas,
+        'Gestionados',
+        'eventos_gestionados',
+        undefined,
+        { title: 'Eventos gestionados', subtitle: 'Eventos aprobados o rechazados por el usuario' }
+      );
+
+      this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Archivo Excel generado' });
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo exportar a Excel' });
+    } finally {
+      this.isExportandoExcel = false;
+    }
+  }
+
+  private inicializarSeleccionBandejas(): void {
+    const idsValidos = new Set(this.pendientes.map(p => p.id));
+    const pasosActuales = new Set<string>();
+
+    for (const evento of this.pendientes) {
+      pasosActuales.add((evento.paso_actual || 'Sin paso').trim());
+    }
+
+    for (const paso of pasosActuales) {
+      const previa = this.seleccionPorPaso[paso] || [];
+      this.seleccionPorPaso[paso] = previa.filter(e => idsValidos.has(e.id));
+    }
+
+    for (const paso of Object.keys(this.seleccionPorPaso)) {
+      if (!pasosActuales.has(paso)) {
+        delete this.seleccionPorPaso[paso];
+      }
+    }
+  }
+
+  private recalcularBandejas(): void {
+    const grupos = new Map<string, EventSolicitud[]>();
+    for (const evento of this.pendientes) {
+      const paso = (evento.paso_actual || 'Sin paso').trim();
+      if (!grupos.has(paso)) {
+        grupos.set(paso, []);
+      }
+      grupos.get(paso)!.push(evento);
+    }
+
+    this.bandejasPorPaso = Array.from(grupos.entries())
+      .map(([paso, items]) => ({
+        paso,
+        items,
+        titulo: `Por ${paso}`,
+        icono: this.iconoBandejaPaso(paso),
+        estilo: this.estiloBandejaPaso(paso),
+      }))
+      .sort((a, b) => this.ordenBandejaPaso(a.paso) - this.ordenBandejaPaso(b.paso));
+  }
+
+  get hayBandejasPendientes(): boolean {
+    return this.bandejasPorPaso.length > 0;
+  }
+
+  private ordenBandejaPaso(paso: string): number {
+    const normalizado = paso.toLowerCase();
+    const orden = ['aprobar', 'autorizar', 'digitalizar'];
+    const idx = orden.findIndex(p => normalizado.startsWith(p));
+    return idx >= 0 ? idx : orden.length;
+  }
+
+  private estiloBandejaPaso(paso: string): BandejaPasoPendiente['estilo'] {
+    const normalizado = paso.toLowerCase();
+    if (normalizado.startsWith('aprobar')) return 'aprobar';
+    if (normalizado.startsWith('autorizar')) return 'autorizar';
+    if (normalizado.startsWith('digitalizar')) return 'digitalizar';
+    return 'otros';
+  }
+
+  private iconoBandejaPaso(paso: string): string {
+    const estilo = this.estiloBandejaPaso(paso);
+    const iconos: Record<BandejaPasoPendiente['estilo'], string> = {
+      aprobar: 'pi-check-circle',
+      autorizar: 'pi-verified',
+      digitalizar: 'pi-file-edit',
+      otros: 'pi-list',
+    };
+    return iconos[estilo];
+  }
+
   aprobarEvento(evento: EventSolicitud, cerrarDetalle = false): void {
-    this.confirmationService.confirm({
-      message: `¿Aprobar el paso "${evento.paso_actual || ''}" del evento ${evento.consecutivo}?`,
-      header: 'Confirmar aprobación',
-      icon: 'pi pi-check-circle',
-      acceptLabel: 'Sí, aprobar',
-      rejectLabel: 'Cancelar',
-      acceptButtonStyleClass: 'p-button-success',
-      accept: () => {
-        this.isProcesando = true;
-        this.solicitudService.aprobarEvento(evento.id).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento aprobado' });
-            this.isProcesando = false;
-            if (cerrarDetalle) {
-              this.cerrarDetalleEvento();
-            }
-            this.loadPendientes();
-            this.loadNovedades();
-          },
-          error: (err) => {
-            this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al aprobar' });
-            this.isProcesando = false;
-          }
-        });
+    this.isProcesando = true;
+    this.solicitudService.aprobarEvento(evento.id).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento aprobado' });
+        this.isProcesando = false;
+        if (cerrarDetalle) {
+          this.cerrarDetalleEvento();
+        }
+        this.loadPendientes();
+        this.loadNovedades();
+      },
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al aprobar' });
+        this.isProcesando = false;
       }
     });
   }
 
   abrirDetalleEvento(evento: EventSolicitud): void {
+    this.detalleSoloLectura = false;
     this.detalleEvento = evento;
     this.mostrarMotivoRechazoDetalle = false;
-    this.rechazoMotivo = '';
+    this.resetFormularioRechazo();
+    this.historialDetalle = [];
+    this.isLoadingHistorialDetalle = false;
     this.showDetalleDialog = true;
+    this.cargarHistorialRechazo(evento);
+  }
+
+  abrirDetalleSolicitud(novedad: EventSolicitud): void {
+    this.detalleSoloLectura = true;
+    this.detalleEvento = novedad;
+    this.mostrarMotivoRechazoDetalle = false;
+    this.resetFormularioRechazo();
+    this.historialDetalle = [];
+    this.isLoadingHistorialDetalle = false;
+    this.showDetalleDialog = true;
+    this.cargarHistorialRechazo(novedad);
+  }
+
+  private cargarHistorialRechazo(evento: EventSolicitud): void {
+    if (!this.esEstadoRechazado(evento.estado)) return;
+
+    this.isLoadingHistorialDetalle = true;
+    this.solicitudService.getHistorial(evento.id).subscribe({
+      next: (res) => {
+        this.historialDetalle = res.data?.aprobaciones || [];
+        this.isLoadingHistorialDetalle = false;
+      },
+      error: () => {
+        this.historialDetalle = [];
+        this.isLoadingHistorialDetalle = false;
+      }
+    });
   }
 
   cerrarDetalleEvento(): void {
     this.showDetalleDialog = false;
     this.detalleEvento = undefined;
+    this.detalleSoloLectura = false;
+    this.historialDetalle = [];
+    this.isLoadingHistorialDetalle = false;
     this.mostrarMotivoRechazoDetalle = false;
-    this.rechazoMotivo = '';
+    this.resetFormularioRechazo();
+  }
+
+  esEstadoRechazado(estado: EventSolicitud['estado'] | undefined): boolean {
+    return estado != null && this.getEstadoCodigo(estado) === 4;
+  }
+
+  getMotivoRechazo(evento: EventSolicitud | undefined): string | null {
+    if (!evento) return null;
+
+    if (evento.motivo_rechazo && typeof evento.motivo_rechazo === 'object') {
+      let texto = formatMotivoRechazoLabel(evento.motivo_rechazo);
+      const comentario = (evento.coment_aprobador || '').trim();
+      if (comentario) {
+        texto += `. ${comentario}`;
+      }
+      return texto;
+    }
+
+    const legacy = (evento.coment_aprobador || '').trim();
+    if (legacy) return legacy;
+
+    const rechazoHistorial = this.historialDetalle.find(h =>
+      String(h.accion || '').toLowerCase().includes('rechaz') && String(h.comentario || '').trim()
+    );
+
+    return rechazoHistorial?.comentario?.trim() || null;
+  }
+
+  getRechazadoPorNombre(): string | null {
+    const rechazo = this.getEntradaRechazoHistorial();
+    if (!rechazo) return null;
+
+    const user = rechazo.user;
+    return user?.name || user?.nombre || (rechazo.id_user ? `Usuario ${rechazo.id_user}` : null);
+  }
+
+  getRechazadoPaso(): string | null {
+    const rechazo = this.getEntradaRechazoHistorial();
+    if (!rechazo) return null;
+
+    return rechazo.paso?.nombre_paso || rechazo.paso?.nombre || null;
+  }
+
+  private getEntradaRechazoHistorial(): any | null {
+    const entradas = this.historialDetalle.filter(h =>
+      String(h.accion || '').toLowerCase().includes('rechaz')
+    );
+    if (entradas.length === 0) return null;
+    return entradas[entradas.length - 1];
   }
 
   aprobarEventoDesdeDetalle(): void {
@@ -269,9 +622,12 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   }
 
   confirmarRechazoDesdeDetalle(): void {
-    if (!this.detalleEvento || this.rechazoMotivo.trim().length < 3) return;
+    if (!this.detalleEvento || !this.puedeConfirmarRechazo()) return;
     this.isProcesando = true;
-    this.solicitudService.rechazarEvento(this.detalleEvento.id, this.rechazoMotivo.trim()).subscribe({
+    this.solicitudService.rechazarEvento(this.detalleEvento.id, {
+      id_motivo_rechazo: this.rechazoMotivoId!,
+      comentario: this.rechazoComentario.trim() || undefined
+    }).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento rechazado' });
         this.isProcesando = false;
@@ -333,14 +689,18 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   abrirRechazo(evento: EventSolicitud): void {
     this.rechazoTarget = evento;
-    this.rechazoMotivo = '';
+    this.resetFormularioRechazo();
+    this.loadMotivosRechazo();
     this.showRechazoDialog = true;
   }
 
   confirmarRechazo(): void {
-    if (!this.rechazoTarget || this.rechazoMotivo.trim().length < 3) return;
+    if (!this.rechazoTarget || !this.puedeConfirmarRechazo()) return;
     this.isProcesando = true;
-    this.solicitudService.rechazarEvento(this.rechazoTarget.id, this.rechazoMotivo.trim()).subscribe({
+    this.solicitudService.rechazarEvento(this.rechazoTarget.id, {
+      id_motivo_rechazo: this.rechazoMotivoId!,
+      comentario: this.rechazoComentario.trim() || undefined
+    }).subscribe({
       next: () => {
         this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento rechazado' });
         this.showRechazoDialog = false;
@@ -495,9 +855,14 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     const mapa = new Map<number, { label: string; value: number }>();
     if (append) {
       this.empleadoOptions.forEach(o => mapa.set(o.value, o));
-    } else if (this.formData.empleado_id) {
-      const selected = this.empleadoOptions.find(o => o.value === this.formData.empleado_id);
-      if (selected) mapa.set(selected.value, selected);
+    } else {
+      const idsPreservar = this.editMode
+        ? (this.formData.empleado_id ? [this.formData.empleado_id] : [])
+        : this.formData.empleado_ids;
+      idsPreservar.forEach(id => {
+        const selected = this.empleadoOptions.find(o => o.value === id);
+        if (selected) mapa.set(selected.value, selected);
+      });
     }
     personas.forEach(p => mapa.set(p.id, { label: formatEmpleadoLabel(p), value: p.id }));
     this.empleadoOptions = Array.from(mapa.values());
@@ -529,6 +894,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     return {
       empresa_id:        null as number | null,
       empleado_id:       null as number | null,
+      empleado_ids:      [] as number[],
       aprobador_id:      null as number | null,
       unidad_funcional_id: null as number | null,
       novedad_id:        null as number | null,
@@ -607,6 +973,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   onEmpresaChange(empresaId: number | null): void {
     this.formData.empleado_id       = null;
+    this.formData.empleado_ids      = [];
     this.formData.aprobador_id      = null;
     this.formData.empleado_cubre_id = null;
     this.formData.novedad_id        = null;
@@ -767,6 +1134,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.formData = {
       empresa_id:        null,
       empleado_id:       novedad.empleado_id,
+      empleado_ids:      [],
       aprobador_id:      novedad.aprobador_id ?? null,
       unidad_funcional_id: novedad.id_unidad_funcional ?? null,
       novedad_id:        novedad.novedad_id ?? null,
@@ -784,7 +1152,13 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   validarFechas(): void {
     const ini = this.formData.fecha_inicial;
     const fin = this.formData.fecha_final;
-    this.fechaInicialInvalida = !!(ini && fin && fin < ini);
+
+    if (!ini || !fin || isNaN(ini.getTime()) || isNaN(fin.getTime())) {
+      this.fechaInicialInvalida = false;
+      return;
+    }
+
+    this.fechaInicialInvalida = fin < ini;
   }
 
   mostrarEmpleadoCubre = false;
@@ -797,17 +1171,32 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     return this.mostrarEmpleadoCubre;
   }
 
-  /** Carga el preview del flujo según la UF del empleado seleccionado. */
+  get submitLabel(): string {
+    if (this.editMode) return 'Actualizar Solicitud';
+    const total = this.formData.empleado_ids.length;
+    return total > 1 ? `Realizar ${total} solicitudes` : 'Realizar Solicitud';
+  }
+
+  tieneEmpleadosSeleccionados(): boolean {
+    return this.editMode
+      ? !!this.formData.empleado_id
+      : this.formData.empleado_ids.length > 0;
+  }
+
+  /** Carga el preview del flujo según la UF donde se realizará el evento. */
   actualizarPreviewFlujo(): void {
     const empresaId = this.formData.empresa_id ?? this.empresaSeleccionada;
-    if (!this.formData.empleado_id) {
+    if (!this.formData.unidad_funcional_id) {
       this.flujoPreview = null;
       return;
     }
+    const empleadoId = this.editMode
+      ? this.formData.empleado_id
+      : (this.formData.empleado_ids[0] ?? null);
     this.isLoadingFlujo = true;
     this.solicitudService.getFlujoPreview({
       empresa_id: empresaId,
-      empleado_id: this.formData.empleado_id,
+      empleado_id: empleadoId,
       unidad_funcional_id: this.formData.unidad_funcional_id,
       novedad_id: this.formData.novedad_id
     }).subscribe({
@@ -847,11 +1236,12 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   onSubmit(): void {
     this.submitted = true;
+    this.validarFechas();
     
     // Validaciones básicas
-    if (!this.formData.empleado_id || !this.formData.fecha_inicial || !this.formData.fecha_final || this.fechaInicialInvalida) return;
+    if (!this.tieneEmpleadosSeleccionados() || !this.formData.fecha_inicial || !this.formData.fecha_final || this.fechaInicialInvalida) return;
     
-    // Unidad funcional obligatoria: lugar donde se realiza el evento (el flujo usa la UF del empleado)
+    // Unidad funcional obligatoria: lugar donde se realiza el evento y de donde toma el flujo.
     if (!this.formData.unidad_funcional_id) return;
 
     // Validar que hay novedad seleccionada (solo si no es empresa sin novedades)
@@ -891,9 +1281,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     console.log('Fecha inicial formateada:', fechaInicialFormateada);
     console.log('Fecha final formateada:', fechaFinalFormateada);
     
-    // El aprobador ya no se elige manualmente: lo resuelve el flujo por permiso/UF.
-    const payload: CreateEventSolicitudRequest = {
-      empleado_id:       this.formData.empleado_id!,
+    const payloadBase: Omit<CreateEventSolicitudRequest, 'empleado_id'> = {
       unidad_funcional_id: this.formData.unidad_funcional_id ?? undefined,
       novedad_id:        this.formData.novedad_id ?? undefined,
       empleado_cubre_id: this.formData.empleado_cubre_id ?? undefined,
@@ -902,26 +1290,76 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
       descripcion:       this.formData.descripcion
     };
 
-    // Estado inicial requerido por negocio: 1 = Registrado
-    if (!this.editMode) {
-      payload.estado = 1;
+    if (this.editMode && this.currentId) {
+      const payload: CreateEventSolicitudRequest = {
+        ...payloadBase,
+        empleado_id: this.formData.empleado_id!
+      };
+
+      this.solicitudService.updateSolicitud(this.currentId, payload).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Solicitud actualizada' });
+          this.showFormDialog = false;
+          this.isSubmitting = false;
+          this.loadNovedades();
+        },
+        error: (err: { error?: { message?: string } }) => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al guardar' });
+          this.isSubmitting = false;
+        }
+      });
+      return;
     }
-    
-    console.log('Payload completo:', payload);
 
-    const req$ = this.editMode && this.currentId
-      ? this.solicitudService.updateSolicitud(this.currentId, payload)
-      : this.solicitudService.createSolicitud(payload);
+    this.crearSolicitudesMultiples(this.formData.empleado_ids, payloadBase);
+  }
 
-    req$.subscribe({
-      next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: this.editMode ? 'Solicitud actualizada' : 'Solicitud creada exitosamente' });
-        this.showFormDialog = false;
+  private crearSolicitudesMultiples(
+    empleadoIds: number[],
+    payloadBase: Omit<CreateEventSolicitudRequest, 'empleado_id'>
+  ): void {
+    const requests = empleadoIds.map(empleadoId =>
+      this.solicitudService.createSolicitud({ ...payloadBase, empleado_id: empleadoId, estado: 1 }).pipe(
+        map(() => ({ ok: true as const })),
+        catchError(err => of({
+          ok: false as const,
+          message: (err as { error?: { message?: string } }).error?.message || 'Error al guardar'
+        }))
+      )
+    );
+
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        const exitosas = results.filter(r => r.ok).length;
+        const fallidas = results.length - exitosas;
+
+        if (exitosas > 0) {
+          const detail = fallidas > 0
+            ? `${exitosas} solicitud(es) creada(s), ${fallidas} con error`
+            : exitosas === 1
+              ? 'Solicitud creada exitosamente'
+              : `${exitosas} solicitudes creadas exitosamente`;
+
+          this.messageService.add({
+            severity: fallidas > 0 ? 'warn' : 'success',
+            summary: fallidas > 0 ? 'Parcial' : 'Éxito',
+            detail
+          });
+          this.showFormDialog = false;
+          this.loadNovedades();
+        } else {
+          const primerError = results.find(r => !r.ok);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: primerError && 'message' in primerError ? primerError.message : 'Error al guardar'
+          });
+        }
+
         this.isSubmitting = false;
-        this.loadNovedades();
       },
-      error: (err: { error?: { message?: string } }) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al guardar' });
+      error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Error al guardar las solicitudes' });
         this.isSubmitting = false;
       }
     });

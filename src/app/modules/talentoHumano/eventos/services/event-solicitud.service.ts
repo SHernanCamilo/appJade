@@ -21,13 +21,21 @@ export interface EventSolicitud {
   fecha_nov_fin: string;
   fecha_solicitud?: string;
   coment_solicitante?: string;
+  coment_aprobador?: string;
   /** Alias legacy del comentario del solicitante */
   descripcion?: string;
   estado: number | 'proceso' | 'rechazada' | 'aprobada' | 'autorizada' | 'registrado' | 'digitalizado' | 'digitalizada' | 'anulado' | 'anulada';
-  motivo_rechazo?: string;
+  id_motivo_rechazo?: number | null;
+  motivo_rechazo?: MotivoRechazoOption | null;
   paso_actual?: string | null;
   aprobador_pendiente?: string | null;
   wf_instancia_id?: number | null;
+  /** Acción que el usuario realizó sobre el evento (aprobado/rechazado). */
+  mi_accion?: string | null;
+  /** Paso en el que el usuario actuó. */
+  mi_paso?: string | null;
+  mi_fecha_accion?: string | null;
+  mi_comentario?: string | null;
 }
 
 export interface CreateEventSolicitudRequest {
@@ -82,6 +90,17 @@ export interface FlujoPreview {
 
 export function formatUnidadFuncionalLabel(unidad: Pick<UnidadFuncionalOption, 'codigo' | 'nombre'>): string {
   return `${unidad.codigo} - ${unidad.nombre}`;
+}
+
+export interface MotivoRechazoOption {
+  id: number;
+  codigo: number;
+  descriocion: string;
+  id_modulo: number;
+}
+
+export function formatMotivoRechazoLabel(motivo: Pick<MotivoRechazoOption, 'codigo' | 'descriocion'>): string {
+  return `${motivo.codigo} - ${motivo.descriocion}`;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -255,7 +274,7 @@ export class EventSolicitudService {
     );
   }
 
-  /** Previsualiza el flujo según la UF del empleado (no la UF del evento). */
+  /** Previsualiza el flujo según la UF donde se realizará el evento. */
   getFlujoPreview(params: {
     empresa_id?: number | null;
     empleado_id?: number | null;
@@ -295,9 +314,25 @@ export class EventSolicitudService {
     return this.http.post<any>(`${this.base}/solicitudes/${id}/aprobar`, { comentario });
   }
 
+  /** Eventos que el usuario autenticado ya gestionó (aprobó o rechazó). */
+  getGestionados(search?: string): Observable<{ success: boolean; data: EventSolicitud[] }> {
+    let params = new HttpParams().set('per_page', '500');
+    if (search && search.length >= 2) params = params.set('search', search);
+    return this.http.get<{ success: boolean; data: EventSolicitud[] }>(
+      `${this.base}/solicitudes/gestionados`, { params }
+    );
+  }
+
+  /** Motivos de rechazo parametrizados para el módulo de eventos. */
+  getMotivosRechazo(): Observable<MotivoRechazoOption[]> {
+    return this.http.get<{ success: boolean; data: MotivoRechazoOption[] }>(
+      `${this.base}/motivos-rechazo`
+    ).pipe(map(r => r.data || []));
+  }
+
   /** Rechaza el evento y finaliza el flujo. */
-  rechazarEvento(id: number, motivo: string): Observable<any> {
-    return this.http.post<any>(`${this.base}/solicitudes/${id}/rechazar`, { motivo });
+  rechazarEvento(id: number, payload: { id_motivo_rechazo: number; comentario?: string }): Observable<any> {
+    return this.http.post<any>(`${this.base}/solicitudes/${id}/rechazar`, payload);
   }
 
   /** Historial de aprobaciones del evento. */
