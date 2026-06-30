@@ -3,126 +3,143 @@
   <p-confirmDialog></p-confirmDialog>
 
   <!-- Header -->
-  <div class="page-header-modern">
+  <div class="page-header">
     <div class="header-top">
-      <button class="btn-back-modern" routerLink="/talentoHumano/turnos/dashboard">
+      <button class="btn-back" routerLink="/talentoHumano/turnos/dashboard">
         <i class="pi pi-arrow-left"></i>
         Volver
       </button>
     </div>
     <div class="header-main">
       <div class="header-title-section">
-        <h1 class="page-title-modern">
+        <h1 class="page-title">
           <i class="pi pi-clock me-2"></i>
           Plantillas de Turnos
         </h1>
-        <p class="page-subtitle-modern">Define los horarios estándar disponibles</p>
+        <p class="page-subtitle">Define los horarios estándar disponibles para cada empresa</p>
       </div>
+      <button 
+        pButton 
+        type="button" 
+        label="Nueva Plantilla" 
+        icon="pi pi-plus" 
+        class="p-button-primary btn-new"
+        (click)="abrirFormulario()">
+      </button>
     </div>
   </div>
 
-  <div class="dashboard-content">
-    <div class="section-card">
-      <div class="section-card-header">
-        <h2 class="section-card-title"><i class="pi pi-list me-2"></i>Plantillas Registradas</h2>
-        <button 
-          pButton 
-          type="button" 
-          label="Nueva Plantilla" 
-          icon="pi pi-plus" 
-          class="p-button-success"
-          (click)="abrirFormulario()">
-        </button>
-      </div>
-
-      <div class="section-card-body">
-        <!-- Filtros -->
-        <div class="filter-section">
-          <div class="filter-group">
+  <!-- Content -->
+  <div class="content-area">
+    <div class="list-card">
+      <!-- Card Header con filtros -->
+      <div class="list-card-header">
+        <div class="list-card-title">
+          <i class="pi pi-list me-2"></i>
+          Lista de Plantillas
+          <span class="badge-count">{{ plantillasFiltradas.length }}</span>
+        </div>
+        <div class="header-filters">
+          <!-- Filtro por empresa (solo super_admin) -->
+          <div class="filter-empresa" *ngIf="isSuperAdmin && empresasLoaded">
+            <p-dropdown
+              [options]="userEmpresas"
+              [(ngModel)]="selectedEmpresaFilter"
+              optionLabel="nombre"
+              optionValue="id"
+              placeholder="Filtrar por empresa"
+              [showClear]="true"
+              (onChange)="onEmpresaFilterChange()"
+              [style]="{'min-width': '200px'}">
+            </p-dropdown>
+          </div>
+          <div class="filter-search">
+            <i class="pi pi-search search-icon"></i>
             <input 
               type="text" 
               [(ngModel)]="searchTerm" 
               (input)="aplicarFiltros()"
-              placeholder="Buscar plantilla..."
-              class="form-control">
+              placeholder="Buscar..."
+              class="search-input">
           </div>
-          <button 
-            pButton 
-            type="button" 
-            label="Limpiar" 
-            icon="pi pi-times" 
-            class="p-button-text"
-            (click)="limpiarFiltros()">
-          </button>
         </div>
+      </div>
 
-        <!-- Tabla -->
-        <div class="modern-table-container">
-          <p-table
-            [value]="plantillasFiltradas"
-            [paginator]="true"
-            [rows]="10"
-            [showCurrentPageReport]="true"
-            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} plantillas"
-            styleClass="modern-table">
+      <!-- Tabla -->
+      <div class="table-container">
+        <p-table
+          [value]="plantillasFiltradas"
+          [paginator]="true"
+          [rows]="10"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} plantillas"
+          [rowHover]="true"
+          styleClass="p-datatable-sm">
 
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Nombre</th>
-                <th>Descripción</th>
-                <th>Hora Inicio</th>
-                <th>Hora Fin</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </ng-template>
+          <ng-template pTemplate="header">
+            <tr>
+              <th pSortableColumn="codigo">Código <p-sortIcon field="codigo"></p-sortIcon></th>
+              <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre"></p-sortIcon></th>
+              <th>Empresa</th>
+              <th>Hora Inicio</th>
+              <th>Hora Fin</th>
+              <th>Estado</th>
+              <th style="text-align: center; width: 120px;">Acciones</th>
+            </tr>
+          </ng-template>
 
-            <ng-template pTemplate="body" let-plantilla>
-              <tr>
-                <td>{{ plantilla.nombre }}</td>
-                <td>{{ plantilla.descripcion }}</td>
-                <td>{{ plantilla.hora_inicio }}</td>
-                <td>{{ plantilla.hora_fin }}</td>
-                <td>
-                  <p-tag 
-                    [value]="plantilla.activo ? 'Activo' : 'Inactivo'" 
-                    [severity]="plantilla.activo ? 'success' : 'danger'">
-                  </p-tag>
-                </td>
-                <td>
-                  <button 
-                    pButton 
-                    type="button" 
-                    icon="pi pi-pencil" 
-                    class="p-button-rounded p-button-text p-button-sm"
-                    pTooltip="Editar" 
-                    tooltipPosition="top"
-                    (click)="editarPlantilla(plantilla)">
-                  </button>
-                  <button 
-                    pButton 
-                    type="button" 
-                    icon="pi pi-trash" 
-                    class="p-button-rounded p-button-text p-button-sm p-button-danger"
-                    pTooltip="Eliminar" 
-                    tooltipPosition="top"
-                    (click)="eliminarPlantilla(plantilla)">
-                  </button>
-                </td>
-              </tr>
-            </ng-template>
+          <ng-template pTemplate="body" let-plantilla>
+            <tr>
+              <td>
+                <span class="codigo-badge">{{ plantilla.codigo }}</span>
+              </td>
+              <td class="nombre-cell">{{ plantilla.nombre }}</td>
+              <td>
+                <span class="empresa-text">{{ getNombreEmpresa(plantilla) }}</span>
+              </td>
+              <td><span class="hora-text">{{ plantilla.hora_inicio }}</span></td>
+              <td><span class="hora-text">{{ plantilla.hora_fin }}</span></td>
+              <td>
+                <p-tag 
+                  [value]="plantilla.estado ? 'Activo' : 'Inactivo'" 
+                  [severity]="plantilla.estado ? 'success' : 'danger'">
+                </p-tag>
+              </td>
+              <td style="text-align: center;">
+                <button 
+                  pButton 
+                  type="button" 
+                  icon="pi pi-pencil" 
+                  class="p-button-rounded p-button-text p-button-sm"
+                  pTooltip="Editar" 
+                  tooltipPosition="top"
+                  (click)="editarPlantilla(plantilla)">
+                </button>
+                <button 
+                  pButton 
+                  type="button" 
+                  icon="pi pi-trash" 
+                  class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                  pTooltip="Eliminar" 
+                  tooltipPosition="top"
+                  (click)="eliminarPlantilla(plantilla)">
+                </button>
+              </td>
+            </tr>
+          </ng-template>
 
-            <ng-template pTemplate="emptymessage">
-              <tr>
-                <td colspan="6" class="text-center py-5">
-                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
-                  <p class="text-muted mt-3 mb-1">No hay plantillas registradas</p>
-                  <small class="text-muted">Crea una nueva plantilla para comenzar</small>
-                </td>
-              </tr>
-            </ng-template>
-          </p-table>
-        </div>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">
+                  <i class="pi pi-inbox"></i>
+                  <p>No hay plantillas registradas</p>
+                  <small>Crea una nueva plantilla para comenzar</small>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
       </div>
     </div>
   </div>
@@ -132,10 +149,51 @@
     [(visible)]="showFormDialog" 
     [header]="editMode ? 'Editar Plantilla' : 'Nueva Plantilla'" 
     [modal]="true" 
-    [style]="{ width: '500px' }"
-    [maximizable]="true">
+    [style]="{ width: '520px' }"
+    [maximizable]="true"
+    [draggable]="false">
 
     <form (ngSubmit)="onSubmit()" #form="ngForm">
+
+      <!-- Código y Empresa en una fila -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Código *</label>
+          <input 
+            type="text" 
+            [(ngModel)]="formData.codigo" 
+            name="codigo"
+            placeholder="Ej: TM, TN, TP"
+            class="form-control"
+            maxlength="20"
+            style="text-transform: uppercase;"
+            [class.is-invalid]="submitted && !formData.codigo">
+          <small class="form-hint">Máx. 20 caracteres</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Empresa *</label>
+          <p-dropdown
+            *ngIf="isSuperAdmin || userEmpresas.length > 1"
+            [options]="userEmpresas"
+            [(ngModel)]="formData.id_empresa"
+            name="id_empresa"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Seleccione..."
+            [style]="{'width': '100%'}"
+            [class]="submitted && !formData.id_empresa ? 'ng-invalid ng-dirty' : ''">
+          </p-dropdown>
+          <input 
+            *ngIf="!isSuperAdmin && userEmpresas.length === 1"
+            type="text" 
+            [value]="userEmpresas[0].nombre"
+            class="form-control"
+            disabled>
+        </div>
+      </div>
+
+      <!-- Nombre -->
       <div class="form-group">
         <label class="form-label">Nombre *</label>
         <input 
@@ -147,17 +205,19 @@
           [class.is-invalid]="submitted && !formData.nombre">
       </div>
 
+      <!-- Descripción -->
       <div class="form-group">
         <label class="form-label">Descripción</label>
         <textarea 
           [(ngModel)]="formData.descripcion" 
           name="descripcion"
-          placeholder="Descripción del turno"
+          placeholder="Descripción opcional del turno..."
           class="form-control"
-          rows="3">
+          rows="2">
         </textarea>
       </div>
 
+      <!-- Horas -->
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Hora Inicio *</label>
@@ -180,6 +240,7 @@
         </div>
       </div>
 
+      <!-- Estado -->
       <div class="form-group">
         <label class="form-checkbox">
           <input 

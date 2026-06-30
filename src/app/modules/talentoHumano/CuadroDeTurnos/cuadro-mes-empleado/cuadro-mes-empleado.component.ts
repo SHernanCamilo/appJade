@@ -143,6 +143,54 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   // ───── Control de acceso ─────
   esTransversal = false;
 
+  // ───── Selector de Unidad (overlay) ─────
+  showSelectorUnidad = false;
+  busquedaUnidad = '';
+  busquedaEmpleado = '';
+
+  get unidadesFiltradas(): any[] {
+    if (!this.busquedaUnidad) return this.unidadesResponsable;
+    const term = this.busquedaUnidad.toLowerCase();
+    return this.unidadesResponsable.filter(u =>
+      u.nombre?.toLowerCase().includes(term) ||
+      u.empresa?.nombre?.toLowerCase().includes(term) ||
+      u.sucursal?.nombre?.toLowerCase().includes(term)
+    );
+  }
+
+  get empleadosFiltrados(): any[] {
+    if (!this.busquedaEmpleado) return this.empleados;
+    const term = this.busquedaEmpleado.toLowerCase();
+    return this.empleados.filter(e => e.nombre?.toLowerCase().includes(term));
+  }
+
+  seleccionarUnidadDesdeTabla(u: any): void {
+    this.selectedUnidad = u.id;
+    this.unidadActual = u;
+    this.showSelectorUnidad = false;
+    this.busquedaUnidad = '';
+    this.empleados = [];
+    this.empleadoOptions = [];
+    this.selectedEmpleado = null;
+    this.cuadro = null;
+    this.diaSeleccionado = null;
+    this.idCuadroActual = null;
+    this.construirCalendario();
+    this.asegurarCuadroUnidad();
+    this.cargarEmpleadosUnidad();
+  }
+
+  seleccionarEmpleado(emp: any): void {
+    this.selectedEmpleado = emp.id;
+    this.onEmpleadoChange();
+  }
+
+  getIniciales(nombre: string): string {
+    if (!nombre) return '??';
+    const partes = nombre.split(' ');
+    return (partes[0]?.[0] || '') + (partes[1]?.[0] || '');
+  }
+
   // ═══════════════════════════════════════════════════════════
   // CARGAR DATOS INICIALES — UN SOLO ENDPOINT
   // ═══════════════════════════════════════════════════════════

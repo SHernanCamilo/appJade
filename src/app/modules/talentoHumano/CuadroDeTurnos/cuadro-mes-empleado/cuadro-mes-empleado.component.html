@@ -16,115 +16,73 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- FILTROS: Versión limpia y compacta                     -->
+  <!-- SELECTOR DE UNIDAD FUNCIONAL (reemplaza dropdowns)      -->
   <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="filtros-card filtros-limpios">
-    <div class="filtros-row-main">
-      
-      <!-- Empresa -->
-      <div class="filtro-item-vertical">
-        <label>Empresa</label>
-        <p-dropdown
-          [(ngModel)]="selectedEmpresa"
-          [options]="empresasOptions"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onEmpresaChange()"
-          placeholder="Seleccionar empresa"
-          [showClear]="false"
-          [filter]="true"
-          styleClass="w-100 dropdown-compact">
-        </p-dropdown>
+  <div class="selector-unidad-bar">
+    <div class="selector-unidad-label" (click)="showSelectorUnidad = !showSelectorUnidad">
+      <i class="pi pi-sitemap"></i>
+      <span *ngIf="unidadActual">{{ unidadActual.nombre }}</span>
+      <span *ngIf="!unidadActual" class="placeholder-text">Seleccione unidad funcional</span>
+      <i class="pi pi-chevron-down"></i>
+    </div>
+
+    <!-- Mes y Año -->
+    <div class="filtro-mes-anio">
+      <button class="btn-mes-anio" (click)="mostrarSelectorMesAnio()">
+        <i class="pi pi-chevron-left"></i>
+        <span class="mes-anio-texto">{{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</span>
+        <i class="pi pi-chevron-right"></i>
+      </button>
+    </div>
+
+    <!-- Acciones -->
+    <div class="filtro-acciones">
+      <button pButton type="button" icon="pi pi-clock"
+        class="p-button-rounded p-button-info btn-accion-horas"
+        pTooltip="Ver resumen de horas" tooltipPosition="top"
+        [disabled]="!selectedEmpleado"
+        (click)="abrirResumenModal()"></button>
+      <button pButton type="button" icon="pi pi-trash"
+        class="p-button-rounded p-button-danger btn-accion-eliminar"
+        pTooltip="Eliminar cuadro" tooltipPosition="top"
+        [disabled]="!selectedEmpleado || isLoading"
+        (click)="eliminarCuadroCompleto()"></button>
+    </div>
+  </div>
+
+  <!-- OVERLAY: Tabla de unidades funcionales -->
+  <div class="selector-unidad-overlay" *ngIf="showSelectorUnidad" (click)="showSelectorUnidad = false">
+    <div class="selector-unidad-panel" (click)="$event.stopPropagation()">
+      <div class="panel-header">
+        <div class="panel-header-top">
+          <h3>Seleccione unidad funcional</h3>
+          <button class="btn-cerrar-panel" (click)="showSelectorUnidad = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <input type="text" pInputText [(ngModel)]="busquedaUnidad" placeholder="🔍 Buscar unidad funcional..." class="w-100">
       </div>
-
-      <!-- Sucursal -->
-      <div class="filtro-item-vertical">
-        <label>Sucursal</label>
-        <p-dropdown
-          [(ngModel)]="selectedSucursal"
-          [options]="sucursalesOptions"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onSucursalChange()"
-          placeholder="Seleccionar sucursal"
-          [disabled]="sucursalesOptions.length === 0"
-          [showClear]="false"
-          [filter]="true"
-          styleClass="w-100 dropdown-compact">
-        </p-dropdown>
-      </div>
-
-      <!-- Sede -->
-      <div class="filtro-item-vertical">
-        <label>Sede</label>
-        <p-dropdown
-          [(ngModel)]="selectedSede"
-          [options]="sedesOptions"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onSedeChange()"
-          placeholder="Seleccionar sede"
-          [disabled]="sedesOptions.length === 0"
-          [showClear]="false"
-          [filter]="true"
-          styleClass="w-100 dropdown-compact">
-        </p-dropdown>
-      </div>
-
-      <!-- Unidad Funcional -->
-      <div class="filtro-item-vertical">
-        <label>Unidad Funcional</label>
-        <p-dropdown
-          [(ngModel)]="selectedUnidad"
-          [options]="unidadOptions"
-          optionLabel="label"
-          optionValue="value"
-          (onChange)="onUnidadChange()"
-          placeholder="Seleccionar unidad"
-          [disabled]="unidadOptions.length === 0"
-          [showClear]="false"
-          [filter]="true"
-          styleClass="w-100 dropdown-compact">
-        </p-dropdown>
-      </div>
-
-      <!-- Usuario -->
-      <div class="filtro-item-vertical">
-        <label>Usuario</label>
-        <p-dropdown
-          [(ngModel)]="selectedEmpleado"
-          [options]="empleadoOptions"
-          [disabled]="empleados.length === 0"
-          (onChange)="onEmpleadoChange()"
-          placeholder="Seleccionar usuario"
-          [showClear]="true"
-          [filter]="true"
-          styleClass="w-100 dropdown-compact">
-        </p-dropdown>
-      </div>
-
-      <!-- Mes y Año (selector integrado) -->
-      <div class="filtro-mes-anio">
-        <button class="btn-mes-anio" (click)="mostrarSelectorMesAnio()">
-          <i class="pi pi-chevron-left"></i>
-          <span class="mes-anio-texto">{{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</span>
-          <i class="pi pi-chevron-right"></i>
-        </button>
-      </div>
-
-      <!-- Acciones -->
-      <div class="filtro-acciones">
-        <button pButton type="button" icon="pi pi-clock"
-          class="p-button-rounded p-button-info p-button-lg btn-accion-horas"
-          pTooltip="Ver resumen de horas" tooltipPosition="top"
-          [disabled]="!selectedEmpleado"
-          (click)="abrirResumenModal()"></button>
-
-        <button pButton type="button" icon="pi pi-trash"
-          class="p-button-rounded p-button-danger p-button-lg btn-accion-eliminar"
-          pTooltip="Eliminar cuadro" tooltipPosition="top"
-          [disabled]="!selectedEmpleado || isLoading"
-          (click)="eliminarCuadroCompleto()"></button>
+      <div class="panel-tabla-scroll">
+        <table class="tabla-unidades">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Unidad funcional</th>
+              <th>Sede o sucursal</th>
+              <th>Empresa</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of unidadesFiltradas" 
+                [class.seleccionada]="selectedUnidad === u.id"
+                (click)="seleccionarUnidadDesdeTabla(u)">
+              <td><input type="radio" [checked]="selectedUnidad === u.id" name="unidad-radio"></td>
+              <td>{{ u.nombre }}</td>
+              <td>{{ u.sucursal?.nombre ? u.sucursal.nombre : '' }}{{ u.sede?.nombre ? ' - ' + u.sede.nombre : '' }}</td>
+              <td>{{ u.empresa?.nombre || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -174,7 +132,7 @@
   <!-- ═══════════════════════════════════════════════════════ -->
   <div *ngIf="!isLoading" class="cuadro-main-grid">
     <!-- Calendario -->
-    <div class="calendario-card calendario-fullwidth">
+    <div class="calendario-card">
       <div class="calendario-header">
         <h2>{{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</h2>
         <div class="calendario-leyenda">
@@ -220,60 +178,35 @@
             <i class="pi pi-pencil"></i>
           </button>
         </div>
-    <!-- Panel resumen -->
-    <div *ngIf="cuadro" class="resumen-card">
-      <h3>Resumen del mes</h3>
-      <div class="totales-grid">
-        <div class="total-box">
-          <span class="total-label">Horas Normales</span>
-          <span class="total-valor">{{ formatHoras(cuadro.totales.normales) }}</span>
-        </div>
-        <div class="total-box">
-          <span class="total-label">Horas Nocturnas</span>
-          <span class="total-valor">{{ formatHoras(cuadro.totales.nocturnas) }}</span>
-        </div>
-        <div class="total-box">
-          <span class="total-label">Horas Festivas</span>
-          <span class="total-valor">{{ formatHoras(cuadro.totales.festivas) }}</span>
-        </div>
-        <div class="total-box">
-          <span class="total-label">Horas Festivas Nocturnas</span>
-          <span class="total-valor">{{ formatHoras(cuadro.totales.festivas_nocturnas) }}</span>
-        </div>
-        <div class="total-box total-mes" style="grid-column: span 2;">
-          <span class="total-label">Total del Mes</span>
-          <span class="total-valor">{{ formatHoras(cuadro.totales.total) }}</span>
-        </div>
       </div>
+    </div>
 
-      <!-- Detalle del día seleccionado -->
-      <div *ngIf="diaSeleccionado" class="detalle-dia">
-        <h4>{{ diaSeleccionado.fecha }}</h4>
-        <div *ngIf="diaSeleccionado.nombreFestivo" class="festivo-tag">
-          <i class="pi pi-flag-fill"></i> {{ diaSeleccionado.nombreFestivo }}
-        </div>
-
-        <ng-container *ngIf="diaSeleccionado.turno && !diaSeleccionado.turno.es_descanso; else sinTurnoTpl">
-          <div class="rangos-list">
-            <div *ngFor="let r of diaSeleccionado.turno.rangos" class="rango-row">
-              <i class="pi pi-clock"></i> {{ r.inicio?.substring(0,5) }} - {{ r.fin?.substring(0,5) }}
-            </div>
+    <!-- Panel Equipo -->
+    <div class="equipo-panel">
+      <div class="equipo-header">
+        <h3>Equipo</h3>
+        <span class="equipo-count">{{ empleados.length }} miembros</span>
+      </div>
+      <input type="text" pInputText [(ngModel)]="busquedaEmpleado" 
+        placeholder="🔍 Buscar miembros" class="equipo-search">
+      <div class="equipo-lista">
+        <div *ngFor="let emp of empleadosFiltrados" 
+             class="equipo-item"
+             [class.activo]="selectedEmpleado === emp.id"
+             (click)="seleccionarEmpleado(emp)">
+          <div class="equipo-avatar">{{ getIniciales(emp.nombre) }}</div>
+          <div class="equipo-info">
+            <span class="equipo-nombre">{{ emp.nombre }}</span>
+            <span class="equipo-cargo">{{ emp.email || '' }}</span>
           </div>
-        </ng-container>
-
-        <ng-template #sinTurnoTpl>
-          <p class="sin-turno">
-            <ng-container *ngIf="diaSeleccionado.turno?.es_descanso">Descanso programado</ng-container>
-            <ng-container *ngIf="!diaSeleccionado.turno">Sin turno asignado</ng-container>
-          </p>
-        </ng-template>
-
-        <button pButton type="button" label="Editar" icon="pi pi-pencil"
-          class="p-button p-button-primary p-button-sm w-100 mt-3" 
-          (click)="abrirEdicion(diaSeleccionado)"></button>
+        </div>
+        <div *ngIf="empleados.length === 0" class="equipo-vacio">
+          <i class="pi pi-users"></i>
+          <p>Seleccione una unidad funcional</p>
+        </div>
       </div>
     </div>
-    </div>
+  </div>
 
   <!-- Estado vacío - Solo si no hay usuario y no hay cuadro -->
   <div *ngIf="!isLoading && !selectedEmpleado && !cuadro && false" class="empty-state">

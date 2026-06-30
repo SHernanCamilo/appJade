@@ -1508,3 +1508,278 @@ input[readonly] {
   font-style: italic;
   margin: 0;
 }
+
+/* ───── Selector de Unidad Funcional ───── */
+.selector-unidad-bar {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+}
+
+.selector-unidad-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #f3f4f6;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+  transition: all 0.2s ease;
+}
+
+.selector-unidad-label:hover {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.selector-unidad-label .placeholder-text {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.selector-unidad-label .pi-chevron-down {
+  margin-left: auto;
+  color: #6b7280;
+}
+
+/* Overlay tabla de unidades */
+.selector-unidad-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 120px;
+}
+
+.selector-unidad-panel {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  width: 90%;
+  max-width: 800px;
+}
+
+.panel-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.panel-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.btn-cerrar-panel {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-cerrar-panel:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.panel-tabla-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tabla-unidades {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-unidades th {
+  background: #f9fafb;
+  padding: 0.6rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: left;
+  position: sticky;
+  top: 0;
+}
+
+.tabla-unidades td {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+}
+
+.tabla-unidades tr:hover td {
+  background: #eef2ff;
+}
+
+.tabla-unidades tr.seleccionada td {
+  background: #e0e7ff;
+  font-weight: 600;
+}
+
+/* ───── Layout principal con Equipo lateral ───── */
+.cuadro-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1.5rem;
+}
+
+/* ───── Panel Equipo ───── */
+.equipo-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  height: fit-content;
+  position: sticky;
+  top: 1rem;
+}
+
+.equipo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.equipo-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.equipo-count {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+}
+
+.equipo-search {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.equipo-lista {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.equipo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 0.25rem;
+}
+
+.equipo-item:hover {
+  background: #f3f4f6;
+}
+
+.equipo-item.activo {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+}
+
+.equipo-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.equipo-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.equipo-nombre {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.equipo-cargo {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.equipo-vacio {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #9ca3af;
+}
+
+.equipo-vacio i {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.equipo-vacio p {
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+@media (max-width: 1024px) {
+  .cuadro-main-grid {
+    grid-template-columns: 1fr;
+  }
+  .equipo-panel {
+    position: static;
+  }
+}

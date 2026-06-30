@@ -18,7 +18,8 @@ export interface Plantilla {
   duracion_horas?: number;
   es_nocturno?: boolean;
   color_hex?: string;
-  id_empresa?: number;
+  id_empresa?: number | null;
+  empresa?: { id: number; nombre: string } | null;
   activo?: boolean;
   estado?: boolean;
   created_at?: string;
