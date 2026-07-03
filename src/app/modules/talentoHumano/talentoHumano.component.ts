@@ -1,8 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { CardModule } from 'primeng/card';
 import { RippleModule } from 'primeng/ripple';
+import { SidebarService } from '../../complements/shared/sidebar/sidebar.service';
+import { ModuleDashboardCard, ModuleDashboardService } from '../../core/services/module-dashboard.service';
 
 @Component({
   selector: 'app-talento-humano',
@@ -11,28 +14,18 @@ import { RippleModule } from 'primeng/ripple';
   templateUrl: './talentoHumano.component.html',
   styleUrl: './talentoHumano.component.css'
 })
-export class talentoHumanoComponent {
-  dashboardCards = [
-    {
-      title: 'Eventos',
-      icon: 'bi-calendar-event',
-      description: 'Gestión de eventos y novedades',
-      color: 'primary',
-      items: [
-        { name: 'Dashboard', route: '/talentoHumano/eventos/dashboard', icon: 'bi-speedometer2' },
-        { name: 'Cargue', route: '/talentoHumano/eventos/cargue', icon: 'bi-upload' },
-        { name: 'Parámetros', route: '/talentoHumano/eventos/parametros', icon: 'bi-gear' }
-      ]
-    },
-    {
-      title: 'Cuadro de Turnos',
-      icon: 'bi-calendar-week',
-      description: 'Gestión de horarios y turnos',
-      color: 'secondary',
-      items: [
-        { name: 'Dashboard', route: '/talentoHumano/turnos/dashboard', icon: 'bi-speedometer2' },
-        { name: 'Plantillas', route: '/talentoHumano/turnos/plantillas', icon: 'bi-clock' }
-      ]
-    }
-  ];
+export class talentoHumanoComponent implements OnInit {
+  private readonly sidebarService = inject(SidebarService);
+  private readonly moduleDashboardService = inject(ModuleDashboardService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  dashboardCards: ModuleDashboardCard[] = [];
+
+  ngOnInit(): void {
+    this.sidebarService.modulos$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.dashboardCards = this.moduleDashboardService.buildDashboardCards('/talentoHumano');
+      });
+  }
 }

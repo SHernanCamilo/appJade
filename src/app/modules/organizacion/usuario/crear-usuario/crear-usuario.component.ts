@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -9,9 +9,10 @@ import { SedeService, Sede } from '../../empresa/services/sede.service';
 import { RolService, Rol } from '../services/rol.service';
 import { AuthService } from '../../../auth/auth.service';
 import { SincronizarTenantComponent } from '../components/sincronizar-tenant/sincronizar-tenant.component';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule, Table } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -38,22 +39,23 @@ interface EmpresaAsignacion {
   standalone: true,
   imports: [
     CommonModule, RouterModule, ReactiveFormsModule, FormsModule,
-    TableModule, ButtonModule, InputTextModule, DialogModule, ToastModule,
+    ButtonModule, InputTextModule, DialogModule, ToastModule,
     ConfirmDialogModule, TagModule, AvatarModule, TooltipModule, DropdownModule,
-    MultiSelectModule, TabViewModule, CheckboxModule, SincronizarTenantComponent
+    MultiSelectModule, TabViewModule, CheckboxModule, SincronizarTenantComponent,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './crear-usuario.component.html',
   styleUrl: './crear-usuario.component.css'
 })
 export class CrearUsuarioComponent implements OnInit {
-  @ViewChild('dt') dt!: Table;
-  
   // Core data
   usuarios: Usuario[] = [];
   empresas: Empresa[] = [];
   roles: Rol[] = [];
   usuarioForm!: FormGroup;
+  columns: TableColumn[] = [];
+  asignacionColumns: TableColumn[] = [];
   
   // Loading states
   isLoading = false;
@@ -114,8 +116,47 @@ export class CrearUsuarioComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.buildColumns();
     this.loadUsuarios();
     this.setupEmailValidation();
+  }
+
+  buildColumns(): void {
+    this.columns = [
+      { field: 'name', header: 'Usuario', sortable: true, filter: true, filterType: 'text' },
+      { field: 'email', header: 'Email', sortable: true, filter: true, filterType: 'text' },
+      {
+        field: 'estado',
+        header: 'Estado',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Activo', value: true },
+          { label: 'Inactivo', value: false }
+        ]
+      },
+      { field: 'empresas', header: 'Empresas' },
+      { field: 'roles', header: 'Roles' },
+      { field: 'created_at', header: 'Fecha de Registro', sortable: true, filter: true, filterType: 'date', pipe: 'date' }
+    ];
+
+    this.asignacionColumns = [
+      { field: 'empresa_id', header: 'Empresa', sortable: true },
+      { field: 'sucursal_id', header: 'Sucursal', sortable: true },
+      { field: 'sede_id', header: 'Sede', sortable: true },
+      {
+        field: 'recursivo',
+        header: 'Recursivo',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Sí', value: true },
+          { label: 'No', value: false }
+        ]
+      }
+    ];
   }
 
   // ============================================

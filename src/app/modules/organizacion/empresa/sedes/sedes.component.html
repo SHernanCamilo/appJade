@@ -122,131 +122,66 @@
   </p-dialog>
 
   <div class="content-card">
-    <p-table 
-      #dt
-      [value]="sedesFiltered" 
-      [paginator]="true" 
-      [rows]="10"
-      [showCurrentPageReport]="true"
-      [rowsPerPageOptions]="[10, 25, 50]"
+    <app-data-table
+      [value]="sedes"
+      [columns]="columns"
       [loading]="isLoading"
+      title="Lista de Sedes"
+      titleIcon="bi bi-geo-alt"
+      [showGlobalSearch]="canSearch()"
       [globalFilterFields]="['nombre', 'sucursal.nombre', 'sucursal.empresa.nombre']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sedes"
-      [tableStyle]="{'min-width': '50rem'}">
-      
-      <ng-template pTemplate="caption">
-        <div class="d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            <i class="bi bi-geo-alt me-2"></i>
-            Lista de Sedes
-            <p-tag [value]="sedesFiltered.length.toString()" styleClass="ml-2"></p-tag>
-          </h5>
-          <div class="d-flex gap-2">
-            <p-dropdown 
-              [options]="empresas"
-              [(ngModel)]="selectedEmpresaFilter"
-              optionLabel="nombre"
-              optionValue="id"
-              placeholder="Filtrar por empresa"
-              [showClear]="true"
-              (onChange)="filterByEmpresa($event)">
-            </p-dropdown>
-            <!-- Botón limpiar filtros -->
-            <p-button 
-              icon="pi pi-filter-slash" 
-              styleClass="p-button-outlined p-button-secondary"
-              (onClick)="clearFilters()"
-              pTooltip="Limpiar filtros"
-              tooltipPosition="top">
-            </p-button>
-            <!-- Buscador - Solo visible con permiso -->
-            <span class="p-input-icon-left" *hasPermission="'org-sede-buscar'">
-              <i class="pi pi-search"></i>
-              <input 
-                #globalFilter
-                pInputText 
-                type="text" 
-                (input)="onGlobalFilter($event)" 
-                placeholder="Buscar..." />
-            </span>
-          </div>
+      emptyMessage="No hay sedes registradas">
+
+      <ng-template pTemplate="cell-nombre" let-row>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-pin-map-fill" style="font-size: 1.5rem; color: #10b981;"></i>
+          <span class="fw-semibold">{{ row.nombre }}</span>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="nombre">
-            Sede <p-sortIcon field="nombre"></p-sortIcon>
-          </th>
-          <th pSortableColumn="sucursal.nombre">
-            Sucursal <p-sortIcon field="sucursal.nombre"></p-sortIcon>
-          </th>
-          <th pSortableColumn="sucursal.empresa.nombre">
-            Empresa <p-sortIcon field="sucursal.empresa.nombre"></p-sortIcon>
-          </th>
-          <th pSortableColumn="created_at">
-            Fecha de Creación <p-sortIcon field="created_at"></p-sortIcon>
-          </th>
-          <th style="width: 150px">Acciones</th>
-        </tr>
+      <ng-template pTemplate="cell-sucursal.nombre" let-row>
+        <span>{{ row.sucursal?.nombre || 'Sin sucursal' }}</span>
       </ng-template>
 
-      <ng-template pTemplate="body" let-sede>
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <i class="bi bi-pin-map-fill" style="font-size: 1.5rem; color: #10b981;"></i>
-              <span class="fw-semibold">{{ sede.nombre }}</span>
-            </div>
-          </td>
-          <td>
-            <span>{{ sede.sucursal?.nombre || 'Sin sucursal' }}</span>
-          </td>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <p-tag [value]="sede.sucursal?.empresa?.prefijo || 'N/A'" severity="info"></p-tag>
-              <span>{{ sede.sucursal?.empresa?.nombre || 'Sin empresa' }}</span>
-            </div>
-          </td>
-          <td>
-            <span class="text-muted">{{ sede.created_at | date:'dd/MM/yyyy' }}</span>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <p-button 
-                *hasPermission="'org-sede-editar'"
-                icon="pi pi-pencil" 
-                styleClass="p-button-rounded p-button-text p-button-info"
-                (onClick)="editSede(sede)"
-                pTooltip="Editar"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                *hasPermission="'org-sede-eliminar'"
-                icon="pi pi-trash" 
-                styleClass="p-button-rounded p-button-text p-button-danger"
-                (onClick)="deleteSede(sede)"
-                pTooltip="Eliminar"
-                tooltipPosition="top">
-              </p-button>
-            </div>
-          </td>
-        </tr>
+      <ng-template pTemplate="cell-sucursal.empresa.nombre" let-row>
+        <div class="d-flex align-items-center gap-2">
+          <p-tag [value]="row.sucursal?.empresa?.prefijo || 'N/A'" severity="info"></p-tag>
+          <span>{{ row.sucursal?.empresa?.nombre || 'Sin empresa' }}</span>
+        </div>
       </ng-template>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="5" class="text-center py-5">
-            <i class="pi pi-map-marker" style="font-size: 3rem; color: #94a3b8;"></i>
-            <p class="text-muted mt-3">No hay sedes registradas</p>
-            <p-button 
-              label="Crear Primera Sede" 
-              icon="pi pi-plus" 
-              (onClick)="toggleForm()">
-            </p-button>
-          </td>
-        </tr>
+      <ng-template pTemplate="actions" let-row>
+        <div class="d-flex gap-2">
+          <p-button
+            *hasPermission="'org-sede-editar'"
+            icon="pi pi-pencil"
+            styleClass="p-button-rounded p-button-text p-button-info"
+            (onClick)="editSede(row)"
+            pTooltip="Editar"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            *hasPermission="'org-sede-eliminar'"
+            icon="pi pi-trash"
+            styleClass="p-button-rounded p-button-text p-button-danger"
+            (onClick)="deleteSede(row)"
+            pTooltip="Eliminar"
+            tooltipPosition="top">
+          </p-button>
+        </div>
       </ng-template>
-    </p-table>
+
+      <ng-template pTemplate="empty">
+        <i class="pi pi-map-marker" style="font-size: 3rem; color: #94a3b8;"></i>
+        <p class="text-muted mt-3">No hay sedes registradas</p>
+        <p-button
+          *hasPermission="'org-sede-crear'"
+          label="Crear Primera Sede"
+          icon="pi pi-plus"
+          (onClick)="toggleForm()">
+        </p-button>
+      </ng-template>
+    </app-data-table>
   </div>
 </div>

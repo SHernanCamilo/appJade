@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -6,9 +6,11 @@ import { EmpresaService, Empresa, CreateEmpresaRequest } from '../services/empre
 import { AllowedDomainService, AllowedDomain } from '../services/allowed-domain.service';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule, Table } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -41,19 +43,19 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     TooltipModule,
     DropdownModule,
     CheckboxModule,
-    HasPermissionDirective
+    HasPermissionDirective,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './maestro-empresa.component.html',
   styleUrl: './maestro-empresa.component.css'
 })
 export class MaestroEmpresaComponent implements OnInit {
-  @ViewChild('dt') dt!: Table;
-  @ViewChild('dtDomains') dtDomains!: Table;
-  
   activeTab: 'empresas' | 'dominios' = 'empresas';
-  
+
   empresas: Empresa[] = [];
+  columns: TableColumn[] = [];
+  domainColumns: TableColumn[] = [];
   empresaForm!: FormGroup;
   isLoading = false;
   isSubmitting = false;
@@ -110,7 +112,48 @@ export class MaestroEmpresaComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.buildColumns();
     this.loadEmpresas();
+  }
+
+  buildColumns(): void {
+    this.columns = [
+      { field: 'nombre', header: 'Empresa', sortable: true, filter: true, filterType: 'text' },
+      { field: 'nit', header: 'NIT', sortable: true, filter: true, filterType: 'numeric' },
+      { field: 'prefijo', header: 'Prefijo', sortable: true, filter: true, filterType: 'text' },
+      { field: 'rep_legal', header: 'Representante Legal', filter: true, filterType: 'text' },
+      { field: 'telefono', header: 'Contacto', filter: true, filterType: 'text' },
+      {
+        field: 'estado',
+        header: 'Estado',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Activo', value: 1 },
+          { label: 'Inactivo', value: 0 }
+        ]
+      }
+    ];
+
+    this.domainColumns = [
+      { field: 'domain', header: 'Dominio', sortable: true, filter: true, filterType: 'text' },
+      { field: 'tenant_id', header: 'Tenant ID', sortable: true, filter: true, filterType: 'text' },
+      { field: 'tenant_name', header: 'Tenant Name', sortable: true, filter: true, filterType: 'text' },
+      { field: 'empresa.nombre', header: 'Empresa', filter: true, filterType: 'text' },
+      { field: 'descripcion', header: 'Descripción', filter: true, filterType: 'text' },
+      {
+        field: 'activo',
+        header: 'Estado',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Activo', value: true },
+          { label: 'Inactivo', value: false }
+        ]
+      }
+    ];
   }
 
   initForm(): void {
@@ -304,11 +347,6 @@ export class MaestroEmpresaComponent implements OnInit {
     return name.substring(0, 2).toUpperCase();
   }
 
-  onGlobalFilter(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.dt.filterGlobal(input.value, 'contains');
-  }
-
   reloadPermissions(): void {
     // console.log('🔄 Recargando permisos manualmente...');
     this.permissionService.reloadPermissions();
@@ -339,11 +377,6 @@ export class MaestroEmpresaComponent implements OnInit {
         });
       }
     });
-  }
-
-  onGlobalFilterDomains(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.dtDomains.filterGlobal(input.value, 'contains');
   }
 
   openDomainDialog(domain?: AllowedDomain): void {

@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -6,9 +6,11 @@ import { SucursalService, Sucursal, CreateSucursalRequest } from '../services/su
 import { EmpresaService, Empresa } from '../services/empresa.service';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule, Table } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
@@ -36,26 +38,23 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     ConfirmDialogModule,
     TagModule,
     TooltipModule,
-    HasPermissionDirective
+    HasPermissionDirective,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './sucursales.component.html',
   styleUrls: ['./sucursales.component.css']
 })
 export class SucursalesComponent implements OnInit {
-  @ViewChild('dt') dt!: Table;
-  @ViewChild('globalFilter') globalFilter!: ElementRef;
-  
   sucursales: Sucursal[] = [];
-  sucursalesFiltered: Sucursal[] = [];
   empresas: Empresa[] = [];
+  columns: TableColumn[] = [];
   sucursalForm!: FormGroup;
   isLoading = false;
   isSubmitting = false;
   showForm = false;
   editMode = false;
   currentSucursalId?: number;
-  selectedEmpresaFilter: number | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -101,10 +100,32 @@ export class SucursalesComponent implements OnInit {
     });
   }
 
+  buildColumns(): void {
+    this.columns = [
+      { field: 'nombre', header: 'Sucursal', sortable: true, filter: true, filterType: 'text' },
+      {
+        field: 'empresa.nombre',
+        header: 'Empresa',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: this.empresas.map(e => ({ label: e.nombre, value: e.nombre }))
+      },
+      {
+        field: 'created_at',
+        header: 'Fecha de Creación',
+        sortable: true,
+        pipe: 'date',
+        pipeFormat: 'dd/MM/yyyy'
+      }
+    ];
+  }
+
   loadEmpresas(): void {
     this.empresaService.getEmpresas().subscribe({
       next: (empresas) => {
         this.empresas = empresas.filter(e => e.estado === 1);
+        this.buildColumns();
       },
       error: (error) => {
         console.error('Error cargando empresas:', error);
@@ -123,7 +144,6 @@ export class SucursalesComponent implements OnInit {
     this.sucursalService.getSucursales().subscribe({
       next: (sucursales) => {
         this.sucursales = sucursales;
-        this.sucursalesFiltered = sucursales;
         this.isLoading = false;
       },
       error: (error) => {
@@ -249,48 +269,4 @@ export class SucursalesComponent implements OnInit {
     });
   }
 
-  filterByEmpresa(event: any): void {
-    this.selectedEmpresaFilter = event.value;
-    
-    if (event.value) {
-      this.sucursalesFiltered = this.sucursales.filter(s => s.id_Empresa === event.value);
-    } else {
-      this.sucursalesFiltered = [...this.sucursales];
-    }
-    
-    // Limpiar el filtro global cuando se cambia el filtro de empresa
-    if (this.dt) {
-      this.dt.clear();
-    }
-  }
-
-  clearFilters(): void {
-    this.selectedEmpresaFilter = null;
-    this.sucursalesFiltered = [...this.sucursales];
-    
-    // Limpiar el input de búsqueda global usando ViewChild
-    if (this.globalFilter && this.globalFilter.nativeElement) {
-      this.globalFilter.nativeElement.value = '';
-    }
-  }
-
-  onGlobalFilter(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
-    
-    if (value) {
-      // Aplicar filtro global sobre los datos ya filtrados por empresa
-      let dataToFilter = this.selectedEmpresaFilter 
-        ? this.sucursales.filter(s => s.id_Empresa === this.selectedEmpresaFilter)
-        : this.sucursales;
-      
-      this.sucursalesFiltered = dataToFilter.filter(sucursal => 
-        sucursal.nombre.toLowerCase().includes(value.toLowerCase()) ||
-        (sucursal.empresa?.nombre || '').toLowerCase().includes(value.toLowerCase())
-      );
-    } else {
-      // Si no hay texto de búsqueda, mostrar según filtro de empresa
-      this.filterByEmpresa({ value: this.selectedEmpresaFilter });
-    }
-  }
 }

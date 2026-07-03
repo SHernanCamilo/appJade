@@ -86,84 +86,78 @@
           <h2 class="section-card-title">Solicitudes de Novedades</h2>
         </div>
         <div class="modern-table-container">
-          <p-table
+          <app-data-table
             [value]="novedadesFiltradas"
+            [columns]="solicitudColumns"
             [loading]="isLoading"
-            [paginator]="true"
-            [rows]="10"
-            [showCurrentPageReport]="true"
+            [showCaption]="false"
+            [showGlobalSearch]="false"
+            styleClass="modern-table"
             currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} solicitudes"
-            [rowsPerPageOptions]="[10, 25, 50]"
-            styleClass="modern-table">
+            emptyMessage="No hay solicitudes registradas"
+            actionsWidth="140px"
+            [tableStyle]="{ 'min-width': '100%' }">
 
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Consecutivo</th>
-                <th>Empleado</th>
-                <th>Aprobador</th>
-                <th>U. Funcional</th>
-                <th>Inicio</th>
-                <th>Fin</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
+            <ng-template pTemplate="cell-empleado" let-row>
+              {{ row.empleado?.nombre || row.empleado || '—' }}
             </ng-template>
 
-            <ng-template pTemplate="body" let-nov>
-              <tr>
-                <td>{{ nov.consecutivo }}</td>
-                <td>{{ nov.empleado?.nombre || nov.empleado || '—' }}</td>
-                <td>{{ nov.aprobador_pendiente || nov.aprobador?.nombre || nov.aprobador || '—' }}</td>
-                <td>{{ nov.unidad_funcional || '—' }}</td>
-                <td>{{ formatearFecha(nov.fecha_nov_ini) }}</td>
-                <td>{{ formatearFecha(nov.fecha_nov_fin) }}</td>
-                <td><p-tag [value]="getEstadoLabel(nov.estado)" [severity]="getEstadoSeverity(nov.estado)"></p-tag></td>
-                <td>
-                  <div class="action-buttons">
-                    <button
-                      class="btn-action-icon btn-action-secondary"
-                      pTooltip="Ver detalle"
-                      tooltipPosition="top"
-                      (click)="abrirDetalleSolicitud(nov)">
-                      <i class="pi pi-eye"></i>
-                    </button>
-                    <button
-                      class="btn-action-icon btn-action-primary"
-                      [pTooltip]="puedeGestionarSolicitud(nov) ? 'Editar' : 'Solo disponible en estado Registrado'"
-                      tooltipPosition="top"
-                      [disabled]="!puedeGestionarSolicitud(nov)"
-                      (click)="editarNovedad(nov)">
-                      <i class="pi pi-pencil"></i>
-                    </button>
-                    <button
-                      class="btn-action-icon btn-action-danger"
-                      [pTooltip]="puedeGestionarSolicitud(nov) ? 'Anular' : 'Solo disponible en estado Registrado'"
-                      tooltipPosition="top"
-                      [disabled]="!puedeGestionarSolicitud(nov)"
-                      (click)="anularNovedad(nov)">
-                      <i class="pi pi-ban"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
+            <ng-template pTemplate="cell-aprobador" let-row>
+              {{ row.aprobador_pendiente || row.aprobador?.nombre || row.aprobador || '—' }}
             </ng-template>
 
-            <ng-template pTemplate="emptymessage">
-              <tr>
-                <td colspan="8" class="text-center py-5">
-                  <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
-                  <p class="text-muted mt-3 mb-1">No hay solicitudes registradas</p>
-                  <small class="text-muted">Las solicitudes aparecerán aquí una vez creadas</small>
-                </td>
-              </tr>
+            <ng-template pTemplate="cell-unidad_funcional" let-row>
+              {{ row.unidad_funcional || '—' }}
             </ng-template>
 
-            <ng-template pTemplate="loadingbody">
-              <tr *ngFor="let i of [1,2,3,4,5]">
-                <td *ngFor="let j of [1,2,3,4,5,6,7,8]"><p-skeleton></p-skeleton></td>
-              </tr>
+            <ng-template pTemplate="cell-fecha_nov_ini" let-row>
+              {{ formatearFecha(row.fecha_nov_ini) }}
             </ng-template>
-          </p-table>
+
+            <ng-template pTemplate="cell-fecha_nov_fin" let-row>
+              {{ formatearFecha(row.fecha_nov_fin) }}
+            </ng-template>
+
+            <ng-template pTemplate="cell-estado" let-row>
+              <p-tag [value]="getEstadoLabel(row.estado)" [severity]="getEstadoSeverity(row.estado)"></p-tag>
+            </ng-template>
+
+            <ng-template pTemplate="actions" let-row>
+              <div class="action-buttons">
+                <button
+                  class="btn-action-icon btn-action-secondary"
+                  pTooltip="Ver detalle"
+                  tooltipPosition="top"
+                  (click)="abrirDetalleSolicitud(row)">
+                  <i class="pi pi-eye"></i>
+                </button>
+                <button
+                  class="btn-action-icon btn-action-primary"
+                  [pTooltip]="puedeGestionarSolicitud(row) ? 'Editar' : 'Solo disponible en estado Registrado'"
+                  tooltipPosition="top"
+                  [disabled]="!puedeGestionarSolicitud(row)"
+                  (click)="editarNovedad(row)">
+                  <i class="pi pi-pencil"></i>
+                </button>
+                <button
+                  class="btn-action-icon btn-action-danger"
+                  [pTooltip]="puedeGestionarSolicitud(row) ? 'Anular' : 'Solo disponible en estado Registrado'"
+                  tooltipPosition="top"
+                  [disabled]="!puedeGestionarSolicitud(row)"
+                  (click)="anularNovedad(row)">
+                  <i class="pi pi-ban"></i>
+                </button>
+              </div>
+            </ng-template>
+
+            <ng-template pTemplate="empty">
+              <div class="text-center py-5">
+                <i class="pi pi-inbox" style="font-size: 3rem; color: #9ca3af;"></i>
+                <p class="text-muted mt-3 mb-1">No hay solicitudes registradas</p>
+                <small class="text-muted">Las solicitudes aparecerán aquí una vez creadas</small>
+              </div>
+            </ng-template>
+          </app-data-table>
         </div>
       </div>
 
@@ -206,65 +200,55 @@
             </button>
           </div>
           <div class="modern-table-container">
-            <p-table
+            <app-data-table
               [value]="bandeja.items"
+              [columns]="bandejaColumns"
+              [loading]="isLoadingPendientes"
+              [selectable]="true"
               [(selection)]="seleccionPorPaso[bandeja.paso]"
               dataKey="id"
               selectionMode="multiple"
-              [loading]="isLoadingPendientes"
+              [showCaption]="false"
+              [showGlobalSearch]="false"
               [paginator]="bandeja.items.length > 10"
-              [rows]="10"
-              [showCurrentPageReport]="bandeja.items.length > 10"
+              styleClass="modern-table"
               [currentPageReportTemplate]="'Mostrando {first} a {last} de {totalRecords} ' + bandeja.titulo.toLowerCase()"
-              styleClass="modern-table">
+              actionsWidth="100px"
+              [tableStyle]="{ 'min-width': '100%' }">
 
-              <ng-template pTemplate="header">
-                <tr>
-                  <th style="width: 3rem">
-                    <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
-                  </th>
-                  <th>Consecutivo</th>
-                  <th>Empleado</th>
-                  <th>U. Funcional</th>
-                  <th>Inicio</th>
-                  <th>Fin</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
+              <ng-template pTemplate="cell-empleado" let-row>
+                {{ row.empleado?.nombre || row.empleado || '—' }}
               </ng-template>
 
-              <ng-template pTemplate="body" let-ev>
-                <tr [pSelectableRow]="ev">
-                  <td>
-                    <p-tableCheckbox [value]="ev"></p-tableCheckbox>
-                  </td>
-                  <td>{{ ev.consecutivo }}</td>
-                  <td>{{ ev.empleado?.nombre || ev.empleado || '—' }}</td>
-                  <td>{{ ev.unidad_funcional || '—' }}</td>
-                  <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
-                  <td>{{ formatearFecha(ev.fecha_nov_fin) }}</td>
-                  <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
-                  <td>
-                    <div class="action-buttons">
-                      <button type="button" class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
-                        (click)="$event.stopPropagation(); abrirDetalleEvento(ev)">
-                        <i class="pi pi-eye"></i>
-                      </button>
-                      <button type="button" class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
-                        (click)="$event.stopPropagation(); verHistorial(ev)">
-                        <i class="pi pi-history"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+              <ng-template pTemplate="cell-unidad_funcional" let-row>
+                {{ row.unidad_funcional || '—' }}
               </ng-template>
 
-              <ng-template pTemplate="loadingbody">
-                <tr *ngFor="let i of [1,2,3]">
-                  <td *ngFor="let j of [1,2,3,4,5,6,7,8]"><p-skeleton></p-skeleton></td>
-                </tr>
+              <ng-template pTemplate="cell-fecha_nov_ini" let-row>
+                {{ formatearFecha(row.fecha_nov_ini) }}
               </ng-template>
-            </p-table>
+
+              <ng-template pTemplate="cell-fecha_nov_fin" let-row>
+                {{ formatearFecha(row.fecha_nov_fin) }}
+              </ng-template>
+
+              <ng-template pTemplate="cell-estado" let-row>
+                <p-tag [value]="getEstadoLabel(row.estado)" [severity]="getEstadoSeverity(row.estado)"></p-tag>
+              </ng-template>
+
+              <ng-template pTemplate="actions" let-row>
+                <div class="action-buttons">
+                  <button type="button" class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
+                    (click)="$event.stopPropagation(); abrirDetalleEvento(row)">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                  <button type="button" class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
+                    (click)="$event.stopPropagation(); verHistorial(row)">
+                    <i class="pi pi-history"></i>
+                  </button>
+                </div>
+              </ng-template>
+            </app-data-table>
           </div>
         </div>
       </ng-container>
@@ -280,14 +264,11 @@
 
       <!-- Cargando sin datos previos -->
       <div class="section-card mb-3" *ngIf="isLoadingPendientes && !hayBandejasPendientes">
-        <div class="modern-table-container">
-          <p-table [value]="[]" [loading]="true" styleClass="modern-table">
-            <ng-template pTemplate="loadingbody">
-              <tr *ngFor="let i of [1,2,3]">
-                <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
-              </tr>
-            </ng-template>
-          </p-table>
+        <div class="modern-table-container p-4">
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p class="text-muted mt-3 text-center">Cargando pendientes...</p>
         </div>
       </div>
     </ng-container>
@@ -909,71 +890,72 @@
     </div>
 
     <div class="modern-table-container">
-      <p-table
+      <app-data-table
         [value]="gestionados"
+        [columns]="gestionadosColumns"
         [loading]="isLoadingGestionados"
+        [showCaption]="false"
+        [showGlobalSearch]="false"
         [paginator]="gestionados.length > 15"
         [rows]="15"
-        [showCurrentPageReport]="gestionados.length > 15"
+        styleClass="modern-table"
         currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} eventos"
-        styleClass="modern-table">
+        emptyMessage="Aún no has gestionado eventos"
+        actionsWidth="100px"
+        [tableStyle]="{ 'min-width': '100%' }">
 
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Consecutivo</th>
-            <th>Empleado</th>
-            <th>U. Funcional</th>
-            <th>Mi acción</th>
-            <th>Paso</th>
-            <th>Fecha acción</th>
-            <th>Inicio</th>
-            <th>Fin</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
+        <ng-template pTemplate="cell-empleado" let-row>
+          {{ nombreEmpleado(row) }}
         </ng-template>
 
-        <ng-template pTemplate="body" let-ev>
-          <tr>
-            <td>{{ ev.consecutivo }}</td>
-            <td>{{ nombreEmpleado(ev) }}</td>
-            <td>{{ ev.unidad_funcional || '—' }}</td>
-            <td><p-tag [value]="getAccionLabel(ev.mi_accion)" [severity]="getAccionSeverity(ev.mi_accion)"></p-tag></td>
-            <td>{{ ev.mi_paso || '—' }}</td>
-            <td>{{ formatearFecha(ev.mi_fecha_accion) }}</td>
-            <td>{{ formatearFecha(ev.fecha_nov_ini) }}</td>
-            <td>{{ formatearFecha(ev.fecha_nov_fin) }}</td>
-            <td><p-tag [value]="getEstadoLabel(ev.estado)" [severity]="getEstadoSeverity(ev.estado)"></p-tag></td>
-            <td>
-              <div class="action-buttons">
-                <button type="button" class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
-                  (click)="abrirDetalleEvento(ev)">
-                  <i class="pi pi-eye"></i>
-                </button>
-                <button type="button" class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
-                  (click)="verHistorial(ev)">
-                  <i class="pi pi-history"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
+        <ng-template pTemplate="cell-unidad_funcional" let-row>
+          {{ row.unidad_funcional || '—' }}
         </ng-template>
 
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="10" class="text-center py-4">
-              <i class="pi pi-inbox" style="font-size: 2rem; color: #9ca3af;"></i>
-              <p class="text-muted mt-2 mb-0">Aún no has gestionado eventos</p>
-            </td>
-          </tr>
+        <ng-template pTemplate="cell-mi_accion" let-row>
+          <p-tag [value]="getAccionLabel(row.mi_accion)" [severity]="getAccionSeverity(row.mi_accion)"></p-tag>
         </ng-template>
 
-        <ng-template pTemplate="loadingbody">
-          <tr *ngFor="let i of [1,2,3,4,5]">
-            <td *ngFor="let j of [1,2,3,4,5,6,7,8,9,10]"><p-skeleton></p-skeleton></td>
-          </tr>
+        <ng-template pTemplate="cell-mi_paso" let-row>
+          {{ row.mi_paso || '—' }}
         </ng-template>
-      </p-table>
+
+        <ng-template pTemplate="cell-mi_fecha_accion" let-row>
+          {{ formatearFecha(row.mi_fecha_accion) }}
+        </ng-template>
+
+        <ng-template pTemplate="cell-fecha_nov_ini" let-row>
+          {{ formatearFecha(row.fecha_nov_ini) }}
+        </ng-template>
+
+        <ng-template pTemplate="cell-fecha_nov_fin" let-row>
+          {{ formatearFecha(row.fecha_nov_fin) }}
+        </ng-template>
+
+        <ng-template pTemplate="cell-estado" let-row>
+          <p-tag [value]="getEstadoLabel(row.estado)" [severity]="getEstadoSeverity(row.estado)"></p-tag>
+        </ng-template>
+
+        <ng-template pTemplate="actions" let-row>
+          <div class="action-buttons">
+            <button type="button" class="btn-action-icon btn-action-primary" pTooltip="Ver detalle" tooltipPosition="top"
+              (click)="abrirDetalleEvento(row)">
+              <i class="pi pi-eye"></i>
+            </button>
+            <button type="button" class="btn-action-icon btn-action-secondary" pTooltip="Historial" tooltipPosition="top"
+              (click)="verHistorial(row)">
+              <i class="pi pi-history"></i>
+            </button>
+          </div>
+        </ng-template>
+
+        <ng-template pTemplate="empty">
+          <div class="text-center py-4">
+            <i class="pi pi-inbox" style="font-size: 2rem; color: #9ca3af;"></i>
+            <p class="text-muted mt-2 mb-0">Aún no has gestionado eventos</p>
+          </div>
+        </ng-template>
+      </app-data-table>
     </div>
   </p-dialog>
 

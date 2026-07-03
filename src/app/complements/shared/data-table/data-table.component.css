@@ -1,0 +1,94 @@
+.dt-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dt-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.dt-title i {
+  color: #3b82f6;
+}
+
+.dt-caption-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dt-th {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Botón de filtro por columna más compacto (PrimeNG 18) */
+::ng-deep .dt-th .p-datatable-column-filter-button.p-button-rounded,
+::ng-deep .dt-th .p-column-filter-menu-button,
+::ng-deep .dt-th .p-column-filter-clear-button {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  padding: 0 !important;
+  margin-left: 0.25rem;
+  border-radius: 4px !important;
+  color: #94a3b8;
+}
+
+::ng-deep .dt-th .p-datatable-column-filter-button .pi,
+::ng-deep .dt-th .p-column-filter-menu-button .pi,
+::ng-deep .dt-th .p-column-filter-clear-button .pi {
+  font-size: 0.7rem;
+}
+
+::ng-deep .dt-th .p-datatable-column-filter-button:hover,
+::ng-deep .dt-th .p-column-filter-menu-button:hover {
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+::ng-deep .dt-th .p-datatable-column-filter-button.p-datatable-column-filter-button-active,
+::ng-deep .dt-th .p-column-filter-menu-button.p-column-filter-menu-button-active {
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+/* Icono de orden más sutil */
+::ng-deep .dt-th .p-sortable-column-icon,
+::ng-deep .dt-th .p-datatable-sort-icon {
+  font-size: 0.75rem;
+}
+
+.dt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.dt-empty i {
+  font-size: 2.5rem;
+  color: #94a3b8;
+}
+
+.dt-empty p {
+  margin: 0;
+}
+
+.ml-2 {
+  margin-left: 0.5rem;
+}

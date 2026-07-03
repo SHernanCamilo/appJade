@@ -9,9 +9,10 @@ import { EventSolicitudService, EventSolicitud, CreateEventSolicitudRequest, Uni
 import { ContextoService, Empresa } from '../../../../core/services/contexto.service';
 import { ExcelExportService, ExcelColumn } from '../../../../core/services/excel-export.service';
 import { environment } from '../../../../environments/environment';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG
-import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -39,9 +40,10 @@ interface BandejaPasoPendiente {
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
-    TableModule, ButtonModule, InputTextModule, DialogModule,
+    ButtonModule, InputTextModule, DialogModule,
     ToastModule, ConfirmDialogModule, TagModule, TooltipModule,
-    DropdownModule, CalendarModule, TextareaModule, SkeletonModule, MultiSelectModule
+    DropdownModule, CalendarModule, TextareaModule, SkeletonModule, MultiSelectModule,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './dashboard.component.html',
@@ -53,6 +55,9 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   novedades: EventSolicitud[] = [];
   novedadesFiltradas: EventSolicitud[] = [];
+  solicitudColumns: TableColumn[] = [];
+  bandejaColumns: TableColumn[] = [];
+  gestionadosColumns: TableColumn[] = [];
   empleadoOptions: { label: string; value: number }[] = [];
   empleadoCubreOptions: { label: string; value: number }[] = [];
   unidadFuncionalOptions: { label: string; value: number }[] = [];
@@ -128,6 +133,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.buildColumns();
     this.loadNovedades();
     this.loadEmpresasDisponibles();
     this.loadMotivosRechazo();
@@ -196,6 +202,39 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  buildColumns(): void {
+    this.solicitudColumns = [
+      { field: 'consecutivo', header: 'Consecutivo', sortable: true },
+      { field: 'empleado', header: 'Empleado', sortable: true },
+      { field: 'aprobador', header: 'Aprobador' },
+      { field: 'unidad_funcional', header: 'U. Funcional', sortable: true },
+      { field: 'fecha_nov_ini', header: 'Inicio', sortable: true },
+      { field: 'fecha_nov_fin', header: 'Fin', sortable: true },
+      { field: 'estado', header: 'Estado', sortable: true }
+    ];
+
+    this.bandejaColumns = [
+      { field: 'consecutivo', header: 'Consecutivo', sortable: true },
+      { field: 'empleado', header: 'Empleado', sortable: true },
+      { field: 'unidad_funcional', header: 'U. Funcional', sortable: true },
+      { field: 'fecha_nov_ini', header: 'Inicio', sortable: true },
+      { field: 'fecha_nov_fin', header: 'Fin', sortable: true },
+      { field: 'estado', header: 'Estado', sortable: true }
+    ];
+
+    this.gestionadosColumns = [
+      { field: 'consecutivo', header: 'Consecutivo', sortable: true },
+      { field: 'empleado', header: 'Empleado', sortable: true },
+      { field: 'unidad_funcional', header: 'U. Funcional' },
+      { field: 'mi_accion', header: 'Mi acción' },
+      { field: 'mi_paso', header: 'Paso' },
+      { field: 'mi_fecha_accion', header: 'Fecha acción', sortable: true },
+      { field: 'fecha_nov_ini', header: 'Inicio', sortable: true },
+      { field: 'fecha_nov_fin', header: 'Fin', sortable: true },
+      { field: 'estado', header: 'Estado', sortable: true }
+    ];
   }
 
   setTab(tab: 'Solicitar Evento' | 'gestionar' | 'configuracion'): void {
@@ -1161,6 +1200,70 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.fechaInicialInvalida = fin < ini;
   }
 
+  /** Convierte una fecha de la BD ("YYYY-MM-DD HH:mm:ss") o ISO a timestamp local. */
+  private parsearFechaMs(valor: any): number {
+    if (!valor) return NaN;
+    if (valor instanceof Date) return valor.getTime();
+    const texto = String(valor);
+    const date = new Date(texto.includes(' ') ? texto.replace(' ', 'T') : texto);
+    return date.getTime();
+  }
+
+  /** Normaliza un nombre (acepta string u objeto {nombre}) para comparar. */
+  private nombreNormalizado(valor: any): string {
+    if (!valor) return '';
+    const nombre = typeof valor === 'object' ? (valor.nombre || '') : String(valor);
+    return nombre.trim().toUpperCase();
+  }
+
+  /** Nombre del empleado seleccionado en el formulario (extrae de "doc - NOMBRE"). */
+  private nombreEmpleadoFormPorId(id: number): string {
+    const opt = this.empleadoOptions.find(o => Number(o.value) === Number(id));
+    if (!opt?.label) return '';
+    const idx = opt.label.indexOf(' - ');
+    return (idx >= 0 ? opt.label.substring(idx + 3) : opt.label).trim().toUpperCase();
+  }
+
+  /**
+   * Busca un evento ya registrado del mismo empleado cuyo rango de fechas
+   * se cruce con [ini, fin]. Ignora eventos Rechazados/Anulados y, en edición,
+   * el propio evento. Validación rápida en cliente (usa las novedades ya cargadas).
+   * Compara por empleado_id y, como respaldo, por nombre (el id puede no venir en el listado).
+   */
+  private buscarSolapamiento(empleadoId: number, ini: Date, fin: Date): EventSolicitud | null {
+    const iniMs = ini.getTime();
+    const finMs = fin.getTime();
+    if (isNaN(iniMs) || isNaN(finMs)) return null;
+
+    const nombreObjetivo = this.nombreEmpleadoFormPorId(empleadoId);
+
+    for (const nov of this.novedades) {
+      if (this.editMode && this.currentId && nov.id === this.currentId) continue;
+
+      const mismoPorId = nov.empleado_id != null && Number(nov.empleado_id) === Number(empleadoId);
+      const mismoPorNombre = !!nombreObjetivo && this.nombreNormalizado(nov.empleado) === nombreObjetivo;
+      if (!mismoPorId && !mismoPorNombre) continue;
+
+      const codigo = this.getEstadoCodigo(nov.estado);
+      if (codigo === 4 || codigo === 6) continue; // Rechazado / Anulado no bloquean
+
+      const eIni = this.parsearFechaMs(nov.fecha_nov_ini);
+      const eFin = this.parsearFechaMs(nov.fecha_nov_fin);
+      if (isNaN(eIni) || isNaN(eFin)) continue;
+
+      // Cruce de rangos (extremos que solo se tocan no se consideran cruce)
+      if (iniMs < eFin && eIni < finMs) {
+        return nov;
+      }
+    }
+    return null;
+  }
+
+  private nombreEmpleadoPorId(id: number): string {
+    const opt = this.empleadoOptions.find(o => Number(o.value) === Number(id));
+    return opt?.label || `Empleado #${id}`;
+  }
+
   mostrarEmpleadoCubre = false;
 
   // Preview del flujo que aplicará a la solicitud
@@ -1267,6 +1370,25 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         detail: this.flujoPreview?.mensaje || 'Unidad Funcional No parametrizada para eventos'
       });
       return;
+    }
+
+    // Validación rápida (cliente): el empleado no puede tener eventos que se
+    // crucen con el rango de fechas/horas seleccionado.
+    const idsAValidar = this.editMode
+      ? (this.formData.empleado_id != null ? [this.formData.empleado_id] : [])
+      : this.formData.empleado_ids;
+
+    for (const empId of idsAValidar) {
+      const conflicto = this.buscarSolapamiento(empId, this.formData.fecha_inicial!, this.formData.fecha_final!);
+      if (conflicto) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Rango no disponible',
+          detail: `${this.nombreEmpleadoPorId(empId)} ya tiene el evento ${conflicto.consecutivo} (${this.formatearFecha(conflicto.fecha_nov_ini)} – ${this.formatearFecha(conflicto.fecha_nov_fin)}) que se cruza con el rango seleccionado.`,
+          life: 6000
+        });
+        return;
+      }
     }
 
     this.isSubmitting = true;

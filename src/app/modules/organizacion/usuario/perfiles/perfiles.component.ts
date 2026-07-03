@@ -1,20 +1,14 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { PerfilService, Perfil, CreatePerfilRequest } from '../services/perfil.service';
 import { PermisoService, Permiso } from '../services/permiso.service';
-
-// Interfaz extendida para permisos con información del módulo
-interface PermisoConModulo extends Permiso {
-  modulo_nombre?: string;
-  modulo_id?: number;
-  modulo_nivel?: number;
-}
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule, Table } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -28,6 +22,13 @@ import { AccordionModule } from 'primeng/accordion';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { MultiSelectModule } from 'primeng/multiselect';
 
+// Interfaz extendida para permisos con información del módulo
+interface PermisoConModulo extends Permiso {
+  modulo_nombre?: string;
+  modulo_id?: number;
+  modulo_nivel?: number;
+}
+
 @Component({
   selector: 'app-perfiles',
   standalone: true,
@@ -36,7 +37,6 @@ import { MultiSelectModule } from 'primeng/multiselect';
     RouterModule,
     ReactiveFormsModule,
     FormsModule,
-    TableModule,
     ButtonModule,
     InputTextModule,
     DialogModule,
@@ -47,16 +47,16 @@ import { MultiSelectModule } from 'primeng/multiselect';
     DropdownModule,
     CheckboxModule,
     AccordionModule,
-    MultiSelectModule
+    MultiSelectModule,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './perfiles.component.html',
   styleUrl: './perfiles.component.css'
 })
 export class PerfilesComponent implements OnInit {
-  @ViewChild('dt') dt!: Table;
-
   perfiles: Perfil[] = [];
+  columns: TableColumn[] = [];
   perfilesPorModulo: any[] = [];
   modulos: any[] = [];
   modulosJerarquia: any[] = [];
@@ -111,9 +111,29 @@ export class PerfilesComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.buildColumns();
     this.loadPerfiles();
     this.loadModulos();
     this.loadModulosJerarquia();
+  }
+
+  buildColumns(): void {
+    this.columns = [
+      { field: 'nombre', header: 'Perfil', sortable: true, filter: true, filterType: 'text' },
+      { field: 'modulo', header: 'Módulo' },
+      { field: 'permisos', header: 'Permisos' },
+      {
+        field: 'estado',
+        header: 'Estado',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Activo', value: true },
+          { label: 'Inactivo', value: false }
+        ]
+      }
+    ];
   }
 
   initForm(): void {
@@ -934,11 +954,6 @@ export class PerfilesComponent implements OnInit {
   togglePermisoEnPerfil(permiso: PermisoConModulo): void {
     // Aquí implementarías la lógica para agregar/quitar el permiso del perfil
     // console.log('Toggle permiso:', permiso);
-  }
-
-  onGlobalFilter(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.dt.filterGlobal(input.value, 'contains');
   }
 
   getModuloNombre(idModulo: number): string {

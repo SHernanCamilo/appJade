@@ -13,7 +13,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { DropdownModule } from 'primeng/dropdown';
 import { CheckboxModule } from 'primeng/checkbox';
-import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { AvatarModule } from 'primeng/avatar';
@@ -26,6 +25,8 @@ import { MatrizObsAgentesService, MatrizObsAgente } from '../services/matriz-obs
 import { EmpresaService, Empresa } from '../../../organizacion/empresa/services/empresa.service';
 import { SucursalService, Sucursal } from '../../../organizacion/empresa/services/sucursal.service';
 import { SedeService, Sede } from '../../../organizacion/empresa/services/sede.service';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 interface TipoEquipo {
   id: number;
@@ -74,12 +75,12 @@ interface Procesador {
     InputNumberModule,
     DropdownModule,
     CheckboxModule,
-    TableModule,
     DialogModule,
     TooltipModule,
     AvatarModule,
     SkeletonModule,
-    HasPermissionDirective
+    HasPermissionDirective,
+    DataTableComponent
   ],
   providers: [MessageService],
   templateUrl: './parametrosMaObsolescencia.component.html',
@@ -122,8 +123,8 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
 
   // Procesadores
   procesadores: Procesador[] = [];
-  procesadoresFiltrados: Procesador[] = [];
-  busquedaProcesador: string = '';
+  procesadorColumns: TableColumn[] = [];
+  agenteColumns: TableColumn[] = [];
   isLoadingProcesadores: boolean = false;
 
   todosParametros: Parametro[] = [];
@@ -209,11 +210,28 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
 
 
   ngOnInit(): void {
+    this.buildColumns();
     this.cargarDatos();
     this.cargarAgentes();
     this.cargarEmpresas();
     this.cargarTodosParametros();
     this.cargarProcesadores();
+  }
+
+  buildColumns(): void {
+    this.procesadorColumns = [
+      { field: 'nombre', header: 'Nombre del Procesador', sortable: true, filter: true, filterType: 'text', width: '60%' },
+      { field: 'anio_lanzamiento', header: 'Año Lanzamiento', sortable: true, filter: true, filterType: 'numeric', styleClass: 'text-center', width: '20%' }
+    ];
+
+    this.agenteColumns = [
+      { field: 'tag', header: 'TAG', sortable: true, filter: true, filterType: 'text' },
+      { field: 'nomenclatura', header: 'Nomenclatura', sortable: true, filter: true, filterType: 'text' },
+      { field: 'empresa.nombre', header: 'Empresa', sortable: true, filter: true, filterType: 'text' },
+      { field: 'sucursal.nombre', header: 'Sucursal', sortable: true, filter: true, filterType: 'text' },
+      { field: 'sede.nombre', header: 'Sede', sortable: true, filter: true, filterType: 'text' },
+      { field: 'created_at', header: 'Fecha Creación', sortable: true, filter: true, filterType: 'date', pipe: 'date' }
+    ];
   }
 
   /**
@@ -1315,7 +1333,6 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
       next: (response) => {
         if (response.success && response.data) {
           this.procesadores = response.data;
-          this.procesadoresFiltrados = [...this.procesadores];
         }
         this.isLoadingProcesadores = false;
       },
@@ -1332,21 +1349,6 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
     });
   }
   
-  /**
-   * Filtrar procesadores por búsqueda
-   */
-  filtrarProcesadores(): void {
-    if (!this.busquedaProcesador || this.busquedaProcesador.trim() === '') {
-      this.procesadoresFiltrados = [...this.procesadores];
-      return;
-    }
-    
-    const busqueda = this.busquedaProcesador.toLowerCase().trim();
-    this.procesadoresFiltrados = this.procesadores.filter(procesador =>
-      procesador.nombre.toLowerCase().includes(busqueda)
-    );
-  }
-
   /**
    * Editar procesador existente
    */
@@ -1376,12 +1378,7 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
           const index = this.procesadores.findIndex(p => p.id === this.procesadorSeleccionado.id);
           if (index !== -1) {
             this.procesadores[index] = response.data;
-          }
-          
-          // Actualizar también el array filtrado
-          const indexFiltrado = this.procesadoresFiltrados.findIndex(p => p.id === this.procesadorSeleccionado.id);
-          if (indexFiltrado !== -1) {
-            this.procesadoresFiltrados[indexFiltrado] = response.data;
+            this.procesadores = [...this.procesadores];
           }
           
           this.messageService.add({
@@ -1415,7 +1412,6 @@ export class ParametrosMaObsolescenciaComponent implements OnInit {
       next: (response) => {
         if (response.success) {
           this.procesadores = this.procesadores.filter(p => p.id !== procesador.id);
-          this.procesadoresFiltrados = this.procesadoresFiltrados.filter(p => p.id !== procesador.id);
           this.messageService.add({
             severity: 'success',
             summary: 'Eliminado',

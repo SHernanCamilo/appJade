@@ -100,134 +100,61 @@
   </p-dialog>
 
   <div class="content-card">
-    <p-table 
-      #dt
-      [value]="sucursalesFiltered" 
-      [paginator]="true" 
-      [rows]="10"
-      [showCurrentPageReport]="true"
-      [rowsPerPageOptions]="[10, 25, 50]"
+    <app-data-table
+      [value]="sucursales"
+      [columns]="columns"
       [loading]="isLoading"
+      title="Lista de Sucursales"
+      titleIcon="bi bi-shop"
       [globalFilterFields]="['nombre', 'empresa.nombre']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sucursales"
-      [tableStyle]="{'min-width': '50rem'}">
-      
-      <ng-template pTemplate="caption">
-        <div class="d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            <i class="bi bi-shop me-2"></i>
-            Lista de Sucursales
-            <p-tag [value]="sucursalesFiltered.length.toString()" styleClass="ml-2"></p-tag>
-          </h5>
-          <div class="d-flex gap-2">
-            <p-dropdown 
-              [options]="empresas"
-              [(ngModel)]="selectedEmpresaFilter"
-              optionLabel="nombre"
-              optionValue="id"
-              placeholder="Filtrar por empresa"
-              [showClear]="true"
-              (onChange)="filterByEmpresa($event)">
-            </p-dropdown>
-            <!-- Botón limpiar filtros -->
-            <p-button 
-              icon="pi pi-filter-slash" 
-              styleClass="p-button-outlined p-button-secondary"
-              (onClick)="clearFilters()"
-              pTooltip="Limpiar filtros"
-              tooltipPosition="top">
-            </p-button>
-            <!-- Buscador - Solo visible con permiso -->
-            <span class="p-input-icon-left" *hasPermission="'org-suc-buscar'">
-              <i class="pi pi-search"></i>
-              <input 
-                #globalFilter
-                pInputText 
-                type="text" 
-                (input)="onGlobalFilter($event)" 
-                placeholder="Buscar..." />
-            </span>
-          </div>
+      emptyMessage="No hay sucursales registradas">
+
+      <ng-template pTemplate="cell-nombre" let-row>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-shop-window" style="font-size: 1.5rem; color: #3b82f6;"></i>
+          <span class="fw-semibold">{{ row.nombre }}</span>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="nombre">
-            Sucursal <p-sortIcon field="nombre"></p-sortIcon>
-          </th>
-          <th pSortableColumn="empresa.nombre">
-            Empresa <p-sortIcon field="empresa.nombre"></p-sortIcon>
-          </th>
-          <th pSortableColumn="created_at">
-            Fecha de Creación <p-sortIcon field="created_at"></p-sortIcon>
-          </th>
-          <th style="width: 150px">Acciones</th>
-        </tr>
+      <ng-template pTemplate="cell-empresa.nombre" let-row>
+        <div class="d-flex align-items-center gap-2">
+          <p-tag [value]="row.empresa?.prefijo || 'N/A'" severity="info"></p-tag>
+          <span>{{ row.empresa?.nombre || 'Sin empresa' }}</span>
+        </div>
       </ng-template>
 
-      <ng-template pTemplate="body" let-sucursal>
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <i class="bi bi-shop-window" style="font-size: 1.5rem; color: #3b82f6;"></i>
-              <span class="fw-semibold">{{ sucursal.nombre }}</span>
-            </div>
-          </td>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <p-tag [value]="sucursal.empresa?.prefijo || 'N/A'" severity="info"></p-tag>
-              <span>{{ sucursal.empresa?.nombre || 'Sin empresa' }}</span>
-            </div>
-          </td>
-          <td>
-            <span class="text-muted">{{ sucursal.created_at | date:'dd/MM/yyyy' }}</span>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <!-- Botón Editar - Solo visible con permiso -->
-              <p-button 
-                *hasPermission="'org-suc-editar'"
-                icon="pi pi-pencil" 
-                styleClass="p-button-rounded p-button-text p-button-info"
-                (onClick)="editSucursal(sucursal)"
-                pTooltip="Editar"
-                tooltipPosition="top">
-              </p-button>
-              <!-- Botón Eliminar - Solo visible con permiso -->
-              <p-button 
-                *hasPermission="'org-suc-eliminar'"
-                icon="pi pi-trash" 
-                styleClass="p-button-rounded p-button-text p-button-danger"
-                (onClick)="deleteSucursal(sucursal)"
-                pTooltip="Eliminar"
-                tooltipPosition="top">
-              </p-button>
-            </div>
-          </td>
-        </tr>
+      <ng-template pTemplate="actions" let-row>
+        <div class="d-flex gap-2">
+          <p-button
+            *hasPermission="'org-suc-editar'"
+            icon="pi pi-pencil"
+            styleClass="p-button-rounded p-button-text p-button-info"
+            (onClick)="editSucursal(row)"
+            pTooltip="Editar"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            *hasPermission="'org-suc-eliminar'"
+            icon="pi pi-trash"
+            styleClass="p-button-rounded p-button-text p-button-danger"
+            (onClick)="deleteSucursal(row)"
+            pTooltip="Eliminar"
+            tooltipPosition="top">
+          </p-button>
+        </div>
       </ng-template>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="4" class="text-center py-5">
-            <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
-            <p class="text-muted mt-3">No hay sucursales registradas</p>
-            <!-- Botón crear primera sucursal - Solo visible con permiso -->
-            <p-button 
-              *hasPermission="'org-suc-crear'"
-              label="Crear Primera Sucursal" 
-              icon="pi pi-plus" 
-              (onClick)="toggleForm()">
-            </p-button>
-            <!-- Mensaje si no tiene permiso para crear -->
-            <p *ngIf="!canCreate()" class="text-muted mt-2">
-              <i class="pi pi-lock me-1"></i>
-              No tienes permisos para crear sucursales
-            </p>
-          </td>
-        </tr>
+      <ng-template pTemplate="empty">
+        <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
+        <p class="text-muted mt-3">No hay sucursales registradas</p>
+        <p-button
+          *hasPermission="'org-suc-crear'"
+          label="Crear Primera Sucursal"
+          icon="pi pi-plus"
+          (onClick)="toggleForm()">
+        </p-button>
       </ng-template>
-    </p-table>
+    </app-data-table>
   </div>
 </div>

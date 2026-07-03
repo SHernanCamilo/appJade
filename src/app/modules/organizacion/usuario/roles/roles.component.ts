@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -6,9 +6,10 @@ import { RolService, Rol, CreateRolRequest } from '../services/rol.service';
 import { EmpresaService, Empresa } from '../../empresa/services/empresa.service';
 import { PerfilService, Perfil } from '../services/perfil.service';
 import { PermisoService } from '../services/permiso.service';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule, Table } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -30,7 +31,6 @@ import { AccordionModule } from 'primeng/accordion';
     RouterModule,
     ReactiveFormsModule,
     FormsModule,
-    TableModule,
     ButtonModule,
     InputTextModule,
     DialogModule,
@@ -41,17 +41,17 @@ import { AccordionModule } from 'primeng/accordion';
     DropdownModule,
     CheckboxModule,
     MultiSelectModule,
-    AccordionModule
+    AccordionModule,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './roles.component.html',
   styleUrl: './roles.component.css'
 })
 export class RolesComponent implements OnInit {
-  @ViewChild('dt') dt!: Table;
-
   roles: Rol[] = [];
   empresas: Empresa[] = [];
+  columns: TableColumn[] = [];
   perfilesPorModulo: any[] = [];
   todosLosPerfiles: Perfil[] = [];
   modulos: any[] = [];
@@ -87,9 +87,30 @@ export class RolesComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.buildColumns();
     this.loadRoles();
     this.loadEmpresas();
     this.loadModulos();
+  }
+
+  buildColumns(): void {
+    this.columns = [
+      { field: 'nombre', header: 'Rol', sortable: true, filter: true, filterType: 'text' },
+      { field: 'tipo', header: 'Tipo' },
+      { field: 'empresa.nombre', header: 'Empresa', sortable: true, filter: true, filterType: 'text' },
+      { field: 'perfiles', header: 'Perfiles' },
+      {
+        field: 'estado',
+        header: 'Estado',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Activo', value: true },
+          { label: 'Inactivo', value: false }
+        ]
+      }
+    ];
   }
 
   loadModulos(): void {
@@ -265,11 +286,6 @@ export class RolesComponent implements OnInit {
         });
       }
     });
-  }
-
-  onGlobalFilter(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.dt.filterGlobal(input.value, 'contains');
   }
 
   getRolType(rol: Rol): string {

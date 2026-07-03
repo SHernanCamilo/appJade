@@ -126,6 +126,41 @@ export class SidebarService {
   }
 
   /**
+   * Busca un módulo por ruta en la jerarquía
+   */
+  buscarModuloPorRuta(ruta: string): ModuloSidebar | null {
+    return this.buscarModuloPorRutaEnArbol(this.modulosSubject.value, ruta);
+  }
+
+  private buscarModuloPorRutaEnArbol(modulos: ModuloSidebar[], ruta: string): ModuloSidebar | null {
+    const rutaNormalizada = this.normalizarRuta(ruta);
+
+    for (const modulo of modulos) {
+      if (modulo.ruta && this.normalizarRuta(modulo.ruta) === rutaNormalizada) {
+        return modulo;
+      }
+
+      if (modulo.hijos && modulo.hijos.length > 0) {
+        const encontrado = this.buscarModuloPorRutaEnArbol(modulo.hijos, ruta);
+        if (encontrado) {
+          return encontrado;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private normalizarRuta(ruta: string): string {
+    const limpia = ruta.trim().replace(/\/+$/, '');
+    if (!limpia) {
+      return '/';
+    }
+
+    return limpia.startsWith('/') ? limpia : `/${limpia}`;
+  }
+
+  /**
    * Busca un módulo por código en la jerarquía
    */
   private buscarModuloPorCodigo(modulos: ModuloSidebar[], codigo: string): ModuloSidebar | null {

@@ -1,0 +1,129 @@
+<p-table
+  #dt
+  [value]="value"
+  [loading]="loading"
+  [paginator]="paginator"
+  [rows]="rows"
+  [rowsPerPageOptions]="rowsPerPageOptions"
+  [showCurrentPageReport]="paginator"
+  [currentPageReportTemplate]="currentPageReportTemplate"
+  [globalFilterFields]="resolvedGlobalFilterFields"
+  [dataKey]="dataKey"
+  [styleClass]="styleClass"
+  [selection]="selection"
+  (selectionChange)="selectionChange.emit($event)"
+  [selectionMode]="selectable ? selectionMode : undefined"
+  [filterDelay]="0"
+  [tableStyle]="tableStyle">
+
+  <ng-template pTemplate="caption" *ngIf="showCaption">
+    <div class="dt-caption">
+      <h5 class="dt-title" *ngIf="title">
+        <i *ngIf="titleIcon" [class]="titleIcon"></i>
+        <span>{{ title }}</span>
+        <p-tag *ngIf="showCount" [value]="value.length.toString()" styleClass="ml-2"></p-tag>
+      </h5>
+
+      <div class="dt-caption-actions">
+        <ng-container *ngTemplateOutlet="captionTemplate || null"></ng-container>
+
+        <p-button
+          icon="pi pi-filter-slash"
+          styleClass="p-button-outlined p-button-secondary"
+          (onClick)="clear()"
+          pTooltip="Limpiar filtros"
+          tooltipPosition="top">
+        </p-button>
+
+        <span class="p-input-icon-left" *ngIf="showGlobalSearch">
+          <i class="pi pi-search"></i>
+          <input
+            #globalInput
+            pInputText
+            type="text"
+            (input)="onGlobalFilter($event)"
+            [placeholder]="globalPlaceholder" />
+        </span>
+      </div>
+    </div>
+  </ng-template>
+
+  <ng-template pTemplate="header">
+    <tr>
+      <th *ngIf="selectable" style="width: 3rem">
+        <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+      </th>
+      <th
+        *ngFor="let col of columns"
+        [pSortableColumn]="col.sortable ? col.field : undefined"
+        [style.width]="col.width"
+        [class]="col.styleClass">
+        <div class="dt-th">
+          <span>{{ col.header }}</span>
+          <p-sortIcon *ngIf="col.sortable" [field]="col.field"></p-sortIcon>
+
+          <p-columnFilter
+            *ngIf="col.filter"
+            [field]="col.field"
+            [type]="filterTypeFor(col)"
+            [matchMode]="matchModeFor(col)"
+            [display]="filterDisplay"
+            [showMenu]="filterDisplay === 'menu'">
+
+            <ng-template
+              *ngIf="col.filterType === 'select'"
+              pTemplate="filter"
+              let-fvalue
+              let-filter="filterCallback">
+              <p-dropdown
+                [options]="col.filterOptions"
+                [ngModel]="fvalue"
+                (onChange)="filter($event.value)"
+                placeholder="Todos"
+                [showClear]="true">
+              </p-dropdown>
+            </ng-template>
+          </p-columnFilter>
+        </div>
+      </th>
+
+      <th *ngIf="actionsTemplate" [style.width]="actionsWidth">{{ actionsHeader }}</th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-row>
+    <tr [pSelectableRow]="selectable ? row : null">
+      <td *ngIf="selectable">
+        <p-tableCheckbox [value]="row"></p-tableCheckbox>
+      </td>
+      <td *ngFor="let col of columns" [class]="col.styleClass">
+        <ng-container *ngIf="cellTemplates[col.field]; else defaultCell">
+          <ng-container
+            *ngTemplateOutlet="cellTemplates[col.field]; context: { $implicit: row, column: col }">
+          </ng-container>
+        </ng-container>
+        <ng-template #defaultCell>{{ renderValue(row, col) }}</ng-template>
+      </td>
+
+      <td *ngIf="actionsTemplate">
+        <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row }"></ng-container>
+      </td>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td [attr.colspan]="totalCols">
+        <ng-container *ngIf="emptyTemplate; else defaultEmpty">
+          <ng-container *ngTemplateOutlet="emptyTemplate"></ng-container>
+        </ng-container>
+        <ng-template #defaultEmpty>
+          <div class="dt-empty">
+            <i class="pi pi-inbox"></i>
+            <p>{{ emptyMessage }}</p>
+          </div>
+        </ng-template>
+      </td>
+    </tr>
+  </ng-template>
+</p-table>

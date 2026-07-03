@@ -298,77 +298,60 @@
               <!-- Tabla de empresas asignadas -->
               <div class="empresas-asignadas-table" *ngIf="empresasAsignadas.length > 0">
                 <h6 class="mb-3">Empresas Asignadas ({{ empresasAsignadas.length }})</h6>
-                <p-table 
+                <app-data-table
                   [value]="empresasAsignadas"
-                  [tableStyle]="{'min-width': '50rem'}"
-                  styleClass="p-datatable-sm">
-                  
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th>Empresa</th>
-                      <th>Sucursal</th>
-                      <th>Sede</th>
-                      <th>Recursivo</th>
-                      <th style="width: 80px">Acciones</th>
-                    </tr>
+                  [columns]="asignacionColumns"
+                  [paginator]="false"
+                  [showGlobalSearch]="false"
+                  [showCount]="false"
+                  [tableStyle]="{ 'min-width': '100%' }"
+                  actionsWidth="80px"
+                  emptyMessage="No hay empresas asignadas">
+
+                  <ng-template pTemplate="cell-empresa_id" let-row>
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="pi pi-building text-primary"></i>
+                      <span class="fw-semibold">{{ getEmpresaNombre(row.empresa_id) }}</span>
+                    </div>
                   </ng-template>
 
-                  <ng-template pTemplate="body" let-asignacion let-i="rowIndex">
-                    <tr>
-                      <td>
-                        <div class="d-flex align-items-center gap-2">
-                          <i class="pi pi-building text-primary"></i>
-                          <span class="fw-semibold">{{ getEmpresaNombre(asignacion.empresa_id) }}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span *ngIf="asignacion.sucursal_id" class="text-muted">
-                          {{ getSucursalNombre(asignacion.sucursal_id) }}
-                        </span>
-                        <span *ngIf="!asignacion.sucursal_id && asignacion.recursivo" class="text-success">
-                          <i class="pi pi-check-circle me-1"></i>Todas las sucursales
-                        </span>
-                        <span *ngIf="!asignacion.sucursal_id && !asignacion.recursivo" class="text-muted">-</span>
-                      </td>
-                      <td>
-                        <span *ngIf="asignacion.sede_id" class="text-muted">
-                          {{ getSedeNombre(asignacion.sede_id) }}
-                        </span>
-                        <span *ngIf="!asignacion.sede_id && asignacion.recursivo && asignacion.sucursal_id" class="text-success">
-                          <i class="pi pi-check-circle me-1"></i>Todas las sedes
-                        </span>
-                        <span *ngIf="!asignacion.sede_id && asignacion.recursivo && !asignacion.sucursal_id" class="text-success">
-                          <i class="pi pi-check-circle me-1"></i>Todas las sedes
-                        </span>
-                        <span *ngIf="!asignacion.sede_id && !asignacion.recursivo" class="text-muted">-</span>
-                      </td>
-                      <td>
-                        <p-tag 
-                          [value]="asignacion.recursivo ? 'Sí' : 'No'"
-                          [severity]="asignacion.recursivo ? 'success' : 'secondary'">
-                          <i [class]="asignacion.recursivo ? 'pi pi-check' : 'pi pi-times'"></i>
-                        </p-tag>
-                      </td>
-                      <td>
-                        <p-button 
-                          icon="pi pi-trash"
-                          styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
-                          (onClick)="eliminarEmpresaAsignacion(i)"
-                          pTooltip="Eliminar">
-                        </p-button>
-                      </td>
-                    </tr>
+                  <ng-template pTemplate="cell-sucursal_id" let-row>
+                    <span *ngIf="row.sucursal_id" class="text-muted">
+                      {{ getSucursalNombre(row.sucursal_id) }}
+                    </span>
+                    <span *ngIf="!row.sucursal_id && row.recursivo" class="text-success">
+                      <i class="pi pi-check-circle me-1"></i>Todas las sucursales
+                    </span>
+                    <span *ngIf="!row.sucursal_id && !row.recursivo" class="text-muted">-</span>
                   </ng-template>
 
-                  <ng-template pTemplate="emptymessage">
-                    <tr>
-                      <td colspan="5" class="text-center py-3">
-                        <i class="pi pi-building" style="font-size: 2rem; color: #94a3b8;"></i>
-                        <p class="text-muted mt-2 mb-0">No hay empresas asignadas</p>
-                      </td>
-                    </tr>
+                  <ng-template pTemplate="cell-sede_id" let-row>
+                    <span *ngIf="row.sede_id" class="text-muted">
+                      {{ getSedeNombre(row.sede_id) }}
+                    </span>
+                    <span *ngIf="!row.sede_id && row.recursivo" class="text-success">
+                      <i class="pi pi-check-circle me-1"></i>Todas las sedes
+                    </span>
+                    <span *ngIf="!row.sede_id && !row.recursivo" class="text-muted">-</span>
                   </ng-template>
-                </p-table>
+
+                  <ng-template pTemplate="cell-recursivo" let-row>
+                    <p-tag
+                      [value]="row.recursivo ? 'Sí' : 'No'"
+                      [severity]="row.recursivo ? 'success' : 'secondary'">
+                      <i [class]="row.recursivo ? 'pi pi-check' : 'pi pi-times'"></i>
+                    </p-tag>
+                  </ng-template>
+
+                  <ng-template pTemplate="actions" let-row>
+                    <p-button
+                      icon="pi pi-trash"
+                      styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
+                      (onClick)="eliminarEmpresaAsignacion(empresasAsignadas.indexOf(row))"
+                      pTooltip="Eliminar">
+                    </p-button>
+                  </ng-template>
+                </app-data-table>
               </div>
             </div>
           </div>
@@ -492,176 +475,124 @@
     </form>
   </p-dialog>
 
-  <!-- Tabla de Usuarios con PrimeNG --> 
+  <!-- Tabla de Usuarios -->
   <div class="dashboard-content">
     <div class="content-card">
-      <p-table 
-        #dt
-        [value]="usuarios" 
-        [paginator]="true" 
-        [rows]="10"
-        [showCurrentPageReport]="true"
-        [rowsPerPageOptions]="[10, 25, 50]"
+      <app-data-table
+        [value]="usuarios"
+        [columns]="columns"
         [loading]="isLoading"
+        title="Lista de Usuarios"
+        titleIcon="bi bi-people"
         [globalFilterFields]="['name', 'email']"
+        globalPlaceholder="Buscar por nombre o email..."
         currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
-        [tableStyle]="{'min-width': '50rem'}">
-        
-        <ng-template pTemplate="caption">
-          <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-              <i class="bi bi-people me-2"></i>
-              Lista de Usuarios
-              <p-tag [value]="usuarios.length.toString()" styleClass="ml-2"></p-tag>
-            </h5>
-            <span class="p-input-icon-left">
-              <input 
-                pInputText 
-                type="text" 
-                (input)="dt.filterGlobal($any($event.target).value, 'contains')" 
-                placeholder="Buscar por nombre o email..." />
-            </span>
+        emptyMessage="No hay usuarios registrados"
+        actionsWidth="200px">
+
+        <ng-template pTemplate="cell-name" let-row>
+          <div class="d-flex align-items-center gap-2">
+            <p-avatar
+              [label]="getInitials(row.name)"
+              styleClass="mr-2"
+              size="normal"
+              [style]="{'background-color':'#667eea', 'color': '#ffffff'}">
+            </p-avatar>
+            <span class="fw-semibold">{{ row.name }}</span>
           </div>
         </ng-template>
 
-        <ng-template pTemplate="header">
-          <tr>
-            <th pSortableColumn="name">
-              Usuario <p-sortIcon field="name"></p-sortIcon>
-            </th>
-            <th pSortableColumn="email">
-              Email <p-sortIcon field="email"></p-sortIcon>
-            </th>
-            <th>Estado</th>
-            <th>Empresas</th>
-            <th>Roles</th>
-            <th pSortableColumn="created_at">
-              Fecha de Registro <p-sortIcon field="created_at"></p-sortIcon>
-            </th>
-            <th style="width: 200px">Acciones</th>
-          </tr>
-          <tr>
-            <th>
-              <!-- <p-columnFilter type="text" field="name" placeholder="Buscar por nombre"></p-columnFilter> -->
-            </th>
-            <th>
-              <!-- <p-columnFilter type="text" field="email" placeholder="Buscar por email"></p-columnFilter> -->
-            </th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
-          </tr>
+        <ng-template pTemplate="cell-email" let-row>
+          <span class="text-muted">{{ row.email }}</span>
         </ng-template>
 
-        <ng-template pTemplate="body" let-usuario>
-          <tr>
-            <td>
-              <div class="d-flex align-items-center gap-2">
-                <p-avatar 
-                  [label]="getInitials(usuario.name)" 
-                  styleClass="mr-2" 
-                  size="normal"
-                  [style]="{'background-color':'#667eea', 'color': '#ffffff'}">
-                </p-avatar>
-                <span class="fw-semibold">{{ usuario.name }}</span>
-              </div>
-            </td>
-            <td>
-              <span class="text-muted">{{ usuario.email }}</span>
-            </td>
-            <td>
-              <p-tag 
-                [value]="usuario.estado ? 'Activo' : 'Inactivo'"
-                [severity]="usuario.estado ? 'success' : 'danger'">
-                <i [class]="usuario.estado ? 'pi pi-check' : 'pi pi-times'"></i>
-                {{ usuario.estado ? 'Activo' : 'Inactivo' }}
-              </p-tag>
-            </td>
-            <td>
-              <ng-container *ngIf="usuario.empresas && usuario.empresas.length > 0">
-                <p-tag 
-                  [value]="usuario.empresas[0].nombre" 
-                  severity="success"
-                  styleClass="mr-1">
-                </p-tag>
-                <p-tag 
-                  *ngIf="usuario.empresas.length > 1"
-                  [value]="'+' + (usuario.empresas.length - 1)" 
-                  severity="success"
-                  [style]="{'background-color': '#10b981', 'opacity': '0.7'}">
-                </p-tag>
-              </ng-container>
-              <span class="text-muted" *ngIf="!usuario.empresas || usuario.empresas.length === 0">
-                Sin empresas
-              </span>
-            </td>
-            <td>
-              <ng-container *ngIf="usuario.roles && usuario.roles.length > 0">
-                <p-tag 
-                  [value]="usuario.roles[0].nombre || usuario.roles[0]" 
-                  severity="info"
-                  styleClass="mr-1">
-                </p-tag>
-                <p-tag 
-                  *ngIf="usuario.roles.length > 1"
-                  [value]="'+' + (usuario.roles.length - 1)" 
-                  severity="info"
-                  [style]="{'background-color': '#3b82f6', 'opacity': '0.7'}">
-                </p-tag>
-              </ng-container>
-              <span class="text-muted" *ngIf="!usuario.roles || usuario.roles.length === 0">
-                Sin roles
-              </span>
-            </td>
-            <td>
-              <span class="text-muted">{{ usuario.created_at | date:'dd/MM/yyyy' }}</span>
-            </td>
-            <td>
-              <div class="d-flex gap-2">
-                <p-button 
-                  [icon]="usuario.estado ? 'pi pi-times' : 'pi pi-check'"
-                  [styleClass]="'p-button-rounded p-button-text ' + (usuario.estado ? 'p-button-warning' : 'p-button-success')"
-                  (onClick)="cambiarEstadoUsuario(usuario)"
-                  [pTooltip]="usuario.estado ? 'Inactivar' : 'Activar'"
-                  tooltipPosition="top">
-                </p-button>
-                <p-button 
-                  icon="pi pi-pencil" 
-                  styleClass="p-button-rounded p-button-text p-button-info"
-                  (onClick)="editUsuario(usuario)"
-                  [loading]="isLoadingForEdit && currentUsuarioId === usuario.id"
-                  [disabled]="isLoadingForEdit"
-                  pTooltip="Editar"
-                  tooltipPosition="top">
-                </p-button>
-                <p-button 
-                  icon="pi pi-trash" 
-                  styleClass="p-button-rounded p-button-text p-button-danger"
-                  (onClick)="deleteUsuario(usuario)"
-                  pTooltip="Eliminar"
-                  tooltipPosition="top">
-                </p-button>
-              </div>
-            </td>
-          </tr>
+        <ng-template pTemplate="cell-estado" let-row>
+          <p-tag
+            [value]="row.estado ? 'Activo' : 'Inactivo'"
+            [severity]="row.estado ? 'success' : 'danger'">
+            <i [class]="row.estado ? 'pi pi-check' : 'pi pi-times'"></i>
+            {{ row.estado ? 'Activo' : 'Inactivo' }}
+          </p-tag>
         </ng-template>
 
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="7" class="text-center py-5">
-              <i class="pi pi-users" style="font-size: 3rem; color: #94a3b8;"></i>
-              <p class="text-muted mt-3">No hay usuarios registrados</p>
-              <p-button 
-                label="Crear Primer Usuario" 
-                icon="pi pi-plus" 
-                (onClick)="toggleForm()">
-              </p-button>
-            </td>
-          </tr>
+        <ng-template pTemplate="cell-empresas" let-row>
+          <ng-container *ngIf="row.empresas && row.empresas.length > 0">
+            <p-tag
+              [value]="row.empresas[0].nombre"
+              severity="success"
+              styleClass="mr-1">
+            </p-tag>
+            <p-tag
+              *ngIf="row.empresas.length > 1"
+              [value]="'+' + (row.empresas.length - 1)"
+              severity="success"
+              [style]="{'background-color': '#10b981', 'opacity': '0.7'}">
+            </p-tag>
+          </ng-container>
+          <span class="text-muted" *ngIf="!row.empresas || row.empresas.length === 0">
+            Sin empresas
+          </span>
         </ng-template>
-      </p-table>
+
+        <ng-template pTemplate="cell-roles" let-row>
+          <ng-container *ngIf="row.roles && row.roles.length > 0">
+            <p-tag
+              [value]="row.roles[0].nombre || row.roles[0]"
+              severity="info"
+              styleClass="mr-1">
+            </p-tag>
+            <p-tag
+              *ngIf="row.roles.length > 1"
+              [value]="'+' + (row.roles.length - 1)"
+              severity="info"
+              [style]="{'background-color': '#3b82f6', 'opacity': '0.7'}">
+            </p-tag>
+          </ng-container>
+          <span class="text-muted" *ngIf="!row.roles || row.roles.length === 0">
+            Sin roles
+          </span>
+        </ng-template>
+
+        <ng-template pTemplate="actions" let-row>
+          <div class="d-flex gap-2">
+            <p-button
+              [icon]="row.estado ? 'pi pi-times' : 'pi pi-check'"
+              [styleClass]="'p-button-rounded p-button-text ' + (row.estado ? 'p-button-warning' : 'p-button-success')"
+              (onClick)="cambiarEstadoUsuario(row)"
+              [pTooltip]="row.estado ? 'Inactivar' : 'Activar'"
+              tooltipPosition="top">
+            </p-button>
+            <p-button
+              icon="pi pi-pencil"
+              styleClass="p-button-rounded p-button-text p-button-info"
+              (onClick)="editUsuario(row)"
+              [loading]="isLoadingForEdit && currentUsuarioId === row.id"
+              [disabled]="isLoadingForEdit"
+              pTooltip="Editar"
+              tooltipPosition="top">
+            </p-button>
+            <p-button
+              icon="pi pi-trash"
+              styleClass="p-button-rounded p-button-text p-button-danger"
+              (onClick)="deleteUsuario(row)"
+              pTooltip="Eliminar"
+              tooltipPosition="top">
+            </p-button>
+          </div>
+        </ng-template>
+
+        <ng-template pTemplate="empty">
+          <div class="text-center py-5">
+            <i class="pi pi-users" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay usuarios registrados</p>
+            <p-button
+              label="Crear Primer Usuario"
+              icon="pi pi-plus"
+              (onClick)="toggleForm()">
+            </p-button>
+          </div>
+        </ng-template>
+      </app-data-table>
     </div>
   </div>
   <!-- Modal de Sincronización con Tenant -->

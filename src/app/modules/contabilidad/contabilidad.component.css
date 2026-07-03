@@ -1,171 +1,227 @@
-.dashboard-container {
+.contabilidad-container {
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 1px auto;
 }
 
-.dashboard-header {
+/* Page Header */
+.page-header {
   margin-bottom: 2rem;
 }
 
-.dashboard-title {
-  font-size: 2rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 0.5rem 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
 }
 
-.dashboard-title i {
-  color: #3b82f6;
-}
-
-.dashboard-subtitle {
-  font-size: 1rem;
-  color: #6b7280;
+.page-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
   margin: 0;
 }
 
+/* Dashboard Grid */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
-.dashboard-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.dashboard-card:hover {
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dashboard Cards con PrimeNG */
+::ng-deep .dashboard-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  height: 100%;
+}
+
+::ng-deep .dashboard-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
 }
 
-.card-header {
+::ng-deep .dashboard-card .p-card-header {
+  padding: 0;
+}
+
+::ng-deep .dashboard-card .p-card-body {
+  padding: 0;
+}
+
+::ng-deep .dashboard-card .p-card-content {
+  padding: 0;
+}
+
+.card-header-custom {
   padding: 1.5rem;
   color: white;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.card-header-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.card-header-custom::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
 }
 
-.card-header-success {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+.card-header-custom > i {
+  font-size: 2.5rem;
+  opacity: 0.9;
 }
 
-.card-header-warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+.header-text {
+  flex: 1;
 }
 
-.card-header-info {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-}
-
-.card-header i {
-  font-size: 2rem;
-}
-
-.card-header h2 {
+.header-text h3 {
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+}
+
+.header-text p {
+  font-size: 0.813rem;
+  opacity: 0.9;
   margin: 0;
 }
 
-.card-body {
-  padding: 1.5rem;
+::ng-deep .dashboard-card.card-primary .card-header-custom {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.card-description {
-  color: #6b7280;
-  margin: 0 0 1.5rem 0;
-  font-size: 0.875rem;
+::ng-deep .dashboard-card.card-success .card-header-custom {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
-.card-items {
+::ng-deep .dashboard-card.card-info .card-header-custom {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+::ng-deep .dashboard-card.card-warning .card-header-custom {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+::ng-deep .dashboard-card.card-secondary .card-header-custom {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+/* Menu List */
+.menu-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
-.card-item {
+.menu-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  background: #f9fafb;
-  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  color: #475569;
   text-decoration: none;
-  color: #374151;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-}
-
-.card-item:hover {
-  background: #f3f4f6;
-  color: #1f2937;
-  transform: translateX(4px);
-}
-
-.card-item i:first-child {
-  color: #6b7280;
-  font-size: 1.125rem;
-}
-
-.card-item span {
-  flex: 1;
+  transition: all 0.2s;
   font-weight: 500;
   font-size: 0.875rem;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
 }
 
-.card-item i:last-child {
-  color: #9ca3af;
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  padding-left: 1.75rem;
+}
+
+.menu-item > i:first-child {
+  color: #94a3b8;
+  font-size: 1.125rem;
+  margin-right: 0.75rem;
+}
+
+.menu-item:hover > i:first-child {
+  color: #3b82f6;
+}
+
+.menu-item > span {
+  flex: 1;
+}
+
+.menu-item > .bi-chevron-right {
   font-size: 0.875rem;
-  transition: transform 0.2s ease;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-left: auto;
 }
 
-.card-item:hover i:last-child {
-  transform: translateX(4px);
+.menu-item:hover > .bi-chevron-right {
+  opacity: 1;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-  .dashboard-container {
-    padding: 1rem;
+@media (max-width: 991.98px) {
+  .contabilidad-container {
+    padding: 1.5rem;
   }
 
-  .dashboard-title {
+  .page-title {
     font-size: 1.5rem;
   }
+}
 
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .card-header {
+@media (max-width: 576px) {
+  .contabilidad-container {
     padding: 1rem;
   }
 
-  .card-header i {
-    font-size: 1.5rem;
+  .page-title {
+    font-size: 1.25rem;
   }
+}
 
-  .card-header h2 {
-    font-size: 1.125rem;
-  }
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+}
 
-  .card-body {
-    padding: 1rem;
-  }
+.empty-state i {
+  font-size: 2rem;
+  color: #94a3b8;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.95rem;
 }

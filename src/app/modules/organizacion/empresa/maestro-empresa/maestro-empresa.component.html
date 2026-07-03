@@ -215,282 +215,184 @@
   </p-dialog>
 
   <div class="content-card" *ngIf="activeTab === 'empresas'">
-    <p-table 
-      #dt
-      [value]="empresas" 
-      [paginator]="true" 
-      [rows]="10"
-      [showCurrentPageReport]="true"
-      [rowsPerPageOptions]="[10, 25, 50]"
+    <app-data-table
+      [value]="empresas"
+      [columns]="columns"
       [loading]="isLoading"
-      [globalFilterFields]="['nombre', 'nit', 'prefijo']"
+      title="Lista de Empresas"
+      titleIcon="bi bi-building"
+      [showGlobalSearch]="canSearch()"
+      [globalFilterFields]="['nombre', 'nit', 'prefijo', 'rep_legal', 'telefono']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} empresas"
-      [tableStyle]="{'min-width': '50rem'}">
-      
-      <ng-template pTemplate="caption">
-        <div class="d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            <i class="bi bi-building me-2"></i>
-            Lista de Empresas
-            <p-tag [value]="empresas.length.toString()" styleClass="ml-2"></p-tag>
-          </h5>
-          <!-- Buscador - Solo visible con permiso -->
-          <span class="p-input-icon-left" *hasPermission="'org-emp-buscar'">
-            <input 
-              pInputText 
-              type="text" 
-              (input)="onGlobalFilter($event)" 
-              placeholder="Buscar..." />
-          </span>
+      actionsWidth="180px"
+      emptyMessage="No hay empresas registradas">
+
+      <ng-template pTemplate="cell-nombre" let-row>
+        <div class="d-flex align-items-center gap-2">
+          <p-avatar
+            *ngIf="!row.logo"
+            [label]="getInitials(row.nombre)"
+            styleClass="mr-2"
+            size="normal"
+            [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
+          </p-avatar>
+          <img
+            *ngIf="row.logo"
+            [src]="row.logo"
+            [alt]="row.nombre"
+            style="width: 40px; height: 40px; object-fit: contain; margin-right: 8px;">
+          <span class="fw-semibold">{{ row.nombre }}</span>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="nombre">
-            Empresa <p-sortIcon field="nombre"></p-sortIcon>
-          </th>
-          <th pSortableColumn="nit">
-            NIT <p-sortIcon field="nit"></p-sortIcon>
-          </th>
-          <th pSortableColumn="prefijo">
-            Prefijo <p-sortIcon field="prefijo"></p-sortIcon>
-          </th>
-          <th>Representante Legal</th>
-          <th>Contacto</th>
-          <th>Estado</th>
-          <th style="width: 150px">Acciones</th>
-        </tr>
+      <ng-template pTemplate="cell-prefijo" let-row>
+        <p-tag [value]="row.prefijo" severity="info"></p-tag>
       </ng-template>
 
-      <ng-template pTemplate="body" let-empresa>
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <p-avatar 
-                *ngIf="!empresa.logo"
-                [label]="getInitials(empresa.nombre)" 
-                styleClass="mr-2" 
-                size="normal"
-                [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
-              </p-avatar>
-              <img 
-                *ngIf="empresa.logo" 
-                [src]="empresa.logo" 
-                [alt]="empresa.nombre"
-                style="width: 40px; height: 40px; object-fit: contain; margin-right: 8px;">
-              <span class="fw-semibold">{{ empresa.nombre }}</span>
-            </div>
-          </td>
-          <td>
-            <span class="text-muted">{{ empresa.nit }}</span>
-          </td>
-          <td>
-            <p-tag [value]="empresa.prefijo" severity="info"></p-tag>
-          </td>
-          <td>
-            <div>
-              <div class="fw-semibold">{{ empresa.rep_legal }}</div>
-              <small class="text-muted">CC: {{ empresa.cc_rep_legal }}</small>
-            </div>
-          </td>
-          <td>
-            <div>
-              <div><i class="pi pi-phone me-1"></i>{{ empresa.telefono }}</div>
-              <small class="text-muted">{{ empresa.direccion }}</small>
-            </div>
-          </td>
-          <td>
-            <p-tag 
-              [value]="empresa.estado === 1 ? 'Activo' : 'Inactivo'" 
-              [severity]="empresa.estado === 1 ? 'success' : 'danger'">
-            </p-tag>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <!-- Botón Editar - Solo visible con permiso -->
-              <p-button 
-                *hasPermission="'org-emp-editar'"
-                icon="pi pi-pencil" 
-                styleClass="p-button-rounded p-button-text p-button-info"
-                (onClick)="editEmpresa(empresa)"
-                pTooltip="Editar"
-                tooltipPosition="top">
-              </p-button>
-              <!-- Botón Activar/Desactivar - Solo visible con permiso -->
-              <p-button 
-                *hasPermission="'org-emp-toggle-estado'"
-                [icon]="empresa.estado === 1 ? 'pi pi-ban' : 'pi pi-check'" 
-                styleClass="p-button-rounded p-button-text p-button-warning"
-                (onClick)="toggleEstado(empresa)"
-                [pTooltip]="empresa.estado === 1 ? 'Desactivar' : 'Activar'"
-                tooltipPosition="top">
-              </p-button>
-              <!-- Botón Eliminar - Solo visible con permiso -->
-              <p-button 
-                *hasPermission="'org-emp-eliminar'"
-                icon="pi pi-trash" 
-                styleClass="p-button-rounded p-button-text p-button-danger"
-                (onClick)="deleteEmpresa(empresa)"
-                pTooltip="Eliminar"
-                tooltipPosition="top">
-              </p-button>
-            </div>
-          </td>
-        </tr>
+      <ng-template pTemplate="cell-rep_legal" let-row>
+        <div>
+          <div class="fw-semibold">{{ row.rep_legal }}</div>
+          <small class="text-muted">CC: {{ row.cc_rep_legal }}</small>
+        </div>
       </ng-template>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="7" class="text-center py-5">
-            <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
-            <p class="text-muted mt-3">No hay empresas registradas</p>
-            <!-- Botón crear primera empresa - Solo visible con permiso -->
-            <p-button 
-              *hasPermission="'org-emp-crear'"
-              label="Crear Primera Empresa" 
-              icon="pi pi-plus" 
-              (onClick)="toggleForm()">
-            </p-button>
-            <!-- Mensaje si no tiene permiso para crear -->
-            <p *ngIf="!canCreate()" class="text-muted mt-2">
-              <i class="pi pi-lock me-1"></i>
-              No tienes permisos para crear empresas
-            </p>
-          </td>
-        </tr>
+      <ng-template pTemplate="cell-telefono" let-row>
+        <div>
+          <div><i class="pi pi-phone me-1"></i>{{ row.telefono }}</div>
+          <small class="text-muted">{{ row.direccion }}</small>
+        </div>
       </ng-template>
-    </p-table>
+
+      <ng-template pTemplate="cell-estado" let-row>
+        <p-tag
+          [value]="row.estado === 1 ? 'Activo' : 'Inactivo'"
+          [severity]="row.estado === 1 ? 'success' : 'danger'">
+        </p-tag>
+      </ng-template>
+
+      <ng-template pTemplate="actions" let-row>
+        <div class="d-flex gap-2">
+          <p-button
+            *hasPermission="'org-emp-editar'"
+            icon="pi pi-pencil"
+            styleClass="p-button-rounded p-button-text p-button-info"
+            (onClick)="editEmpresa(row)"
+            pTooltip="Editar"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            *hasPermission="'org-emp-toggle-estado'"
+            [icon]="row.estado === 1 ? 'pi pi-ban' : 'pi pi-check'"
+            styleClass="p-button-rounded p-button-text p-button-warning"
+            (onClick)="toggleEstado(row)"
+            [pTooltip]="row.estado === 1 ? 'Desactivar' : 'Activar'"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            *hasPermission="'org-emp-eliminar'"
+            icon="pi pi-trash"
+            styleClass="p-button-rounded p-button-text p-button-danger"
+            (onClick)="deleteEmpresa(row)"
+            pTooltip="Eliminar"
+            tooltipPosition="top">
+          </p-button>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="empty">
+        <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
+        <p class="text-muted mt-3">No hay empresas registradas</p>
+        <p-button
+          *hasPermission="'org-emp-crear'"
+          label="Crear Primera Empresa"
+          icon="pi pi-plus"
+          (onClick)="toggleForm()">
+        </p-button>
+        <p *ngIf="!canCreate()" class="text-muted mt-2">
+          <i class="pi pi-lock me-1"></i>
+          No tienes permisos para crear empresas
+        </p>
+      </ng-template>
+    </app-data-table>
   </div>
 
   <!-- Tab: Dominios -->
   <div class="content-card" *ngIf="activeTab === 'dominios'">
-    <p-table 
-      #dtDomains
-      [value]="domains" 
-      [paginator]="true" 
-      [rows]="10"
-      [showCurrentPageReport]="true"
-      [rowsPerPageOptions]="[10, 25, 50]"
+    <app-data-table
+      [value]="domains"
+      [columns]="domainColumns"
       [loading]="loadingDomains"
-      [globalFilterFields]="['domain', 'tenant_name', 'tenant_id']"
+      title="Dominios Permitidos"
+      titleIcon="bi bi-globe"
+      [globalFilterFields]="['domain', 'tenant_name', 'tenant_id', 'empresa.nombre']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} dominios"
-      [tableStyle]="{'min-width': '50rem'}">
-      
-      <ng-template pTemplate="caption">
-        <div class="d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            <i class="bi bi-globe me-2"></i>
-            Dominios Permitidos
-            <p-tag [value]="domains.length.toString()" styleClass="ml-2"></p-tag>
-          </h5>
-          <span class="p-input-icon-left">
-            <i class="pi pi-search"></i>
-            <input 
-              pInputText 
-              type="text" 
-              (input)="onGlobalFilterDomains($event)" 
-              placeholder="Buscar..." />
-          </span>
+      actionsWidth="180px"
+      emptyMessage="No hay dominios registrados">
+
+      <ng-template pTemplate="cell-domain" let-row>
+        <div class="d-flex align-items-center gap-2">
+          <p-avatar
+            label="@"
+            styleClass="mr-2"
+            size="normal"
+            [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
+          </p-avatar>
+          <code class="domain-code">{{ row.domain }}</code>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="domain">
-            Dominio <p-sortIcon field="domain"></p-sortIcon>
-          </th>
-          <th pSortableColumn="tenant_id">
-            Tenant ID <p-sortIcon field="tenant_id"></p-sortIcon>
-          </th>
-          <th pSortableColumn="tenant_name">
-            Tenant Name <p-sortIcon field="tenant_name"></p-sortIcon>
-          </th>
-          <th>Empresa</th>
-          <th>Descripción</th>
-          <th>Estado</th>
-          <th style="width: 150px">Acciones</th>
-        </tr>
+      <ng-template pTemplate="cell-empresa.nombre" let-row>
+        <p-tag
+          *ngIf="row.empresa"
+          [value]="row.empresa.nombre"
+          severity="info">
+        </p-tag>
+        <span *ngIf="!row.empresa" class="text-muted">Sin asignar</span>
       </ng-template>
 
-      <ng-template pTemplate="body" let-domain>
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <p-avatar 
-                label="&#64;" 
-                styleClass="mr-2" 
-                size="normal"
-                [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
-              </p-avatar>
-              <code class="domain-code">{{ domain.domain }}</code>
-            </div>
-          </td>
-          <td>
-            <span class="text-muted">{{ domain.tenant_id }}</span>
-          </td>
-          <td>
-            <span class="fw-semibold">{{ domain.tenant_name }}</span>
-          </td>
-          <td>
-            <p-tag 
-              *ngIf="domain.empresa" 
-              [value]="domain.empresa.nombre" 
-              severity="info">
-            </p-tag>
-            <span *ngIf="!domain.empresa" class="text-muted">Sin asignar</span>
-          </td>
-          <td>
-            <span class="text-muted">{{ domain.descripcion || '-' }}</span>
-          </td>
-          <td>
-            <p-tag 
-              [value]="domain.activo ? 'Activo' : 'Inactivo'" 
-              [severity]="domain.activo ? 'success' : 'danger'">
-            </p-tag>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <p-button 
-                icon="pi pi-pencil" 
-                styleClass="p-button-rounded p-button-text p-button-info"
-                (onClick)="openDomainDialog(domain)"
-                pTooltip="Editar"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                icon="pi pi-ban" 
-                styleClass="p-button-rounded p-button-text p-button-warning"
-                (onClick)="toggleDomainStatus(domain)"
-                [pTooltip]="domain.activo ? 'Desactivar' : 'Activar'"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                icon="pi pi-trash" 
-                styleClass="p-button-rounded p-button-text p-button-danger"
-                (onClick)="deleteDomain(domain)"
-                pTooltip="Eliminar"
-                tooltipPosition="top">
-              </p-button>
-            </div>
-          </td>
-        </tr>
+      <ng-template pTemplate="cell-activo" let-row>
+        <p-tag
+          [value]="row.activo ? 'Activo' : 'Inactivo'"
+          [severity]="row.activo ? 'success' : 'danger'">
+        </p-tag>
       </ng-template>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="7" class="text-center py-5">
-            <i class="pi pi-globe" style="font-size: 3rem; color: #94a3b8;"></i>
-            <p class="text-muted mt-3">No hay dominios registrados</p>
-            <p-button 
-              label="Crear Primer Dominio" 
-              icon="pi pi-plus" 
-              (onClick)="openDomainDialog()">
-            </p-button>
-          </td>
-        </tr>
+      <ng-template pTemplate="actions" let-row>
+        <div class="d-flex gap-2">
+          <p-button
+            icon="pi pi-pencil"
+            styleClass="p-button-rounded p-button-text p-button-info"
+            (onClick)="openDomainDialog(row)"
+            pTooltip="Editar"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            icon="pi pi-ban"
+            styleClass="p-button-rounded p-button-text p-button-warning"
+            (onClick)="toggleDomainStatus(row)"
+            [pTooltip]="row.activo ? 'Desactivar' : 'Activar'"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            icon="pi pi-trash"
+            styleClass="p-button-rounded p-button-text p-button-danger"
+            (onClick)="deleteDomain(row)"
+            pTooltip="Eliminar"
+            tooltipPosition="top">
+          </p-button>
+        </div>
       </ng-template>
-    </p-table>
+
+      <ng-template pTemplate="empty">
+        <i class="pi pi-globe" style="font-size: 3rem; color: #94a3b8;"></i>
+        <p class="text-muted mt-3">No hay dominios registrados</p>
+        <p-button
+          label="Crear Primer Dominio"
+          icon="pi pi-plus"
+          (onClick)="openDomainDialog()">
+        </p-button>
+      </ng-template>
+    </app-data-table>
   </div>
 
   <!-- Modal para crear/editar dominio -->

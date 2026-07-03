@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PermissionService } from '../../../../core/services/permission.service';
@@ -7,9 +7,11 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } 
 import { SedeService, Sede, CreateSedeRequest } from '../services/sede.service';
 import { SucursalService, Sucursal } from '../services/sucursal.service';
 import { EmpresaService, Empresa } from '../services/empresa.service';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule, Table } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
@@ -37,18 +39,16 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     ToastModule,
     ConfirmDialogModule,
     TagModule,
-    TooltipModule
+    TooltipModule,
+    DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './sedes.component.html',
   styleUrls: ['./sedes.component.css']
 })
 export class SedesComponent implements OnInit {
-  @ViewChild('dt') dt!: Table;
-  @ViewChild('globalFilter') globalFilter!: ElementRef;
-  
   sedes: Sede[] = [];
-  sedesFiltered: Sede[] = [];
+  columns: TableColumn[] = [];
   empresas: Empresa[] = [];
   sucursales: Sucursal[] = [];
   sucursalesFiltered: Sucursal[] = [];
@@ -59,7 +59,6 @@ export class SedesComponent implements OnInit {
   editMode = false;
   currentSedeId?: number;
   selectedEmpresa: number | null = null;
-  selectedEmpresaFilter: number | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -110,6 +109,7 @@ export class SedesComponent implements OnInit {
     this.empresaService.getEmpresas().subscribe({
       next: (empresas) => {
         this.empresas = empresas.filter(e => e.estado === 1);
+        this.buildColumns();
       },
       error: (error) => {
         console.error('Error cargando empresas:', error);
@@ -126,6 +126,7 @@ export class SedesComponent implements OnInit {
     this.sucursalService.getSucursales().subscribe({
       next: (sucursales) => {
         this.sucursales = sucursales;
+        this.buildColumns();
       },
       error: (error) => {
         console.error('Error cargando sucursales:', error);
@@ -139,7 +140,6 @@ export class SedesComponent implements OnInit {
     this.sedeService.getSedes().subscribe({
       next: (sedes) => {
         this.sedes = sedes;
-        this.sedesFiltered = [...sedes]; // Inicializar el array filtrado
         this.isLoading = false;
       },
       error: (error) => {
@@ -151,9 +151,41 @@ export class SedesComponent implements OnInit {
         });
         this.isLoading = false;
         this.sedes = [];
-        this.sedesFiltered = [];
       }
     });
+  }
+
+  buildColumns(): void {
+    const sucursalOptions = [...new Map(
+      this.sucursales.map(s => [s.nombre, { label: s.nombre, value: s.nombre }])
+    ).values()];
+
+    this.columns = [
+      { field: 'nombre', header: 'Sede', sortable: true, filter: true, filterType: 'text' },
+      {
+        field: 'sucursal.nombre',
+        header: 'Sucursal',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: sucursalOptions
+      },
+      {
+        field: 'sucursal.empresa.nombre',
+        header: 'Empresa',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: this.empresas.map(e => ({ label: e.nombre, value: e.nombre }))
+      },
+      {
+        field: 'created_at',
+        header: 'Fecha de Creación',
+        sortable: true,
+        pipe: 'date',
+        pipeFormat: 'dd/MM/yyyy'
+      }
+    ];
   }
 
   onEmpresaChange(event: any): void {
@@ -285,51 +317,5 @@ export class SedesComponent implements OnInit {
         });
       }
     });
-  }
-
-  filterByEmpresa(event: any): void {
-    this.selectedEmpresaFilter = event.value;
-    
-    if (event.value) {
-      this.sedesFiltered = this.sedes.filter(s => s.sucursal?.id_Empresa === event.value);
-    } else {
-      this.sedesFiltered = [...this.sedes];
-    }
-    
-    // Limpiar el filtro global cuando se cambia el filtro de empresa
-    if (this.dt) {
-      this.dt.clear();
-    }
-  }
-
-  clearFilters(): void {
-    this.selectedEmpresaFilter = null;
-    this.sedesFiltered = [...this.sedes];
-    
-    // Limpiar el input de búsqueda global usando ViewChild
-    if (this.globalFilter && this.globalFilter.nativeElement) {
-      this.globalFilter.nativeElement.value = '';
-    }
-  }
-
-  onGlobalFilter(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
-    
-    if (value) {
-      // Aplicar filtro global sobre los datos ya filtrados por empresa
-      let dataToFilter = this.selectedEmpresaFilter 
-        ? this.sedes.filter(s => s.sucursal?.id_Empresa === this.selectedEmpresaFilter)
-        : this.sedes;
-      
-      this.sedesFiltered = dataToFilter.filter(sede => 
-        sede.nombre.toLowerCase().includes(value.toLowerCase()) ||
-        (sede.sucursal?.nombre || '').toLowerCase().includes(value.toLowerCase()) ||
-        (sede.sucursal?.empresa?.nombre || '').toLowerCase().includes(value.toLowerCase())
-      );
-    } else {
-      // Si no hay texto de búsqueda, mostrar según filtro de empresa
-      this.filterByEmpresa({ value: this.selectedEmpresaFilter });
-    }
   }
 }

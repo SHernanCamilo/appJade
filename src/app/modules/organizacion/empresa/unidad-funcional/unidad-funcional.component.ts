@@ -28,6 +28,8 @@ import {
 } from '../services/unidad-funcional.service';
 import { EmpleadoService, Empleado } from '../services/empleado.service';
 import { ContextoService, Empresa as EmpresaContexto } from '../../../../core/services/contexto.service';
+import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
+import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 import { environment } from '../../../../environments/environment';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -50,7 +52,8 @@ import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
     TooltipModule,
     DialogModule,
     TagModule,
-    TabViewModule
+    TabViewModule,
+    DataTableComponent
   ],
   providers: [MessageService],
   templateUrl: './unidad-funcional.component.html',
@@ -108,7 +111,7 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
 
   showModalUnidades = false;
   unidadesModal: UnidadFuncional[] = [];
-  modalSearchTerm = '';
+  modalColumns: TableColumn[] = [];
   isLoadingModal = false;
 
   constructor(
@@ -125,8 +128,29 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.buildModalColumns();
     this.loadEmpresasDisponibles();
     this.initSearchStreams();
+  }
+
+  buildModalColumns(): void {
+    this.modalColumns = [
+      { field: 'codigo', header: 'Código', sortable: true, filter: true, filterType: 'text' },
+      { field: 'nombre', header: 'Nombre', sortable: true, filter: true, filterType: 'text' },
+      { field: 'sucursal.nombre', header: 'Sucursal', sortable: true, filter: true, filterType: 'text' },
+      { field: 'sede.nombre', header: 'Sede', sortable: true, filter: true, filterType: 'text' },
+      {
+        field: 'estado',
+        header: 'Estado',
+        sortable: true,
+        filter: true,
+        filterType: 'select',
+        filterOptions: [
+          { label: 'Activo', value: 1 },
+          { label: 'Inactivo', value: 0 }
+        ]
+      }
+    ];
   }
 
   ngOnDestroy(): void {
@@ -330,19 +354,36 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
     this.unidadForm.patchValue({ estado: activo ? 1 : 0 });
   }
 
-  get unidadesModalFiltradas(): UnidadFuncional[] {
-    const term = this.modalSearchTerm.trim().toLowerCase();
-    if (!term) return this.unidadesModal;
+  abrirModalUnidades(): void {
+    if (!this.empresaSeleccionada) {
+      this.showWarn('Seleccione primero una empresa');
+      return;
+    }
 
-    return this.unidadesModal.filter(u =>
-      u.codigo.toLowerCase().includes(term) ||
-      u.nombre.toLowerCase().includes(term) ||
-      (u.sucursal?.nombre || '').toLowerCase().includes(term) ||
-      (u.sede?.nombre || '').toLowerCase().includes(term)
-    );
+    const empresaId = this.unidadForm.get('id_empresa')?.value;
+    this.showModalUnidades = true;
+    this.isLoadingModal = true;
+    this.unidadesModal = [];
+
+    this.unidadFuncionalService.getUnidadesFuncionales(empresaId).subscribe({
+      next: (unidades) => {
+        this.unidadesModal = unidades;
+        this.isLoadingModal = false;
+      },
+      error: () => {
+        this.unidadesModal = [];
+        this.isLoadingModal = false;
+        this.showError('Error al cargar las unidades funcionales');
+      }
+    });
   }
 
-  loadEmpresasDisponibles(): void {
+  cerrarModalUnidades(): void {
+    this.showModalUnidades = false;
+    this.unidadesModal = [];
+  }
+
+  private loadEmpresasDisponibles(): void {
     this.isLoadingEmpresas = true;
 
     this.contextoService.obtenerEmpresasDisponibles().subscribe({
@@ -554,37 +595,6 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
         this.showWarn('No se pudo buscar el código. Verifique la conexión con el servidor.');
       }
     });
-  }
-
-  abrirModalUnidades(): void {
-    if (!this.empresaSeleccionada) {
-      this.showWarn('Seleccione primero una empresa');
-      return;
-    }
-
-    const empresaId = this.unidadForm.get('id_empresa')?.value;
-    this.modalSearchTerm = '';
-    this.showModalUnidades = true;
-    this.isLoadingModal = true;
-    this.unidadesModal = [];
-
-    this.unidadFuncionalService.getUnidadesFuncionales(empresaId).subscribe({
-      next: (unidades) => {
-        this.unidadesModal = unidades;
-        this.isLoadingModal = false;
-      },
-      error: () => {
-        this.unidadesModal = [];
-        this.isLoadingModal = false;
-        this.showError('Error al cargar las unidades funcionales');
-      }
-    });
-  }
-
-  cerrarModalUnidades(): void {
-    this.showModalUnidades = false;
-    this.modalSearchTerm = '';
-    this.unidadesModal = [];
   }
 
   seleccionarDesdeModal(unidad: UnidadFuncional): void {

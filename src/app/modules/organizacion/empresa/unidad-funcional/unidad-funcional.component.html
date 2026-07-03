@@ -424,72 +424,50 @@
         <span>Empresa: <strong>{{ empresaNombre }}</strong></span>
       </div>
 
-      <div class="modal-search mb-3">
-        <span class="p-input-icon-left w-100">
-          <i class="pi pi-search"></i>
-          <input
-            pInputText
-            type="text"
-            [(ngModel)]="modalSearchTerm"
-            placeholder="Buscar por código, nombre, sucursal o sede..."
-            class="w-100">
-        </span>
-      </div>
-
-      <p-table
-        [value]="unidadesModalFiltradas"
+      <app-data-table
+        [value]="unidadesModal"
+        [columns]="modalColumns"
         [loading]="isLoadingModal"
-        [paginator]="true"
+        [showCount]="false"
+        [globalFilterFields]="['codigo', 'nombre', 'sucursal.nombre', 'sede.nombre']"
+        globalPlaceholder="Buscar por código, nombre, sucursal o sede..."
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} unidades"
         [rows]="8"
         [rowsPerPageOptions]="[8, 15, 25]"
-        styleClass="p-datatable-sm p-datatable-striped"
-        responsiveLayout="scroll">
+        [tableStyle]="{ 'min-width': '100%' }"
+        actionsWidth="120px"
+        emptyMessage="No hay unidades funcionales para esta empresa">
 
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Código</th>
-            <th>Nombre</th>
-            <th>Sucursal</th>
-            <th>Sede</th>
-            <th>Estado</th>
-            <th style="width: 100px">Acción</th>
-          </tr>
+        <ng-template pTemplate="cell-codigo" let-row>
+          <span class="codigo-badge">{{ row.codigo }}</span>
         </ng-template>
 
-        <ng-template pTemplate="body" let-unidad>
-          <tr>
-            <td><span class="codigo-badge">{{ unidad.codigo }}</span></td>
-            <td class="fw-semibold">{{ unidad.nombre }}</td>
-            <td>{{ unidad.sucursal?.nombre || '-' }}</td>
-            <td>{{ unidad.sede?.nombre || '-' }}</td>
-            <td>
-              <p-tag
-                [value]="getEstadoLabel(unidad.estado)"
-                [severity]="getEstadoSeverity(unidad.estado)">
-              </p-tag>
-            </td>
-            <td>
-              <p-button
-                icon="pi pi-check"
-                label="Seleccionar"
-                size="small"
-                severity="info"
-                [text]="true"
-                (onClick)="seleccionarDesdeModal(unidad)">
-              </p-button>
-            </td>
-          </tr>
+        <ng-template pTemplate="cell-sucursal.nombre" let-row>
+          {{ row.sucursal?.nombre || '-' }}
         </ng-template>
 
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="6" class="text-center py-4">
-              <i class="pi pi-inbox text-muted" style="font-size: 2.5rem;"></i>
-              <p class="text-muted mt-2 mb-0">No hay unidades funcionales para esta empresa</p>
-            </td>
-          </tr>
+        <ng-template pTemplate="cell-sede.nombre" let-row>
+          {{ row.sede?.nombre || '-' }}
         </ng-template>
-      </p-table>
+
+        <ng-template pTemplate="cell-estado" let-row>
+          <p-tag
+            [value]="getEstadoLabel(row.estado)"
+            [severity]="getEstadoSeverity(row.estado)">
+          </p-tag>
+        </ng-template>
+
+        <ng-template pTemplate="actions" let-row>
+          <p-button
+            icon="pi pi-check"
+            label="Seleccionar"
+            size="small"
+            severity="info"
+            [text]="true"
+            (onClick)="seleccionarDesdeModal(row)">
+          </p-button>
+        </ng-template>
+      </app-data-table>
     </div>
 
     <ng-template pTemplate="footer">
