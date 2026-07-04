@@ -1,10 +1,9 @@
 <div class="fullscreen-container">
-  <div *ngIf="isLoading" class="loading-overlay">
-    <div class="loading-content">
-      <i class="pi pi-spin pi-spinner"></i>
-      <p>Cargando vista...</p>
-    </div>
-  </div>
+  <app-grid-loader *ngIf="isLoading"
+    [mensaje]="'Cargando vista completa...'"
+    [subtitulo]="'Consultando todos los registros desde Fabric'"
+    [columnas]="8" [filas]="12">
+  </app-grid-loader>
 
   <div *ngIf="!isLoading && vista" class="grid-container">
     <ag-grid-angular

@@ -28,66 +28,35 @@
         <div class="toolbar-left">
           <span class="grid-hint">
             <i class="pi pi-info-circle"></i>
-            <ng-container *ngIf="isCargaParcial; else cargaCompleta">
-              {{ totalRegistros | number }} de {{ totalEsperado | number }} registros · cargando...
-            </ng-container>
-            <ng-template #cargaCompleta>
-              {{ totalRegistros | number }} registros cargados · Fabric
-            </ng-template>
+            {{ totalRegistros | number }} registros · Página {{ paginaActual }} de {{ totalPaginas }}
           </span>
-          <span class="grid-loading" *ngIf="isLoadingDatos && rowData.length === 0">
-            <i class="pi pi-spin pi-spinner"></i>
-            <ng-container *ngIf="cargaProgreso && cargaProgreso.total > 0; else cargandoGenerico">
-              Cargando {{ cargaProgreso.loaded | number }} de {{ cargaProgreso.total | number }}...
-            </ng-container>
-            <ng-template #cargandoGenerico>Cargando datos...</ng-template>
+          <span class="grid-loading" *ngIf="isLoadingDatos">
+            <i class="pi pi-spin pi-spinner"></i> Cargando...
           </span>
-          <span class="carga-parcial-badge" *ngIf="isCargaParcial">
-            <i class="pi pi-spin pi-spinner"></i>
-            Completando carga: {{ cargaProgreso?.loaded | number }} / {{ cargaProgreso?.total | number }}
+          <span class="filtros-badge" *ngIf="hayFiltrosActivos">
+            <i class="pi pi-filter-fill"></i> Filtrado
+            <button class="btn-limpiar-filtros" (click)="limpiarFiltros()" pTooltip="Limpiar todos los filtros">
+              <i class="pi pi-times"></i>
+            </button>
           </span>
           <span class="export-bg-badge" *ngIf="exportEnSegundoPlano">
-            <i class="pi pi-spin pi-spinner"></i>
-            Exportando Excel en segundo plano...
+            <i class="pi pi-spin pi-spinner"></i> Exportando...
           </span>
         </div>
         
         <div class="toolbar-actions">
-          <button
-            type="button"
-            class="btn-toolbar btn-toolbar-excel"
-            (click)="exportarExcelEnLinea()"
-            [disabled]="(isLoadingDatos && rowData.length === 0) || isExportingExcelOnline || rowData.length === 0"
-            title="Abrir en Microsoft Excel Online">
-            <i class="pi" [ngClass]="isExportingExcelOnline ? 'pi-spin pi-spinner' : 'pi-external-link'"></i>
-            Abrir Excel en línea
+          <button type="button" class="btn-toolbar btn-toolbar-download" (click)="descargarExcel()"
+            [disabled]="isLoadingVista || !vista || totalRegistros === 0"
+            title="Descargar Excel">
+            <i class="pi pi-file-excel"></i> Descargar Excel
           </button>
-          <button
-            type="button"
-            class="btn-toolbar btn-toolbar-download"
-            (click)="descargarExcel()"
-            [disabled]="isLoadingVista || !vista || rowData.length === 0"
-            title="Descargar Excel (desde datos en pantalla)">
-            <i class="pi pi-file-excel"></i>
-            Descargar
-          </button>
-          <button 
-            type="button" 
-            class="btn-toolbar" 
-            (click)="cargarDatos()" 
-            [disabled]="isLoadingDatos && rowData.length === 0"
+          <button type="button" class="btn-toolbar" (click)="cargarDatos()" [disabled]="isLoadingDatos"
             title="Recargar datos">
-            <i class="pi pi-refresh"></i>
-            Recargar
+            <i class="pi pi-refresh"></i> Recargar
           </button>
-          <button 
-            type="button" 
-            class="btn-toolbar btn-toolbar-secondary" 
-            (click)="abrirEnNuevaPestana()"
-            [disabled]="(isLoadingDatos && rowData.length === 0) || rowData.length === 0"
-            title="Abrir en nueva pestaña">
-            <i class="pi pi-external-link"></i>
-            Abrir en nueva pestaña
+          <button type="button" class="btn-toolbar btn-toolbar-secondary" (click)="abrirEnNuevaPestana()"
+            [disabled]="isLoadingDatos || totalRegistros === 0" title="Pantalla completa">
+            <i class="pi pi-external-link"></i> Pantalla completa
           </button>
         </div>
       </div>
@@ -97,30 +66,70 @@
         <p>Sin datos cargados para esta vista.</p>
       </div>
 
-      <div
-        class="grid-wrapper"
-        *ngIf="rowData.length > 0 || isLoadingDatos"
-        [class.is-loading]="isLoadingDatos && rowData.length === 0"
-        [class.is-loading-more]="isCargaParcial">
-        <ag-grid-angular
+      <div class="grid-wrapper" *ngIf="rowData.length > 0 || isLoadingDatos"
+        [class.is-loading]="isLoadingDatos && rowData.length === 0">
+
+        <!-- Loader unificado mientras carga -->
+        <app-grid-loader *ngIf="isLoadingDatos && rowData.length === 0"
+          [mensaje]="'Consultando datos...'"
+          [subtitulo]="'Conectando con Microsoft Fabric'"
+          [columnas]="6" [filas]="10">
+        </app-grid-loader>
+
+        <!-- Grid con datos -->
+        <ag-grid-angular *ngIf="rowData.length > 0"
           class="ag-theme-alpine bi-vista-grid"
           [rowData]="rowData"
           [columnDefs]="columnDefs"
           [defaultColDef]="defaultColDef"
           [localeText]="localeText"
           [animateRows]="true"
-          [pagination]="true"
-          [paginationPageSize]="pageSize"
-          [paginationPageSizeSelector]="[25, 50, 100, 200]"
-          [suppressRowClickSelection]="true"
-          (gridReady)="onGridReady($event)">
+          [pagination]="false"
+          [rowSelection]="{ mode: 'singleRow', enableClickSelection: false }"
+          (gridReady)="onGridReady($event)"
+          (sortChanged)="onSortChanged()"
+          (filterChanged)="onFilterChanged()">
         </ag-grid-angular>
+
+        <!-- Paginación server-side — siempre visible cuando hay datos -->
+        <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0">
+          <div class="pagination-info">
+            {{ ((paginaActual - 1) * pageSize) + 1 | number }} — {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
+            de {{ totalRegistros | number }}
+          </div>
+          <div class="pagination-controls">
+            <button class="btn-page" [disabled]="paginaActual <= 1" (click)="irPagina(1)" pTooltip="Primera">
+              <i class="pi pi-angle-double-left"></i>
+            </button>
+            <button class="btn-page" [disabled]="paginaActual <= 1" (click)="irPagina(paginaActual - 1)">
+              <i class="pi pi-angle-left"></i>
+            </button>
+            <span class="page-indicator">{{ paginaActual }} / {{ totalPaginas }}</span>
+            <button class="btn-page" [disabled]="paginaActual >= totalPaginas" (click)="irPagina(paginaActual + 1)">
+              <i class="pi pi-angle-right"></i>
+            </button>
+            <button class="btn-page" [disabled]="paginaActual >= totalPaginas" (click)="irPagina(totalPaginas)" pTooltip="Última">
+              <i class="pi pi-angle-double-right"></i>
+            </button>
+          </div>
+          <div class="pagination-size">
+            <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+            </select>
+            <span>por página</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="loading-state" *ngIf="isLoadingVista">
-      <i class="pi pi-spin pi-spinner"></i>
-      <p>Cargando vista...</p>
+    <div *ngIf="isLoadingVista" class="loading-state-wrapper">
+      <app-grid-loader
+        [mensaje]="'Preparando vista...'"
+        [subtitulo]="'Verificando permisos y estructura'"
+        [columnas]="5" [filas]="6">
+      </app-grid-loader>
     </div>
   </div>
 </div>

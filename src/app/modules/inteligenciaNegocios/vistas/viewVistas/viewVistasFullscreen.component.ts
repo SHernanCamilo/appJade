@@ -6,11 +6,12 @@ import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 
 import { FabricDataMeta, VistasService, VistaBi } from '../../services/vistas.service';
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
+import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
 
 @Component({
   selector: 'app-view-vistas-fullscreen',
   standalone: true,
-  imports: [CommonModule, AgGridAngular],
+  imports: [CommonModule, AgGridAngular, GridLoaderComponent],
   templateUrl: './viewVistasFullscreen.component.html',
   styleUrl: './viewVistasFullscreen.component.css'
 })
