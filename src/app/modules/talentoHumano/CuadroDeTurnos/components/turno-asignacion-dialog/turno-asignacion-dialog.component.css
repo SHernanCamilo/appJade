@@ -1,0 +1,41 @@
+.dialog-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .dialog-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.option-active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.evento-card {
+  flex-direction: column;
+  cursor: default;
+}
+
+.evento-horas {
+  width: 100%;
+}
+
+.opacity-50 {
+  opacity: 0.55;
+  pointer-events: none;
+}

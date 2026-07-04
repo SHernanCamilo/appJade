@@ -1,0 +1,443 @@
+<div class="orders-page">
+    <!-- Header principal (similar al original) -->
+    <header class="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="page-title"><i class="bi bi-cart"></i> Gestión de Pedidos</h1>
+            <p class="page-subtitle text-muted">Controla pedidos, seguimiento de órdenes y recepción técnica</p>
+        </div>
+        <div class="page-actions d-flex gap-3 align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <label class="text-muted small mb-0">Estado</label>
+                <select [(ngModel)]="statusFilter" (change)="loadPedidos()" class="form-select form-select-sm" style="width: 180px;">
+                    <option value="">Todos</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="en_proceso">Orden realizada</option>
+                    <option value="recibido">Recibida</option>
+                    <option value="cancelado">Cancelado</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" (click)="openNewOrderModal()">
+                <i class="bi bi-plus-circle"></i> Nuevo Pedido
+            </button>
+        </div>
+    </header>
+
+    <div class="orders-grid">
+        <!-- Tabla de pedidos -->
+        <div class="card card-soft">
+            <div class="card-body p-0">
+                <p-table
+                    #dt
+                    [value]="pedidos"
+                    [loading]="isLoading"
+                    [paginator]="true"
+                    [rows]="10"
+                    [rowsPerPageOptions]="[5, 10, 25]"
+                    [globalFilterFields]="['numero_pedido', 'proveedor', 'estado']"
+                    [showCurrentPageReport]="true"
+                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} registros"
+                    sortField="fecha_pedido"
+                    [sortOrder]="-1"
+                    styleClass="p-datatable-sm p-datatable-gridlines-none"
+                    [tableStyle]="{'min-width': '50rem'}"
+                >
+                    <ng-template pTemplate="caption">
+                        <div class="d-flex justify-content-between align-items-center py-2 px-3">
+                            <h5 class="m-0 font-weight-bold" style="font-size: 1.1rem;">Listado de pedidos</h5>
+                            <span class="p-input-icon-left">
+                                <i class="bi bi-search"></i>
+                                <input pInputText type="text" (input)="onGlobalFilter($event)" placeholder="Buscar..." class="p-inputtext-sm" style="width: 250px; border-radius: 20px;" />
+                            </span>
+                        </div>
+                    </ng-template>
+
+                    <ng-template pTemplate="header">
+                        <tr>
+                            <th pSortableColumn="numero_pedido" style="width:140px">NÚMERO <p-sortIcon field="numero_pedido"></p-sortIcon></th>
+                            <th pSortableColumn="proveedor">PROVEEDOR <p-sortIcon field="proveedor"></p-sortIcon></th>
+                            <th pSortableColumn="fecha_pedido" style="width:120px">FECHA <p-sortIcon field="fecha_pedido"></p-sortIcon></th>
+                            <th style="width:80px; text-align:center">ITEMS</th>
+                            <th style="width:140px; text-align:center">ESTADO</th>
+                            <th style="width:100px; text-align:center">ACCIONES</th>
+                        </tr>
+                    </ng-template>
+
+                    <ng-template pTemplate="body" let-pedido>
+                        <tr>
+                            <td><strong class="text-primary">{{ pedido.numero_pedido }}</strong></td>
+                            <td class="text-truncate" style="max-width:300px">{{ pedido.proveedor }}</td>
+                            <td>{{ pedido.fecha_pedido | date:'dd/MM/yyyy' }}</td>
+                            <td class="text-center">{{ pedido.total_articulos }}</td>
+                            <td class="text-center">
+                                <span class="badge" [ngClass]="{
+                                    'bg-warning text-dark': pedido.estado === 'pendiente',
+                                    'bg-info text-dark': pedido.estado === 'en_proceso',
+                                    'bg-success': pedido.estado === 'recibido',
+                                    'bg-danger': pedido.estado === 'cancelado' || pedido.estado === 'rechazado'
+                                }" style="padding: 0.4em 0.8em; border-radius: 12px; font-weight: 500;">
+                                    {{ getStatusLabel(pedido.estado) }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrder(pedido)"></button>
+                            </td>
+                        </tr>
+                    </ng-template>
+
+                    <ng-template pTemplate="emptymessage">
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                No hay pedidos registrados
+                            </td>
+                        </tr>
+                    </ng-template>
+                </p-table>
+            </div>
+        </div>
+
+        <!-- Carga Masiva Panel -->
+        <div class="card card-soft">
+            <div class="card-body p-4">
+                <h5 class="mb-4 d-flex align-items-center gap-2" style="font-weight: 600;">
+                    <i class="bi bi-file-earmark-spreadsheet text-success"></i> Carga masiva
+                </h5>
+
+                <button class="btn btn-outline-secondary w-100 mb-3" (click)="downloadTemplate()" style="border-radius: 8px;">
+                    <i class="bi bi-download"></i> Descargar plantilla
+                </button>
+                <button class="btn btn-primary w-100 mb-4" (click)="processBulkOrders()" [disabled]="bulkRows.length === 0 || isBulkValidating" style="border-radius: 8px;">
+                    <span class="spinner-border spinner-border-sm me-2" *ngIf="isBulkValidating"></span>
+                    <i class="bi bi-check-circle me-1" *ngIf="!isBulkValidating"></i> Procesar carga
+                </button>
+
+                <!-- Drag & Drop Zone (estilo dashed) -->
+                <div class="bulk-upload-zone text-center p-4" [class.drag-over]="isDragOver" [class.has-file]="bulkFile"
+                     (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)"
+                     style="border: 2px dashed #cbd5e1; border-radius: 16px; background-color: #f8fafc; cursor: pointer; transition: all 0.2s;"
+                     (click)="!bulkFile ? fileInput.click() : null">
+                    
+                    <input #fileInput type="file" id="bulkFileInput" class="d-none" accept=".xlsx,.xls,.csv" (change)="onFileSelect($event)">
+
+                    <ng-container *ngIf="!bulkFile">
+                        <i class="bi bi-cloud-upload fs-1 text-secondary mb-3 d-block"></i>
+                        <p class="text-muted mb-0 small">Arrastra un archivo Excel aquí o</p>
+                        <p class="text-muted small">haz clic para seleccionar</p>
+                        <div class="mt-3">
+                            <span class="btn btn-light border btn-sm shadow-sm" style="pointer-events: none;">
+                                <i class="bi bi-folder2-open"></i> Seleccionar archivo
+                            </span>
+                        </div>
+                    </ng-container>
+
+                    <ng-container *ngIf="bulkFile">
+                        <i class="bi bi-file-earmark-excel fs-1 text-success mb-2 d-block"></i>
+                        <h6 class="mb-1 text-truncate w-100 px-2">{{ bulkFile.name }}</h6>
+                        <small class="text-muted d-block mb-3">{{ (bulkFile.size / 1024).toFixed(1) }} KB · {{ bulkRows.length }} filas</small>
+                        <button class="btn btn-outline-danger btn-sm" (click)="clearBulkFile(); $event.stopPropagation()">
+                            <i class="bi bi-trash"></i> Quitar archivo
+                        </button>
+                    </ng-container>
+                </div>
+
+                <!-- Feedback Mensajes -->
+                <div class="mt-3" *ngIf="bulkStatus">
+                    <div class="alert mb-0 py-2 px-3 small" [ngClass]="{'alert-info': bulkErrors.length === 0, 'alert-danger': bulkErrors.length > 0}">
+                        {{ bulkStatus }}
+                        <ul class="mb-0 mt-2 ps-3" *ngIf="bulkErrors.length > 0">
+                            <li *ngFor="let err of bulkErrors | slice:0:5">{{ err }}</li>
+                            <li *ngIf="bulkErrors.length > 5">...y {{ bulkErrors.length - 5 }} errores más.</li>
+                        </ul>
+                        <ul class="mb-0 mt-2 ps-3 text-warning" *ngIf="bulkWarnings.length > 0">
+                            <li *ngFor="let warn of bulkWarnings">{{ warn }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================= -->
+<!-- Modal: Detalle de Pedido (p-dialog)       -->
+<!-- ========================================= -->
+<p-dialog 
+    header="Detalle del Pedido" 
+    [(visible)]="showOrderModal" 
+    [modal]="true" 
+    [style]="{width: '92vw', maxWidth: '1400px'}" 
+    [draggable]="false" 
+    [resizable]="false"
+    [dismissableMask]="true"
+    styleClass="custom-dialog dialog-dark-header"
+>
+    <ng-template pTemplate="header">
+        <div class="d-flex justify-content-between align-items-center w-100 pe-2">
+            <h4 class="m-0 fw-bold text-white" style="font-size: 1.1rem;">Detalle del Pedido</h4>
+            <button class="btn btn-sm btn-outline-light d-flex align-items-center gap-2" (click)="exportTraceabilityExcel()" [disabled]="!currentOrder">
+                <i class="bi bi-file-earmark-excel"></i> Exportar Trazabilidad
+            </button>
+        </div>
+    </ng-template>
+
+    <div *ngIf="isLoadingOrder" class="text-center py-5">
+        <div class="spinner-border text-primary"></div>
+    </div>
+
+    <div *ngIf="!isLoadingOrder && currentOrder" class="dialog-content-wrapper">
+        <!-- Info del Pedido -->
+        <div class="order-info-grid">
+            <div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Número:</span>
+                    <span class="order-info-value text-primary">{{ currentOrder.numero_pedido }}</span>
+                </div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Proveedor:</span>
+                    <span class="order-info-value">{{ currentOrder.proveedor }}</span>
+                </div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Fecha:</span>
+                    <span class="order-info-value" style="font-weight: 400;">{{ currentOrder.fecha_pedido | date:'dd/MM/yyyy' }}</span>
+                </div>
+            </div>
+            <div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Estado:</span>
+                    <span class="badge" [ngClass]="{
+                        'bg-warning text-dark': currentOrder.estado === 'pendiente',
+                        'bg-info text-dark': currentOrder.estado === 'en_proceso',
+                        'bg-success': currentOrder.estado === 'recibido',
+                        'bg-danger': currentOrder.estado === 'cancelado' || currentOrder.estado === 'rechazado'
+                    }" style="padding: 0.35em 0.75em; border-radius: 12px; font-weight: 500; font-size: 0.8rem;">
+                        {{ getStatusLabel(currentOrder.estado) }}
+                    </span>
+                </div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Solicitado por:</span>
+                    <span class="order-info-value" style="font-weight: 400;">{{ currentOrder.solicitado_por_nombre || 'Administrador del Sistema' }}</span>
+                </div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Total ítems:</span>
+                    <span class="order-info-value">{{ currentOrder.total_articulos }}</span>
+                </div>
+            </div>
+        </div>
+
+        <h6 class="fw-bold mb-2" style="font-size: 0.95rem; color: #292524;">Productos</h6>
+        
+        <!-- Tabla de detalles -->
+        <p-table 
+            #dtDetails 
+            [value]="currentOrder.detalles || []" 
+            [scrollable]="true" 
+            scrollHeight="45vh" 
+            styleClass="p-datatable-sm detail-table-custom"
+            [globalFilterFields]="['codigo_producto', 'producto_nombre']"
+        >
+            <ng-template pTemplate="header">
+                <tr>
+                    <th style="width:110px">CÓDIGO</th>
+                    <th style="min-width:220px">PRODUCTO</th>
+                    <th style="width:120px; text-align:center">CANT. SOLICITADA</th>
+                    <th style="width:100px; text-align:center">ÚLTIMA OC</th>
+                    <th style="width:120px; text-align:center">PROVEEDOR</th>
+                    <th style="width:120px; text-align:center">CANT. RECIBIDA</th>
+                    <th style="width:110px; text-align:center">ESTADO</th>
+                    <th style="width:100px; text-align:center">CUMPLIMIENTO</th>
+                    <th style="width:110px; text-align:center">ACCIONES</th>
+                </tr>
+                <tr>
+                    <th>
+                        <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'codigo_producto', 'contains')" placeholder="Buscar código...">
+                    </th>
+                    <th>
+                        <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'producto_nombre', 'contains')" placeholder="Buscar producto...">
+                    </th>
+                    <th>
+                        <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'cantidad_solicitada', 'contains')" placeholder="Buscar cantidad...">
+                    </th>
+                    <th>
+                        <input pInputText type="text" placeholder="Buscar OC..." disabled>
+                    </th>
+                    <th>
+                        <input pInputText type="text" placeholder="Buscar proveedor..." disabled>
+                    </th>
+                    <th>
+                        <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'cantidad_recibida', 'contains')" placeholder="Buscar cantidad...">
+                    </th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-d>
+                <tr [ngClass]="{'bg-light-yellow': d.estado === 'pendiente' || !d.estado}">
+                    <td><code style="color: #b45309; font-size: 0.8rem;">{{ d.codigo_producto }}</code></td>
+                    <td class="fw-medium" style="font-size: 0.82rem;">
+                        {{ d.producto_nombre }}
+                        <div class="mt-1" *ngIf="d.estado === 'pendiente' || !d.estado">
+                            <small style="color: #d97706;"><i class="bi bi-exclamation-triangle"></i> Sin orden de compra</small>
+                        </div>
+                    </td>
+                    <td class="text-center">{{ d.cantidad_solicitada }}</td>
+                    <td class="text-center" style="color: #a8a29e; font-style: italic; font-size: 0.8rem;">Sin OC</td>
+                    <td class="text-center" style="color: #a8a29e;">-</td>
+                    <td class="text-center">{{ d.cantidad_recibida }}</td>
+                    <td class="text-center">
+                        <span class="badge rounded-pill" 
+                              [ngClass]="{
+                                'bg-light text-muted border': d.estado === 'pendiente' || !d.estado,
+                                'bg-info text-white': d.estado === 'en_transito'
+                              }"
+                              style="font-size: 0.72rem; padding: 0.3em 0.6em;">
+                            {{ d.estado === 'en_transito' ? 'En tránsito' : 'Sin gestionar' }}
+                        </span>
+                    </td>
+                    <td class="text-center" style="font-size: 0.8rem;">
+                        {{ d.cantidad_solicitada > 0 ? (((d.cantidad_recibida || 0) / d.cantidad_solicitada) * 100 | number:'1.1-1') : '0.0' }}%
+                        <i class="bi bi-dash-circle ms-1" style="color: #d6d3d1;" *ngIf="!d.cantidad_recibida || d.cantidad_recibida === 0"></i>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-link btn-sm p-0 text-decoration-none" style="font-size: 0.75rem; color: #78716c;">Crear OC primero</button>
+                    </td>
+                </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+                <tr>
+                    <td colspan="9" class="text-center p-4 text-muted">No hay productos en este pedido</td>
+                </tr>
+            </ng-template>
+        </p-table>
+
+        <!-- Sección Trazabilidad -->
+        <div class="trazabilidad-section">
+            <div class="trazabilidad-header">
+                <h6 class="trazabilidad-title">Trazabilidad</h6>
+                <div class="trazabilidad-search">
+                    <i class="bi bi-search"></i>
+                    <input type="text" [(ngModel)]="trazabilidadSearch" (input)="filterTrazabilidad()" 
+                           placeholder="Buscar por cliente, fecha o estado">
+                </div>
+            </div>
+
+            <div class="timeline" *ngIf="filteredTrazabilidad.length > 0">
+                <div class="timeline-item" *ngFor="let traza of filteredTrazabilidad; let i = index" [style.animation-delay]="(i * 0.08) + 's'">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-card">
+                        <div class="timeline-card-header">
+                            <span class="timeline-status">{{ getStatusLabel(traza.estado) }}</span>
+                            <span class="timeline-date">{{ traza.created_at | date:'dd/MM/yyyy, hh:mm a' }}</span>
+                        </div>
+                        <div class="timeline-details">
+                            <span class="timeline-detail">
+                                <strong>Pedido:</strong> {{ currentOrder.numero_pedido }}
+                            </span>
+                            <span class="timeline-detail">
+                                <strong>Usuario:</strong> {{ traza.usuario?.name || 'Sistema' }}
+                            </span>
+                            <span class="timeline-detail">
+                                <strong>Comentarios:</strong> {{ traza.comentarios || '-' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="timeline-empty" *ngIf="filteredTrazabilidad.length === 0">
+                <i class="bi bi-clock-history"></i>
+                No hay registros de trazabilidad para este pedido
+            </div>
+        </div>
+    </div>
+</p-dialog>
+
+<!-- ========================================= -->
+<!-- Modal: Nuevo Pedido                       -->
+<!-- ========================================= -->
+<p-dialog 
+    header="Nuevo Pedido" 
+    [(visible)]="showNewOrderModal" 
+    [modal]="true" 
+    [style]="{width: '90vw', maxWidth: '1000px'}" 
+    [draggable]="false" 
+    [resizable]="false"
+    [dismissableMask]="true"
+>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Tipo pedido *</label>
+            <select [(ngModel)]="newOrder.order_type" class="form-select">
+                <option value="order_general">Pedido General</option>
+                <option value="order_spontaneous">Pedido Espontáneo</option>
+                <option value="order_urgencies">Pedido Urgencias</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Fecha pedido *</label>
+            <input type="datetime-local" [(ngModel)]="newOrder.order_date" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Observaciones</label>
+            <input type="text" [(ngModel)]="newOrder.observations" class="form-control" placeholder="Opcional...">
+        </div>
+    </div>
+
+    <div class="card bg-light border-0 mb-4">
+        <div class="card-body p-3">
+            <h6 class="mb-3 fw-bold"><i class="bi bi-box-seam me-2"></i>Agregar Producto Manualmente</h6>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Código</label>
+                    <input type="text" [(ngModel)]="newProduct.product_code" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small text-muted mb-1">Nombre</label>
+                    <input type="text" [(ngModel)]="newProduct.product_name" class="form-control">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small text-muted mb-1">Cant.</label>
+                    <input type="number" [(ngModel)]="newProduct.quantity" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100" (click)="addProduct()" [disabled]="!newProduct.product_code || !newProduct.quantity">
+                        <i class="bi bi-plus-lg"></i> Añadir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p-table [value]="newOrder.items" [scrollable]="true" scrollHeight="300px" styleClass="p-datatable-sm p-datatable-gridlines">
+        <ng-template pTemplate="header">
+            <tr>
+                <th style="width:150px">CÓDIGO</th>
+                <th>PRODUCTO</th>
+                <th style="width:100px; text-align:center">CANTIDAD</th>
+                <th style="width:80px; text-align:center">ACCIONES</th>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item let-i="rowIndex">
+            <tr>
+                <td><code>{{ item.product_code }}</code></td>
+                <td>{{ item.product_name }}</td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-center">
+                    <button pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-danger p-button-sm" (click)="removeProduct(i)"></button>
+                </td>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+            <tr>
+                <td colspan="4" class="text-center p-4 text-muted">
+                    No hay productos añadidos al pedido
+                </td>
+            </tr>
+        </ng-template>
+    </p-table>
+
+    <ng-template pTemplate="footer">
+        <button class="btn btn-light me-2" (click)="closeNewOrderModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveOrder()" [disabled]="newOrder.items.length === 0">Crear Pedido</button>
+    </ng-template>
+</p-dialog>

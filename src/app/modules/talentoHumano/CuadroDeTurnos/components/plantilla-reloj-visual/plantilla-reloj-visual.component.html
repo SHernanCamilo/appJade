@@ -1,0 +1,45 @@
+<div class="reloj-wrap" [class.reloj-vacio]="vacio || leyenda().length === 0">
+  <div class="reloj-header">
+    <i class="pi pi-clock"></i>
+    <span>{{ titulo }}</span>
+  </div>
+
+  <div class="reloj-body">
+    <svg viewBox="0 0 200 200" class="reloj-svg" aria-hidden="true">
+      <!-- Carcasa reloj de bolsillo -->
+      <circle [attr.cx]="100" [attr.cy]="100" [attr.r]="92" class="reloj-carcasa" />
+      <circle [attr.cx]="100" [attr.cy]="100" [attr.r]="84" class="reloj-esfera" />
+
+      <!-- Marcas horarias -->
+      @for (m of hourMarkPositions(); track m.h) {
+        <text [attr.x]="m.x" [attr.y]="m.y" class="reloj-marca" text-anchor="middle" dominant-baseline="middle">{{ m.h }}</text>
+      }
+
+      <!-- Arcos de turno -->
+      @for (arc of arcos(); track arc.etiqueta + arc.path) {
+        <path [attr.d]="arc.path" [attr.stroke]="arc.color" class="reloj-arco" />
+      }
+
+      <!-- Centro -->
+      <circle [attr.cx]="100" [attr.cy]="100" [attr.r]="22" class="reloj-centro" />
+      <text x="100" y="96" class="reloj-total-num" text-anchor="middle">{{ totalHoras() | number:'1.1-1' }}</text>
+      <text x="100" y="110" class="reloj-total-lbl" text-anchor="middle">horas</text>
+    </svg>
+
+    @if (vacio || leyenda().length === 0) {
+      <p class="reloj-placeholder">Selecciona una plantilla para ver el horario</p>
+    } @else {
+      <ul class="reloj-leyenda">
+        @for (r of leyenda(); track r.etiqueta + r.inicio) {
+          <li>
+            <span class="leyenda-dot" [style.background]="r.color"></span>
+            <span class="leyenda-text">
+              <strong>{{ r.etiqueta }}</strong>
+              <small>{{ formatHora(r.inicio) }} – {{ formatHora(r.fin) }}</small>
+            </span>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

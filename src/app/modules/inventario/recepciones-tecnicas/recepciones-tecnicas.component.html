@@ -1,0 +1,168 @@
+<div class="page-layout">
+    <header class="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="page-title"><i class="bi bi-box-seam"></i> Recepción Técnica</h1>
+            <p class="page-subtitle text-muted">Recepción y verificación de órdenes de compra confirmadas</p>
+        </div>
+    </header>
+
+    <div class="card card-soft">
+        <div class="card-header compact">
+            <div class="view-tabs">
+                <button class="view-tab" [class.active]="currentView === 'pending'" (click)="setView('pending')">
+                    Pendientes
+                </button>
+                <button class="view-tab" [class.active]="currentView === 'completed'" (click)="setView('completed')">
+                    Completadas
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="table table-enhanced">
+                <thead>
+                    <tr>
+                        <th>Número OC</th>
+                        <th>OC Indigo</th>
+                        <th>Fecha</th>
+                        <th>Creado por</th>
+                        <th class="text-center">Ítems</th>
+                        <th style="width: 200px;">Progreso</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody *ngIf="isLoading">
+                    <tr *ngFor="let i of [1,2,3,4]">
+                        <td><p-skeleton width="80px"></p-skeleton></td>
+                        <td><p-skeleton width="60px"></p-skeleton></td>
+                        <td><p-skeleton width="80px"></p-skeleton></td>
+                        <td><p-skeleton width="120px"></p-skeleton></td>
+                        <td><p-skeleton width="30px"></p-skeleton></td>
+                        <td><p-skeleton height="8px" borderRadius="4px"></p-skeleton></td>
+                        <td><p-skeleton width="80px"></p-skeleton></td>
+                    </tr>
+                </tbody>
+
+                <tbody *ngIf="!isLoading && currentView === 'pending'">
+                    <tr *ngFor="let p of comprasPendientes">
+                        <td><strong>{{ p.numero_orden_compra }}</strong></td>
+                        <td><span class="badge badge-secondary">{{ p.oc_indigo || '-' }}</span></td>
+                        <td>{{ p.fecha_orden | date:'shortDate' }}</td>
+                        <td>{{ p.creado_por_nombre }}</td>
+                        <td class="text-center">{{ p.total_items || 0 }}</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-fill bg-info" [style.width.%]="getProgress(p.items_recibidos, p.total_items)"></div>
+                                <span class="progress-text">{{ p.items_recibidos || 0 }}/{{ p.total_items || 0 }}</span>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <div class="action-buttons justify-content-center">
+                                <button *ngIf="p.estado === 'confirmado'" class="btn btn-info btn-sm text-white" (click)="confirmArrival(p.compra_id)" title="Llegó al sitio">
+                                    <i class="bi bi-truck me-1"></i> Llegó
+                                </button>
+                                <button *ngIf="p.estado === 'en_sitio'" class="btn btn-primary btn-sm" (click)="openExcelReception(p.compra_id)" title="Recepcionar ítems">
+                                    <i class="bi bi-clipboard-check me-1"></i> Recepcionar
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr *ngIf="comprasPendientes.length === 0">
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                            No hay compras pendientes de recepción
+                        </td>
+                    </tr>
+                </tbody>
+
+                <tbody *ngIf="!isLoading && currentView === 'completed'">
+                    <tr *ngFor="let p of comprasCompletadas">
+                        <td><strong>{{ p.numero_orden_compra }}</strong></td>
+                        <td><span class="badge badge-secondary">{{ p.oc_indigo || '-' }}</span></td>
+                        <td>{{ p.fecha_orden | date:'shortDate' }}</td>
+                        <td>{{ p.creado_por_nombre }}</td>
+                        <td class="text-center">{{ p.total_items || 0 }}</td>
+                        <td>
+                            <div class="progress-bar-container">
+                                <div class="progress-fill bg-success" [style.width.%]="getProgress(p.items_recibidos, p.total_items)"></div>
+                                <span class="progress-text">{{ p.items_recibidos || 0 }}/{{ p.total_items || 0 }}</span>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn-icon btn-primary" (click)="viewDetails(p.compra_id)" title="Ver detalle">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr *ngIf="comprasCompletadas.length === 0">
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                            No hay recepciones completadas
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalles de Recepción -->
+<div class="modal" [class.active]="showDetailsModal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 class="modal-title">Recepción Técnica - OC {{ currentReception?.numero_orden_compra || '...' }}</h3>
+            <button class="modal-close" (click)="closeDetailsModal()"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div *ngIf="isLoadingDetails" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+
+            <div class="table-container border rounded" *ngIf="!isLoadingDetails">
+                <table class="table table-enhanced mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center">Recibido</th>
+                            <th>Producto</th>
+                            <th class="text-center">Cant. OC</th>
+                            <th class="text-center">Cant. Recibida</th>
+                            <th>Lote</th>
+                            <th>Vencimiento</th>
+                            <th>CUM</th>
+                            <th class="text-center">Concepto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let item of currentDetails">
+                            <td class="text-center">
+                                <i class="bi" [ngClass]="(item.cantidad_recibida || 0) > 0 ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-muted'"></i>
+                            </td>
+                            <td>
+                                <strong>{{ item.producto_nombre }}</strong><br>
+                                <small class="text-muted">{{ item.codigo_producto }}</small>
+                            </td>
+                            <td class="text-center">{{ item.cantidad_solicitada_compra }}</td>
+                            <td class="text-center fw-bold">{{ item.cantidad_recibida || 0 }}</td>
+                            <td>{{ item.numero_lote || '-' }}</td>
+                            <td>{{ item.fecha_vencimiento | date:'shortDate' }}</td>
+                            <td>{{ item.codigo_sanitario || '-' }}</td>
+                            <td class="text-center">
+                                <span class="badge" [ngClass]="item.concepto_recepcion === 'aceptado' ? 'badge-success' : (item.concepto_recepcion === 'rechazado' ? 'badge-danger' : 'badge-secondary')">
+                                    {{ item.concepto_recepcion || 'Pendiente' }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr *ngIf="currentDetails.length === 0">
+                            <td colspan="8" class="text-center text-muted">No se encontraron ítems recibidos</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" (click)="closeDetailsModal()">Cerrar</button>
+        </div>
+    </div>
+</div>
