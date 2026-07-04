@@ -36,8 +36,8 @@ export class PlantillaService {
 
   // Obtener todas las plantillas
   getPlantillas(params?: { id_empresa?: number; estado?: boolean }): Observable<Plantilla[]> {
-    return this.http.get<any>(this.apiUrl, { params: params as any }).pipe(
-      map(response => response.success ? response.data : [])
+    return this.http.get<{ success: boolean; data: Plantilla[]; message?: string }>(this.apiUrl, { params: params as Record<string, string | number | boolean> }).pipe(
+      map(response => (response.success && Array.isArray(response.data)) ? response.data : [])
     );
   }
 

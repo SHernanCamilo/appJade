@@ -10,7 +10,7 @@
         Volver
       </button>
     </div>
-    
+
     <div class="header-main">
       <div class="header-title-section">
         <h1 class="page-title-modern">
@@ -19,23 +19,17 @@
         </h1>
         <p class="page-subtitle-modern">Gestiona las empresas del sistema</p>
       </div>
-      
+
       <div class="header-actions">
         <!-- Botón Crear Empresa - Solo visible en pestaña empresas y con permiso -->
         <ng-container *ngIf="activeTab === 'empresas'">
-          <button 
-            *hasPermission="'org-emp-crear'"
-            class="btn-action btn-action-primary"
-            (click)="toggleForm()">
+          <button *hasPermission="'org-emp-crear'" class="btn-action btn-action-primary" (click)="toggleForm()">
             <i class="pi" [ngClass]="showForm ? 'pi-times' : 'pi-plus'"></i>
             {{ showForm ? 'Cancelar' : 'Nueva Empresa' }}
           </button>
         </ng-container>
         <!-- Botón Nuevo Dominio - Solo visible en pestaña dominios -->
-        <button 
-          *ngIf="activeTab === 'dominios'"
-          class="btn-action btn-action-primary"
-          (click)="openDomainDialog()">
+        <button *ngIf="activeTab === 'dominios'" class="btn-action btn-action-primary" (click)="openDomainDialog()">
           <i class="pi pi-plus"></i>
           Nuevo Dominio
         </button>
@@ -45,27 +39,17 @@
 
   <!-- Tabs -->
   <div class="tabs-container">
-    <button 
-      class="tab-btn" 
-      [class.active]="activeTab === 'empresas'"
-      (click)="activeTab = 'empresas'">
+    <button class="tab-btn" [class.active]="activeTab === 'empresas'" (click)="activeTab = 'empresas'">
       <i class="bi bi-building me-2"></i>Empresas
     </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="activeTab === 'dominios'"
-      (click)="activeTab = 'dominios'; loadDomains()">
+    <button class="tab-btn" [class.active]="activeTab === 'dominios'" (click)="activeTab = 'dominios'; loadDomains()">
       <i class="bi bi-globe me-2"></i>Dominios
     </button>
   </div>
 
-  <p-dialog 
-    [(visible)]="showForm" 
-    [header]="editMode ? 'Editar Empresa' : 'Nueva Empresa'" 
-    [modal]="true" 
-    [style]="{width: '50vw'}"
-    [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
-    
+  <p-dialog [(visible)]="showForm" [header]="editMode ? 'Editar Empresa' : 'Nueva Empresa'" [modal]="true"
+    [style]="{width: '50vw'}" [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
+
     <form [formGroup]="empresaForm" (ngSubmit)="onSubmit()">
       <div class="p-fluid">
         <h6 class="section-subtitle">
@@ -76,26 +60,20 @@
           <div class="row">
             <div class="col-md-8 mb-3">
               <label for="nombre">Nombre de la Empresa *</label>
-              <input 
-                pInputText 
-                id="nombre" 
-                formControlName="nombre"
-                placeholder="Ej: Empresa ABC S.A.S"
+              <input pInputText id="nombre" formControlName="nombre" placeholder="Ej: Empresa ABC S.A.S"
                 [class.ng-invalid]="empresaForm.get('nombre')?.invalid && empresaForm.get('nombre')?.touched">
-              <small class="p-error" *ngIf="empresaForm.get('nombre')?.hasError('required') && empresaForm.get('nombre')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('nombre')?.hasError('required') && empresaForm.get('nombre')?.touched">
                 El nombre es obligatorio
               </small>
             </div>
 
             <div class="col-md-4 mb-3">
               <label for="prefijo">Prefijo *</label>
-              <input 
-                pInputText 
-                id="prefijo" 
-                formControlName="prefijo"
-                placeholder="Ej: ABC"
+              <input pInputText id="prefijo" formControlName="prefijo" placeholder="Ej: ABC"
                 [class.ng-invalid]="empresaForm.get('prefijo')?.invalid && empresaForm.get('prefijo')?.touched">
-              <small class="p-error" *ngIf="empresaForm.get('prefijo')?.hasError('required') && empresaForm.get('prefijo')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('prefijo')?.hasError('required') && empresaForm.get('prefijo')?.touched">
                 El prefijo es obligatorio
               </small>
             </div>
@@ -104,30 +82,24 @@
           <div class="row">
             <div class="col-md-6 mb-3 field-container">
               <label for="nit">NIT *</label>
-              <p-inputNumber 
-                id="nit" 
-                formControlName="nit"
-                placeholder="900123456"
-                [useGrouping]="false"
+              <p-inputNumber id="nit" formControlName="nit" placeholder="900123456" [useGrouping]="false"
                 styleClass="w-100"
                 [class.ng-invalid]="empresaForm.get('nit')?.invalid && empresaForm.get('nit')?.touched">
               </p-inputNumber>
-              <small class="p-error" *ngIf="empresaForm.get('nit')?.hasError('required') && empresaForm.get('nit')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('nit')?.hasError('required') && empresaForm.get('nit')?.touched">
                 El NIT es obligatorio
               </small>
             </div>
 
             <div class="col-md-6 mb-3 field-container">
               <label for="telefono">Teléfono *</label>
-              <p-inputNumber 
-                id="telefono" 
-                formControlName="telefono"
-                placeholder="3001234567"
-                [useGrouping]="false"
+              <p-inputNumber id="telefono" formControlName="telefono" placeholder="3001234567" [useGrouping]="false"
                 styleClass="w-100"
                 [class.ng-invalid]="empresaForm.get('telefono')?.invalid && empresaForm.get('telefono')?.touched">
               </p-inputNumber>
-              <small class="p-error" *ngIf="empresaForm.get('telefono')?.hasError('required') && empresaForm.get('telefono')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('telefono')?.hasError('required') && empresaForm.get('telefono')?.touched">
                 El teléfono es obligatorio
               </small>
             </div>
@@ -136,30 +108,23 @@
           <div class="row">
             <div class="col-md-6 mb-3 field-container">
               <label for="direccion">Dirección *</label>
-              <input 
-                pInputText 
-                id="direccion" 
-                formControlName="direccion"
-                placeholder="Ej: Calle 123 #45-67"
+              <input pInputText id="direccion" formControlName="direccion" placeholder="Ej: Calle 123 #45-67"
                 [class.ng-invalid]="empresaForm.get('direccion')?.invalid && empresaForm.get('direccion')?.touched">
-              <small class="p-error" *ngIf="empresaForm.get('direccion')?.hasError('required') && empresaForm.get('direccion')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('direccion')?.hasError('required') && empresaForm.get('direccion')?.touched">
                 La dirección es obligatoria
               </small>
             </div>
 
             <div class="col-md-6 mb-3 field-container">
               <label for="logo">Logo (URL)</label>
-              <input 
-                pInputText 
-                id="logo" 
-                formControlName="logo"
-                placeholder="https://ejemplo.com/logo.png">
+              <input pInputText id="logo" formControlName="logo" placeholder="https://ejemplo.com/logo.png">
             </div>
           </div>
         </div>
-        
 
-        
+
+
         <h6 class="section-subtitle">
           Información del Represnetante Legal
         </h6>
@@ -167,28 +132,22 @@
           <div class="row">
             <div class="col-md-6 mb-3">
               <label for="rep_legal">Representante Legal *</label>
-              <input 
-                pInputText 
-                id="rep_legal" 
-                formControlName="rep_legal"
-                placeholder="Nombre completo"
+              <input pInputText id="rep_legal" formControlName="rep_legal" placeholder="Nombre completo"
                 [class.ng-invalid]="empresaForm.get('rep_legal')?.invalid && empresaForm.get('rep_legal')?.touched">
-              <small class="p-error" *ngIf="empresaForm.get('rep_legal')?.hasError('required') && empresaForm.get('rep_legal')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('rep_legal')?.hasError('required') && empresaForm.get('rep_legal')?.touched">
                 El representante legal es obligatorio
               </small>
             </div>
 
             <div class="col-md-6 mb-3 field-container">
               <label for="cc_rep_legal">Cédula Representante Legal *</label>
-              <p-inputNumber 
-                id="cc_rep_legal" 
-                formControlName="cc_rep_legal"
-                placeholder="1234567890"
-                [useGrouping]="false"
-                styleClass="w-100"
+              <p-inputNumber id="cc_rep_legal" formControlName="cc_rep_legal" placeholder="1234567890"
+                [useGrouping]="false" styleClass="w-100"
                 [class.ng-invalid]="empresaForm.get('cc_rep_legal')?.invalid && empresaForm.get('cc_rep_legal')?.touched">
               </p-inputNumber>
-              <small class="p-error" *ngIf="empresaForm.get('cc_rep_legal')?.hasError('required') && empresaForm.get('cc_rep_legal')?.touched">
+              <small class="p-error"
+                *ngIf="empresaForm.get('cc_rep_legal')?.hasError('required') && empresaForm.get('cc_rep_legal')?.touched">
                 La cédula es obligatoria
               </small>
             </div>
@@ -197,229 +156,248 @@
       </div>
 
       <div class="d-flex justify-content-end gap-2 mt-4">
-        <p-button 
-          label="Cancelar" 
-          icon="pi pi-times" 
-          (onClick)="toggleForm()"
-          styleClass="p-button-text">
+        <p-button label="Cancelar" icon="pi pi-times" (onClick)="toggleForm()" styleClass="p-button-text">
         </p-button>
-        <p-button 
-          [label]="editMode ? 'Actualizar' : 'Crear Empresa'" 
-          icon="pi pi-check" 
-          type="submit"
-          [disabled]="empresaForm.invalid || isSubmitting"
-          [loading]="isSubmitting">
+        <p-button [label]="editMode ? 'Actualizar' : 'Crear Empresa'" icon="pi pi-check" type="submit"
+          [disabled]="empresaForm.invalid || isSubmitting" [loading]="isSubmitting">
         </p-button>
       </div>
     </form>
   </p-dialog>
 
   <div class="content-card" *ngIf="activeTab === 'empresas'">
-    <app-data-table
-      [value]="empresas"
-      [columns]="columns"
-      [loading]="isLoading"
-      title="Lista de Empresas"
-      titleIcon="bi bi-building"
-      [showGlobalSearch]="canSearch()"
-      [globalFilterFields]="['nombre', 'nit', 'prefijo', 'rep_legal', 'telefono']"
+    <p-table #dt [value]="empresas" [paginator]="true" [rows]="10" [showCurrentPageReport]="true"
+      [rowsPerPageOptions]="[10, 25, 50]" [loading]="isLoading" [globalFilterFields]="['nombre', 'nit', 'prefijo']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} empresas"
-      actionsWidth="180px"
-      emptyMessage="No hay empresas registradas">
+      [tableStyle]="{'min-width': '50rem'}">
 
-      <ng-template pTemplate="cell-nombre" let-row>
-        <div class="d-flex align-items-center gap-2">
-          <p-avatar
-            *ngIf="!row.logo"
-            [label]="getInitials(row.nombre)"
-            styleClass="mr-2"
-            size="normal"
-            [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
-          </p-avatar>
-          <img
-            *ngIf="row.logo"
-            [src]="row.logo"
-            [alt]="row.nombre"
-            style="width: 40px; height: 40px; object-fit: contain; margin-right: 8px;">
-          <span class="fw-semibold">{{ row.nombre }}</span>
+      <ng-template pTemplate="caption">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-building me-2"></i>
+            Lista de Empresas
+            <p-tag [value]="empresas.length.toString()" styleClass="ml-2"></p-tag>
+          </h5>
+          <!-- Buscador - Solo visible con permiso -->
+          <span class="p-input-icon-left" *hasPermission="'org-emp-buscar'">
+            <input pInputText type="text" (input)="onGlobalFilter($event)" placeholder="Buscar..." />
+          </span>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="cell-prefijo" let-row>
-        <p-tag [value]="row.prefijo" severity="info"></p-tag>
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="nombre">
+            Empresa <p-sortIcon field="nombre"></p-sortIcon>
+          </th>
+          <th pSortableColumn="nit">
+            NIT <p-sortIcon field="nit"></p-sortIcon>
+          </th>
+          <th pSortableColumn="prefijo">
+            Prefijo <p-sortIcon field="prefijo"></p-sortIcon>
+          </th>
+          <th>Representante Legal</th>
+          <th>Contacto</th>
+          <th>Estado</th>
+          <th style="width: 150px">Acciones</th>
+        </tr>
       </ng-template>
 
-      <ng-template pTemplate="cell-rep_legal" let-row>
-        <div>
-          <div class="fw-semibold">{{ row.rep_legal }}</div>
-          <small class="text-muted">CC: {{ row.cc_rep_legal }}</small>
-        </div>
+      <ng-template pTemplate="body" let-empresa>
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <p-avatar *ngIf="!empresa.logo" [label]="getInitials(empresa.nombre)" styleClass="mr-2" size="normal"
+                [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
+              </p-avatar>
+              <img *ngIf="empresa.logo" [src]="empresa.logo" [alt]="empresa.nombre"
+                style="width: 40px; height: 40px; object-fit: contain; margin-right: 8px;">
+              <span class="fw-semibold">{{ empresa.nombre }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="text-muted">{{ empresa.nit }}</span>
+          </td>
+          <td>
+            <p-tag [value]="empresa.prefijo" severity="info"></p-tag>
+          </td>
+          <td>
+            <div>
+              <div class="fw-semibold">{{ empresa.rep_legal }}</div>
+              <small class="text-muted">CC: {{ empresa.cc_rep_legal }}</small>
+            </div>
+          </td>
+          <td>
+            <div>
+              <div><i class="pi pi-phone me-1"></i>{{ empresa.telefono }}</div>
+              <small class="text-muted">{{ empresa.direccion }}</small>
+            </div>
+          </td>
+          <td>
+            <p-tag [value]="empresa.estado === 1 ? 'Activo' : 'Inactivo'"
+              [severity]="empresa.estado === 1 ? 'success' : 'danger'">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <!-- Botón Editar - Solo visible con permiso -->
+              <p-button *hasPermission="'org-emp-editar'" icon="pi pi-pencil"
+                styleClass="p-button-rounded p-button-text p-button-info" (onClick)="editEmpresa(empresa)"
+                pTooltip="Editar" tooltipPosition="top">
+              </p-button>
+              <!-- Botón Activar/Desactivar - Solo visible con permiso -->
+              <p-button *hasPermission="'org-emp-toggle-estado'"
+                [icon]="empresa.estado === 1 ? 'pi pi-ban' : 'pi pi-check'"
+                styleClass="p-button-rounded p-button-text p-button-warning" (onClick)="toggleEstado(empresa)"
+                [pTooltip]="empresa.estado === 1 ? 'Desactivar' : 'Activar'" tooltipPosition="top">
+              </p-button>
+              <!-- Botón Eliminar - Solo visible con permiso -->
+              <p-button *hasPermission="'org-emp-eliminar'" icon="pi pi-trash"
+                styleClass="p-button-rounded p-button-text p-button-danger" (onClick)="deleteEmpresa(empresa)"
+                pTooltip="Eliminar" tooltipPosition="top">
+              </p-button>
+            </div>
+          </td>
+        </tr>
       </ng-template>
 
-      <ng-template pTemplate="cell-telefono" let-row>
-        <div>
-          <div><i class="pi pi-phone me-1"></i>{{ row.telefono }}</div>
-          <small class="text-muted">{{ row.direccion }}</small>
-        </div>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay empresas registradas</p>
+            <!-- Botón crear primera empresa - Solo visible con permiso -->
+            <p-button *hasPermission="'org-emp-crear'" label="Crear Primera Empresa" icon="pi pi-plus"
+              (onClick)="toggleForm()">
+            </p-button>
+            <!-- Mensaje si no tiene permiso para crear -->
+            <p *ngIf="!canCreate()" class="text-muted mt-2">
+              <i class="pi pi-lock me-1"></i>
+              No tienes permisos para crear empresas
+            </p>
+          </td>
+        </tr>
       </ng-template>
-
-      <ng-template pTemplate="cell-estado" let-row>
-        <p-tag
-          [value]="row.estado === 1 ? 'Activo' : 'Inactivo'"
-          [severity]="row.estado === 1 ? 'success' : 'danger'">
-        </p-tag>
-      </ng-template>
-
-      <ng-template pTemplate="actions" let-row>
-        <div class="d-flex gap-2">
-          <p-button
-            *hasPermission="'org-emp-editar'"
-            icon="pi pi-pencil"
-            styleClass="p-button-rounded p-button-text p-button-info"
-            (onClick)="editEmpresa(row)"
-            pTooltip="Editar"
-            tooltipPosition="top">
-          </p-button>
-          <p-button
-            *hasPermission="'org-emp-toggle-estado'"
-            [icon]="row.estado === 1 ? 'pi pi-ban' : 'pi pi-check'"
-            styleClass="p-button-rounded p-button-text p-button-warning"
-            (onClick)="toggleEstado(row)"
-            [pTooltip]="row.estado === 1 ? 'Desactivar' : 'Activar'"
-            tooltipPosition="top">
-          </p-button>
-          <p-button
-            *hasPermission="'org-emp-eliminar'"
-            icon="pi pi-trash"
-            styleClass="p-button-rounded p-button-text p-button-danger"
-            (onClick)="deleteEmpresa(row)"
-            pTooltip="Eliminar"
-            tooltipPosition="top">
-          </p-button>
-        </div>
-      </ng-template>
-
-      <ng-template pTemplate="empty">
-        <i class="pi pi-building" style="font-size: 3rem; color: #94a3b8;"></i>
-        <p class="text-muted mt-3">No hay empresas registradas</p>
-        <p-button
-          *hasPermission="'org-emp-crear'"
-          label="Crear Primera Empresa"
-          icon="pi pi-plus"
-          (onClick)="toggleForm()">
-        </p-button>
-        <p *ngIf="!canCreate()" class="text-muted mt-2">
-          <i class="pi pi-lock me-1"></i>
-          No tienes permisos para crear empresas
-        </p>
-      </ng-template>
-    </app-data-table>
+    </p-table>
   </div>
 
   <!-- Tab: Dominios -->
   <div class="content-card" *ngIf="activeTab === 'dominios'">
-    <app-data-table
-      [value]="domains"
-      [columns]="domainColumns"
-      [loading]="loadingDomains"
-      title="Dominios Permitidos"
-      titleIcon="bi bi-globe"
-      [globalFilterFields]="['domain', 'tenant_name', 'tenant_id', 'empresa.nombre']"
+    <p-table #dtDomains [value]="domains" [paginator]="true" [rows]="10" [showCurrentPageReport]="true"
+      [rowsPerPageOptions]="[10, 25, 50]" [loading]="loadingDomains"
+      [globalFilterFields]="['domain', 'tenant_name', 'tenant_id']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} dominios"
-      actionsWidth="180px"
-      emptyMessage="No hay dominios registrados">
+      [tableStyle]="{'min-width': '50rem'}">
 
-      <ng-template pTemplate="cell-domain" let-row>
-        <div class="d-flex align-items-center gap-2">
-          <p-avatar
-            label="@"
-            styleClass="mr-2"
-            size="normal"
-            [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
-          </p-avatar>
-          <code class="domain-code">{{ row.domain }}</code>
+      <ng-template pTemplate="caption">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-globe me-2"></i>
+            Dominios Permitidos
+            <p-tag [value]="domains.length.toString()" styleClass="ml-2"></p-tag>
+          </h5>
+          <span class="p-input-icon-left">
+            <i class="pi pi-search"></i>
+            <input pInputText type="text" (input)="onGlobalFilterDomains($event)" placeholder="Buscar..." />
+          </span>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="cell-empresa.nombre" let-row>
-        <p-tag
-          *ngIf="row.empresa"
-          [value]="row.empresa.nombre"
-          severity="info">
-        </p-tag>
-        <span *ngIf="!row.empresa" class="text-muted">Sin asignar</span>
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="domain">
+            Dominio <p-sortIcon field="domain"></p-sortIcon>
+          </th>
+          <th pSortableColumn="tenant_id">
+            Tenant ID <p-sortIcon field="tenant_id"></p-sortIcon>
+          </th>
+          <th pSortableColumn="tenant_name">
+            Tenant Name <p-sortIcon field="tenant_name"></p-sortIcon>
+          </th>
+          <th>Empresa</th>
+          <th>Descripción</th>
+          <th>Estado</th>
+          <th style="width: 150px">Acciones</th>
+        </tr>
       </ng-template>
 
-      <ng-template pTemplate="cell-activo" let-row>
-        <p-tag
-          [value]="row.activo ? 'Activo' : 'Inactivo'"
-          [severity]="row.activo ? 'success' : 'danger'">
-        </p-tag>
+      <ng-template pTemplate="body" let-domain>
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <p-avatar label="&#64;" styleClass="mr-2" size="normal"
+                [style]="{'background-color':'#3b82f6', 'color': '#ffffff'}">
+              </p-avatar>
+              <code class="domain-code">{{ domain.domain }}</code>
+            </div>
+          </td>
+          <td>
+            <span class="text-muted">{{ domain.tenant_id }}</span>
+          </td>
+          <td>
+            <span class="fw-semibold">{{ domain.tenant_name }}</span>
+          </td>
+          <td>
+            <p-tag *ngIf="domain.empresa" [value]="domain.empresa.nombre" severity="info">
+            </p-tag>
+            <span *ngIf="!domain.empresa" class="text-muted">Sin asignar</span>
+          </td>
+          <td>
+            <span class="text-muted">{{ domain.descripcion || '-' }}</span>
+          </td>
+          <td>
+            <p-tag [value]="domain.activo ? 'Activo' : 'Inactivo'" [severity]="domain.activo ? 'success' : 'danger'">
+            </p-tag>
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <p-button icon="pi pi-pencil" styleClass="p-button-rounded p-button-text p-button-info"
+                (onClick)="openDomainDialog(domain)" pTooltip="Editar" tooltipPosition="top">
+              </p-button>
+              <p-button icon="pi pi-ban" styleClass="p-button-rounded p-button-text p-button-warning"
+                (onClick)="toggleDomainStatus(domain)" [pTooltip]="domain.activo ? 'Desactivar' : 'Activar'"
+                tooltipPosition="top">
+              </p-button>
+              <p-button icon="pi pi-trash" styleClass="p-button-rounded p-button-text p-button-danger"
+                (onClick)="deleteDomain(domain)" pTooltip="Eliminar" tooltipPosition="top">
+              </p-button>
+            </div>
+          </td>
+        </tr>
       </ng-template>
 
-      <ng-template pTemplate="actions" let-row>
-        <div class="d-flex gap-2">
-          <p-button
-            icon="pi pi-pencil"
-            styleClass="p-button-rounded p-button-text p-button-info"
-            (onClick)="openDomainDialog(row)"
-            pTooltip="Editar"
-            tooltipPosition="top">
-          </p-button>
-          <p-button
-            icon="pi pi-ban"
-            styleClass="p-button-rounded p-button-text p-button-warning"
-            (onClick)="toggleDomainStatus(row)"
-            [pTooltip]="row.activo ? 'Desactivar' : 'Activar'"
-            tooltipPosition="top">
-          </p-button>
-          <p-button
-            icon="pi pi-trash"
-            styleClass="p-button-rounded p-button-text p-button-danger"
-            (onClick)="deleteDomain(row)"
-            pTooltip="Eliminar"
-            tooltipPosition="top">
-          </p-button>
-        </div>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7" class="text-center py-5">
+            <i class="pi pi-globe" style="font-size: 3rem; color: #94a3b8;"></i>
+            <p class="text-muted mt-3">No hay dominios registrados</p>
+            <p-button label="Crear Primer Dominio" icon="pi pi-plus" (onClick)="openDomainDialog()">
+            </p-button>
+          </td>
+        </tr>
       </ng-template>
-
-      <ng-template pTemplate="empty">
-        <i class="pi pi-globe" style="font-size: 3rem; color: #94a3b8;"></i>
-        <p class="text-muted mt-3">No hay dominios registrados</p>
-        <p-button
-          label="Crear Primer Dominio"
-          icon="pi pi-plus"
-          (onClick)="openDomainDialog()">
-        </p-button>
-      </ng-template>
-    </app-data-table>
+    </p-table>
   </div>
 
   <!-- Modal para crear/editar dominio -->
-  <p-dialog 
-    [(visible)]="showDomainDialog" 
-    [header]="editingDomain ? 'Editar Dominio' : 'Nuevo Dominio'" 
-    [modal]="true" 
-    [style]="{width: '50vw'}"
-    [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
-    
+  <p-dialog [(visible)]="showDomainDialog" [header]="editingDomain ? 'Editar Dominio' : 'Nuevo Dominio'" [modal]="true"
+    [style]="{width: '50vw'}" [breakpoints]="{'960px': '75vw', '640px': '90vw'}">
+
     <form [formGroup]="domainForm" (ngSubmit)="saveDomain()">
       <div class="p-fluid">
         <div class="mb-3">
           <label for="domain">Dominio *</label>
           <div class="p-inputgroup">
             <span class="p-inputgroup-addon">&#64;</span>
-            <input 
-              pInputText 
-              id="domain" 
-              formControlName="domain"
-              placeholder="ejemplo.com"
+            <input pInputText id="domain" formControlName="domain" placeholder="ejemplo.com"
               [class.ng-invalid]="domainForm.get('domain')?.invalid && domainForm.get('domain')?.touched">
           </div>
-          <small class="p-error" *ngIf="domainForm.get('domain')?.hasError('required') && domainForm.get('domain')?.touched">
+          <small class="p-error"
+            *ngIf="domainForm.get('domain')?.hasError('required') && domainForm.get('domain')?.touched">
             El dominio es obligatorio
           </small>
-          <small class="p-error" *ngIf="domainForm.get('domain')?.hasError('pattern') && domainForm.get('domain')?.touched">
+          <small class="p-error"
+            *ngIf="domainForm.get('domain')?.hasError('pattern') && domainForm.get('domain')?.touched">
             Formato de dominio inválido
           </small>
         </div>
@@ -427,26 +405,21 @@
         <div class="row">
           <div class="col-md-6 mb-3">
             <label for="tenant_id">Tenant ID *</label>
-            <input 
-              pInputText 
-              id="tenant_id" 
-              formControlName="tenant_id"
+            <input pInputText id="tenant_id" formControlName="tenant_id"
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               [class.ng-invalid]="domainForm.get('tenant_id')?.invalid && domainForm.get('tenant_id')?.touched">
-            <small class="p-error" *ngIf="domainForm.get('tenant_id')?.hasError('required') && domainForm.get('tenant_id')?.touched">
+            <small class="p-error"
+              *ngIf="domainForm.get('tenant_id')?.hasError('required') && domainForm.get('tenant_id')?.touched">
               El Tenant ID es obligatorio
             </small>
           </div>
 
           <div class="col-md-6 mb-3">
             <label for="tenant_name">Tenant Name *</label>
-            <input 
-              pInputText 
-              id="tenant_name" 
-              formControlName="tenant_name"
-              placeholder="Nombre del Tenant"
+            <input pInputText id="tenant_name" formControlName="tenant_name" placeholder="Nombre del Tenant"
               [class.ng-invalid]="domainForm.get('tenant_name')?.invalid && domainForm.get('tenant_name')?.touched">
-            <small class="p-error" *ngIf="domainForm.get('tenant_name')?.hasError('required') && domainForm.get('tenant_name')?.touched">
+            <small class="p-error"
+              *ngIf="domainForm.get('tenant_name')?.hasError('required') && domainForm.get('tenant_name')?.touched">
               El Tenant Name es obligatorio
             </small>
           </div>
@@ -454,15 +427,8 @@
 
         <div class="mb-3">
           <label for="id_empresa">Empresa</label>
-          <p-dropdown 
-            id="id_empresa"
-            formControlName="id_empresa"
-            [options]="empresas"
-            optionLabel="nombre"
-            optionValue="id"
-            placeholder="Seleccione una empresa"
-            [showClear]="true"
-            styleClass="w-100">
+          <p-dropdown id="id_empresa" formControlName="id_empresa" [options]="empresas" optionLabel="nombre"
+            optionValue="id" placeholder="Seleccione una empresa" [showClear]="true" styleClass="w-100">
           </p-dropdown>
           <small class="form-text text-muted">
             Opcional: Asociar este dominio a una empresa específica
@@ -471,36 +437,21 @@
 
         <div class="mb-3">
           <label for="descripcion">Descripción</label>
-          <textarea 
-            class="form-control"
-            id="descripcion" 
-            formControlName="descripcion"
-            rows="2"
+          <textarea class="form-control" id="descripcion" formControlName="descripcion" rows="2"
             placeholder="Descripción opcional del dominio">
           </textarea>
         </div>
 
         <div class="mb-3">
-          <p-checkbox 
-            formControlName="activo" 
-            [binary]="true" 
-            inputId="activo"
-            label="Activo">
+          <p-checkbox formControlName="activo" [binary]="true" inputId="activo" label="Activo">
           </p-checkbox>
         </div>
       </div>
 
       <div class="d-flex justify-content-end gap-2 mt-4">
-        <p-button 
-          label="Cancelar" 
-          icon="pi pi-times" 
-          (onClick)="closeDomainDialog()"
-          styleClass="p-button-text">
+        <p-button label="Cancelar" icon="pi pi-times" (onClick)="closeDomainDialog()" styleClass="p-button-text">
         </p-button>
-        <p-button 
-          [label]="editingDomain ? 'Actualizar' : 'Crear Dominio'" 
-          icon="pi pi-check" 
-          type="submit"
+        <p-button [label]="editingDomain ? 'Actualizar' : 'Crear Dominio'" icon="pi pi-check" type="submit"
           [disabled]="domainForm.invalid">
         </p-button>
       </div>

@@ -1,132 +1,111 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { ButtonModule } from 'primeng/button';
 import { DropdownModule } from 'primeng/dropdown';
-import { DialogModule } from 'primeng/dialog';
-import { InputTextModule } from 'primeng/inputtext';
-import { CheckboxModule } from 'primeng/checkbox';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { TagModule } from 'primeng/tag';
-import { SkeletonModule } from 'primeng/skeleton';
-import { OverlayPanelModule } from 'primeng/overlaypanel';
 import { MessageService } from 'primeng/api';
+import { FullCalendarModule, FullCalendarComponent } from '@fullcalendar/angular';
+import { CalendarOptions, EventClickArg, EventContentArg } from '@fullcalendar/core';
+import { DateClickArg } from '@fullcalendar/interaction';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
-import { CalculoHorasService, CuadroMesEmpleado, DesgloseDia, Festivo } from '../services/calculo-horas.service';
+import { CalculoHorasService, Festivo, TurnoEmpleado } from '../services/calculo-horas.service';
 import { PlantillaService, Plantilla } from '../services/plantilla.service';
 import { AsignacionService } from '../services/asignacion.service';
-import { PermissionService } from '../../../../core/services/permission.service';
+import { CuadroService } from '../services/cuadro.service';
 import { environment } from '../../../../environments/environment';
+import {
+  AsignacionBulkPayload, AsignacionMasivaResponse, CalendarTurnoEvent,
+  DropdownOption, EmpleadoTurno, EMPTY_TURNO_EDIT_FORM, TurnoEditForm,
+  UnidadFuncionalTurno, buildUnidadLabel
+} from '../models/cuadro-turnos.models';
+import { hexToRgba } from '../utils/horario.util';
+import { filtrarFestivosPorMes, fechasFestivoSet, normalizarFechaFestivo } from '../utils/festivo.util';
+import { TurnoEmpleadosPanelComponent } from '../components/turno-empleados-panel/turno-empleados-panel.component';
+import { TurnoAsignacionDialogComponent } from '../components/turno-asignacion-dialog/turno-asignacion-dialog.component';
 
-interface Empleado {
-  id: number;
-  nombre: string;
-}
-
-interface DiaCalendario {
-  fecha: string;            // YYYY-MM-DD
-  numero: number;           // día del mes
-  esDelMes: boolean;        // false si es relleno (mes anterior/siguiente)
-  esHoy: boolean;
-  esDomingo: boolean;
-  esFestivo: boolean;
-  nombreFestivo?: string;
-  turno?: any;              // turno del empleado en ese día (si existe)
-  desglose?: DesgloseDia;
-}
+type EmptyStateKind = 'uf' | 'empleados' | 'seleccion' | null;
 
 @Component({
   selector: 'app-cuadro-mes-empleado',
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule,
-    ButtonModule, DropdownModule, DialogModule, InputTextModule,
-    CheckboxModule, ToastModule, TooltipModule, TagModule, SkeletonModule, OverlayPanelModule
+    ButtonModule, DropdownModule, ToastModule, TooltipModule, FullCalendarModule,
+    TurnoEmpleadosPanelComponent, TurnoAsignacionDialogComponent
   ],
   providers: [MessageService],
   templateUrl: './cuadro-mes-empleado.component.html',
   styleUrls: ['./cuadro-mes-empleado.component.css']
 })
 export class CuadroMesEmpleadoComponent implements OnInit {
+  unidadOptions: DropdownOption<UnidadFuncionalTurno>[] = [];
+  empleadoOptions = signal<DropdownOption<EmpleadoTurno>[]>([]);
+  plantillas = signal<Plantilla[]>([]);
+  empleadosCargados = signal(false);
 
-  // ───── EMPRESAS ─────
-  empresas: any[] = [];
-  empresasOptions: any[] = [];
-  selectedEmpresa: number | null = null;
+  selectedUnidad = signal<number | null>(null);
+  selectedEmpleadosIds = signal<number[]>([]);
+  idCuadroActual = signal<number | null>(null);
+  festivosMes = signal<Festivo[]>([]);
+  private festivoFechasSet = new Set<string>();
+  eventosMultiples = signal<CalendarTurnoEvent[]>([]);
+  isLoading = signal(false);
+  isSavingDay = signal(false);
+  showEditDialog = signal(false);
+  editForm = signal<TurnoEditForm>({ ...EMPTY_TURNO_EDIT_FORM });
 
-  // ───── SUCURSALES ─────
-  sucursalesOptions: any[] = [];
-  selectedSucursal: number | null = null;
-
-  // ───── SEDES ─────
-  sedesOptions: any[] = [];
-  selectedSede: number | null = null;
-
-  // ───── UNIDADES FUNCIONALES ─────
-  unidadesResponsable: any[] = [];
-  unidadOptions: any[] = [];
-  selectedUnidad: number | null = null;
-  unidadActual: any = null;
-
-  // ───── Filtros - EMPLEADOS ─────
-  empleados: any[] = [];
-  empleadoOptions: any[] = [];
-  selectedEmpleado: number | null = null;
-
-  // ───── CUADRO ACTUAL ─────
-  idCuadroActual: number | null = null;  // Se establece cuando selecciona unidad
-
-  mesOptions: { label: string; value: number }[] = [
+  mesOptions = [
     { label: 'Enero', value: 1 }, { label: 'Febrero', value: 2 }, { label: 'Marzo', value: 3 },
     { label: 'Abril', value: 4 }, { label: 'Mayo', value: 5 }, { label: 'Junio', value: 6 },
     { label: 'Julio', value: 7 }, { label: 'Agosto', value: 8 }, { label: 'Septiembre', value: 9 },
     { label: 'Octubre', value: 10 }, { label: 'Noviembre', value: 11 }, { label: 'Diciembre', value: 12 }
   ];
   anioOptions: { label: string; value: number }[] = [];
-  selectedMes = new Date().getMonth() + 1;
-  selectedAnio = new Date().getFullYear();
+  selectedMes = signal(new Date().getMonth() + 1);
+  selectedAnio = signal(new Date().getFullYear());
 
-  // ───── Calendario ─────
-  diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  calendario: DiaCalendario[] = [];
-  cuadro: CuadroMesEmpleado | null = null;
-  festivosMes: Festivo[] = [];
-  isLoading = false;
+  readonly modoMasivo = computed(() => this.selectedEmpleadosIds().length > 2);
 
-  // Día seleccionado (panel derecho)
-  diaSeleccionado: DiaCalendario | null = null;
+  readonly emptyState = computed<EmptyStateKind>(() => {
+    if (!this.selectedUnidad()) return 'uf';
+    if (!this.empleadosCargados()) return null;
+    if (this.empleadoOptions().length === 0) return 'empleados';
+    if (this.selectedEmpleadosIds().length === 0) return 'seleccion';
+    return null;
+  });
 
-  // ───── Modal de edición ─────
-  showEditDialog = false;
-  isSavingDay = false;
-  plantillas: Plantilla[] = [];
-  plantillaOptions: any[] = [];
+  calendarOptions: CalendarOptions = {
+    plugins: [dayGridPlugin, interactionPlugin],
+    initialView: 'dayGridMonth',
+    locale: 'es',
+    firstDay: 0,
+    headerToolbar: false,
+    initialDate: new Date(),
+    dateClick: (arg) => this.handleDateClick(arg),
+    eventClick: (arg) => this.handleEventClick(arg),
+    eventContent: (arg) => this.renderEventContent(arg),
+    dayCellClassNames: (arg) => this.claseCeldaFestivo(arg.date),
+    events: [],
+    height: '100%',
+    dayMaxEvents: false
+  };
 
-  // Modal de resumen
-  showResumenModal = false;
-
-  // Selector Mes/Año
-  modoSeleccionarAnio = false;
-  @ViewChild('mesAnioPanel') mesAnioPanel: any;
-
-  editForm = this.emptyEditForm();
-
-  // Getter para el nombre del empleado en el modal
-  get nombreEmpleadoResumen(): string {
-    if (!this.selectedEmpleado) return 'Usuario';
-    const empleado = this.empleados.find(e => e.id === this.selectedEmpleado);
-    return empleado?.nombre || 'Usuario';
-  }
+  @ViewChild('calendar') calendarComponent?: FullCalendarComponent;
 
   constructor(
     private calculoService: CalculoHorasService,
     private plantillaService: PlantillaService,
     private asignacionService: AsignacionService,
-    private permissionService: PermissionService,
+    private cuadroService: CuadroService,
     private http: HttpClient,
     private message: MessageService
   ) {}
@@ -134,694 +113,373 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   ngOnInit(): void {
     const y = new Date().getFullYear();
     for (let i = y - 1; i <= y + 1; i++) this.anioOptions.push({ label: String(i), value: i });
-
-    this.cargarEmpresas();
-    this.cargarPlantillas();
-    this.construirCalendario();
-  }
-
-  // ───── Control de acceso ─────
-  esTransversal = false;
-
-  // ═══════════════════════════════════════════════════════════
-  // CARGAR DATOS INICIALES — UN SOLO ENDPOINT
-  // ═══════════════════════════════════════════════════════════
-
-  cargarEmpresas(): void {
-    // 1. Cargar unidades del usuario (respeta roles)
-    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/unidades-funcionales/del-usuario`).subscribe({
-      next: (response) => {
-        this.unidadesResponsable = response.data || [];
-        const accessLevel = response.access_level;
-        this.esTransversal = (accessLevel === 'super_admin' || accessLevel === 'transversal');
-
-        // 2. Cargar empresas según el rol
-        this.http.get<any>(`${environment.URL_SERVICIOS}/contexto/empresas-disponibles`).subscribe({
-          next: (empResponse) => {
-            const empresasUsuario = empResponse.data || empResponse || [];
-
-            if (Array.isArray(empresasUsuario) && empresasUsuario.length > 0) {
-              // Usuario con empresas asignadas → mostrar sus empresas
-              this.empresas = empresasUsuario;
-              this.empresasOptions = empresasUsuario.map((e: any) => ({ label: e.nombre, value: e.id }));
-            } else if (this.esTransversal) {
-              // Transversal sin empresas → cargar todas
-              this.http.get<any>(`${environment.URL_SERVICIOS}/empresas-activas`).subscribe({
-                next: (r) => {
-                  this.empresas = r.data || [];
-                  this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
-                  this.autoSeleccionarEmpresa();
-                }
-              });
-              return;
-            }
-
-            this.autoSeleccionarEmpresa();
-          },
-          error: () => {
-            // Fallback: extraer empresas de unidades
-            const empresasMap = new Map<number, any>();
-            this.unidadesResponsable.forEach((u: any) => { if (u.empresa) empresasMap.set(u.empresa.id, u.empresa); });
-            this.empresas = Array.from(empresasMap.values());
-            this.empresasOptions = this.empresas.map(e => ({ label: e.nombre, value: e.id }));
-            this.autoSeleccionarEmpresa();
-          }
-        });
-      },
-      error: () => this.toastError('Error al cargar datos')
+    this.plantillaService.getPlantillas().subscribe({
+      next: ps => this.plantillas.set(ps ?? []),
+      error: () => this.toastWarn('No se pudieron cargar las plantillas de turno')
     });
+    this.cargarUnidadesResponsable();
   }
 
-  private autoSeleccionarEmpresa(): void {
-    if (this.empresasOptions.length >= 1) {
-      this.selectedEmpresa = this.empresasOptions[0].value;
-      setTimeout(() => this.onEmpresaChange(), 100);
+  renderEventContent(arg: EventContentArg): { html: string } {
+    if (arg.event.display === 'background') {
+      return {
+        html: `<div class="festivo-label">${arg.event.title}</div>`
+      };
     }
+
+    const props = arg.event.extendedProps as CalendarTurnoEvent['extendedProps'];
+    const color = props?.color_hex ?? '#3b82f6';
+    const code = props?.codigo ?? (props?.turno?.es_descanso ? 'D' : 'T');
+    const extra = props?.tieneEvento ? '<i class="pi pi-bolt" style="font-size:0.6rem;color:#f97316"></i>' : '';
+    const empName = arg.event.title.includes(':') ? arg.event.title.split(':')[0] : '';
+    const nameLine = this.selectedEmpleadosIds().length > 1 && empName
+      ? `<div class="evt-emp">${empName}</div>` : '';
+
+    return {
+      html: `
+        <div class="custom-event-content" style="color:${color}">
+          ${extra}
+          <span class="evt-code">${code}</span>
+          ${nameLine}
+        </div>`
+    };
   }
 
-  cargarUnidadesResponsable(): void { /* ya se cargan en cargarEmpresas */ }
-
-  onEmpresaChange(): void {
-    if (!this.selectedEmpresa) return;
-
-    this.selectedSucursal = null; this.sedesOptions = []; this.selectedSede = null;
-    this.unidadOptions = []; this.selectedUnidad = null;
-    this.empleados = []; this.empleadoOptions = []; this.selectedEmpleado = null;
-
-    if (this.esTransversal) {
-      // Transversal: traer TODAS las sucursales de la empresa
-      this.http.get<any>(`${environment.URL_SERVICIOS}/sucursales-por-empresa/${this.selectedEmpresa}`).subscribe({
-        next: (r) => {
-          const sucursales = Array.isArray(r) ? r : (r.data || []);
-          this.sucursalesOptions = sucursales.map((s: any) => ({ label: s.nombre, value: s.id }));
-          if (this.sucursalesOptions.length >= 1) {
-            this.selectedSucursal = this.sucursalesOptions[0].value;
-            setTimeout(() => this.onSucursalChange(), 100);
-          }
-        }
-      });
-    } else {
-      // Limitado: extraer sucursales de SUS unidades
-      const unidadesEmpresa = this.unidadesResponsable.filter(u => u.empresa?.id === this.selectedEmpresa);
-      const sucMap = new Map<number, any>();
-      unidadesEmpresa.forEach((u: any) => { if (u.sucursal) sucMap.set(u.sucursal.id, u.sucursal); });
-      this.sucursalesOptions = Array.from(sucMap.values()).map(s => ({ label: s.nombre, value: s.id }));
-      if (this.sucursalesOptions.length >= 1) {
-        this.selectedSucursal = this.sucursalesOptions[0].value;
-        setTimeout(() => this.onSucursalChange(), 100);
-      }
-    }
-  }
-
-  onSucursalChange(): void {
-    if (!this.selectedSucursal || !this.selectedEmpresa) return;
-
-    this.selectedSede = null; this.unidadOptions = []; this.selectedUnidad = null;
-    this.empleados = []; this.empleadoOptions = []; this.selectedEmpleado = null;
-
-    if (this.esTransversal) {
-      // Transversal: traer TODAS las sedes de la sucursal
-      this.http.get<any>(`${environment.URL_SERVICIOS}/sedes-por-sucursal/${this.selectedSucursal}`).subscribe({
-        next: (r) => {
-          const sedes = Array.isArray(r) ? r : (r.data || []);
-          this.sedesOptions = sedes.map((s: any) => ({ label: s.nombre, value: s.id }));
-          if (this.sedesOptions.length >= 1) {
-            this.selectedSede = this.sedesOptions[0].value;
-            setTimeout(() => this.onSedeChange(), 100);
-          } else {
-            this.cargarUnidadesPorFiltro();
-          }
-        }
-      });
-    } else {
-      // Limitado: extraer sedes de SUS unidades
-      const unidadesSuc = this.unidadesResponsable.filter(u =>
-        u.empresa?.id === this.selectedEmpresa && u.sucursal?.id === this.selectedSucursal
-      );
-      const sedeMap = new Map<number, any>();
-      unidadesSuc.forEach((u: any) => { if (u.sede) sedeMap.set(u.sede.id, u.sede); });
-      this.sedesOptions = Array.from(sedeMap.values()).map(s => ({ label: s.nombre, value: s.id }));
-      if (this.sedesOptions.length >= 1) {
-        this.selectedSede = this.sedesOptions[0].value;
-        setTimeout(() => this.onSedeChange(), 100);
-      } else {
-        // Sin sedes: mostrar unidades directamente
-        this.cargarUnidadesFiltradas(unidadesSuc);
-      }
-    }
-  }
-
-  onSedeChange(): void {
-    if (!this.selectedSede) return;
-
-    if (this.esTransversal) {
-      this.cargarUnidadesPorFiltro();
-    } else {
-      // Limitado: filtrar de SUS unidades
-      const unidadesSede = this.unidadesResponsable.filter(u =>
-        u.empresa?.id === this.selectedEmpresa
-        && u.sucursal?.id === this.selectedSucursal
-        && u.sede?.id === this.selectedSede
-      );
-      this.cargarUnidadesFiltradas(unidadesSede);
-    }
-  }
-
-  /**
-   * Carga unidades desde el backend (para transversal)
-   */
-  private cargarUnidadesPorFiltro(): void {
-    const params: any = { id_empresa: this.selectedEmpresa };
-    if (this.selectedSucursal) params.id_sucursal = this.selectedSucursal;
-    if (this.selectedSede) params.id_sede = this.selectedSede;
-
-    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/unidades-funcionales`, { params }).subscribe({
+  cargarUnidadesResponsable(): void {
+    this.http.get<{ success: boolean; data: UnidadFuncionalTurno[] }>(
+      `${environment.URL_SERVICIOS}/turnos/unidades-funcionales/del-usuario`
+    ).subscribe({
       next: (response) => {
-        this.cargarUnidadesFiltradas(response.data || []);
+        const list = response.data ?? [];
+        this.unidadOptions = list.map(u => ({ label: buildUnidadLabel(u), value: u.id, data: u }));
+        if (this.unidadOptions.length) {
+          this.selectedUnidad.set(this.unidadOptions[0].value);
+          this.onUnidadChange();
+        }
       },
-      error: () => {
-        this.unidadOptions = [];
-      }
+      error: () => this.toastError('Error al cargar unidades del usuario')
     });
-  }
-
-  private cargarUnidadesFiltradas(unidades: any[]): void {
-    this.unidadOptions = unidades.map(u => ({ label: u.nombre, value: u.id, data: u }));
-    this.selectedUnidad = null; this.unidadActual = null;
-    this.empleados = []; this.empleadoOptions = []; this.selectedEmpleado = null; this.cuadro = null;
-
-    if (this.unidadOptions.length >= 1) {
-      this.selectedUnidad = this.unidadOptions[0].value;
-      setTimeout(() => this.onUnidadChange(), 100);
-    }
   }
 
   onUnidadChange(): void {
-    if (!this.selectedUnidad) return;
-    const op = this.unidadOptions.find(u => u.value === this.selectedUnidad);
-    this.unidadActual = op?.data || null;
-    this.empleados = []; this.empleadoOptions = []; this.selectedEmpleado = null;
-    this.cuadro = null; this.diaSeleccionado = null; this.idCuadroActual = null;
-    if (!this.unidadActual) return;
-    this.asegurarCuadroUnidad();
-    this.cargarEmpleadosUnidad();
+    const id = this.selectedUnidad();
+    if (!id) return;
+
+    this.empleadoOptions.set([]);
+    this.empleadosCargados.set(false);
+    this.selectedEmpleadosIds.set([]);
+    this.idCuadroActual.set(null);
+    this.eventosMultiples.set([]);
+    this.actualizarEventosCalendario();
+
+    this.asegurarCuadroUnidad(id);
+    this.cargarEmpleadosUnidad(id);
+    this.cargarFestivosMes();
   }
 
-  private asegurarCuadroUnidad(): void {
-    if (!this.unidadActual) return;
-    this.calculoService.ensureCuadroUnidad(this.unidadActual.id, this.selectedAnio, this.selectedMes).subscribe({
-      next: (r) => { this.idCuadroActual = r.data.id_cuadro; },
-      error: () => this.toastError('No se pudo preparar el cuadro')
+  private asegurarCuadroUnidad(idUnidad: number): void {
+    this.calculoService.ensureCuadroUnidad(idUnidad, this.selectedAnio(), this.selectedMes()).subscribe({
+      next: (r) => this.idCuadroActual.set(r.data.id_cuadro),
+      error: () => this.toastError('No se pudo preparar el cuadro de la unidad')
     });
   }
 
-  cargarEmpleadosUnidad(): void {
-    if (!this.unidadActual) return;
-    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/unidades-funcionales/${this.unidadActual.id}/empleados`).subscribe({
+  cargarEmpleadosUnidad(idUnidad: number): void {
+    this.isLoading.set(true);
+    this.http.get<{ success: boolean; data: EmpleadoTurno[] }>(
+      `${environment.URL_SERVICIOS}/turnos/unidades-funcionales/${idUnidad}/empleados`
+    ).subscribe({
       next: (r) => {
-        this.empleados = r.data || [];
-        this.empleadoOptions = this.empleados.map((e: any) => ({ label: e.nombre, value: e.id }));
-        if (!this.empleados.length) this.toastInfo(`No hay empleados en ${this.unidadActual.nombre}`);
-      },
-      error: () => this.toastError('Error al cargar empleados')
-    });
-  }
-  // ═══════════════════════════════════════════════════════════
-  // CARGAR PLANTILLAS
-  // ═══════════════════════════════════════════════════════════
-
-  cargarPlantillas(): void {
-    this.plantillaService.getPlantillas({ estado: true }).subscribe({
-      next: ps => {
-        this.plantillas = ps ?? [];
-        this.plantillaOptions = [
-          { label: '— Sin turno (descanso) —', value: null },
-          ...this.plantillas.map(p => ({
-            label: this.formatPlantillaLabel(p),
-            value: p.id
-          }))
-        ];
-      },
-      error: () => this.toastError('No se pudieron cargar las plantillas')
-    });
-  }
-
-  private formatPlantillaLabel(p: Plantilla): string {
-    const r1 = `${p.hora_inicio?.substring(0, 5)} - ${p.hora_fin?.substring(0, 5)}`;
-    if (p.hora_inicio_2 && p.hora_fin_2) {
-      return `${p.nombre} (${r1} | ${p.hora_inicio_2.substring(0, 5)} - ${p.hora_fin_2.substring(0, 5)})`;
-    }
-    return `${p.nombre} (${r1})`;
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // CARGAR FESTIVOS Y CONSTRUIR CALENDARIO
-  // ═══════════════════════════════════════════════════════════
-
-  cargarFestivosYConstruirCalendario(): void {
-    this.calculoService.getFestivos(this.selectedAnio).subscribe({
-      next: festivos => {
-        this.festivosMes = festivos || [];
-        this.construirCalendario();
+        const empleados = r.data ?? [];
+        this.empleadoOptions.set(empleados.map(e => ({ label: e.nombre, value: e.id, data: e })));
+        this.empleadosCargados.set(true);
+        if (!empleados.length) {
+          this.toastInfo('No hay empleados en esta unidad');
+          this.isLoading.set(false);
+          return;
+        }
+        this.selectedEmpleadosIds.set([this.empleadoOptions()[0].value]);
+        this.cargarDatosMultiples();
       },
       error: () => {
-        this.festivosMes = [];
-        this.construirCalendario();
+        this.empleadosCargados.set(true);
+        this.isLoading.set(false);
+        this.toastError('Error al cargar empleados');
       }
     });
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // CAMBIOS EN FILTROS
-  // ═══════════════════════════════════════════════════════════
+  cargarFestivosMes(): void {
+    const anio = this.selectedAnio();
+    const mes = this.selectedMes();
 
-  onEmpleadoChange(): void {
-    if (this.selectedEmpleado) {
-      // Asegurar que existe un cuadro para este empleado
-      this.asegurarCuadroEmpleado();
-      this.cargarCuadro();
-    } else {
-      this.cuadro = null;
-      this.diaSeleccionado = null;
-      this.showResumenModal = false;
-      this.construirCalendario();
-    }
+    this.calculoService.getFestivos(anio).subscribe({
+      next: (festivos) => {
+        if (!festivos?.length) {
+          this.sincronizarFestivosColombia(anio, mes);
+          return;
+        }
+        this.aplicarFestivosAlCalendario(festivos, mes, anio);
+      },
+      error: () => this.sincronizarFestivosColombia(anio, mes)
+    });
   }
 
-  /**
-   * Asegurar que existe un cuadro para el empleado seleccionado
-   */
-  private asegurarCuadroEmpleado(): void {
-    if (!this.selectedEmpleado) return;
-
-    this.calculoService
-      .ensureCuadroEmpleado(this.selectedEmpleado, this.selectedAnio, this.selectedMes)
-      .subscribe({
-        next: (response) => {
-          this.idCuadroActual = response.data.id_cuadro;
-        },
-        error: (err) => {
-          // Fallback: intentar con la unidad si existe
-          if (this.unidadActual) {
-            this.asegurarCuadroUnidad();
-          }
-        }
+  private sincronizarFestivosColombia(anio: number, mes: number): void {
+    this.calculoService.sincronizarFestivos(anio).pipe(
+      catchError(() => of(null))
+    ).subscribe(() => {
+      this.calculoService.getFestivos(anio).subscribe(f => {
+        this.aplicarFestivosAlCalendario(f ?? [], mes, anio);
       });
+    });
+  }
+
+  private aplicarFestivosAlCalendario(festivos: Festivo[], mes: number, anio: number): void {
+    const delMes = filtrarFestivosPorMes(festivos, mes, anio);
+    this.festivosMes.set(delMes);
+    this.festivoFechasSet = fechasFestivoSet(delMes);
+    this.actualizarEventosCalendario();
+    queueMicrotask(() => this.calendarComponent?.getApi()?.render());
+  }
+
+  private claseCeldaFestivo(date: Date): string[] {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return this.festivoFechasSet.has(`${y}-${m}-${d}`) ? ['dia-festivo'] : [];
+  }
+
+  toggleEmpleado(id: number): void {
+    const ids = [...this.selectedEmpleadosIds()];
+    const idx = ids.indexOf(id);
+    if (idx > -1) ids.splice(idx, 1); else ids.push(id);
+    this.selectedEmpleadosIds.set(ids);
+    this.cargarDatosMultiples();
+  }
+
+  seleccionarTodos(): void {
+    const opts = this.empleadoOptions();
+    if (this.selectedEmpleadosIds().length === opts.length) {
+      this.selectedEmpleadosIds.set([]);
+    } else {
+      this.selectedEmpleadosIds.set(opts.map(e => e.value));
+    }
+    this.cargarDatosMultiples();
   }
 
   onMesAnioChange(): void {
-    // Si hemos seleccionado una unidad, re-asegurar cuadro con nuevo mes/año
-    if (this.selectedUnidad) {
-      this.asegurarCuadroUnidad();
+    this.actualizarVistaCalendario();
+    const uf = this.selectedUnidad();
+    if (uf) this.asegurarCuadroUnidad(uf);
+    this.cargarFestivosMes();
+    if (this.selectedEmpleadosIds().length) this.cargarDatosMultiples();
+  }
+
+  actualizarVistaCalendario(): void {
+    const api = this.calendarComponent?.getApi();
+    api?.gotoDate(new Date(this.selectedAnio(), this.selectedMes() - 1, 1));
+  }
+
+  cargarDatosMultiples(): void {
+    this.eventosMultiples.set([]);
+    const ids = this.selectedEmpleadosIds();
+
+    if (!ids.length) {
+      this.actualizarEventosCalendario();
+      return;
     }
-    
-    // Si tenemos empleado seleccionado, cargar su cuadro
-    if (this.selectedEmpleado) {
-      this.cargarCuadro();
+
+    if (this.modoMasivo()) {
+      this.isLoading.set(false);
+      this.actualizarEventosCalendario();
+      return;
+    }
+
+    this.isLoading.set(true);
+    forkJoin(
+      ids.map(id => this.calculoService.getCuadroMesEmpleado(id, this.selectedAnio(), this.selectedMes()).pipe(
+        catchError(() => of(null))
+      ))
+    ).subscribe(results => {
+      const eventos: CalendarTurnoEvent[] = [];
+      results.forEach((data, index) => {
+        if (!data) return;
+        const nombre = data.empleado?.nombre ?? 'Emp';
+        eventos.push(...this.mapTurnosToEvents(data.turnos, nombre, ids.length > 1));
+      });
+      this.eventosMultiples.set(eventos);
+      this.isLoading.set(false);
+      this.actualizarEventosCalendario();
+    });
+  }
+
+  private mapTurnosToEvents(turnos: TurnoEmpleado[], nombreCorto: string, multi: boolean): CalendarTurnoEvent[] {
+    const prefijo = multi ? `${nombreCorto.split(' ')[0]}: ` : '';
+    return (turnos ?? []).map(t => {
+      const color = t.es_descanso ? '#64748b' : (t.plantilla?.color_hex ?? '#3b82f6');
+      const title = t.es_descanso ? `${prefijo}Descanso` : `${prefijo}${t.plantilla?.nombre ?? 'Turno'}`;
+      const tieneEvento = !!(t.hora_inicio_2 && t.hora_fin_2);
+      return {
+        id: String(t.id),
+        title,
+        start: t.fecha,
+        backgroundColor: hexToRgba(color, 0.22),
+        borderColor: color,
+        extendedProps: {
+          turno: t,
+          color_hex: color,
+          codigo: t.plantilla?.codigo,
+          tieneEvento
+        }
+      };
+    });
+  }
+
+  actualizarEventosCalendario(): void {
+    const eventos: CalendarTurnoEvent[] = this.festivosMes().map(f => ({
+      id: `festivo-${normalizarFechaFestivo(f.fecha)}`,
+      title: f.nombre,
+      start: normalizarFechaFestivo(f.fecha),
+      display: 'background',
+      backgroundColor: '#fecaca',
+      classNames: ['evento-festivo-bg']
+    }));
+    eventos.push(...this.eventosMultiples());
+    this.calendarOptions = { ...this.calendarOptions, events: [...eventos] };
+
+    queueMicrotask(() => {
+      const api = this.calendarComponent?.getApi();
+      if (!api) return;
+      api.removeAllEvents();
+      eventos.forEach(ev => api.addEvent({ ...ev }));
+    });
+  }
+
+  handleDateClick(arg: DateClickArg): void {
+    if (this.emptyState() === 'uf') {
+      this.toastWarn('Primero selecciona una Unidad Funcional');
+      return;
+    }
+    if (!this.selectedEmpleadosIds().length) {
+      this.toastWarn('Selecciona al menos un funcionario');
+      return;
+    }
+    this.editForm.set({ ...EMPTY_TURNO_EDIT_FORM, fecha: arg.dateStr });
+    this.showEditDialog.set(true);
+  }
+
+  handleEventClick(arg: EventClickArg): void {
+    const props = arg.event.extendedProps as CalendarTurnoEvent['extendedProps'];
+    if (!props?.turno) return;
+
+    if (this.selectedEmpleadosIds().length > 1) {
+      this.toastInfo('En modo múltiple, haz clic en un día vacío para asignar a todos.');
+      return;
+    }
+
+    const t = props.turno;
+    this.editForm.set({
+      idAsignacionIndividual: t.id,
+      fecha: t.fecha,
+      esDescanso: !!t.es_descanso,
+      idPlantilla: t.plantilla?.id ?? null,
+      observacion: t.observacion ?? '',
+      tieneEvento: !!(t.hora_inicio_2 && t.hora_fin_2),
+      eventoInicio: t.hora_inicio_2?.substring(0, 5) ?? '',
+      eventoFin: t.hora_fin_2?.substring(0, 5) ?? ''
+    });
+    this.showEditDialog.set(true);
+  }
+
+  guardarDiaMasivo(formDesdeDialog?: TurnoEditForm): void {
+    const form = formDesdeDialog ?? this.editForm();
+    const ids = this.selectedEmpleadosIds();
+    const idCuadro = this.idCuadroActual();
+
+    if (!ids.length || !form.fecha) {
+      this.toastWarn('Debes tener al menos un funcionario seleccionado');
+      return;
+    }
+    if (!form.esDescanso && !form.idPlantilla) {
+      this.toastWarn('Selecciona una plantilla o marca descanso');
+      return;
+    }
+    if (form.tieneEvento && (!form.eventoInicio || !form.eventoFin)) {
+      this.toastWarn('Completa las horas del evento extra');
+      return;
+    }
+    if (!idCuadro) {
+      this.toastError('Cuadro no disponible. Verifica la Unidad Funcional.');
+      return;
+    }
+
+    this.isSavingDay.set(true);
+    const asignaciones: AsignacionBulkPayload[] = ids.map(idEmp => {
+      const item: AsignacionBulkPayload = {
+        id_empleado: idEmp,
+        fecha: form.fecha,
+        es_descanso: form.esDescanso,
+        id_plantilla: form.esDescanso ? null : form.idPlantilla,
+        observacion: form.observacion || null
+      };
+      if (form.tieneEvento && form.eventoInicio && form.eventoFin) {
+        item.hora_inicio_override_2 = form.eventoInicio;
+        item.hora_fin_override_2 = form.eventoFin;
+      }
+      return item;
+    });
+
+    this.cuadroService.asignarMasivo(idCuadro, asignaciones).subscribe({
+      next: (res: AsignacionMasivaResponse) => this.onSaveResponse(res, false),
+      error: (err) => {
+        if (err.status === 207 && err.error) {
+          this.onSaveResponse(err.error as AsignacionMasivaResponse, true);
+          return;
+        }
+        this.isSavingDay.set(false);
+        this.toastError(err?.error?.message ?? 'Error al guardar asignación');
+      }
+    });
+  }
+
+  private onSaveResponse(res: AsignacionMasivaResponse, partial: boolean): void {
+    this.isSavingDay.set(false);
+    this.showEditDialog.set(false);
+
+    const errCount = res.data?.total_err ?? 0;
+    const okCount = res.data?.total_ok ?? 0;
+
+    if (partial || errCount > 0) {
+      const detalle = (res.data?.errores ?? []).slice(0, 3).map(e => e.error).join('; ');
+      this.toastWarn(`${okCount} asignados, ${errCount} con conflicto.${detalle ? ' ' + detalle : ''}`);
     } else {
-      this.cargarFestivosYConstruirCalendario();
+      this.toastOk(`Turno asignado a ${okCount || this.selectedEmpleadosIds().length} funcionario(s).`);
     }
+    this.cargarDatosMultiples();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // CARGAR CUADRO DEL EMPLEADO
-  // ═══════════════════════════════════════════════════════════
+  eliminarTurnoIndividual(): void {
+    const id = this.editForm().idAsignacionIndividual;
+    if (!id || !confirm('¿Eliminar el turno de este día?')) return;
 
-  cargarCuadro(): void {
-    if (!this.selectedEmpleado) {
-      this.cuadro = null;
-      this.diaSeleccionado = null;
-      return;
-    }
-
-    this.isLoading = true;
-    this.calculoService
-      .getCuadroMesEmpleado(this.selectedEmpleado, this.selectedAnio, this.selectedMes)
-      .subscribe({
-        next: data => {
-          this.cuadro = data;
-          this.festivosMes = data.festivos || this.festivosMes;
-          this.construirCalendario();
-          this.isLoading = false;
-        },
-        error: (err) => {
-          this.isLoading = false;
-          this.cuadro = null;
-          this.construirCalendario();
-          this.toastError('No se pudo cargar el cuadro del empleado');
-        }
-      });
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // CONSTRUIR CALENDARIO
-  // ═══════════════════════════════════════════════════════════
-
-  private construirCalendario(): void {
-    const anio = this.selectedAnio;
-    const mes = this.selectedMes;
-    const primerDia = new Date(anio, mes - 1, 1);
-    const ultimoDia = new Date(anio, mes, 0);
-    const diasEnMes = ultimoDia.getDate();
-    const diaInicioSemana = primerDia.getDay();
-
-    const festivos = new Map<string, string>();
-    const fuenteFestivos = (this.cuadro?.festivos && this.cuadro.festivos.length)
-      ? this.cuadro.festivos
-      : this.festivosMes;
-    (fuenteFestivos || []).forEach(f => festivos.set(this.normalizarFecha(f.fecha), f.nombre));
-
-    const turnos = new Map<string, any>();
-    (this.cuadro?.turnos || []).forEach(t => turnos.set(t.fecha, t));
-
-    const desgloseDias = this.cuadro?.por_dia || {};
-    const hoy = this.toIsoDate(new Date());
-
-    const dias: DiaCalendario[] = [];
-
-    // Relleno antes del día 1
-    for (let i = 0; i < diaInicioSemana; i++) {
-      const fecha = new Date(anio, mes - 1, 1 - (diaInicioSemana - i));
-      dias.push(this.crearDiaRelleno(fecha));
-    }
-
-    // Días del mes seleccionado
-    for (let d = 1; d <= diasEnMes; d++) {
-      const fechaObj = new Date(anio, mes - 1, d);
-      const fechaStr = this.toIsoDate(fechaObj);
-      dias.push({
-        fecha: fechaStr,
-        numero: d,
-        esDelMes: true,
-        esHoy: fechaStr === hoy,
-        esDomingo: fechaObj.getDay() === 0,
-        esFestivo: festivos.has(fechaStr) || fechaObj.getDay() === 0,
-        nombreFestivo: festivos.get(fechaStr),
-        turno: turnos.get(fechaStr),
-        desglose: desgloseDias[fechaStr]
-      });
-    }
-
-    // Relleno hasta completar la última semana (múltiplo de 7)
-    while (dias.length % 7 !== 0) {
-      const last = dias[dias.length - 1];
-      const lastDate = this.parseIsoDate(last.fecha);
-      lastDate.setDate(lastDate.getDate() + 1);
-      dias.push(this.crearDiaRelleno(lastDate));
-    }
-
-    this.calendario = dias;
-  }
-
-  private crearDiaRelleno(fecha: Date): DiaCalendario {
-    return {
-      fecha: this.toIsoDate(fecha),
-      numero: fecha.getDate(),
-      esDelMes: false,
-      esHoy: false,
-      esDomingo: fecha.getDay() === 0,
-      esFestivo: false
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // SELECCIONAR DÍA Y EDITAR
-  // ═══════════════════════════════════════════════════════════
-
-  seleccionarDia(dia: DiaCalendario): void {
-    if (!dia.esDelMes) return;
-    this.diaSeleccionado = dia;
-  }
-
-  abrirEdicion(dia: DiaCalendario): void {
-    if (!dia.esDelMes || !this.selectedEmpleado) return;
-    this.diaSeleccionado = dia;
-
-    this.editForm = this.emptyEditForm();
-    this.editForm.fecha = dia.fecha;
-
-    if (dia.turno) {
-      this.editForm.idAsignacion = dia.turno.id;
-      this.editForm.esDescanso = !!dia.turno.es_descanso;
-      this.editForm.idPlantilla = dia.turno.plantilla?.id ?? null;
-      this.editForm.horaInicioOverride = dia.turno.hora_inicio ?? '';
-      this.editForm.horaFinOverride = dia.turno.hora_fin ?? '';
-      this.editForm.horaInicio2Override = dia.turno.hora_inicio_2 ?? '';
-      this.editForm.horaFin2Override = dia.turno.hora_fin_2 ?? '';
-      this.editForm.observacion = dia.turno.observacion ?? '';
-    }
-
-    this.showEditDialog = true;
-  }
-
-  emptyEditForm() {
-    return {
-      idAsignacion: null as number | null,
-      fecha: '',
-      idPlantilla: null as number | null,
-      esDescanso: false,
-      horaInicioOverride: '',
-      horaFinOverride: '',
-      horaInicio2Override: '',
-      horaFin2Override: '',
-      observacion: ''
-    };
-  }
-
-  cerrarEditDialog(): void {
-    this.showEditDialog = false;
-  }
-
-  /**
-   * ELIMINAR TURNO DEL DÍA INDIVIDUAL
-   */
-  eliminarTurnoDelDia(): void {
-    if (!this.editForm.idAsignacion) {
-      this.toastWarn('No hay turno para eliminar en este día');
-      return;
-    }
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar el turno del ${this.editForm.fecha}?`)) {
-      return;
-    }
-
-    this.isSavingDay = true;
-    this.asignacionService.deleteAsignacion(this.editForm.idAsignacion).subscribe({
+    this.isSavingDay.set(true);
+    this.asignacionService.deleteAsignacion(id).subscribe({
       next: () => {
-        this.isSavingDay = false;
-        this.showEditDialog = false;
+        this.isSavingDay.set(false);
+        this.showEditDialog.set(false);
         this.toastOk('Turno eliminado');
-        this.cargarCuadro();
+        this.cargarDatosMultiples();
       },
       error: (err) => {
-        this.isSavingDay = false;
-        const msg = err?.error?.message || 'No se pudo eliminar el turno';
-        this.toastError(msg);
+        this.isSavingDay.set(false);
+        this.toastError(err?.error?.message ?? 'Error al eliminar');
       }
     });
   }
 
-  cerrarResumenModal(): void {
-    this.showResumenModal = false;
-  }
-
-  abrirResumenModal(): void {
-    if (!this.selectedEmpleado) {
-      this.toastWarn('Selecciona un usuario primero');
-      return;
-    }
-    this.showResumenModal = true;
-  }
-
-  mostrarSelectorMesAnio(): void {
-    this.mesAnioPanel.toggle(event);
-  }
-
-  seleccionarMes(mes: number): void {
-    this.selectedMes = mes;
-    this.onMesAnioChange();
-  }
-
-  seleccionarAnio(anio: number): void {
-    this.selectedAnio = anio;
-    this.modoSeleccionarAnio = false;
-    this.onMesAnioChange();
-  }
-
-  toggleModoAnio(): void {
-    this.modoSeleccionarAnio = !this.modoSeleccionarAnio;
-  }
-
-  onPlantillaChange(): void {
-    this.editForm.horaInicioOverride = '';
-    this.editForm.horaFinOverride = '';
-    this.editForm.horaInicio2Override = '';
-    this.editForm.horaFin2Override = '';
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // GUARDAR DÍA
-  // ═══════════════════════════════════════════════════════════
-
-  guardarDia(): void {
-    if (!this.selectedEmpleado || !this.editForm.fecha) return;
-
-    if (!this.editForm.esDescanso && !this.editForm.idPlantilla) {
-      this.toastWarn('Selecciona un turno o marca "Descanso"');
-      return;
-    }
-
-    // VALIDAR QUE TENGAMOS ID_CUADRO ALMACENADO
-    if (!this.idCuadroActual) {
-      this.toastError('No se pudo obtener el ID del cuadro. Selecciona la unidad nuevamente.');
-      return;
-    }
-
-    this.isSavingDay = true;
-    this.persistirAsignacion(this.idCuadroActual);
-  }
-
-  private persistirAsignacion(idCuadro: number): void {
-    const payload: any = {
-      id_cuadro: idCuadro,
-      id_empleado: this.selectedEmpleado,
-      fecha: this.editForm.fecha,
-      es_descanso: this.editForm.esDescanso,
-      id_plantilla: this.editForm.esDescanso ? null : this.editForm.idPlantilla,
-      observacion: this.editForm.observacion || null
-    };
-
-    if (!this.editForm.esDescanso) {
-      if (this.editForm.horaInicioOverride)  payload.hora_inicio_override   = this.editForm.horaInicioOverride;
-      if (this.editForm.horaFinOverride)     payload.hora_fin_override      = this.editForm.horaFinOverride;
-      if (this.editForm.horaInicio2Override) payload.hora_inicio_override_2 = this.editForm.horaInicio2Override;
-      if (this.editForm.horaFin2Override)    payload.hora_fin_override_2    = this.editForm.horaFin2Override;
-    }
-
-    const obs$ = this.editForm.idAsignacion
-      ? this.asignacionService.updateAsignacion(this.editForm.idAsignacion, payload)
-      : this.asignacionService.createAsignacion(payload);
-
-    obs$.subscribe({
-      next: () => {
-        this.isSavingDay = false;
-        this.showEditDialog = false;
-        this.toastOk('Día actualizado');
-        this.cargarCuadro();
-      },
-      error: (err) => {
-        this.isSavingDay = false;
-        const msg = err?.error?.message || 'No se pudo guardar el día';
-        this.toastError(msg);
-      }
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // UTILITARIOS
-  // ═══════════════════════════════════════════════════════════
-
-  formatHoras(h?: number): string {
-    const v = Number(h ?? 0);
-    return `${v.toFixed(2)} h`;
-  }
-
-  trackByFecha(_: number, d: DiaCalendario) { return d.fecha; }
-
-  private toIsoDate(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  private parseIsoDate(iso: string): Date {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d);
-  }
-
-  private normalizarFecha(f: string): string {
-    return (f || '').substring(0, 10);
-  }
-
-  refrescarPagina(): void {
-    window.location.reload();
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // ELIMINAR CUADRO COMPLETO
-  // ═══════════════════════════════════════════════════════════
-
-  eliminarCuadroCompleto(): void {
-    if (!this.selectedEmpleado) {
-      this.toastWarn('Selecciona un empleado primero');
-      return;
-    }
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar todos los turnos de ${this.selectedMes}/${this.selectedAnio}?\n\nEsta acción no se puede deshacer.`)) {
-      return;
-    }
-
-    this.isLoading = true;
-    this.calculoService
-      .deleteCuadroMesEmpleado(this.selectedEmpleado, this.selectedAnio, this.selectedMes)
-      .subscribe({
-        next: (response) => {
-          this.isLoading = false;
-          this.toastOk(`${response.data.asignaciones_eliminadas} turnos eliminados`);
-          this.cargarCuadro();
-        },
-        error: () => {
-          this.isLoading = false;
-          this.toastError('Error al eliminar el cuadro');
-        }
-      });
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // SINCRONIZAR FESTIVOS
-  // ═══════════════════════════════════════════════════════════
-
-  sincronizarFestivos(): void {
-    if (!confirm('¿Desea sincronizar los festivos desde la API externa? Esto puede tomar unos segundos.')) {
-      return;
-    }
-
-    this.isLoading = true;
-    this.calculoService.sincronizarFestivos(this.selectedAnio)
-      .subscribe({
-        next: (response) => {
-          this.isLoading = false;
-          const data = response.data;
-          this.toastOk(`Festivos sincronizados: ${data.insertados} nuevos, ${data.actualizados} actualizados`);
-          // Recargar festivos después de sincronizar
-          this.cargarFestivosYConstruirCalendario();
-        },
-        error: (err) => {
-          this.isLoading = false;
-          this.toastError('Error al sincronizar festivos: ' + (err?.error?.message || 'Error desconocido'));
-        }
-      });
-  }
-
-  testConexionAPI(): void {
-    this.calculoService.testConexionFestivos()
-      .subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.toastOk('✅ Conexión exitosa con API de festivos');
-          } else {
-            this.toastError('❌ ' + response.message);
-          }
-        },
-        error: (err) => {
-          this.toastError('Error de conexión: ' + (err?.error?.message || 'Error desconocido'));
-        }
-      });
-  }
-
-  private toastOk(detail: string)    { this.message.add({ severity: 'success', summary: 'Éxito', detail }); }
-  private toastError(detail: string) { this.message.add({ severity: 'error',   summary: 'Error',  detail }); }
-  private toastWarn(detail: string)  { this.message.add({ severity: 'warn',    summary: 'Aviso',  detail }); }
-  private toastInfo(detail: string)  { this.message.add({ severity: 'info',    summary: 'Info',   detail }); }
+  toastOk(msg: string) { this.message.add({ severity: 'success', summary: 'Éxito', detail: msg }); }
+  toastWarn(msg: string) { this.message.add({ severity: 'warn', summary: 'Atención', detail: msg }); }
+  toastError(msg: string) { this.message.add({ severity: 'error', summary: 'Error', detail: msg }); }
+  toastInfo(msg: string) { this.message.add({ severity: 'info', summary: 'Info', detail: msg }); }
 }

@@ -98,9 +98,12 @@ export class CalculoHorasService {
       .pipe(map(r => r.data));
   }
 
-  /** Sincronizar festivos desde API externa */
-  sincronizarFestivos(anio: number): Observable<any> {
-    return this.http.post<{ success: boolean; data: any }>(`${this.apiBase}/festivos/sincronizar`, { anio });
+  /** Sincronizar festivos desde API externa (Nager.Date) para el país configurado. */
+  sincronizarFestivos(anio: number, pais = environment.FESTIVOS_PAIS): Observable<{ success: boolean; data?: { total: number } }> {
+    return this.http.post<{ success: boolean; data?: { total: number } }>(
+      `${this.apiBase}/festivos/sincronizar`,
+      { anio, pais }
+    );
   }
 
   /** Test de conexión con API externa */

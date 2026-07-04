@@ -8,6 +8,8 @@ export const environment = {
   URL_SERVICIOS: 'https://jade-api.medilaser.com.co/api',
   URL_FRONTEND: 'https://jade.medilaser.com.co/plataform',
   URL_GLPI: 'http://aqsolutions.tech',
+  FESTIVOS_PAIS: 'CO',
+  REGION_DEFAULT: 'CO',
 };
 /*
  * For easier debugging in development mode, you can import the following file
