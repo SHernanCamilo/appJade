@@ -1,0 +1,159 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-database me-2"></i>
+          Fuentes Únicas de Información
+        </h1>
+        <p class="page-subtitle-modern">
+          Vistas de Microsoft Fabric según sus permisos Azure AD (GG-BD-*)
+          <span *ngIf="departamento"> · Departamento: {{ departamento }}</span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-action btn-action-primary" (click)="actualizar()" [disabled]="isLoading">
+          <i class="pi pi-refresh" [class.pi-spin]="isLoading"></i>
+          Actualizar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="table-section">
+      <div class="table-header">
+        <h2>Listado de Vistas</h2>
+        <div class="table-filters">
+          <div class="schema-filter">
+            <label for="esquemaFilter">Esquema</label>
+            <p-dropdown
+              inputId="esquemaFilter"
+              [options]="esquemaOptions"
+              [(ngModel)]="esquemaSeleccionado"
+              optionLabel="label"
+              optionValue="code"
+              placeholder="Seleccione un esquema..."
+              [showClear]="true"
+              [disabled]="isLoadingContext || esquemaOptions.length === 0"
+              (onChange)="onEsquemaChange()"
+              styleClass="schema-dropdown">
+            </p-dropdown>
+          </div>
+          <div class="search-box">
+            <i class="pi pi-search"></i>
+            <input
+              type="text"
+              pInputText
+              [(ngModel)]="searchTerm"
+              placeholder="Buscar por nombre o código..."
+              class="search-input"
+              [disabled]="!esquemaSeleccionado"
+            />
+            <button
+              *ngIf="searchTerm"
+              type="button"
+              class="btn-clear-search"
+              (click)="limpiarBusqueda()"
+              pTooltip="Limpiar búsqueda"
+              tooltipPosition="top">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="isLoadingContext" class="p-4">
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p class="text-muted text-center mt-3">Cargando permisos...</p>
+      </div>
+
+      <div *ngIf="!isLoadingContext && !esquemaSeleccionado" class="empty-select-schema">
+        <i class="pi pi-filter"></i>
+        <p>Seleccione un esquema para cargar las vistas disponibles.</p>
+        <small *ngIf="esquemaOptions.length === 0" class="text-muted">
+          No tiene esquemas GG-BD-* asignados en Azure AD.
+        </small>
+      </div>
+
+      <div *ngIf="isLoadingVistas" class="p-4">
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+        <p class="text-muted text-center mt-3">Cargando vistas de {{ esquemaSeleccionado | uppercase }}...</p>
+      </div>
+
+      <div class="modern-table-container" *ngIf="!isLoading && esquemaSeleccionado">
+        <p-table
+          [value]="vistasFiltradas"
+          [paginator]="true"
+          [rows]="10"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} vistas"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          styleClass="modern-table">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Esquema</th>
+              <th>Nombre vista</th>
+              <th>Código</th>
+              <th>Fuente</th>
+              <th>Columnas</th>
+              <th>Estado</th>
+              <th style="width: 60px"></th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-vista>
+            <tr class="vista-row" [class.vista-inactiva]="!vista.estado" (click)="abrirVista(vista)">
+              <td>{{ vista.schemaDisplay }}</td>
+              <td>
+                <div class="vista-info">
+                  <div class="vista-avatar">
+                    <i class="pi pi-chart-bar"></i>
+                  </div>
+                  <div class="vista-details">
+                    <div class="vista-name">{{ vista.nombre }}</div>
+                    <small class="text-muted" *ngIf="vista.descripcion">{{ vista.descripcion }}</small>
+                  </div>
+                </div>
+              </td>
+              <td>{{ vista.codigo }}</td>
+              <td>{{ vista.fuente || 'N/A' }}</td>
+              <td>{{ vista.column_count }}</td>
+              <td>
+                <p-tag
+                  [value]="vista.estado ? 'Visible' : 'No visible'"
+                  [severity]="vista.estado ? 'success' : 'warn'">
+                </p-tag>
+              </td>
+              <td class="action-cell">
+                <i class="pi pi-external-link"></i>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="7" class="text-center py-4">
+                <i class="pi pi-inbox empty-icon"></i>
+                <p class="text-muted mt-2 mb-0">No hay vistas para este esquema</p>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+  </div>
+</div>

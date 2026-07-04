@@ -6,12 +6,13 @@ import { RouterOutlet } from '@angular/router';
 import { SidebarService } from '../../shared/sidebar/sidebar.service';
 import { PersonificarBannerComponent } from '../../../components/personificar-banner/personificar-banner.component';
 import { PersonificarService } from '../../../services/personificar.service';
+import { ToastModule } from 'primeng/toast';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, SidebarComponent, RouterOutlet, PersonificarBannerComponent],
+  imports: [CommonModule, NavbarComponent, SidebarComponent, RouterOutlet, PersonificarBannerComponent, ToastModule],
   templateUrl: './main-layout.component.html',
   styleUrls: ['./main-layout.component.css']
 })

@@ -1,0 +1,24 @@
+<div class="fullscreen-container">
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="loading-content">
+      <i class="pi pi-spin pi-spinner"></i>
+      <p>Cargando vista...</p>
+    </div>
+  </div>
+
+  <div *ngIf="!isLoading && vista" class="grid-container">
+    <ag-grid-angular
+      class="ag-theme-alpine"
+      style="width: 100%; height: 100%;"
+      [rowData]="rowData"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [localeText]="localeText"
+      [animateRows]="true"
+      [pagination]="true"
+      [paginationPageSize]="50"
+      [paginationPageSizeSelector]="[25, 50, 100, 200]"
+      (gridReady)="onGridReady($event)">
+    </ag-grid-angular>
+  </div>
+</div>
