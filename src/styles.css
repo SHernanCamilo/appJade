@@ -1,3 +1,7 @@
+/* AG Grid - cargar antes que Bootstrap para evitar conflictos de layout */
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-alpine.css';
+
 /* You can add global styles to this file, and also import other style files */
 
 /* PrimeNG Icons */
@@ -922,4 +926,19 @@ app-personificar-banner {
 
 .empleados-dropdown-panel .p-dropdown-item:last-child {
   border-bottom: none !important;
+}
+
+/* AG Grid: proteger layout interno frente a resets globales/Bootstrap */
+.ag-root-wrapper,
+.ag-root-wrapper-body,
+.ag-root,
+.ag-body,
+.ag-body-viewport,
+.ag-center-cols-viewport,
+.ag-header,
+.ag-header-viewport,
+.ag-header-container,
+.ag-header-row,
+.ag-row {
+  box-sizing: border-box;
 }

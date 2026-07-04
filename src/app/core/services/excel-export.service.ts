@@ -46,6 +46,49 @@ export class ExcelExportService {
     customizeWorksheet?: (worksheet: ExcelJS.Worksheet) => void,
     reportHeader?: ExcelReportHeader
   ): Promise<void> {
+    const workbook = await this.buildWorkbook(
+      data,
+      columns,
+      sheetName,
+      styleConfig,
+      customizeWorksheet,
+      reportHeader
+    );
+
+    await this.downloadExcel(workbook, fileName);
+  }
+
+  /**
+   * Genera el buffer del Excel sin descargarlo (útil para Excel Online)
+   */
+  async buildExcelBuffer(
+    data: any[],
+    columns: ExcelColumn[],
+    sheetName: string,
+    styleConfig?: ExcelStyleConfig,
+    customizeWorksheet?: (worksheet: ExcelJS.Worksheet) => void,
+    reportHeader?: ExcelReportHeader
+  ): Promise<ArrayBuffer> {
+    const workbook = await this.buildWorkbook(
+      data,
+      columns,
+      sheetName,
+      styleConfig,
+      customizeWorksheet,
+      reportHeader
+    );
+
+    return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>;
+  }
+
+  private async buildWorkbook(
+    data: any[],
+    columns: ExcelColumn[],
+    sheetName: string,
+    styleConfig?: ExcelStyleConfig,
+    customizeWorksheet?: (worksheet: ExcelJS.Worksheet) => void,
+    reportHeader?: ExcelReportHeader
+  ): Promise<ExcelJS.Workbook> {
     const defaultStyle: ExcelStyleConfig = {
       headerBackgroundColor: 'FF4472C4',
       headerFontColor: 'FFFFFFFF',
@@ -97,7 +140,7 @@ export class ExcelExportService {
       customizeWorksheet(worksheet);
     }
 
-    await this.downloadExcel(workbook, fileName);
+    return workbook;
   }
 
   /**
