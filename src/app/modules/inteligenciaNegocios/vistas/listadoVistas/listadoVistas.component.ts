@@ -12,6 +12,7 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { InputTextModule } from 'primeng/inputtext';
 import { TooltipModule } from 'primeng/tooltip';
 import { DropdownModule } from 'primeng/dropdown';
+import { MultiSelectModule } from 'primeng/multiselect';
 
 import { EsquemaCatalogo, VistasService, VistaBi } from '../../services/vistas.service';
 
@@ -34,7 +35,8 @@ export interface EsquemaOption {
     SkeletonModule,
     InputTextModule,
     TooltipModule,
-    DropdownModule
+    DropdownModule,
+    MultiSelectModule
   ],
   providers: [MessageService],
   templateUrl: './listadoVistas.component.html',
@@ -48,7 +50,7 @@ export class ListadoVistasComponent implements OnInit {
   departamento: string | null = null;
   esquemasCatalogo: EsquemaCatalogo[] = [];
   esquemaOptions: EsquemaOption[] = [];
-  esquemaSeleccionado: string | null = null;
+  esquemasSeleccionados: string[] = [];
 
   private vistasPorEsquema = new Map<string, VistaBi[]>();
 
@@ -80,7 +82,11 @@ export class ListadoVistasComponent implements OnInit {
         this.isLoadingContext = false;
 
         if (this.esquemaOptions.length === 1) {
-          this.esquemaSeleccionado = this.esquemaOptions[0].code;
+          this.esquemasSeleccionados = [this.esquemaOptions[0].code];
+          this.cargarVistasEsquema();
+        } else if (this.esquemaOptions.length > 1) {
+          // Auto-seleccionar todas
+          this.esquemasSeleccionados = this.esquemaOptions.map(o => o.code);
           this.cargarVistasEsquema();
         }
       },
@@ -103,7 +109,7 @@ export class ListadoVistasComponent implements OnInit {
     this.searchTerm = '';
     this.vistas = [];
 
-    if (!this.esquemaSeleccionado) {
+    if (!this.esquemasSeleccionados || this.esquemasSeleccionados.length === 0) {
       return;
     }
 
@@ -111,63 +117,59 @@ export class ListadoVistasComponent implements OnInit {
   }
 
   cargarVistasEsquema(forceReload = false): void {
-    if (!this.esquemaSeleccionado) {
+    if (!this.esquemasSeleccionados || this.esquemasSeleccionados.length === 0) {
       return;
     }
 
-    const schema = this.esquemaSeleccionado;
-
-    if (forceReload) {
-      this.vistasPorEsquema.delete(schema);
-    }
-
-    const cached = this.vistasPorEsquema.get(schema);
-    if (cached) {
-      this.vistas = cached;
-      return;
-    }
-
+    // Cargar vistas de todos los esquemas seleccionados
     this.isLoadingVistas = true;
+    const promises: Promise<VistaBi[]>[] = [];
 
-    this.vistasService.getVistasPorEsquema(schema, forceReload).subscribe({
-      next: response => {
-        const nombreEsquema = this.esquemasCatalogo.find(
-          e => e.schema.toLowerCase() === schema.toLowerCase()
-        )?.nombre;
+    for (const schema of this.esquemasSeleccionados) {
+      if (forceReload) this.vistasPorEsquema.delete(schema);
 
-        const vistas = (response.data ?? []).map(v => ({
-          ...v,
-          schemaDisplay: nombreEsquema ?? v.schemaDisplay
-        }));
+      const cached = this.vistasPorEsquema.get(schema);
+      if (cached) {
+        promises.push(Promise.resolve(cached));
+      } else {
+        promises.push(new Promise((resolve, reject) => {
+          this.vistasService.getVistasPorEsquema(schema, forceReload).subscribe({
+            next: response => {
+              const nombreEsquema = this.esquemasCatalogo.find(
+                e => e.schema.toLowerCase() === schema.toLowerCase()
+              )?.nombre;
 
-        this.vistasPorEsquema.set(schema, vistas);
-        this.vistas = vistas;
-        this.isLoadingVistas = false;
+              const vistas = (response.data ?? []).map(v => ({
+                ...v,
+                schemaDisplay: nombreEsquema ?? v.schemaDisplay
+              }));
 
-        if (!response.success && response.message) {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'Sin vistas disponibles',
-            detail: response.message,
-            life: 6000
+              this.vistasPorEsquema.set(schema, vistas);
+              resolve(vistas);
+            },
+            error: err => reject(err)
           });
-        }
-      },
-      error: err => {
-        this.vistas = [];
-        this.isLoadingVistas = false;
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: err?.error?.message || 'No se pudieron cargar las vistas de Fabric.',
-          life: 6000
-        });
+        }));
       }
+    }
+
+    Promise.all(promises).then(results => {
+      this.vistas = results.flat();
+      this.isLoadingVistas = false;
+    }).catch(() => {
+      this.vistas = [];
+      this.isLoadingVistas = false;
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudieron cargar las vistas.',
+        life: 6000
+      });
     });
   }
 
   actualizar(): void {
-    if (this.esquemaSeleccionado) {
+    if (this.esquemasSeleccionados.length > 0) {
       this.cargarVistasEsquema(true);
     } else {
       this.vistasPorEsquema.clear();
