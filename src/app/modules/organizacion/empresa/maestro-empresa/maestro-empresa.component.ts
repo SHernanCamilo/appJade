@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -10,7 +10,7 @@ import { DataTableComponent } from '../../../../complements/shared/data-table/da
 import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
 
 // PrimeNG Imports
-import { TableModule } from 'primeng/table';
+import { TableModule, Table } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -51,6 +51,9 @@ import { MessageService, ConfirmationService } from 'primeng/api';
   styleUrl: './maestro-empresa.component.css'
 })
 export class MaestroEmpresaComponent implements OnInit {
+  @ViewChild('dt') dt!: Table;
+  @ViewChild('dtDomains') dtDomains!: Table;
+
   activeTab: 'empresas' | 'dominios' = 'empresas';
 
   empresas: Empresa[] = [];
@@ -526,5 +529,17 @@ export class MaestroEmpresaComponent implements OnInit {
         });
       }
     });
+  }
+
+  // ── FILTROS GLOBALES ──────────────────────────────────────────────────────
+
+  onGlobalFilter(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.dt.filterGlobal(value, 'contains');
+  }
+
+  onGlobalFilterDomains(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.dtDomains.filterGlobal(value, 'contains');
   }
 }
