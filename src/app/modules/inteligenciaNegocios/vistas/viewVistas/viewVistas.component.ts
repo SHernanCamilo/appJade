@@ -246,10 +246,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   volverAlListado(): void { this.router.navigate([this.listPath]); }
 
   abrirEnNuevaPestana(): void {
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree([`${this.listPath}/viewVistas/fullscreen`, this.schema, this.viewName])
-    );
-    window.open(url, '_blank');
+    const path = `${this.listPath}/viewVistas/fullscreen/${this.schema}/${this.viewName}`;
+    window.open(path, '_blank');
   }
 
   // ── Descarga Excel en segundo plano (backend genera el archivo) ───────────

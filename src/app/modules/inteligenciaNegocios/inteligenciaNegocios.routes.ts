@@ -32,8 +32,7 @@ function vistasReporteRoutes(config: {
       path: `${config.path}/viewVistas/fullscreen/:schema/:viewName`,
       loadComponent: () =>
         import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
-      canActivate: [moduleGuard],
-      data: { moduleCode: config.moduleCode, listPath }
+      data: { listPath }
     },
     {
       path: `${config.path}/viewVistas/:schema/:viewName`,
@@ -66,8 +65,7 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     path: 'vistas/viewVistas/fullscreen/:schema/:viewName',
     loadComponent: () =>
       import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
-    canActivate: [moduleGuard],
-    data: { moduleCode: 'BI-VISTAS', listPath: '/inteligenciaNegocios/vistas' }
+    data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {
     path: 'vistas/viewVistas/:schema/:viewName',
