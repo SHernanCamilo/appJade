@@ -135,18 +135,25 @@ export class VistasService {
 
   constructor(private http: HttpClient) {}
 
-  getContext(): Observable<FabricViewerContext> {
-    return this.http.get<FabricViewerContext>(`${this.baseUrl}/context`);
+  getContext(grupoTipo?: number): Observable<FabricViewerContext> {
+    const params = grupoTipo != null ? { tipo: grupoTipo } : undefined;
+    return this.http.get<FabricViewerContext>(`${this.baseUrl}/context`, { params });
   }
 
   getVistasPorEsquema(
     schema: string,
-    refresh = false
+    refresh = false,
+    grupoTipo?: number
   ): Observable<{ success: boolean; data: VistaBi[]; message?: string }> {
-    return this.http.post<FabricViewsApiResponse>(`${this.baseUrl}/views`, {
+    const body: Record<string, unknown> = {
       schema_name: schema,
       refresh
-    }).pipe(
+    };
+    if (grupoTipo != null) {
+      body['tipo'] = grupoTipo;
+    }
+
+    return this.http.post<FabricViewsApiResponse>(`${this.baseUrl}/views`, body).pipe(
       map(response => ({
         success: response.success,
         message: response.message,

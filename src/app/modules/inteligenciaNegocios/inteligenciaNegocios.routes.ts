@@ -2,6 +2,49 @@ import { Routes } from '@angular/router';
 import { InteligenciaNegociosComponent } from './inteligenciaNegocios.component';
 import { moduleGuard } from '../../core/guards/module.guard';
 
+/** Rutas de listado + detalle reutilizando los componentes de vistas. */
+function vistasReporteRoutes(config: {
+  path: string;
+  moduleCode: string;
+  grupoTipo: 1 | 2 | 3;
+  pageTitle: string;
+  pageSubtitle: string;
+}): Routes {
+  const listPath = `/inteligenciaNegocios/${config.path}`;
+  const routeData = {
+    moduleCode: config.moduleCode,
+    grupoTipo: config.grupoTipo,
+    vistaAgrupada: true,
+    listPath,
+    pageTitle: config.pageTitle,
+    pageSubtitle: config.pageSubtitle
+  };
+
+  return [
+    {
+      path: config.path,
+      loadComponent: () =>
+        import('./vistas/listadoVistas/listadoVistas.component').then(m => m.ListadoVistasComponent),
+      canActivate: [moduleGuard],
+      data: routeData
+    },
+    {
+      path: `${config.path}/viewVistas/fullscreen/:schema/:viewName`,
+      loadComponent: () =>
+        import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
+      canActivate: [moduleGuard],
+      data: { moduleCode: config.moduleCode, listPath }
+    },
+    {
+      path: `${config.path}/viewVistas/:schema/:viewName`,
+      loadComponent: () =>
+        import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
+      canActivate: [moduleGuard],
+      data: routeData
+    }
+  ];
+}
+
 export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   {
     path: '',
@@ -9,20 +52,55 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   },
   {
     path: 'vistas',
-    loadComponent: () => import('./vistas/listadoVistas/listadoVistas.component').then(m => m.ListadoVistasComponent),
+    loadComponent: () =>
+      import('./vistas/listadoVistas/listadoVistas.component').then(m => m.ListadoVistasComponent),
     canActivate: [moduleGuard],
-    data: { moduleCode: 'BI-VISTAS' }
+    data: {
+      moduleCode: 'BI-VISTAS',
+      listPath: '/inteligenciaNegocios/vistas',
+      pageTitle: 'Reportes e Información',
+      pageSubtitle: 'Consulta de fuentes de datos disponibles según tus permisos'
+    }
   },
   {
     path: 'vistas/viewVistas/fullscreen/:schema/:viewName',
-    loadComponent: () => import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
+    loadComponent: () =>
+      import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
     canActivate: [moduleGuard],
-    data: { moduleCode: 'BI-VISTAS' }
+    data: { moduleCode: 'BI-VISTAS', listPath: '/inteligenciaNegocios/vistas' }
   },
   {
     path: 'vistas/viewVistas/:schema/:viewName',
-    loadComponent: () => import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
+    loadComponent: () =>
+      import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
     canActivate: [moduleGuard],
-    data: { moduleCode: 'BI-VISTAS' }
-  }
+    data: {
+      moduleCode: 'BI-VISTAS',
+      listPath: '/inteligenciaNegocios/vistas',
+      pageTitle: 'Reportes e Información',
+      pageSubtitle: 'Consulta de fuentes de datos disponibles según tus permisos'
+    }
+  },
+  ...vistasReporteRoutes({
+    path: 'reportes-administrativos',
+    moduleCode: 'BI-VISTAS-REPORTE_AD',
+    grupoTipo: 3,
+    pageTitle: 'Reportes Administrativos',
+    pageSubtitle: 'Consulta de reportes administrativos según tus permisos'
+  }),
+  { path: 'reportes-administrativo', redirectTo: 'reportes-administrativos', pathMatch: 'full' },
+  ...vistasReporteRoutes({
+    path: 'reportes-asistenciales',
+    moduleCode: 'BI-VISTAS-REPORTE_AS',
+    grupoTipo: 1,
+    pageTitle: 'Reportes Asistenciales',
+    pageSubtitle: 'Consulta de reportes asistenciales según tus permisos'
+  }),
+  ...vistasReporteRoutes({
+    path: 'reportes-financieros',
+    moduleCode: 'BI-VISTAS-REPORTE_FI',
+    grupoTipo: 2,
+    pageTitle: 'Reportes Financieros',
+    pageSubtitle: 'Consulta de reportes financieros según tus permisos'
+  })
 ];

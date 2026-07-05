@@ -80,7 +80,7 @@ export class SidebarService {
   }
 
   /**
-   * Carga módulos desde localStorage (útil en refresh)
+   * Carga módulos desde localStorage (útil en refresh mientras llega la API)
    */
   cargarModulosDesdeCache(): boolean {
     const cached = localStorage.getItem('sidebar_modules');
@@ -91,10 +91,19 @@ export class SidebarService {
         return true;
       } catch (e) {
         console.error('Error parseando módulos del cache:', e);
+        localStorage.removeItem('sidebar_modules');
         return false;
       }
     }
     return false;
+  }
+
+  /**
+   * Fuerza recarga del sidebar desde la API (invalida cache local)
+   */
+  limpiarCacheLocal(): void {
+    localStorage.removeItem('sidebar_modules');
+    this.modulosSubject.next([]);
   }
 
   /**

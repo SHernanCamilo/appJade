@@ -318,3 +318,213 @@
   width: 100%;
   min-width: 260px;
 }
+
+/* ── Vista agrupada por categoría (árbol) ─────────────────────────────── */
+
+.tree-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.btn-tree-toggle {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-tree-toggle:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.vistas-tree-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.vistas-tree-summary {
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.vistas-tree-scroll {
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
+}
+
+.tree-grupo {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tree-grupo:last-child {
+  border-bottom: none;
+}
+
+.tree-grupo-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.tree-grupo-header:hover {
+  background: #f9fafb;
+}
+
+.tree-chevron {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.tree-grupo-icon {
+  color: #3b82f6;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.tree-grupo-nombre {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-grupo-codigo {
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.tree-grupo-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.tree-grupo-body {
+  background: #fafbfc;
+  border-top: 1px solid #f3f4f6;
+  padding: 0.35rem 0.75rem 0.75rem 2.5rem;
+}
+
+.tree-grupo-empty {
+  padding: 0.75rem 1rem;
+  color: #9ca3af;
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.tree-vista {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.35rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tree-vista:last-child {
+  margin-bottom: 0;
+}
+
+.tree-vista:hover {
+  border-color: #93c5fd;
+  background: #f0f9ff;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.12);
+}
+
+.tree-vista.vista-inactiva {
+  opacity: 0.55;
+}
+
+.tree-vista-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+
+.tree-vista-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tree-vista-nombre {
+  font-weight: 500;
+  color: #1f2937;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-vista-meta {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.tree-vista-action {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.tree-vista:hover .tree-vista-action {
+  color: #3b82f6;
+}
+
+:host ::ng-deep .tree-vista-tag .p-tag {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.4rem;
+}
+
+.vistas-tree-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.vistas-tree-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}

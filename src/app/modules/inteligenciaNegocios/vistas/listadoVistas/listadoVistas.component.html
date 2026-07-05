@@ -11,9 +11,9 @@
       <div class="header-title-section">
         <h1 class="page-title-modern">
           <i class="pi pi-database me-2"></i>
-          Reportes e Información
+          {{ pageTitle }}
         </h1>
-        <p class="page-subtitle-modern">Consulta de fuentes de datos disponibles según tus permisos</p>
+        <p class="page-subtitle-modern">{{ pageSubtitle }}</p>
       </div>
       <div class="header-actions">
         <button class="btn-action btn-action-primary" (click)="actualizar()" [disabled]="isLoading">
@@ -26,9 +26,9 @@
   <div class="dashboard-content">
     <div class="table-section">
       <div class="table-header">
-        <h2>Mis Vistas</h2>
+        <h2>{{ vistaAgrupada ? 'Vistas por categoría' : 'Mis Vistas' }}</h2>
         <div class="table-filters">
-          <div class="schema-filter">
+          <div class="schema-filter" *ngIf="!vistaAgrupada">
             <label for="categoriaFilter">Categoría</label>
             <p-multiSelect
               inputId="categoriaFilter"
@@ -48,12 +48,20 @@
           <div class="search-box">
             <i class="pi pi-search"></i>
             <input type="text" pInputText [(ngModel)]="searchTerm"
-              placeholder="Buscar por nombre..."
+              [placeholder]="vistaAgrupada ? 'Buscar módulo o vista...' : 'Buscar por nombre...'"
               class="search-input"
-              [disabled]="!esquemasSeleccionados || esquemasSeleccionados.length === 0" />
+              [disabled]="vistaAgrupada ? isLoadingContext : (!esquemasSeleccionados || esquemasSeleccionados.length === 0)" />
             <button *ngIf="searchTerm" type="button" class="btn-clear-search"
               (click)="limpiarBusqueda()" pTooltip="Limpiar" tooltipPosition="top">
               <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="tree-actions" *ngIf="vistaAgrupada && !isLoading && gruposVistas.length > 0">
+            <button type="button" class="btn-tree-toggle" (click)="expandirTodos()" pTooltip="Expandir todo">
+              <i class="bi bi-arrows-expand"></i>
+            </button>
+            <button type="button" class="btn-tree-toggle" (click)="colapsarTodos()" pTooltip="Colapsar todo">
+              <i class="bi bi-arrows-collapse"></i>
             </button>
           </div>
         </div>
@@ -64,12 +72,14 @@
         <p class="text-muted text-center mt-3">Cargando permisos...</p>
       </div>
 
-      <div *ngIf="!isLoadingContext && (!esquemasSeleccionados || esquemasSeleccionados.length === 0)" class="empty-select-schema">
+      <div *ngIf="!isLoadingContext && esquemaOptions.length === 0" class="empty-select-schema">
+        <i class="pi pi-filter"></i>
+        <p>No tiene permisos asignados para vistas de datos.</p>
+      </div>
+
+      <div *ngIf="!vistaAgrupada && !isLoadingContext && esquemaOptions.length > 0 && (!esquemasSeleccionados || esquemasSeleccionados.length === 0)" class="empty-select-schema">
         <i class="pi pi-filter"></i>
         <p>Seleccione una o más categorías para ver las vistas disponibles.</p>
-        <small *ngIf="esquemaOptions.length === 0" class="text-muted">
-          No tiene permisos asignados para vistas de datos.
-        </small>
       </div>
 
       <div *ngIf="isLoadingVistas" class="p-4">
@@ -79,7 +89,57 @@
         <p class="text-muted text-center mt-3">Cargando vistas...</p>
       </div>
 
-      <div class="modern-table-container" *ngIf="!isLoading && esquemasSeleccionados && esquemasSeleccionados.length > 0">
+      <!-- Vista agrupada por categoría (reportes) -->
+      <div *ngIf="vistaAgrupada && !isLoading && esquemaOptions.length > 0" class="vistas-tree-wrapper">
+        <div class="vistas-tree-summary" *ngIf="totalVistas > 0">
+          <span>{{ totalVistas }} vista(s) en {{ gruposVistas.length }} categoría(s)</span>
+        </div>
+
+        <div *ngIf="gruposVistas.length === 0" class="empty-select-schema">
+          <i class="pi pi-inbox empty-icon"></i>
+          <p class="text-muted mt-2 mb-0">No hay vistas disponibles</p>
+        </div>
+
+        <div class="vistas-tree-scroll">
+          <div class="tree-grupo" *ngFor="let grupo of gruposVistas">
+            <button type="button" class="tree-grupo-header" (click)="toggleGrupo(grupo.schema)">
+              <i class="bi tree-chevron" [ngClass]="grupo.expandido ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+              <i class="bi bi-folder-fill tree-grupo-icon"></i>
+              <span class="tree-grupo-nombre">{{ grupo.nombre }}</span>
+              <code class="tree-grupo-codigo">{{ grupo.codigo }}</code>
+              <span class="tree-grupo-count">{{ contarVisibles(grupo) }}/{{ grupo.vistas.length }}</span>
+            </button>
+
+            <div class="tree-grupo-body" *ngIf="grupo.expandido">
+              <div *ngIf="grupo.vistas.length === 0" class="tree-grupo-empty">
+                Sin vistas en esta categoría
+              </div>
+
+              <div class="tree-vista"
+                   *ngFor="let vista of grupo.vistas"
+                   [class.vista-inactiva]="!vista.estado"
+                   (click)="abrirVista(vista)">
+                <div class="tree-vista-icon">
+                  <i class="pi pi-chart-bar"></i>
+                </div>
+                <div class="tree-vista-info">
+                  <span class="tree-vista-nombre">{{ vista.nombre }}</span>
+                  <small class="tree-vista-meta" *ngIf="vista.column_count">{{ vista.column_count }} columnas</small>
+                </div>
+                <p-tag [value]="vista.estado ? 'Visible' : 'No visible'"
+                       [severity]="vista.estado ? 'success' : 'warn'"
+                       styleClass="tree-vista-tag">
+                </p-tag>
+                <i class="pi pi-external-link tree-vista-action"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista plana (BI-VISTAS original) -->
+      <div class="modern-table-container"
+           *ngIf="!vistaAgrupada && !isLoading && esquemasSeleccionados && esquemasSeleccionados.length > 0">
         <p-table [value]="vistasFiltradas" [paginator]="true" [rows]="12"
           [showCurrentPageReport]="true"
           currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} vistas"

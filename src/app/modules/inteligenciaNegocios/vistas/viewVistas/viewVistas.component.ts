@@ -56,6 +56,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   private filterDebounce: ReturnType<typeof setTimeout> | null = null;
   exportEnSegundoPlano = false;
 
+  private listPath = '/inteligenciaNegocios/vistas';
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -65,11 +67,12 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.listPath = (this.route.snapshot.data['listPath'] as string) ?? this.listPath;
     this.schema = this.route.snapshot.paramMap.get('schema') ?? '';
     this.viewName = this.route.snapshot.paramMap.get('viewName') ?? '';
 
     if (!this.schema || !this.viewName) {
-      this.router.navigate(['/inteligenciaNegocios/vistas']);
+      this.router.navigate([this.listPath]);
       return;
     }
 
@@ -107,13 +110,13 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
 
         if (!this.vista) {
           this.messageService.add({ severity: 'warn', summary: 'Vista no encontrada', detail: 'No tiene acceso a esta vista.', life: 5000 });
-          this.router.navigate(['/inteligenciaNegocios/vistas']);
+          this.router.navigate([this.listPath]);
           return;
         }
 
         this.cargarDatos();
       },
-      error: () => { this.isLoadingVista = false; this.router.navigate(['/inteligenciaNegocios/vistas']); }
+      error: () => { this.isLoadingVista = false; this.router.navigate([this.listPath]); }
     });
   }
 
@@ -240,11 +243,11 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     this.gridApi.sizeColumnsToFit();
   }
 
-  volverAlListado(): void { this.router.navigate(['/inteligenciaNegocios/vistas']); }
+  volverAlListado(): void { this.router.navigate([this.listPath]); }
 
   abrirEnNuevaPestana(): void {
     const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/inteligenciaNegocios/vistas/viewVistas/fullscreen', this.schema, this.viewName])
+      this.router.createUrlTree([`${this.listPath}/viewVistas/fullscreen`, this.schema, this.viewName])
     );
     window.open(url, '_blank');
   }

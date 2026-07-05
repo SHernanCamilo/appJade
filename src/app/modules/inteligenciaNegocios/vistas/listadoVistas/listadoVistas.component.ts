@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 
 import { ButtonModule } from 'primeng/button';
@@ -19,6 +19,14 @@ import { EsquemaCatalogo, VistasService, VistaBi } from '../../services/vistas.s
 export interface EsquemaOption {
   code: string;
   label: string;
+}
+
+export interface GrupoVistas {
+  schema: string;
+  codigo: string;
+  nombre: string;
+  expandido: boolean;
+  vistas: VistaBi[];
 }
 
 @Component({
@@ -51,16 +59,29 @@ export class ListadoVistasComponent implements OnInit {
   esquemasCatalogo: EsquemaCatalogo[] = [];
   esquemaOptions: EsquemaOption[] = [];
   esquemasSeleccionados: string[] = [];
+  pageTitle = 'Reportes e Información';
+  pageSubtitle = 'Consulta de fuentes de datos disponibles según tus permisos';
+  listPath = '/inteligenciaNegocios/vistas';
+  vistaAgrupada = false;
 
+  private grupoTipo?: number;
   private vistasPorEsquema = new Map<string, VistaBi[]>();
+  private gruposExpandidos = new Set<string>();
 
   constructor(
+    private route: ActivatedRoute,
     private router: Router,
     private vistasService: VistasService,
     private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
+    const data = this.route.snapshot.data;
+    this.grupoTipo = data['grupoTipo'] as number | undefined;
+    this.vistaAgrupada = !!data['vistaAgrupada'];
+    this.listPath = (data['listPath'] as string) ?? this.listPath;
+    this.pageTitle = (data['pageTitle'] as string) ?? this.pageTitle;
+    this.pageSubtitle = (data['pageSubtitle'] as string) ?? this.pageSubtitle;
     this.cargarContexto();
   }
 
@@ -68,10 +89,41 @@ export class ListadoVistasComponent implements OnInit {
     return this.isLoadingContext || this.isLoadingVistas;
   }
 
+  get totalVistas(): number {
+    return this.vistas.length;
+  }
+
+  get gruposVistas(): GrupoVistas[] {
+    const term = this.searchTerm.trim().toLowerCase();
+
+    return this.esquemasCatalogo
+      .map(esquema => {
+        const vistasGrupo = (this.vistasPorEsquema.get(esquema.schema) ?? [])
+          .filter(vista => {
+            if (!term) return true;
+            return (
+              vista.nombre.toLowerCase().includes(term) ||
+              vista.codigo.toLowerCase().includes(term) ||
+              esquema.nombre.toLowerCase().includes(term) ||
+              (vista.fuente ?? '').toLowerCase().includes(term)
+            );
+          });
+
+        return {
+          schema: esquema.schema,
+          codigo: esquema.codigo,
+          nombre: esquema.nombre,
+          expandido: this.estaGrupoExpandido(esquema.schema, term, vistasGrupo.length > 0),
+          vistas: vistasGrupo
+        };
+      })
+      .filter(grupo => grupo.vistas.length > 0 || (!term && this.vistasPorEsquema.has(grupo.schema)));
+  }
+
   cargarContexto(): void {
     this.isLoadingContext = true;
 
-    this.vistasService.getContext().subscribe({
+    this.vistasService.getContext(this.grupoTipo).subscribe({
       next: ctx => {
         this.departamento = ctx.departamento;
         this.esquemasCatalogo = ctx.esquemas_catalogo ?? [];
@@ -81,14 +133,12 @@ export class ListadoVistasComponent implements OnInit {
         }));
         this.isLoadingContext = false;
 
-        if (this.esquemaOptions.length === 1) {
-          this.esquemasSeleccionados = [this.esquemaOptions[0].code];
-          this.cargarVistasEsquema();
-        } else if (this.esquemaOptions.length > 1) {
-          // Auto-seleccionar todas
-          this.esquemasSeleccionados = this.esquemaOptions.map(o => o.code);
-          this.cargarVistasEsquema();
+        if (this.esquemaOptions.length === 0) {
+          return;
         }
+
+        this.esquemasSeleccionados = this.esquemaOptions.map(o => o.code);
+        this.cargarVistasEsquema();
       },
       error: () => {
         this.departamento = null;
@@ -121,7 +171,6 @@ export class ListadoVistasComponent implements OnInit {
       return;
     }
 
-    // Cargar vistas de todos los esquemas seleccionados
     this.isLoadingVistas = true;
     const promises: Promise<VistaBi[]>[] = [];
 
@@ -133,7 +182,7 @@ export class ListadoVistasComponent implements OnInit {
         promises.push(Promise.resolve(cached));
       } else {
         promises.push(new Promise((resolve, reject) => {
-          this.vistasService.getVistasPorEsquema(schema, forceReload).subscribe({
+          this.vistasService.getVistasPorEsquema(schema, forceReload, this.grupoTipo).subscribe({
             next: response => {
               const nombreEsquema = this.esquemasCatalogo.find(
                 e => e.schema.toLowerCase() === schema.toLowerCase()
@@ -189,10 +238,37 @@ export class ListadoVistasComponent implements OnInit {
     }
 
     this.router.navigate([
-      '/inteligenciaNegocios/vistas/viewVistas',
+      `${this.listPath}/viewVistas`,
       vista.schema,
       vista.view_name
     ]);
+  }
+
+  toggleGrupo(schema: string): void {
+    if (this.gruposExpandidos.has(schema)) {
+      this.gruposExpandidos.delete(schema);
+    } else {
+      this.gruposExpandidos.add(schema);
+    }
+  }
+
+  expandirTodos(): void {
+    this.gruposVistas.forEach(g => this.gruposExpandidos.add(g.schema));
+  }
+
+  colapsarTodos(): void {
+    this.gruposExpandidos.clear();
+  }
+
+  estaGrupoExpandido(schema: string, term: string, tieneResultados: boolean): boolean {
+    if (term) {
+      return tieneResultados;
+    }
+    return this.gruposExpandidos.has(schema);
+  }
+
+  contarVisibles(grupo: GrupoVistas): number {
+    return grupo.vistas.filter(v => v.estado).length;
   }
 
   get vistasFiltradas(): VistaBi[] {
