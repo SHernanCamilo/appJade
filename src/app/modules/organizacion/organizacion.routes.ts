@@ -102,7 +102,7 @@ export const ORGANIZACION_ROUTES: Routes = [
         path: 'notificaciones',
         loadComponent: () => import('./servicios/notificaciones/notificaciones.component').then(m => m.NotificacionesComponent),
         canActivate: [moduleGuard],
-        data: { moduleCode: 'ORG-SERV-NOTIF' }
+        data: { moduleCode: 'ORG-SER-NOTIFICACION' }
       }
     ]
   }
