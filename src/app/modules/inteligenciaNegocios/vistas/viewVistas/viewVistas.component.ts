@@ -48,8 +48,26 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     filter: true,
     resizable: true,
     minWidth: 110,
-    floatingFilter: true
+    floatingFilter: true,
+    cellClass: 'cell-copyable'
   };
+
+  // AG Grid opciones adicionales
+  sideBar = {
+    toolPanels: [
+      {
+        id: 'columns',
+        labelDefault: 'Columnas',
+        labelKey: 'columns',
+        iconKey: 'columns',
+        toolPanel: 'agColumnsToolPanel',
+        toolPanelParams: { suppressRowGroups: true, suppressValues: true, suppressPivots: true, suppressPivotMode: true }
+      }
+    ]
+  };
+
+  // Overlay loading al filtrar
+  isFiltering = false;
 
   private gridApi?: GridApi;
   private exportSub?: Subscription;
@@ -138,10 +156,11 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
         this.rowData = response.rowData;
         this.meta = response.meta;
         this.isLoadingDatos = false;
+        this.isFiltering = false;
         this.refreshGrid();
       },
       error: (err) => {
-        this.rowData = []; this.isLoadingDatos = false;
+        this.rowData = []; this.isLoadingDatos = false; this.isFiltering = false;
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'No se pudieron cargar los datos.', life: 6000 });
       }
     });
@@ -179,12 +198,12 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   // ── Filtros server-side ───────────────────────────────────────────────────
 
   onFilterChanged(): void {
-    // Debounce para no enviar muchas peticiones mientras el usuario escribe
     if (this.filterDebounce) clearTimeout(this.filterDebounce);
 
     this.filterDebounce = setTimeout(() => {
       this.filters = this.extraerFiltrosGrid();
       this.paginaActual = 1;
+      this.isFiltering = true;
       this.cargarDatos();
     }, 600);
   }

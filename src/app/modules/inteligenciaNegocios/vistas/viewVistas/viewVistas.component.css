@@ -445,3 +445,43 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   overflow: hidden;
 }
+
+/* ── Overlay de filtrado ──────────────────────────────────────────────────── */
+.grid-wrapper { position: relative; }
+
+.grid-filtering-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(1px);
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4rem;
+}
+
+.filtering-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+/* Celdas copiables */
+:host ::ng-deep .cell-copyable {
+  cursor: text;
+  user-select: text;
+}
+
+/* Sidebar de columnas */
+:host ::ng-deep .ag-side-bar {
+  border-left: 1px solid #e5e7eb;
+}
