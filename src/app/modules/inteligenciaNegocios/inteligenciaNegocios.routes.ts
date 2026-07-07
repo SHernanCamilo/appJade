@@ -100,5 +100,16 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     grupoTipo: 2,
     pageTitle: 'Reportes Financieros',
     pageSubtitle: 'Consulta de reportes financieros según tus permisos'
-  })
+  }),
+  {
+    path: 'parametros/esquemas',
+    loadComponent: () =>
+      import('./parametros/esquemas/esquemas.component').then(m => m.EsquemasComponent),
+    // canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-PARAM-ESQUEMAS',
+      pageTitle: 'Esquemas BI',
+      pageSubtitle: 'Configuración del catálogo de esquemas por empresa'
+    }
+  }
 ];

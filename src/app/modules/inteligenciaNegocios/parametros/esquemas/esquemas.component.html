@@ -1,0 +1,334 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-diagram-3 me-2"></i>
+          Esquemas BI
+        </h1>
+        <p class="page-subtitle-modern">
+          Configuración de esquemas Fabric y vistas por empresa
+          <span class="empresa-badge" *ngIf="!esTransversal && empresaNombre">
+            <i class="pi pi-building me-1"></i>{{ empresaNombre }}
+          </span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-action btn-action-outline" (click)="nuevoEsquema()">
+          <i class="pi pi-plus"></i>
+          Nuevo
+        </button>
+        <button
+          class="btn-action btn-action-primary"
+          (click)="guardar()"
+          [disabled]="isSaving || esquemaForm.invalid">
+          <i class="pi pi-save" [class.pi-spin]="isSaving"></i>
+          {{ isSaving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="two-panel-layout">
+
+      <!-- Panel izquierdo -->
+      <div class="panel-left">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Datos Principales</span>
+        </div>
+
+        <form [formGroup]="esquemaForm" class="panel-form">
+          <div class="param-group" *ngIf="esTransversal">
+            <label class="param-label">Empresa *</label>
+            <p-dropdown
+              formControlName="empresa_id"
+              [options]="empresasOptions"
+              (onChange)="onEmpresaChange()"
+              placeholder="Seleccionar empresa"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingEmpresas"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+            <small class="p-error" *ngIf="esquemaForm.get('empresa_id')?.hasError('required') && esquemaForm.get('empresa_id')?.touched">
+              Debe seleccionar una empresa
+            </small>
+          </div>
+
+          <div class="param-group" *ngIf="!esTransversal">
+            <label class="param-label">Empresa</label>
+            <div class="empresa-readonly">
+              <i class="pi pi-building"></i>
+              <span>{{ empresaNombre }}</span>
+            </div>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Código del esquema *</label>
+            <div class="codigo-input-group">
+              <input
+                pInputText
+                formControlName="codigo"
+                placeholder="Ej: AA, CO, IN"
+                class="w-100"
+                (keyup.enter)="buscarPorCodigo()"
+                [class.ng-invalid]="esquemaForm.get('codigo')?.invalid && esquemaForm.get('codigo')?.touched">
+              <button
+                type="button"
+                class="btn-search-codigo"
+                (click)="abrirModalEsquemas()"
+                [disabled]="!empresaSeleccionada || isLoadingModal"
+                pTooltip="Ver esquemas de la empresa"
+                tooltipPosition="top">
+                <i class="pi" [class.pi-search]="!isLoadingModal" [class.pi-spin]="isLoadingModal" [class.pi-spinner]="isLoadingModal"></i>
+              </button>
+            </div>
+            <small class="form-hint" *ngIf="!empresaSeleccionada">
+              Seleccione una empresa para habilitar el código
+            </small>
+            <small class="form-hint" *ngIf="empresaSeleccionada">
+              Presione Enter para buscar por código en esta empresa
+            </small>
+            <small class="p-error" *ngIf="esquemaForm.get('codigo')?.hasError('required') && esquemaForm.get('codigo')?.touched">
+              El código es obligatorio
+            </small>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Tipo *</label>
+            <p-dropdown
+              formControlName="tipo"
+              [options]="tipoOptions"
+              placeholder="Seleccionar tipo"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+            <small class="p-error" *ngIf="esquemaForm.get('tipo')?.hasError('required') && esquemaForm.get('tipo')?.touched">
+              Debe seleccionar un tipo
+            </small>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Descripción</label>
+            <input
+              pInputText
+              formControlName="descripcion"
+              placeholder="Ej: AA — Atención Ambulatoria"
+              class="w-100"
+              maxlength="255">
+          </div>
+        </form>
+      </div>
+
+      <!-- Panel derecho: Vistas -->
+      <div class="panel-right" [class.panel-disabled]="!puedeGestionarVistas">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Vistas</span>
+        </div>
+
+        <div class="tab-panel-content">
+          <div class="usuarios-toolbar">
+            <div class="usuario-select-group">
+              <label class="param-label">Vistas Fabric</label>
+              <p-multiSelect
+                [(ngModel)]="selectedFabricViews"
+                [options]="fabricOptionsDisponibles"
+                placeholder="Seleccionar vistas del catálogo Fabric..."
+                [showClear]="true"
+                [filter]="true"
+                filterBy="label"
+                [loading]="isLoadingFabric"
+                [disabled]="!puedeGestionarVistas"
+                optionLabel="label"
+                optionValue="value"
+                [maxSelectedLabels]="2"
+                selectedItemsLabel="{0} vistas seleccionadas"
+                styleClass="w-full usuario-multiselect"
+                appendTo="body">
+              </p-multiSelect>
+              <small class="form-hint" *ngIf="!puedeGestionarVistas">
+                Guarde el esquema para habilitar la asignación de vistas
+              </small>
+              <small class="form-hint" *ngIf="puedeGestionarVistas">
+                Catálogo del esquema {{ schemaActual | uppercase }} desde Fabric
+              </small>
+            </div>
+            <button
+              type="button"
+              class="btn-action btn-action-outline btn-agregar"
+              (click)="actualizarVistasDesdeFabric()"
+              [disabled]="!puedeGestionarVistas || isSyncingFabric"
+              pTooltip="Traer todas las vistas de Fabric y guardarlas en bi_vistas"
+              tooltipPosition="top">
+              <i class="pi pi-refresh" [class.pi-spin]="isSyncingFabric"></i>
+              {{ isSyncingFabric ? 'Actualizando...' : 'Actualizar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-action btn-action-primary btn-agregar"
+              (click)="agregarVistas()"
+              [disabled]="!puedeGestionarVistas || !selectedFabricViews?.length || isAddingVistas">
+              <i class="pi pi-plus"></i>
+              Agregar
+            </button>
+          </div>
+
+          <div class="usuarios-table-wrap">
+            <p-table
+              [value]="vistas"
+              styleClass="usuarios-table p-datatable-sm p-datatable-striped"
+              [scrollable]="true"
+              scrollHeight="flex">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Nombre</th>
+                  <th>Descripción</th>
+                  <th style="min-width: 220px">Departamentos</th>
+                  <th style="width: 130px">Acción</th>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="body" let-vista>
+                <tr>
+                  <td>
+                    <span class="codigo-badge">{{ vista.nombre }}</span>
+                  </td>
+                  <td>
+                    <input
+                      pInputText
+                      class="w-100 descripcion-input"
+                      [ngModel]="vista.descripcion || ''"
+                      (blur)="onDescripcionChange(vista, descripcionInput.value)"
+                      (keyup.enter)="onDescripcionChange(vista, descripcionInput.value)"
+                      #descripcionInput
+                      maxlength="255"
+                      placeholder="Descripción de la vista"
+                      [disabled]="!puedeGestionarVistas || savingVistaId === vista.id" />
+                  </td>
+                  <td>
+                    <p-multiSelect
+                      [ngModel]="vista.departamentos || []"
+                      (ngModelChange)="onDepartamentosChange(vista, $event)"
+                      [options]="departamentosOptions"
+                      optionLabel="label"
+                      optionValue="value"
+                      placeholder="Todos los departamentos"
+                      [showClear]="true"
+                      [filter]="true"
+                      [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
+                      [loading]="savingVistaId === vista.id"
+                      [maxSelectedLabels]="2"
+                      selectedItemsLabel="{0} sedes"
+                      appendTo="body"
+                      styleClass="w-full dept-multiselect">
+                    </p-multiSelect>
+                    <small class="form-hint d-block mt-1">
+                      Vacío = visible para todos. Ej: MA, NAL para vistas generales sin sufijo _CMI/_NVA
+                    </small>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn-link-danger"
+                      (click)="eliminarVista(vista)"
+                      [disabled]="!puedeGestionarVistas">
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="4" class="text-center py-4">
+                    <i class="pi pi-table text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No hay vistas configuradas</p>
+                    <small class="text-muted" *ngIf="puedeGestionarVistas">
+                      Seleccione vistas del catálogo Fabric y haga clic en Agregar
+                    </small>
+                    <small class="text-muted" *ngIf="!puedeGestionarVistas">
+                      Complete y guarde los datos principales del esquema
+                    </small>
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal esquemas por empresa -->
+  <p-dialog
+    header="Esquemas BI"
+    [(visible)]="showModalEsquemas"
+    [modal]="true"
+    [style]="{ width: '70vw', maxWidth: '900px' }"
+    [breakpoints]="{ '960px': '90vw', '640px': '95vw' }"
+    (onHide)="cerrarModalEsquemas()">
+
+    <div class="modal-unidades-content">
+      <div class="modal-empresa-info" *ngIf="empresaNombre">
+        <i class="pi pi-building me-2"></i>
+        <span>Empresa: <strong>{{ empresaNombre }}</strong></span>
+      </div>
+
+      <app-data-table
+        [value]="esquemasModal"
+        [columns]="modalColumns"
+        [loading]="isLoadingModal"
+        [showCount]="false"
+        [globalFilterFields]="['codigo', 'descripcion']"
+        globalPlaceholder="Buscar por código o descripción..."
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} esquemas"
+        [rows]="8"
+        [rowsPerPageOptions]="[8, 15, 25]"
+        [tableStyle]="{ 'min-width': '100%' }"
+        actionsWidth="120px"
+        emptyMessage="No hay esquemas para esta empresa">
+
+        <ng-template pTemplate="cell-codigo" let-row>
+          <span class="codigo-badge">{{ row.codigo }}</span>
+        </ng-template>
+
+        <ng-template pTemplate="cell-tipo" let-row>
+          <p-tag [value]="getTipoLabel(row.tipo)" [severity]="getTipoSeverity(row.tipo)"></p-tag>
+        </ng-template>
+
+        <ng-template pTemplate="actions" let-row>
+          <p-button
+            icon="pi pi-check"
+            label="Seleccionar"
+            size="small"
+            severity="info"
+            [text]="true"
+            (onClick)="seleccionarDesdeModal(row)">
+          </p-button>
+        </ng-template>
+      </app-data-table>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cerrar" icon="pi pi-times" styleClass="p-button-text" (onClick)="cerrarModalEsquemas()"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>
