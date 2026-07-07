@@ -53,6 +53,7 @@ export interface GrupoVistas {
 export class ListadoVistasComponent implements OnInit {
   isLoadingContext = false;
   isLoadingVistas = false;
+  isNavigating = false;
   searchTerm = '';
   vistas: VistaBi[] = [];
   departamento: string | null = null;
@@ -236,6 +237,9 @@ export class ListadoVistasComponent implements OnInit {
       });
       return;
     }
+
+    // Mostrar loader de navegación
+    this.isNavigating = true;
 
     this.router.navigate([
       `${this.listPath}/viewVistas`,

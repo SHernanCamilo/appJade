@@ -186,3 +186,12 @@
     </div>
   </div>
 </div>
+
+<!-- Overlay de navegación -->
+<div class="navigation-overlay" *ngIf="isNavigating">
+  <div class="navigation-loader">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Abriendo vista...</span>
+    <small>Conectando con la fuente de datos</small>
+  </div>
+</div>

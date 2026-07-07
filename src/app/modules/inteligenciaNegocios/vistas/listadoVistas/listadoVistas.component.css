@@ -528,3 +528,43 @@
   background: #d1d5db;
   border-radius: 3px;
 }
+
+
+/* ── Overlay de navegación ────────────────────────────────────────────────── */
+.navigation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navigation-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 3rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.navigation-loader i {
+  font-size: 2rem;
+  color: #6366f1;
+}
+
+.navigation-loader span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.navigation-loader small {
+  font-size: 0.8rem;
+  color: #6b7280;
+}

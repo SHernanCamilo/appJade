@@ -83,10 +83,20 @@
           [animateRows]="true"
           [pagination]="false"
           [rowSelection]="{ mode: 'singleRow', enableClickSelection: false }"
+          [sideBar]="sideBar"
+          [enableCellTextSelection]="true"
+          [ensureDomOrder]="true"
           (gridReady)="onGridReady($event)"
           (sortChanged)="onSortChanged()"
           (filterChanged)="onFilterChanged()">
         </ag-grid-angular>
+
+        <!-- Overlay de filtrado -->
+        <div class="grid-filtering-overlay" *ngIf="isFiltering && rowData.length > 0">
+          <div class="filtering-badge">
+            <i class="pi pi-spin pi-spinner"></i> Filtrando datos...
+          </div>
+        </div>
 
         <!-- Paginación server-side — siempre visible cuando hay datos -->
         <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0">
