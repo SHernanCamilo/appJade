@@ -140,3 +140,49 @@
   font-weight: 600;
   color: #374151;
 }
+
+.heavy-view-badge {
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.filter-required-panel {
+  margin: 0.75rem 1rem;
+  padding: 0.75rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  color: #92400e;
+}
+
+.filter-required-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.filter-field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.filter-field input,
+.filter-field select {
+  width: 100%;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.fullscreen-error {
+  margin: 0.5rem 1rem;
+  padding: 0.6rem 0.8rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { ColDef } from 'ag-grid-community';
@@ -8,6 +9,7 @@ import {
   ExcelReportHeader
 } from '../../../core/services/excel-export.service';
 import { VistasService } from './vistas.service';
+import { handleFabricError } from '../helpers/fabric-error.helper';
 
 const TOAST_KEY = 'global-export';
 
@@ -19,6 +21,7 @@ export interface FabricExportOptions {
   filters?: Record<string, string>;
   sort_col?: string;
   sort_dir?: 'asc' | 'desc';
+  format?: 'gzip' | 'excel';
 }
 
 export interface FabricExportDesdeGrillaOptions extends FabricExportOptions {
@@ -74,10 +77,11 @@ export class FabricExportService {
     });
 
     this.vistasService.exportExcel(options.schema, options.viewName, {
-      max_rows: options.max_rows ?? 50000,
+      max_rows: options.max_rows ?? 1_000_000,
       filters: options.filters,
       sort_col: options.sort_col,
-      sort_dir: options.sort_dir
+      sort_dir: options.sort_dir,
+      format: options.format ?? 'gzip'
     }).subscribe({
       next: (blob) => {
         this.triggerDownload(blob, filename);
@@ -91,11 +95,14 @@ export class FabricExportService {
         this.decrementPending();
       },
       error: (err) => {
+        const detail = err instanceof HttpErrorResponse
+          ? handleFabricError(err)
+          : (err?.error?.message || `No se pudo exportar ${label} desde Fabric.`);
         this.messageService.add({
           key: TOAST_KEY,
           severity: 'error',
           summary: 'Error en exportación',
-          detail: err?.error?.message || `No se pudo exportar ${label} desde Fabric.`,
+          detail,
           life: 8000
         });
         this.decrementPending();

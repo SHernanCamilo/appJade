@@ -56,6 +56,19 @@ export interface FabricDataMeta {
   sort_col?: string;
   sort_dir?: string;
   elapsed_ms?: number;
+  /** true cuando la vista supera el umbral de filas pesadas */
+  heavy_view?: boolean;
+}
+
+export interface FabricDataQueryOptions {
+  columns?: string[];
+  filters?: Record<string, string>;
+  limit?: number;
+  offset?: number;
+  sort_col?: string;
+  sort_dir?: 'asc' | 'desc';
+  /** Evita COUNT(*) en vistas grandes (ahorra hasta ~150s) */
+  skip_count?: boolean;
 }
 
 export interface FabricDataResponse {
@@ -193,25 +206,9 @@ export class VistasService {
   getVistaDatos(
     schema: string,
     viewName: string,
-    options: {
-      columns?: string[];
-      filters?: Record<string, string>;
-      limit?: number;
-      offset?: number;
-      sort_col?: string;
-      sort_dir?: 'asc' | 'desc';
-    } = {}
+    options: FabricDataQueryOptions = {}
   ): Observable<VistaDatosResponse> {
-    return this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, {
-      schema_name: schema,
-      view: viewName,
-      columns: options.columns ?? [],
-      filters: options.filters ?? {},
-      limit: options.limit ?? 50,
-      offset: options.offset ?? 0,
-      sort_col: options.sort_col ?? '',
-      sort_dir: options.sort_dir ?? 'asc'
-    }).pipe(
+    return this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, this.buildDataPayload(schema, viewName, options)).pipe(
       map(response => ({
         success: response.success,
         columnDefs: this.buildColumnDefsFromRows(response.data),
@@ -224,13 +221,7 @@ export class VistasService {
   getVistaDatosCompleto(
     schema: string,
     viewName: string,
-    options: {
-      filters?: Record<string, string>;
-      limit?: number;
-      offset?: number;
-      sort_col?: string;
-      sort_dir?: 'asc' | 'desc';
-    } = {}
+    options: FabricDataQueryOptions = {}
   ): Observable<VistaDatosResponse> {
     return new Observable(observer => {
       this.getColumnas(schema, viewName).subscribe({
@@ -238,16 +229,10 @@ export class VistasService {
           const columns = columnsResponse.data?.columns ?? [];
           const columnNames = columns.map(c => c.name);
 
-          this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, {
-            schema_name: schema,
-            view: viewName,
-            columns: columnNames,
-            filters: options.filters ?? {},
-            limit: options.limit ?? 50,
-            offset: options.offset ?? 0,
-            sort_col: options.sort_col ?? '',
-            sort_dir: options.sort_dir ?? 'asc'
-          }).subscribe({
+          this.http.post<FabricDataResponse>(
+            `${this.baseUrl}/data`,
+            this.buildDataPayload(schema, viewName, { ...options, columns: columnNames })
+          ).subscribe({
             next: dataResponse => {
               observer.next({
                 success: dataResponse.success,
@@ -310,16 +295,15 @@ export class VistasService {
             offset: number,
             accumulated: Record<string, unknown>[]
           ): void => {
-            this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, {
-              schema_name: schema,
-              view: viewName,
+            this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, this.buildDataPayload(schema, viewName, {
               columns: columnNames,
               filters: options.filters ?? {},
               limit: VistasService.CARGA_CHUNK,
               offset,
               sort_col: options.sort_col ?? '',
-              sort_dir: options.sort_dir ?? 'asc'
-            }).subscribe({
+              sort_dir: options.sort_dir ?? 'asc',
+              skip_count: true
+            })).subscribe({
               next: dataResponse => {
                 const chunk = dataResponse.data ?? [];
                 const merged = accumulated.concat(chunk);
@@ -373,6 +357,7 @@ export class VistasService {
       sort_col?: string;
       sort_dir?: 'asc' | 'desc';
       max_rows?: number;
+      format?: 'gzip' | 'excel';
     } = {}
   ): Observable<Blob> {
     return this.http.post(`${this.baseUrl}/export`, {
@@ -382,8 +367,30 @@ export class VistasService {
       filters: options.filters ?? {},
       sort_col: options.sort_col ?? '',
       sort_dir: options.sort_dir ?? 'asc',
-      max_rows: options.max_rows ?? 50000
+      max_rows: options.max_rows ?? 50000,
+      format: options.format ?? 'gzip'
     }, { responseType: 'blob' });
+  }
+
+  private buildDataPayload(
+    schema: string,
+    viewName: string,
+    options: FabricDataQueryOptions
+  ): Record<string, unknown> {
+    const limit = options.limit ?? 50;
+    const skipCount = options.skip_count ?? limit > 1000;
+
+    return {
+      schema_name: schema,
+      view: viewName,
+      columns: options.columns ?? [],
+      filters: options.filters ?? {},
+      limit,
+      offset: options.offset ?? 0,
+      sort_col: options.sort_col ?? '',
+      sort_dir: options.sort_dir ?? 'asc',
+      skip_count: skipCount
+    };
   }
 
   private flattenViews(response: FabricViewsApiResponse): VistaBi[] {

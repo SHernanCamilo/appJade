@@ -25,7 +25,16 @@
         <div class="toolbar-left">
           <span class="grid-hint">
             <i class="pi pi-info-circle"></i>
-            {{ totalRegistros | number }} registros · Página {{ paginaActual }} de {{ totalPaginas }}
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              {{ totalLabel }} · Página {{ paginaActual }} de {{ totalPaginas }}
+            </ng-container>
+            <ng-container *ngIf="usarPaginacionInfinita">
+              {{ totalLabel }} · Página {{ paginaActual }}
+            </ng-container>
+          </span>
+          <span class="heavy-view-badge" *ngIf="isHeavyView">
+            <i class="pi pi-exclamation-triangle"></i>
+            Vista con alto volumen — use filtros para mejor rendimiento
           </span>
           <span class="grid-loading" *ngIf="isLoadingDatos">
             <i class="pi pi-spin pi-spinner"></i> Cargando...
@@ -43,7 +52,7 @@
         
         <div class="toolbar-actions">
           <button type="button" class="btn-toolbar btn-toolbar-download" (click)="descargarExcel()"
-            [disabled]="isLoadingVista || !vista || totalRegistros === 0"
+            [disabled]="isLoadingVista || !vista || !hayDatosParaExportar"
             title="Descargar Excel">
             <i class="pi pi-file-excel"></i> Descargar Excel
           </button>
@@ -52,13 +61,46 @@
             <i class="pi pi-refresh"></i> Recargar
           </button>
           <button type="button" class="btn-toolbar btn-toolbar-secondary" (click)="abrirEnNuevaPestana()"
-            [disabled]="isLoadingDatos || totalRegistros === 0" title="Pantalla completa">
+            [disabled]="isLoadingDatos || !hayDatosParaExportar" title="Pantalla completa">
             <i class="pi pi-external-link"></i> Pantalla completa
           </button>
         </div>
       </div>
 
-      <div *ngIf="rowData.length === 0 && !isLoadingDatos" class="empty-grid-message">
+      <div class="filter-required-panel" *ngIf="showFilterRequired">
+        <div class="filter-required-header">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div>
+            <strong>Esta vista requiere filtros</strong>
+            <p>{{ filterRequiredMessage }}</p>
+          </div>
+        </div>
+        <div class="filter-required-fields">
+          <div class="filter-field" *ngFor="let col of filterColumns">
+            <label [for]="'filter-' + col.name">{{ humanizeColumnName(col.name) }}</label>
+            <input *ngIf="getColumnType(col.type) === 'date'" type="date" [id]="'filter-' + col.name"
+              (change)="onSuggestedFilter(col.name, $any($event.target).value)">
+            <input *ngIf="getColumnType(col.type) === 'number'" type="number" [id]="'filter-' + col.name"
+              (input)="onSuggestedFilter(col.name, $any($event.target).value)">
+            <select *ngIf="getColumnType(col.type) === 'boolean'" [id]="'filter-' + col.name"
+              (change)="onSuggestedFilter(col.name, $any($event.target).value)">
+              <option value="">Todos</option>
+              <option value="1">Sí</option>
+              <option value="0">No</option>
+            </select>
+            <input *ngIf="getColumnType(col.type) === 'text'" type="text" [id]="'filter-' + col.name"
+              [placeholder]="'Filtrar por ' + humanizeColumnName(col.name)"
+              (input)="onSuggestedFilter(col.name, $any($event.target).value)">
+          </div>
+        </div>
+        <div class="filter-required-actions">
+          <button type="button" class="btn-toolbar" (click)="aplicarFiltrosRequeridos()">
+            <i class="pi pi-filter"></i> Aplicar filtros y consultar
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="rowData.length === 0 && !isLoadingDatos && !showFilterRequired" class="empty-grid-message">
         <i class="pi pi-table"></i>
         <p>Sin datos cargados para esta vista.</p>
       </div>
@@ -99,25 +141,35 @@
         </div>
 
         <!-- Paginación server-side — siempre visible cuando hay datos -->
-        <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0">
+        <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0 || usarPaginacionInfinita">
           <div class="pagination-info">
-            {{ ((paginaActual - 1) * pageSize) + 1 | number }} — {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
-            de {{ totalRegistros | number }}
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              {{ ((paginaActual - 1) * pageSize) + 1 | number }} —
+              {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
+              de {{ totalRegistros | number }}
+            </ng-container>
+            <ng-container *ngIf="usarPaginacionInfinita">
+              Página {{ paginaActual }} · navegación por lotes
+            </ng-container>
           </div>
           <div class="pagination-controls">
-            <button class="btn-page" [disabled]="paginaActual <= 1" (click)="irPagina(1)" pTooltip="Primera">
-              <i class="pi pi-angle-double-left"></i>
-            </button>
-            <button class="btn-page" [disabled]="paginaActual <= 1" (click)="irPagina(paginaActual - 1)">
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              <button class="btn-page" [disabled]="!canGoPrev" (click)="irPagina(1)" pTooltip="Primera">
+                <i class="pi pi-angle-double-left"></i>
+              </button>
+            </ng-container>
+            <button class="btn-page" [disabled]="!canGoPrev" (click)="usarPaginacionInfinita ? paginaAnterior() : irPagina(paginaActual - 1)">
               <i class="pi pi-angle-left"></i>
             </button>
-            <span class="page-indicator">{{ paginaActual }} / {{ totalPaginas }}</span>
-            <button class="btn-page" [disabled]="paginaActual >= totalPaginas" (click)="irPagina(paginaActual + 1)">
+            <span class="page-indicator" *ngIf="!usarPaginacionInfinita">{{ paginaActual }} / {{ totalPaginas }}</span>
+            <button class="btn-page" [disabled]="!canGoNext" (click)="usarPaginacionInfinita ? siguientePagina() : irPagina(paginaActual + 1)">
               <i class="pi pi-angle-right"></i>
             </button>
-            <button class="btn-page" [disabled]="paginaActual >= totalPaginas" (click)="irPagina(totalPaginas)" pTooltip="Última">
-              <i class="pi pi-angle-double-right"></i>
-            </button>
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              <button class="btn-page" [disabled]="!canGoNext" (click)="irPagina(totalPaginas)" pTooltip="Última">
+                <i class="pi pi-angle-double-right"></i>
+              </button>
+            </ng-container>
           </div>
           <div class="pagination-size">
             <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">

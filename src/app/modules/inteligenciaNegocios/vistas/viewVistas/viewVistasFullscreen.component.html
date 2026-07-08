@@ -5,9 +5,40 @@
       <span>{{ vista.nombre }}</span>
     </div>
     <div class="fullscreen-meta">
-      {{ totalRegistros | number }} registros · Página {{ paginaActual }} de {{ totalPaginas }}
+      <ng-container *ngIf="!usarPaginacionInfinita">
+        {{ totalLabel }} · Página {{ paginaActual }} de {{ totalPaginas }}
+      </ng-container>
+      <ng-container *ngIf="usarPaginacionInfinita">
+        {{ totalLabel }} · Página {{ paginaActual }}
+      </ng-container>
+      <span class="heavy-view-badge" *ngIf="isHeavyView"> · Vista con alto volumen</span>
     </div>
   </div>
+
+  <div class="filter-required-panel" *ngIf="showFilterRequired">
+    <strong>Filtros requeridos</strong>
+    <p>{{ filterRequiredMessage }}</p>
+    <div class="filter-required-fields">
+      <div class="filter-field" *ngFor="let col of filterColumns">
+        <label>{{ humanizeColumnName(col.name) }}</label>
+        <input *ngIf="getColumnType(col.type) === 'date'" type="date"
+          (change)="onSuggestedFilter(col.name, $any($event.target).value)">
+        <input *ngIf="getColumnType(col.type) === 'number'" type="number"
+          (input)="onSuggestedFilter(col.name, $any($event.target).value)">
+        <select *ngIf="getColumnType(col.type) === 'boolean'"
+          (change)="onSuggestedFilter(col.name, $any($event.target).value)">
+          <option value="">Todos</option>
+          <option value="1">Sí</option>
+          <option value="0">No</option>
+        </select>
+        <input *ngIf="getColumnType(col.type) === 'text'" type="text"
+          (input)="onSuggestedFilter(col.name, $any($event.target).value)">
+      </div>
+    </div>
+    <button type="button" (click)="aplicarFiltrosRequeridos()">Aplicar filtros</button>
+  </div>
+
+  <div class="fullscreen-error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
   <div class="grid-container" *ngIf="vista">
     <app-grid-loader *ngIf="isLoading && rowData.length === 0"
@@ -29,25 +60,26 @@
       (filterChanged)="onFilterChanged()">
     </ag-grid-angular>
 
-    <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0">
+    <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0 || usarPaginacionInfinita">
       <div class="pagination-info">
-        {{ ((paginaActual - 1) * pageSize) + 1 | number }} —
-        {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
-        de {{ totalRegistros | number }}
+        <ng-container *ngIf="!usarPaginacionInfinita">
+          {{ ((paginaActual - 1) * pageSize) + 1 | number }} —
+          {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
+          de {{ totalRegistros | number }}
+        </ng-container>
+        <ng-container *ngIf="usarPaginacionInfinita">
+          Página {{ paginaActual }} · navegación por lotes
+        </ng-container>
       </div>
       <div class="pagination-controls">
-        <button class="btn-page" [disabled]="paginaActual <= 1" (click)="irPagina(1)">
-          <i class="pi pi-angle-double-left"></i>
-        </button>
-        <button class="btn-page" [disabled]="paginaActual <= 1" (click)="irPagina(paginaActual - 1)">
+        <button class="btn-page" [disabled]="!canGoPrev"
+          (click)="usarPaginacionInfinita ? paginaAnterior() : irPagina(paginaActual - 1)">
           <i class="pi pi-angle-left"></i>
         </button>
-        <span class="page-indicator">{{ paginaActual }} / {{ totalPaginas }}</span>
-        <button class="btn-page" [disabled]="paginaActual >= totalPaginas" (click)="irPagina(paginaActual + 1)">
+        <span class="page-indicator" *ngIf="!usarPaginacionInfinita">{{ paginaActual }} / {{ totalPaginas }}</span>
+        <button class="btn-page" [disabled]="!canGoNext"
+          (click)="usarPaginacionInfinita ? siguientePagina() : irPagina(paginaActual + 1)">
           <i class="pi pi-angle-right"></i>
-        </button>
-        <button class="btn-page" [disabled]="paginaActual >= totalPaginas" (click)="irPagina(totalPaginas)">
-          <i class="pi pi-angle-double-right"></i>
         </button>
       </div>
       <div class="pagination-size">
