@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
@@ -93,6 +93,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private vistasService: VistasService,
     private fabricExportService: FabricExportService,
     private messageService: MessageService
@@ -398,11 +399,14 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   volverAlListado(): void { this.router.navigate([this.listPath]); }
 
   abrirEnNuevaPestana(): void {
-    // Usar router.serializeUrl para generar la URL correcta basada en las rutas configuradas
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree([this.listPath, 'viewVistas', 'fullscreen', this.schema, this.viewName])
-    );
-    window.open(url, '_blank');
+    // Usar router.createUrlTree para generar la ruta relativa
+    const urlTree = this.router.createUrlTree([this.listPath, 'viewVistas', 'fullscreen', this.schema, this.viewName]);
+    const url = this.router.serializeUrl(urlTree);
+    
+    // Usar location.prepareExternalUrl para respetar el base-href en producción
+    const fullUrl = this.location.prepareExternalUrl(url);
+    
+    window.open(fullUrl, '_blank');
   }
 
   // ── Descarga Excel en segundo plano (backend genera el archivo) ───────────
