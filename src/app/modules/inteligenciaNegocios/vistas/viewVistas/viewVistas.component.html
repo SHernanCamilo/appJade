@@ -67,6 +67,22 @@
         </div>
       </div>
 
+      <!-- Barra de progreso de exportación -->
+      <div class="export-progress-bar" *ngIf="exportProgress">
+        <div class="export-progress-content">
+          <div class="export-progress-info">
+            <i class="pi" [class.pi-spin]="exportProgress.status !== 'completed'" [class.pi-spinner]="exportProgress.status !== 'completed'" [class.pi-check-circle]="exportProgress.status === 'completed'"></i>
+            <span class="export-progress-msg">{{ exportProgress.message }}</span>
+            <span class="export-progress-rows" *ngIf="exportProgress.rows > 0">· {{ exportProgress.rows | number }} filas</span>
+            <span class="export-progress-file" *ngIf="exportProgress.filename">· {{ exportProgress.fileSize }}</span>
+          </div>
+          <div class="export-progress-track">
+            <div class="export-progress-fill" [style.width.%]="exportProgress.progress"></div>
+          </div>
+          <span class="export-progress-pct">{{ exportProgress.progress }}%</span>
+        </div>
+      </div>
+
       <div class="filter-required-panel" *ngIf="showFilterRequired">
         <div class="filter-required-header">
           <i class="pi pi-exclamation-triangle"></i>
