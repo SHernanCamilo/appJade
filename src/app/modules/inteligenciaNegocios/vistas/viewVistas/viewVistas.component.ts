@@ -10,7 +10,7 @@ import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
 
 import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../services/vistas.service';
-import { FabricExportService } from '../../services/fabric-export.service';
+import { FabricExportService, ExportProgress } from '../../services/fabric-export.service';
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
 import { getColumnType, humanizeColumnName } from '../../helpers/column-type.helper';
@@ -85,6 +85,9 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   // Overlay loading al filtrar
   isFiltering = false;
 
+  // Export progress
+  exportProgress: ExportProgress | null = null;
+
   private gridApi?: GridApi;
   private exportSub?: Subscription;
   private filterDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -115,6 +118,10 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
 
     this.exportSub = this.fabricExportService.pendingCount$.subscribe(
       count => { this.exportEnSegundoPlano = count > 0; }
+    );
+
+    this.fabricExportService.exportProgress$.subscribe(
+      progress => { this.exportProgress = progress; }
     );
   }
 

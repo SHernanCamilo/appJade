@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
 import { MessageService } from 'primeng/api';
 import { ColDef } from 'ag-grid-community';
@@ -10,8 +10,18 @@ import {
 } from '../../../core/services/excel-export.service';
 import { VistasService } from './vistas.service';
 import { handleFabricError } from '../helpers/fabric-error.helper';
+import { environment } from '../../../environments/environment';
 
 const TOAST_KEY = 'global-export';
+
+export interface ExportProgress {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  rows: number;
+  message: string;
+  filename?: string;
+  fileSize?: string;
+}
 
 export interface FabricExportOptions {
   schema: string;
@@ -40,7 +50,11 @@ export class FabricExportService {
   private pendingCountSubject = new BehaviorSubject(0);
   readonly pendingCount$ = this.pendingCountSubject.asObservable();
 
+  private exportProgressSubject = new BehaviorSubject<ExportProgress | null>(null);
+  readonly exportProgress$ = this.exportProgressSubject.asObservable();
+
   constructor(
+    private http: HttpClient,
     private vistasService: VistasService,
     private excelExportService: ExcelExportService,
     private messageService: MessageService
@@ -64,50 +78,104 @@ export class FabricExportService {
 
   exportarExcelEnSegundoPlano(options: FabricExportOptions): void {
     const label = options.label ?? `${options.schema}.${options.viewName}`;
-    const filename = `${options.schema}_${options.viewName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const baseUrl = `${environment.URL_SERVICIOS}/fabric/viewer/export`;
 
     this.pendingCountSubject.next(this.pendingCountSubject.value + 1);
+    this.exportProgressSubject.next({ status: 'pending', progress: 0, rows: 0, message: 'Iniciando exportación...' });
 
-    this.messageService.add({
-      key: TOAST_KEY,
-      severity: 'info',
-      summary: 'Exportación en segundo plano',
-      detail: `Consultando Fabric para ${label}. Puede seguir navegando.`,
-      life: 5000
-    });
-
-    this.vistasService.exportExcel(options.schema, options.viewName, {
+    // 1. Iniciar export async
+    this.http.post<{ success: boolean; job_id: string }>(`${baseUrl}/start`, {
+      schema_name: options.schema,
+      view: options.viewName,
+      filters: options.filters ?? {},
+      sort_col: options.sort_col ?? '',
+      sort_dir: options.sort_dir ?? 'asc',
       max_rows: options.max_rows ?? 1_000_000,
-      filters: options.filters,
-      sort_col: options.sort_col,
-      sort_dir: options.sort_dir,
-      format: options.format ?? 'gzip'
+      format: options.format ?? 'excel'
     }).subscribe({
-      next: (blob) => {
-        this.triggerDownload(blob, filename);
-        this.messageService.add({
-          key: TOAST_KEY,
-          severity: 'success',
-          summary: 'Excel listo',
-          detail: `Descarga iniciada: ${label}`,
-          life: 6000
-        });
-        this.decrementPending();
+      next: (res) => {
+        if (!res.job_id) {
+          this.exportProgressSubject.next(null);
+          this.decrementPending();
+          this.messageService.add({ key: TOAST_KEY, severity: 'error', summary: 'Error', detail: 'No se pudo iniciar la exportación', life: 5000 });
+          return;
+        }
+        // 2. Polling
+        this.pollExportStatus(res.job_id, label, baseUrl);
       },
       error: (err) => {
-        const detail = err instanceof HttpErrorResponse
-          ? handleFabricError(err)
-          : (err?.error?.message || `No se pudo exportar ${label} desde Fabric.`);
-        this.messageService.add({
-          key: TOAST_KEY,
-          severity: 'error',
-          summary: 'Error en exportación',
-          detail,
-          life: 8000
-        });
+        this.exportProgressSubject.next(null);
         this.decrementPending();
+        const detail = err instanceof HttpErrorResponse ? handleFabricError(err) : 'Error al iniciar exportación';
+        this.messageService.add({ key: TOAST_KEY, severity: 'error', summary: 'Error', detail, life: 6000 });
       }
     });
+  }
+
+  private pollExportStatus(jobId: string, label: string, baseUrl: string): void {
+    const poll = setInterval(() => {
+      this.http.get<{ success: boolean; data: any }>(`${baseUrl}/status/${jobId}`).subscribe({
+        next: (res) => {
+          const d = res.data;
+
+          if (d.status === 'processing' || d.status === 'pending') {
+            this.exportProgressSubject.next({
+              status: d.status,
+              progress: d.progress ?? 0,
+              rows: d.rows ?? 0,
+              message: d.message ?? 'Procesando...'
+            });
+            return;
+          }
+
+          if (d.status === 'completed') {
+            clearInterval(poll);
+            this.exportProgressSubject.next({
+              status: 'completed',
+              progress: 100,
+              rows: d.rows ?? 0,
+              message: 'Descargando archivo...',
+              filename: d.filename,
+              fileSize: d.file_size_human
+            });
+
+            // 3. Descargar
+            this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob' }).subscribe({
+              next: (blob) => {
+                this.triggerDownload(blob, d.filename ?? `${label}.xlsx`);
+                this.exportProgressSubject.next(null);
+                this.decrementPending();
+                this.messageService.add({
+                  key: TOAST_KEY, severity: 'success', summary: 'Excel listo',
+                  detail: `${(d.rows ?? 0).toLocaleString('es-CO')} filas · ${d.file_size_human ?? ''}`, life: 6000
+                });
+              },
+              error: () => {
+                this.exportProgressSubject.next(null);
+                this.decrementPending();
+                this.messageService.add({ key: TOAST_KEY, severity: 'error', summary: 'Error', detail: 'No se pudo descargar el archivo', life: 5000 });
+              }
+            });
+            return;
+          }
+
+          if (d.status === 'failed') {
+            clearInterval(poll);
+            this.exportProgressSubject.next(null);
+            this.decrementPending();
+            this.messageService.add({
+              key: TOAST_KEY, severity: 'error', summary: 'Exportación fallida',
+              detail: d.message ?? 'Error generando el Excel', life: 8000
+            });
+          }
+        },
+        error: () => {
+          clearInterval(poll);
+          this.exportProgressSubject.next(null);
+          this.decrementPending();
+        }
+      });
+    }, 2000); // Poll cada 2 segundos
   }
 
   private async exportarExcelLocal(options: FabricExportDesdeGrillaOptions): Promise<void> {
