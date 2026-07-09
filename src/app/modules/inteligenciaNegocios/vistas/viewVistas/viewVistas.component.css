@@ -651,6 +651,41 @@
 
 .filter-required-actions .btn-toolbar:hover { background: #b45309; }
 
+.maintenance-panel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 320px;
+  padding: 2rem;
+}
+
+.maintenance-panel-content {
+  max-width: 480px;
+  text-align: center;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
+}
+
+.maintenance-icon {
+  font-size: 2.5rem;
+  color: #d97706;
+  margin-bottom: 0.75rem;
+}
+
+.maintenance-panel-content h2 {
+  margin: 0 0 0.5rem;
+  color: #92400e;
+  font-size: 1.25rem;
+}
+
+.maintenance-panel-content p {
+  margin: 0 0 1.25rem;
+  color: #78350f;
+}
+
 /* Heavy view badge */
 .heavy-view-badge {
   display: inline-flex;

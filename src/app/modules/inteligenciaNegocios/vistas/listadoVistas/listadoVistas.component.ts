@@ -15,6 +15,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { MultiSelectModule } from 'primeng/multiselect';
 
 import { EsquemaCatalogo, VistasService, VistaBi } from '../../services/vistas.service';
+import { isVistaEnMantenimiento } from '../../helpers/fabric-error.helper';
 
 export interface EsquemaOption {
   code: string;
@@ -22,11 +23,14 @@ export interface EsquemaOption {
 }
 
 export interface GrupoVistas {
+  key: string;
   schema: string;
   codigo: string;
   nombre: string;
   expandido: boolean;
   vistas: VistaBi[];
+  esDelegacion?: boolean;
+  ocultarCodigo?: boolean;
 }
 
 @Component({
@@ -64,6 +68,7 @@ export class ListadoVistasComponent implements OnInit {
   pageSubtitle = 'Consulta de fuentes de datos disponibles según tus permisos';
   listPath = '/inteligenciaNegocios/vistas';
   vistaAgrupada = false;
+  tieneVistasDelegadas = false;
 
   private grupoTipo?: number;
   private vistasPorEsquema = new Map<string, VistaBi[]>();
@@ -95,30 +100,98 @@ export class ListadoVistasComponent implements OnInit {
   }
 
   get gruposVistas(): GrupoVistas[] {
+    if (this.vistaAgrupada && this.tieneVistasDelegadas) {
+      return [
+        ...this.buildGruposPorEmpresaDelegada(),
+        ...this.buildGruposPorEsquema(true)
+      ];
+    }
+    return this.buildGruposPorEsquema(false);
+  }
+
+  get resumenGruposLabel(): string {
+    return this.tieneVistasDelegadas ? 'empresa(s)' : 'categoría(s)';
+  }
+
+  get tituloSeccionGrupos(): string {
+    return this.tieneVistasDelegadas ? 'Vistas delegadas por empresa' : 'Vistas por categoría';
+  }
+
+  private buildGruposPorEsquema(soloDirectos = false): GrupoVistas[] {
     const term = this.searchTerm.trim().toLowerCase();
 
     return this.esquemasCatalogo
+      .filter(esquema => !soloDirectos || !esquema.es_delegado)
       .map(esquema => {
-        const vistasGrupo = (this.vistasPorEsquema.get(esquema.schema) ?? [])
-          .filter(vista => {
-            if (!term) return true;
-            return (
-              vista.nombre.toLowerCase().includes(term) ||
-              vista.codigo.toLowerCase().includes(term) ||
-              esquema.nombre.toLowerCase().includes(term) ||
-              (vista.fuente ?? '').toLowerCase().includes(term)
-            );
-          });
+        const vistasGrupo = this.filtrarVistasGrupo(esquema.schema, term, esquema.nombre);
 
         return {
+          key: esquema.schema,
           schema: esquema.schema,
           codigo: esquema.codigo,
           nombre: esquema.nombre,
           expandido: this.estaGrupoExpandido(esquema.schema, term, vistasGrupo.length > 0),
-          vistas: vistasGrupo
+          vistas: vistasGrupo,
+          ocultarCodigo: false
         };
       })
       .filter(grupo => grupo.vistas.length > 0 || (!term && this.vistasPorEsquema.has(grupo.schema)));
+  }
+
+  private buildGruposPorEmpresaDelegada(): GrupoVistas[] {
+    const term = this.searchTerm.trim().toLowerCase();
+    const porEmpresa = new Map<number, GrupoVistas>();
+
+    for (const esquema of this.esquemasCatalogo.filter(e => e.es_delegado)) {
+      const vistasGrupo = this.filtrarVistasGrupo(esquema.schema, term, esquema.nombre, esquema.empresa_nombre);
+      if (vistasGrupo.length === 0 && term) {
+        continue;
+      }
+
+      const empresaId = esquema.empresa_id ?? 0;
+      const key = `empresa-${empresaId}`;
+
+      if (!porEmpresa.has(empresaId)) {
+        porEmpresa.set(empresaId, {
+          key,
+          schema: esquema.schema,
+          codigo: '',
+          nombre: esquema.empresa_nombre ?? 'Empresa delegada',
+          expandido: this.estaGrupoExpandido(key, term, vistasGrupo.length > 0),
+          vistas: [],
+          esDelegacion: true,
+          ocultarCodigo: true
+        });
+      }
+
+      const grupo = porEmpresa.get(empresaId)!;
+      grupo.vistas.push(...vistasGrupo);
+      grupo.expandido = this.estaGrupoExpandido(key, term, grupo.vistas.length > 0);
+    }
+
+    return Array.from(porEmpresa.values())
+      .filter(grupo => grupo.vistas.length > 0 || !term);
+  }
+
+  private filtrarVistasGrupo(
+    schema: string,
+    term: string,
+    nombreEsquema: string,
+    empresaNombre?: string
+  ): VistaBi[] {
+    return (this.vistasPorEsquema.get(schema) ?? []).filter(vista => {
+      if (!term) {
+        return true;
+      }
+      return (
+        vista.nombre.toLowerCase().includes(term) ||
+        vista.codigo.toLowerCase().includes(term) ||
+        nombreEsquema.toLowerCase().includes(term) ||
+        (vista.fuente ?? '').toLowerCase().includes(term) ||
+        (vista.schemaDisplay ?? '').toLowerCase().includes(term) ||
+        (empresaNombre ?? '').toLowerCase().includes(term)
+      );
+    });
   }
 
   cargarContexto(): void {
@@ -128,6 +201,7 @@ export class ListadoVistasComponent implements OnInit {
       next: ctx => {
         this.departamento = ctx.departamento;
         this.esquemasCatalogo = ctx.esquemas_catalogo ?? [];
+        this.tieneVistasDelegadas = !!ctx.tiene_vistas_delegadas;
         this.esquemaOptions = this.esquemasCatalogo.map(item => ({
           code: item.schema,
           label: item.nombre
@@ -228,6 +302,16 @@ export class ListadoVistasComponent implements OnInit {
   }
 
   abrirVista(vista: VistaBi): void {
+    if (isVistaEnMantenimiento(vista)) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'En mantenimiento',
+        detail: 'Esta vista está en mantenimiento. Intente más tarde.',
+        life: 4000
+      });
+      return;
+    }
+
     if (!vista.estado) {
       this.messageService.add({
         severity: 'warn',
@@ -248,31 +332,35 @@ export class ListadoVistasComponent implements OnInit {
     ]);
   }
 
-  toggleGrupo(schema: string): void {
-    if (this.gruposExpandidos.has(schema)) {
-      this.gruposExpandidos.delete(schema);
+  toggleGrupo(key: string): void {
+    if (this.gruposExpandidos.has(key)) {
+      this.gruposExpandidos.delete(key);
     } else {
-      this.gruposExpandidos.add(schema);
+      this.gruposExpandidos.add(key);
     }
   }
 
   expandirTodos(): void {
-    this.gruposVistas.forEach(g => this.gruposExpandidos.add(g.schema));
+    this.gruposVistas.forEach(g => this.gruposExpandidos.add(g.key));
   }
 
   colapsarTodos(): void {
     this.gruposExpandidos.clear();
   }
 
-  estaGrupoExpandido(schema: string, term: string, tieneResultados: boolean): boolean {
+  estaGrupoExpandido(key: string, term: string, tieneResultados: boolean): boolean {
     if (term) {
       return tieneResultados;
     }
-    return this.gruposExpandidos.has(schema);
+    return this.gruposExpandidos.has(key);
   }
 
   contarVisibles(grupo: GrupoVistas): number {
-    return grupo.vistas.filter(v => v.estado).length;
+    return grupo.vistas.filter(v => v.estado && !isVistaEnMantenimiento(v)).length;
+  }
+
+  esEnMantenimiento(vista: VistaBi): boolean {
+    return isVistaEnMantenimiento(vista);
   }
 
   get vistasFiltradas(): VistaBi[] {

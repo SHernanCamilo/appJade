@@ -13,6 +13,8 @@ import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 import { TableModule } from 'primeng/table';
 import { MultiSelectModule } from 'primeng/multiselect';
+import { TabViewModule } from 'primeng/tabview';
+import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
 import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
@@ -22,7 +24,9 @@ import {
   BiGrupo,
   BiGrupoPayload,
   BiGrupoService,
+  BiDelegacionVista,
   BiVista,
+  BiVistaEstado,
   BiVistaService,
   FabricCatalogView
 } from './services/bi-grupo.service';
@@ -45,6 +49,8 @@ import {
     TooltipModule,
     TableModule,
     MultiSelectModule,
+    TabViewModule,
+    CheckboxModule,
     DataTableComponent
   ],
   providers: [MessageService, ConfirmationService],
@@ -81,10 +87,34 @@ export class EsquemasComponent implements OnInit {
   departamentosOptions: { label: string; value: string }[] = [];
   savingVistaId: number | null = null;
 
+  activeTabIndex = 0;
+  delegacionEmpresasOptions: { label: string; value: number }[] = [];
+  delegacionEmpresaId: number | null = null;
+  delegacionVistas: BiDelegacionVista[] = [];
+  delegacionTieneConfig = false;
+  isLoadingDelegacion = false;
+  isSavingDelegacion = false;
+
+  delegacionModo: 'empresa' | 'usuario' = 'empresa';
+  delegacionUsuarioId: number | null = null;
+  delegacionUsuariosOptions: { label: string; value: number }[] = [];
+  delegacionUsuarioVistas: BiDelegacionVista[] = [];
+  delegacionUsuarioTieneConfig = false;
+  delegacionEmpresaTienePool = false;
+  isLoadingDelegacionUsuario = false;
+  isSavingDelegacionUsuario = false;
+  isLoadingUsuariosEmpresa = false;
+
   tipoOptions = [
     { label: 'Asistencial', value: 1 },
     { label: 'Financiero', value: 2 },
     { label: 'Administrativo', value: 3 }
+  ];
+
+  estadoOptions: { label: string; value: BiVista['estado'] }[] = [
+    { label: 'Activo', value: 'activo' },
+    { label: 'Inactivo', value: 'inactivo' },
+    { label: 'Mantenimiento', value: 'mantenimiento' }
   ];
 
   constructor(
@@ -103,6 +133,42 @@ export class EsquemasComponent implements OnInit {
     this.buildModalColumns();
     this.loadEmpresasDisponibles();
     this.loadDepartamentosCatalogo();
+    this.loadDelegacionEmpresas();
+  }
+
+  private loadDelegacionEmpresas(): void {
+    this.http.get<{ success: boolean; data: { nombre: string; id: number }[] }>(
+      `${environment.URL_SERVICIOS}/empresas-activas`
+    ).subscribe({
+      next: (response) => {
+        this.delegacionEmpresasOptions = (response.data || []).map(e => ({
+          label: e.nombre,
+          value: e.id
+        }));
+      },
+      error: () => {
+        this.delegacionEmpresasOptions = [...this.empresasOptions];
+      }
+    });
+  }
+
+  onTabChange(index: number): void {
+    this.activeTabIndex = index;
+    if (index !== 1 || !this.puedeGestionarVistas) {
+      return;
+    }
+    if (this.delegacionModo === 'usuario' && this.esquemaEmpresaId) {
+      this.delegacionEmpresaId = this.esquemaEmpresaId;
+      this.delegacionEmpresaTienePool = true;
+      this.cargarUsuariosEmpresa();
+      if (this.delegacionUsuarioId) {
+        this.cargarDelegacionUsuario();
+      }
+      return;
+    }
+    if (this.delegacionEmpresaId) {
+      this.cargarDelegacion();
+    }
   }
 
   private loadDepartamentosCatalogo(): void {
@@ -151,6 +217,54 @@ export class EsquemasComponent implements OnInit {
 
   get schemaActual(): string {
     return String(this.esquemaForm.get('codigo')?.value || '').trim().toLowerCase();
+  }
+
+  get esquemaEmpresaId(): number | null {
+    const value = this.esquemaForm.get('empresa_id')?.value;
+    return value != null ? Number(value) : null;
+  }
+
+  get esquemaEmpresaNombre(): string {
+    if (this.empresaNombre) {
+      return this.empresaNombre;
+    }
+    const id = this.esquemaEmpresaId;
+    return this.delegacionEmpresasOptions.find(o => o.value === id)?.label ?? '';
+  }
+
+  /** Por empresa: solo empresas externas. Por usuario: usa la empresa del esquema. */
+  get delegacionEmpresasOptionsFiltradas(): { label: string; value: number }[] {
+    const ownerId = this.esquemaEmpresaId;
+    if (this.delegacionModo === 'empresa' && ownerId) {
+      return this.delegacionEmpresasOptions.filter(o => o.value !== ownerId);
+    }
+    return this.delegacionEmpresasOptions;
+  }
+
+  get esDelegacionUsuariosInterna(): boolean {
+    return this.delegacionModo === 'usuario' && !!this.esquemaEmpresaId;
+  }
+
+  get delegacionSeleccionadas(): number {
+    return this.delegacionVistas.filter(v => v.delegada).length;
+  }
+
+  get delegacionUsuarioSeleccionadas(): number {
+    return this.delegacionUsuarioVistas.filter(v => v.delegada).length;
+  }
+
+  get puedeGestionarDelegacion(): boolean {
+    return this.puedeGestionarVistas && !!this.delegacionEmpresaId;
+  }
+
+  get puedeGestionarDelegacionUsuario(): boolean {
+    if (!this.puedeGestionarVistas || !this.delegacionUsuarioId) {
+      return false;
+    }
+    if (this.esDelegacionUsuariosInterna) {
+      return true;
+    }
+    return !!this.delegacionEmpresaId && this.delegacionEmpresaTienePool;
   }
 
   get fabricOptionsDisponibles(): { label: string; value: string }[] {
@@ -345,6 +459,15 @@ export class EsquemasComponent implements OnInit {
     this.fabricOptions = [];
     this.fabricCatalog = [];
     this.selectedFabricViews = [];
+    this.delegacionVistas = [];
+    this.delegacionEmpresaId = null;
+    this.delegacionTieneConfig = false;
+    this.delegacionUsuarioId = null;
+    this.delegacionUsuariosOptions = [];
+    this.delegacionUsuarioVistas = [];
+    this.delegacionUsuarioTieneConfig = false;
+    this.delegacionEmpresaTienePool = false;
+    this.delegacionModo = 'empresa';
   }
 
   guardar(): void {
@@ -530,11 +653,244 @@ export class EsquemasComponent implements OnInit {
     });
   }
 
+  onEstadoChange(vista: BiVista, estado: BiVistaEstado): void {
+    if (!this.puedeGestionarVistas) {
+      return;
+    }
+
+    const actual = vista.estado ?? 'activo';
+    if (actual === estado) {
+      return;
+    }
+
+    this.savingVistaId = vista.id;
+    this.biVistaService.updateVista(vista.id, { estado }).subscribe({
+      next: (actualizada) => {
+        this.vistas = this.vistas.map(v => v.id === actualizada.id ? actualizada : v);
+        this.savingVistaId = null;
+        this.showSuccess(`Estado actualizado: ${this.getEstadoLabel(actualizada.estado ?? 'activo')}`);
+      },
+      error: (err) => {
+        this.savingVistaId = null;
+        this.showError(err?.error?.message || 'Error al actualizar el estado');
+      }
+    });
+  }
+
   getDepartamentosLabel(vista: BiVista): string {
     if (!vista.departamentos?.length) {
       return 'Todos';
     }
     return vista.departamentos.join(', ');
+  }
+
+  getEstadoLabel(estado: BiVistaEstado): string {
+    return this.estadoOptions.find(o => o.value === estado)?.label ?? estado;
+  }
+
+  getEstadoSeverity(estado: BiVistaEstado): 'success' | 'warn' | 'danger' | 'secondary' {
+    switch (estado) {
+      case 'activo': return 'success';
+      case 'mantenimiento': return 'warn';
+      case 'inactivo': return 'danger';
+      default: return 'secondary';
+    }
+  }
+
+  onDelegacionEmpresaChange(): void {
+    this.delegacionUsuarioId = null;
+    this.delegacionUsuariosOptions = [];
+    this.delegacionUsuarioVistas = [];
+    this.delegacionUsuarioTieneConfig = false;
+    this.delegacionEmpresaTienePool = false;
+
+    if (!this.delegacionEmpresaId || !this.currentGrupoId) {
+      this.delegacionVistas = [];
+      return;
+    }
+
+    this.cargarUsuariosEmpresa();
+    if (this.delegacionModo === 'empresa') {
+      this.cargarDelegacion();
+    }
+  }
+
+  setDelegacionModo(modo: 'empresa' | 'usuario'): void {
+    this.delegacionModo = modo;
+
+    if (modo === 'usuario') {
+      this.delegacionEmpresaId = this.esquemaEmpresaId;
+      this.delegacionUsuarioId = null;
+      this.delegacionUsuarioVistas = [];
+      this.delegacionUsuarioTieneConfig = false;
+
+      if (this.esquemaEmpresaId) {
+        this.delegacionEmpresaTienePool = true;
+        this.cargarUsuariosEmpresa();
+      }
+      return;
+    }
+
+    this.delegacionEmpresaId = null;
+    this.delegacionUsuarioId = null;
+    this.delegacionUsuarioVistas = [];
+    this.delegacionVistas = [];
+  }
+
+  onDelegacionUsuarioChange(): void {
+    if (!this.delegacionUsuarioId) {
+      this.delegacionUsuarioVistas = [];
+      return;
+    }
+    this.cargarDelegacionUsuario();
+  }
+
+  private cargarUsuariosEmpresa(): void {
+    const empresaId = this.esDelegacionUsuariosInterna
+      ? this.esquemaEmpresaId
+      : this.delegacionEmpresaId;
+
+    if (!empresaId) {
+      return;
+    }
+
+    this.isLoadingUsuariosEmpresa = true;
+    this.http.get<{ id: number; name: string; email: string }[]>(
+      `${environment.URL_SERVICIOS}/users-por-empresa/${empresaId}`
+    ).subscribe({
+      next: (users) => {
+        this.delegacionUsuariosOptions = (users ?? []).map(u => ({
+          label: `${u.name} (${u.email})`,
+          value: u.id
+        }));
+        this.isLoadingUsuariosEmpresa = false;
+      },
+      error: () => {
+        this.delegacionUsuariosOptions = [];
+        this.isLoadingUsuariosEmpresa = false;
+      }
+    });
+  }
+
+  cargarDelegacion(): void {
+    if (!this.currentGrupoId || !this.delegacionEmpresaId) {
+      return;
+    }
+
+    this.isLoadingDelegacion = true;
+    this.biGrupoService.getDelegaciones(this.currentGrupoId, this.delegacionEmpresaId).subscribe({
+      next: (data) => {
+        this.delegacionVistas = data.vistas ?? [];
+        this.delegacionTieneConfig = data.tiene_config;
+        this.delegacionEmpresaTienePool = data.tiene_config;
+        this.isLoadingDelegacion = false;
+      },
+      error: (err) => {
+        this.delegacionVistas = [];
+        this.isLoadingDelegacion = false;
+        this.showError(err?.error?.message || 'Error al cargar delegaci\u00f3n');
+      }
+    });
+  }
+
+  toggleDelegacionVista(vista: BiDelegacionVista, delegada: boolean): void {
+    vista.delegada = delegada;
+  }
+
+  seleccionarTodasDelegacion(seleccionar: boolean): void {
+    this.delegacionVistas.forEach(v => { v.delegada = seleccionar; });
+  }
+
+  guardarDelegacion(): void {
+    if (!this.currentGrupoId || !this.delegacionEmpresaId) {
+      return;
+    }
+
+    const vistaIds = this.delegacionVistas.filter(v => v.delegada).map(v => v.id);
+    this.isSavingDelegacion = true;
+
+    this.biGrupoService.saveDelegaciones(this.currentGrupoId, this.delegacionEmpresaId, vistaIds).subscribe({
+      next: () => {
+        this.delegacionTieneConfig = vistaIds.length > 0;
+        this.delegacionEmpresaTienePool = vistaIds.length > 0;
+        this.isSavingDelegacion = false;
+        this.showSuccess('Delegaci\u00f3n por empresa guardada correctamente');
+        if (this.delegacionModo === 'usuario' && this.delegacionUsuarioId) {
+          this.cargarDelegacionUsuario();
+        }
+      },
+      error: (err) => {
+        this.isSavingDelegacion = false;
+        this.showError(err?.error?.message || 'Error al guardar delegaci\u00f3n');
+      }
+    });
+  }
+
+  cargarDelegacionUsuario(): void {
+    const empresaId = this.esDelegacionUsuariosInterna
+      ? this.esquemaEmpresaId
+      : this.delegacionEmpresaId;
+
+    if (!this.currentGrupoId || !empresaId || !this.delegacionUsuarioId) {
+      return;
+    }
+
+    this.isLoadingDelegacionUsuario = true;
+    this.biGrupoService.getDelegacionUsuario(
+      this.currentGrupoId,
+      empresaId,
+      this.delegacionUsuarioId
+    ).subscribe({
+      next: (data) => {
+        this.delegacionUsuarioVistas = data.vistas ?? [];
+        this.delegacionUsuarioTieneConfig = data.tiene_config;
+        this.delegacionEmpresaTienePool = data.empresa_tiene_config || !!data.es_misma_empresa;
+        this.isLoadingDelegacionUsuario = false;
+      },
+      error: (err) => {
+        this.delegacionUsuarioVistas = [];
+        this.isLoadingDelegacionUsuario = false;
+        this.showError(err?.error?.message || 'Error al cargar delegaci\u00f3n por usuario');
+      }
+    });
+  }
+
+  toggleDelegacionUsuarioVista(vista: BiDelegacionVista, delegada: boolean): void {
+    vista.delegada = delegada;
+  }
+
+  seleccionarTodasDelegacionUsuario(seleccionar: boolean): void {
+    this.delegacionUsuarioVistas.forEach(v => { v.delegada = seleccionar; });
+  }
+
+  guardarDelegacionUsuario(): void {
+    const empresaId = this.esDelegacionUsuariosInterna
+      ? this.esquemaEmpresaId
+      : this.delegacionEmpresaId;
+
+    if (!this.currentGrupoId || !empresaId || !this.delegacionUsuarioId) {
+      return;
+    }
+
+    const vistaIds = this.delegacionUsuarioVistas.filter(v => v.delegada).map(v => v.id);
+    this.isSavingDelegacionUsuario = true;
+
+    this.biGrupoService.saveDelegacionUsuario(
+      this.currentGrupoId,
+      empresaId,
+      this.delegacionUsuarioId,
+      vistaIds
+    ).subscribe({
+      next: () => {
+        this.delegacionUsuarioTieneConfig = vistaIds.length > 0;
+        this.isSavingDelegacionUsuario = false;
+        this.showSuccess('Delegaci\u00f3n por usuario guardada correctamente');
+      },
+      error: (err) => {
+        this.isSavingDelegacionUsuario = false;
+        this.showError(err?.error?.message || 'Error al guardar delegaci\u00f3n por usuario');
+      }
+    });
   }
 
   getTipoLabel(tipo: number): string {

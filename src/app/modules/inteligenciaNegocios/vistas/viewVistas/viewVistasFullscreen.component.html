@@ -15,7 +15,13 @@
     </div>
   </div>
 
-  <div class="filter-required-panel" *ngIf="showFilterRequired">
+  <div class="maintenance-panel" *ngIf="isMaintenanceMode">
+    <i class="pi pi-wrench"></i>
+    <h2>Vista en mantenimiento</h2>
+    <p>{{ maintenanceMessage }}</p>
+  </div>
+
+  <div class="filter-required-panel" *ngIf="showFilterRequired && !isMaintenanceMode">
     <strong>Filtros requeridos</strong>
     <p>{{ filterRequiredMessage }}</p>
     <div class="filter-required-fields">
@@ -38,9 +44,9 @@
     <button type="button" (click)="aplicarFiltrosRequeridos()">Aplicar filtros</button>
   </div>
 
-  <div class="fullscreen-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="fullscreen-error" *ngIf="errorMessage && !isMaintenanceMode">{{ errorMessage }}</div>
 
-  <div class="grid-container" *ngIf="vista">
+  <div class="grid-container" *ngIf="vista && !isMaintenanceMode">
     <app-grid-loader *ngIf="isLoading && rowData.length === 0"
       [mensaje]="'Consultando datos...'"
       [subtitulo]="'Conectando con Microsoft Fabric'"

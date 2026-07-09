@@ -17,7 +17,7 @@
           Esquemas BI
         </h1>
         <p class="page-subtitle-modern">
-          Configuración de esquemas Fabric y vistas por empresa
+          Configuraci&oacute;n de esquemas Fabric y vistas por empresa
           <span class="empresa-badge" *ngIf="!esTransversal && empresaNombre">
             <i class="pi pi-building me-1"></i>{{ empresaNombre }}
           </span>
@@ -43,7 +43,6 @@
   <div class="dashboard-content">
     <div class="two-panel-layout">
 
-      <!-- Panel izquierdo -->
       <div class="panel-left">
         <div class="panel-header panel-header-accent">
           <span class="panel-title">Datos Principales</span>
@@ -80,7 +79,7 @@
           </div>
 
           <div class="param-group">
-            <label class="param-label">Código del esquema *</label>
+            <label class="param-label">C&oacute;digo del esquema *</label>
             <div class="codigo-input-group">
               <input
                 pInputText
@@ -100,13 +99,13 @@
               </button>
             </div>
             <small class="form-hint" *ngIf="!empresaSeleccionada">
-              Seleccione una empresa para habilitar el código
+              Seleccione una empresa para habilitar el c&oacute;digo
             </small>
             <small class="form-hint" *ngIf="empresaSeleccionada">
-              Presione Enter para buscar por código en esta empresa
+              Presione Enter para buscar por c&oacute;digo en esta empresa
             </small>
             <small class="p-error" *ngIf="esquemaForm.get('codigo')?.hasError('required') && esquemaForm.get('codigo')?.touched">
-              El código es obligatorio
+              El c&oacute;digo es obligatorio
             </small>
           </div>
 
@@ -127,31 +126,29 @@
           </div>
 
           <div class="param-group">
-            <label class="param-label">Descripción</label>
+            <label class="param-label">Descripci&oacute;n</label>
             <input
               pInputText
               formControlName="descripcion"
-              placeholder="Ej: AA — Atención Ambulatoria"
+              placeholder="Ej: AA - Atenci&oacute;n Ambulatoria"
               class="w-100"
               maxlength="255">
           </div>
         </form>
       </div>
 
-      <!-- Panel derecho: Vistas -->
-      <div class="panel-right" [class.panel-disabled]="!puedeGestionarVistas">
-        <div class="panel-header panel-header-accent">
-          <span class="panel-title">Vistas</span>
-        </div>
+      <div class="panel-right" [class.panel-disabled]="!puedeGestionarVistas && activeTabIndex === 0">
+        <p-tabView [(activeIndex)]="activeTabIndex" (onChange)="onTabChange($event.index)" styleClass="esquemas-tabview">
 
-        <div class="tab-panel-content">
+          <p-tabPanel header="Vistas">
+            <div class="tab-panel-content">
           <div class="usuarios-toolbar">
             <div class="usuario-select-group">
               <label class="param-label">Vistas Fabric</label>
               <p-multiSelect
                 [(ngModel)]="selectedFabricViews"
                 [options]="fabricOptionsDisponibles"
-                placeholder="Seleccionar vistas del catálogo Fabric..."
+                placeholder="Seleccionar vistas del cat&aacute;logo Fabric..."
                 [showClear]="true"
                 [filter]="true"
                 filterBy="label"
@@ -165,10 +162,10 @@
                 appendTo="body">
               </p-multiSelect>
               <small class="form-hint" *ngIf="!puedeGestionarVistas">
-                Guarde el esquema para habilitar la asignación de vistas
+                Guarde el esquema para habilitar la asignaci&oacute;n de vistas
               </small>
               <small class="form-hint" *ngIf="puedeGestionarVistas">
-                Catálogo del esquema {{ schemaActual | uppercase }} desde Fabric
+                Cat&aacute;logo del esquema {{ schemaActual | uppercase }} desde Fabric
               </small>
             </div>
             <button
@@ -191,6 +188,11 @@
             </button>
           </div>
 
+          <p class="vistas-table-hint" *ngIf="puedeGestionarVistas && vistas.length > 0">
+            <i class="pi pi-info-circle"></i>
+            Departamentos vac&iacute;o = visible para todos. Estado: Activo, Inactivo o Mantenimiento.
+          </p>
+
           <div class="usuarios-table-wrap">
             <p-table
               [value]="vistas"
@@ -200,9 +202,9 @@
               <ng-template pTemplate="header">
                 <tr>
                   <th>Nombre</th>
-                  <th>Descripción</th>
-                  <th style="min-width: 220px">Departamentos</th>
-                  <th style="width: 130px">Acción</th>
+                  <th>Descripci&oacute;n</th>
+                  <th style="min-width: 200px">Departamentos</th>
+                  <th style="width: 160px">Acci&oacute;n</th>
                 </tr>
               </ng-template>
 
@@ -220,7 +222,7 @@
                       (keyup.enter)="onDescripcionChange(vista, descripcionInput.value)"
                       #descripcionInput
                       maxlength="255"
-                      placeholder="Descripción de la vista"
+                      placeholder="Descripci&oacute;n de la vista"
                       [disabled]="!puedeGestionarVistas || savingVistaId === vista.id" />
                   </td>
                   <td>
@@ -230,7 +232,7 @@
                       [options]="departamentosOptions"
                       optionLabel="label"
                       optionValue="value"
-                      placeholder="Todos los departamentos"
+                      placeholder="Todos"
                       [showClear]="true"
                       [filter]="true"
                       [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
@@ -240,18 +242,32 @@
                       appendTo="body"
                       styleClass="w-full dept-multiselect">
                     </p-multiSelect>
-                    <small class="form-hint d-block mt-1">
-                      Vacío = visible para todos. Ej: MA, NAL para vistas generales sin sufijo _CMI/_NVA
-                    </small>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      class="btn-link-danger"
-                      (click)="eliminarVista(vista)"
-                      [disabled]="!puedeGestionarVistas">
-                      Eliminar
-                    </button>
+                    <div class="accion-vista-cell">
+                      <p-dropdown
+                        [ngModel]="vista.estado || 'activo'"
+                        (ngModelChange)="onEstadoChange(vista, $event)"
+                        [options]="estadoOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
+                        appendTo="body"
+                        styleClass="estado-dropdown">
+                        <ng-template pTemplate="item" let-item>
+                          <p-tag [value]="item.label" [severity]="getEstadoSeverity(item.value)"></p-tag>
+                        </ng-template>
+                      </p-dropdown>
+                      <button
+                        type="button"
+                        class="btn-icon-danger"
+                        (click)="eliminarVista(vista)"
+                        [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
+                        pTooltip="Eliminar vista"
+                        tooltipPosition="top">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </ng-template>
@@ -262,7 +278,7 @@
                     <i class="pi pi-table text-muted" style="font-size: 2rem;"></i>
                     <p class="text-muted mt-2 mb-0">No hay vistas configuradas</p>
                     <small class="text-muted" *ngIf="puedeGestionarVistas">
-                      Seleccione vistas del catálogo Fabric y haga clic en Agregar
+                      Seleccione vistas del cat&aacute;logo Fabric y haga clic en Agregar
                     </small>
                     <small class="text-muted" *ngIf="!puedeGestionarVistas">
                       Complete y guarde los datos principales del esquema
@@ -272,12 +288,249 @@
               </ng-template>
             </p-table>
           </div>
-        </div>
+            </div>
+          </p-tabPanel>
+
+          <p-tabPanel header="Delegaci&oacute;n">
+            <div class="tab-panel-content delegacion-panel" [class.panel-disabled-inner]="!puedeGestionarVistas">
+              <div class="delegacion-modo-switch">
+                <button type="button"
+                        class="delegacion-modo-btn"
+                        [class.active]="delegacionModo === 'empresa'"
+                        (click)="setDelegacionModo('empresa')">
+                  <i class="pi pi-building"></i> Por empresa
+                </button>
+                <button type="button"
+                        class="delegacion-modo-btn"
+                        [class.active]="delegacionModo === 'usuario'"
+                        (click)="setDelegacionModo('usuario')">
+                  <i class="pi pi-user"></i> Por usuario
+                </button>
+              </div>
+
+              <div class="delegacion-toolbar">
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'empresa'">
+                  <label class="param-label">Empresa externa</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionEmpresaId"
+                    [options]="delegacionEmpresasOptionsFiltradas"
+                    (onChange)="onDelegacionEmpresaChange()"
+                    placeholder="Seleccionar empresa..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <div class="delegacion-empresa-label" *ngIf="esDelegacionUsuariosInterna">
+                  <label class="param-label">Empresa</label>
+                  <div class="delegacion-empresa-fija">
+                    <i class="pi pi-building"></i>
+                    <span>{{ esquemaEmpresaNombre }}</span>
+                  </div>
+                </div>
+
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'usuario'">
+                  <label class="param-label">Usuario</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionUsuarioId"
+                    [options]="delegacionUsuariosOptions"
+                    (onChange)="onDelegacionUsuarioChange()"
+                    placeholder="Seleccionar usuario..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas || isLoadingUsuariosEmpresa"
+                    [loading]="isLoadingUsuariosEmpresa"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <button
+                  *ngIf="delegacionModo === 'empresa'"
+                  type="button"
+                  class="btn-action btn-action-primary"
+                  (click)="guardarDelegacion()"
+                  [disabled]="!puedeGestionarDelegacion || isSavingDelegacion || isLoadingDelegacion">
+                  <i class="pi pi-save" [class.pi-spin]="isSavingDelegacion"></i>
+                  {{ isSavingDelegacion ? 'Guardando...' : 'Guardar' }}
+                </button>
+
+                <button
+                  *ngIf="delegacionModo === 'usuario'"
+                  type="button"
+                  class="btn-action btn-action-primary"
+                  (click)="guardarDelegacionUsuario()"
+                  [disabled]="!puedeGestionarDelegacionUsuario || isSavingDelegacionUsuario || isLoadingDelegacionUsuario">
+                  <i class="pi pi-save" [class.pi-spin]="isSavingDelegacionUsuario"></i>
+                  {{ isSavingDelegacionUsuario ? 'Guardando...' : 'Guardar' }}
+                </button>
+              </div>
+
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'empresa'">
+                Delegaci&oacute;n a empresas externas. Defina qu&eacute; vistas del esquema podr&aacute;n ver.
+              </small>
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && esDelegacionUsuariosInterna">
+                Asigne vistas individuales a usuarios de <strong>{{ esquemaEmpresaNombre }}</strong>. Solo ver&aacute;n las vistas marcadas, aunque no tengan el esquema completo en Azure.
+              </small>
+
+              <!-- Por empresa -->
+              <ng-container *ngIf="delegacionModo === 'empresa'">
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacion && delegacionTieneConfig">
+                <i class="pi pi-info-circle"></i>
+                Esta empresa tiene delegaci&oacute;n activa: solo ve las vistas marcadas.
+              </p>
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacion && !delegacionTieneConfig && delegacionVistas.length > 0">
+                <i class="pi pi-info-circle"></i>
+                Sin vistas marcadas = sin restricci&oacute;n (ven todas las del esquema seg&uacute;n permisos Azure).
+              </p>
+
+              <div class="delegacion-actions" *ngIf="puedeGestionarDelegacion && delegacionVistas.length > 0">
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacion(true)">Marcar todas</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacion(false)">Ninguna</button>
+                <span class="delegacion-count">{{ delegacionSeleccionadas }} / {{ delegacionVistas.length }} seleccionadas</span>
+              </div>
+
+              <div class="usuarios-table-wrap" *ngIf="puedeGestionarDelegacion">
+                <p-table
+                  [value]="delegacionVistas"
+                  [loading]="isLoadingDelegacion"
+                  styleClass="usuarios-table p-datatable-sm p-datatable-striped"
+                  [scrollable]="true"
+                  scrollHeight="flex">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 52px"></th>
+                      <th>Vista</th>
+                      <th style="width: 120px">Estado</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-vista>
+                    <tr>
+                      <td class="text-center">
+                        <p-checkbox
+                          [binary]="true"
+                          [ngModel]="vista.delegada"
+                          (ngModelChange)="toggleDelegacionVista(vista, $event)"
+                          [disabled]="isSavingDelegacion">
+                        </p-checkbox>
+                      </td>
+                      <td>
+                        <span class="codigo-badge">{{ vista.nombre }}</span>
+                        <small class="d-block text-muted" *ngIf="vista.descripcion">{{ vista.descripcion }}</small>
+                      </td>
+                      <td>
+                        <p-tag
+                          [value]="getEstadoLabel(vista.estado || 'activo')"
+                          [severity]="getEstadoSeverity(vista.estado || 'activo')">
+                        </p-tag>
+                      </td>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="3" class="text-center py-4 text-muted">
+                        <span *ngIf="isLoadingDelegacion">Cargando vistas...</span>
+                        <span *ngIf="!isLoadingDelegacion">No hay vistas en este esquema. Agregue vistas en la pesta&ntilde;a Vistas.</span>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+              </ng-container>
+
+              <!-- Por usuario -->
+              <ng-container *ngIf="delegacionModo === 'usuario'">
+              <p class="vistas-table-hint" *ngIf="esDelegacionUsuariosInterna && delegacionUsuarioTieneConfig">
+                <i class="pi pi-info-circle"></i>
+                Este usuario solo ver&aacute; las vistas marcadas de este esquema.
+              </p>
+              <p class="vistas-table-hint" *ngIf="esDelegacionUsuariosInterna && !delegacionUsuarioTieneConfig && delegacionUsuarioVistas.length > 0 && delegacionUsuarioId">
+                <i class="pi pi-info-circle"></i>
+                Sin vistas marcadas = el usuario no tendr&aacute; acceso a este esquema por delegaci&oacute;n.
+              </p>
+
+              <div class="delegacion-actions" *ngIf="puedeGestionarDelegacionUsuario && delegacionUsuarioVistas.length > 0">
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionUsuario(true)">Marcar todas</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionUsuario(false)">Ninguna</button>
+                <span class="delegacion-count">{{ delegacionUsuarioSeleccionadas }} / {{ delegacionUsuarioVistas.length }} seleccionadas</span>
+              </div>
+
+              <div class="usuarios-table-wrap" *ngIf="puedeGestionarDelegacionUsuario">
+                <p-table
+                  [value]="delegacionUsuarioVistas"
+                  [loading]="isLoadingDelegacionUsuario"
+                  styleClass="usuarios-table p-datatable-sm p-datatable-striped"
+                  [scrollable]="true"
+                  scrollHeight="flex">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 52px"></th>
+                      <th>Vista del esquema {{ schemaActual | uppercase }}</th>
+                      <th style="width: 120px">Estado</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-vista>
+                    <tr>
+                      <td class="text-center">
+                        <p-checkbox
+                          [binary]="true"
+                          [ngModel]="vista.delegada"
+                          (ngModelChange)="toggleDelegacionUsuarioVista(vista, $event)"
+                          [disabled]="isSavingDelegacionUsuario">
+                        </p-checkbox>
+                      </td>
+                      <td>
+                        <span class="codigo-badge">{{ vista.nombre }}</span>
+                        <small class="d-block text-muted" *ngIf="vista.descripcion">{{ vista.descripcion }}</small>
+                      </td>
+                      <td>
+                        <p-tag
+                          [value]="getEstadoLabel(vista.estado || 'activo')"
+                          [severity]="getEstadoSeverity(vista.estado || 'activo')">
+                        </p-tag>
+                      </td>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="3" class="text-center py-4 text-muted">
+                        <span *ngIf="isLoadingDelegacionUsuario">Cargando...</span>
+                        <span *ngIf="!isLoadingDelegacionUsuario">Seleccione empresa y usuario</span>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && esDelegacionUsuariosInterna && !delegacionUsuarioId">
+                <i class="pi pi-user"></i>
+                <p>Seleccione un usuario de {{ esquemaEmpresaNombre }} para asignar vistas</p>
+              </div>
+              </ng-container>
+
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && delegacionModo === 'empresa' && !delegacionEmpresaId">
+                <i class="pi pi-building"></i>
+                <p>Seleccione una empresa externa para configurar el acceso a vistas</p>
+              </div>
+            </div>
+          </p-tabPanel>
+
+        </p-tabView>
       </div>
     </div>
   </div>
 
-  <!-- Modal esquemas por empresa -->
   <p-dialog
     header="Esquemas BI"
     [(visible)]="showModalEsquemas"
@@ -298,7 +551,7 @@
         [loading]="isLoadingModal"
         [showCount]="false"
         [globalFilterFields]="['codigo', 'descripcion']"
-        globalPlaceholder="Buscar por código o descripción..."
+        globalPlaceholder="Buscar por c&oacute;digo o descripci&oacute;n..."
         currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} esquemas"
         [rows]="8"
         [rowsPerPageOptions]="[8, 15, 25]"

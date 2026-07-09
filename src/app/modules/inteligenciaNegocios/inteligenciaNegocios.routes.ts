@@ -105,9 +105,9 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     path: 'parametros/esquemas',
     loadComponent: () =>
       import('./parametros/esquemas/esquemas.component').then(m => m.EsquemasComponent),
-    // canActivate: [moduleGuard],
+    canActivate: [moduleGuard],
     data: {
-      moduleCode: 'BI-PARAM-ESQUEMAS',
+      moduleCode: 'BI-PARAMETROS-ESQ',
       pageTitle: 'Esquemas BI',
       pageSubtitle: 'Configuración del catálogo de esquemas por empresa'
     }

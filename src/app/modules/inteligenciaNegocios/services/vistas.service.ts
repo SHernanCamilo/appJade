@@ -9,6 +9,9 @@ export interface EsquemaCatalogo {
   schema: string;
   codigo: string;
   nombre: string;
+  es_delegado?: boolean;
+  empresa_id?: number;
+  empresa_nombre?: string;
 }
 
 export interface FabricViewerContext {
@@ -19,6 +22,8 @@ export interface FabricViewerContext {
   esquemas_catalogo?: EsquemaCatalogo[];
   departamento: string | null;
   catalogo?: Array<{ codigo: string; tipo: number; descripcion: string }>;
+  /** true si el usuario tiene al menos un esquema solo por delegación */
+  tiene_vistas_delegadas?: boolean;
 }
 
 export interface FabricView {
@@ -30,6 +35,8 @@ export interface FabricView {
   visible_for_site: boolean;
 }
 
+export type BiEstado = 'activo' | 'mantenimiento' | 'inactivo';
+
 export interface VistaBi {
   schema: string;
   schemaDisplay: string;
@@ -38,7 +45,10 @@ export interface VistaBi {
   codigo: string;
   descripcion?: string;
   fuente?: string;
+  /** visible_for_site de Fabric */
   estado: boolean;
+  /** Estado administrativo en bi_vistas */
+  bi_estado?: BiEstado;
   column_count: number;
 }
 
@@ -106,6 +116,7 @@ interface FabricViewsApiResponse {
         qualified_name: string;
         column_count: number;
         visible_for_site: boolean;
+        bi_estado?: BiEstado;
       }>;
     }>;
   };
@@ -426,6 +437,7 @@ export class VistasService {
         descripcion: schemaBlock.display,
         fuente: siteLabel ? `${database} · ${siteLabel}` : database,
         estado: view.visible_for_site,
+        bi_estado: view.bi_estado ?? 'activo',
         column_count: view.column_count
       }))
     );

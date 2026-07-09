@@ -34,12 +34,15 @@ export interface FabricCatalogView {
   column_count: number;
 }
 
+export type BiVistaEstado = 'activo' | 'inactivo' | 'mantenimiento';
+
 export interface BiVista {
   id: number;
   id_bi_grupos: number;
   nombre: string;
   descripcion?: string | null;
   departamentos?: string[] | null;
+  estado?: BiVistaEstado;
 }
 
 export interface DepartamentoCatalogo {
@@ -145,6 +148,77 @@ export class BiGrupoService {
   deleteGrupo(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
+
+  getDelegaciones(grupoId: number, empresaId: number): Observable<BiDelegacionResponse> {
+    const params = new HttpParams().set('empresa_id', empresaId.toString());
+    return this.http.get<{ success: boolean; data: BiDelegacionResponse }>(
+      `${this.apiUrl}/${grupoId}/delegaciones`,
+      { params }
+    ).pipe(map(r => r.data));
+  }
+
+  saveDelegaciones(grupoId: number, empresaId: number, vistaIds: number[]): Observable<{ vista_ids: number[] }> {
+    return this.http.put<{ success: boolean; message?: string; data: { vista_ids: number[] } }>(
+      `${this.apiUrl}/${grupoId}/delegaciones`,
+      { empresa_id: empresaId, vista_ids: vistaIds }
+    ).pipe(map(r => r.data));
+  }
+
+  getDelegacionUsuario(
+    grupoId: number,
+    empresaId: number,
+    userId: number
+  ): Observable<BiDelegacionUsuarioResponse> {
+    const params = new HttpParams()
+      .set('empresa_id', empresaId.toString())
+      .set('user_id', userId.toString());
+    return this.http.get<{ success: boolean; data: BiDelegacionUsuarioResponse }>(
+      `${this.apiUrl}/${grupoId}/delegaciones-usuarios`,
+      { params }
+    ).pipe(map(r => r.data));
+  }
+
+  saveDelegacionUsuario(
+    grupoId: number,
+    empresaId: number,
+    userId: number,
+    vistaIds: number[]
+  ): Observable<{ vista_ids: number[] }> {
+    return this.http.put<{ success: boolean; message?: string; data: { vista_ids: number[] } }>(
+      `${this.apiUrl}/${grupoId}/delegaciones-usuarios`,
+      { empresa_id: empresaId, user_id: userId, vista_ids: vistaIds }
+    ).pipe(map(r => r.data));
+  }
+}
+
+export interface BiDelegacionVista {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  estado?: BiVistaEstado;
+  delegada: boolean;
+}
+
+export interface BiDelegacionResponse {
+  empresa_id: number;
+  id_bi_grupos: number;
+  schema: string;
+  tiene_config: boolean;
+  vista_ids: number[];
+  vistas: BiDelegacionVista[];
+}
+
+export interface BiDelegacionUsuarioResponse {
+  empresa_id: number;
+  user_id: number;
+  usuario?: { id: number; name: string; email: string };
+  id_bi_grupos: number;
+  schema: string;
+  empresa_tiene_config: boolean;
+  es_misma_empresa?: boolean;
+  tiene_config: boolean;
+  vista_ids: number[];
+  vistas: BiDelegacionVista[];
 }
 
 @Injectable({
@@ -173,7 +247,11 @@ export class BiVistaService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  updateVista(id: number, payload: { departamentos?: string[] | null; descripcion?: string | null }): Observable<BiVista> {
+  updateVista(id: number, payload: {
+    departamentos?: string[] | null;
+    descripcion?: string | null;
+    estado?: BiVistaEstado;
+  }): Observable<BiVista> {
     return this.http.put<{ success: boolean; data: BiVista }>(`${this.apiUrl}/${id}`, payload).pipe(
       map(response => response.data)
     );

@@ -255,6 +255,24 @@
   opacity: 0.55;
 }
 
+.vista-row.vista-mantenimiento,
+.tree-vista.vista-mantenimiento {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.vista-row.vista-mantenimiento:hover,
+.tree-vista.vista-mantenimiento:hover {
+  background-color: #fffbeb !important;
+  border-color: #fcd34d;
+  box-shadow: none;
+}
+
+.btn-action-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .action-cell {
   text-align: center;
   color: #94a3b8;
@@ -404,6 +422,10 @@
   flex-shrink: 0;
 }
 
+.tree-grupo-icon.bi-building-fill {
+  color: #6366f1;
+}
+
 .tree-grupo-nombre {
   font-weight: 600;
   color: #1f2937;
@@ -469,6 +491,10 @@
 
 .tree-vista.vista-inactiva {
   opacity: 0.55;
+}
+
+.tree-vista.vista-mantenimiento {
+  pointer-events: auto;
 }
 
 .tree-vista-icon {

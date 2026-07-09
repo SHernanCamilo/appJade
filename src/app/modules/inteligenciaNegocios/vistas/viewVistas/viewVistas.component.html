@@ -20,7 +20,18 @@
   </div>
 
   <div class="dashboard-content">
-    <div class="grid-section" *ngIf="!isLoadingVista && vista">
+    <div class="maintenance-panel" *ngIf="!isLoadingVista && isMaintenanceMode">
+      <div class="maintenance-panel-content">
+        <i class="pi pi-wrench maintenance-icon"></i>
+        <h2>Vista en mantenimiento</h2>
+        <p>{{ maintenanceMessage }}</p>
+        <button type="button" class="btn-toolbar" (click)="volverAlListado()">
+          <i class="pi pi-arrow-left"></i> Volver al listado
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-section" *ngIf="!isLoadingVista && vista && !isMaintenanceMode">
       <div class="grid-toolbar">
         <div class="toolbar-left">
           <span class="grid-hint">

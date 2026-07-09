@@ -14,7 +14,7 @@ import { FabricExportService } from '../../services/fabric-export.service';
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
 import { getColumnType, humanizeColumnName } from '../../helpers/column-type.helper';
-import { handleFabricError, isFiltersRequiredError, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
+import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
@@ -47,6 +47,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   // Vistas pesadas — detección dinámica vía API
   isHeavyView = false;
   showFilterRequired = false;
+  isMaintenanceMode = false;
+  maintenanceMessage = 'Esta vista está en mantenimiento. Intente más tarde.';
   filterRequiredMessage = '';
   suggestedFilters: string[] = [];
   filterColumns: FabricColumn[] = [];
@@ -173,6 +175,12 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
           return;
         }
 
+        if (isVistaEnMantenimiento(this.vista)) {
+          this.isMaintenanceMode = true;
+          this.maintenanceMessage = `La vista '${this.vista.nombre}' está en mantenimiento. Intente más tarde.`;
+          return;
+        }
+
         this.cargarDatos();
       },
       error: () => { this.isLoadingVista = false; this.router.navigate([this.listPath]); }
@@ -225,6 +233,12 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
             detail: err.error.message,
             life: 8000
           });
+          return;
+        }
+
+        if (isMaintenanceError(err)) {
+          this.isMaintenanceMode = true;
+          this.maintenanceMessage = err.error.message ?? this.maintenanceMessage;
           return;
         }
 

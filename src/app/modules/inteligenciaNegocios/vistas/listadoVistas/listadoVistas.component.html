@@ -26,7 +26,7 @@
   <div class="dashboard-content">
     <div class="table-section">
       <div class="table-header">
-        <h2>{{ vistaAgrupada ? 'Vistas por categoría' : 'Mis Vistas' }}</h2>
+        <h2>{{ vistaAgrupada ? tituloSeccionGrupos : 'Mis Vistas' }}</h2>
         <div class="table-filters">
           <div class="schema-filter" *ngIf="!vistaAgrupada">
             <label for="categoriaFilter">Categoría</label>
@@ -92,7 +92,7 @@
       <!-- Vista agrupada por categoría (reportes) -->
       <div *ngIf="vistaAgrupada && !isLoading && esquemaOptions.length > 0" class="vistas-tree-wrapper">
         <div class="vistas-tree-summary" *ngIf="totalVistas > 0">
-          <span>{{ totalVistas }} vista(s) en {{ gruposVistas.length }} categoría(s)</span>
+          <span>{{ totalVistas }} vista(s) en {{ gruposVistas.length }} {{ resumenGruposLabel }}</span>
         </div>
 
         <div *ngIf="gruposVistas.length === 0" class="empty-select-schema">
@@ -102,11 +102,11 @@
 
         <div class="vistas-tree-scroll">
           <div class="tree-grupo" *ngFor="let grupo of gruposVistas">
-            <button type="button" class="tree-grupo-header" (click)="toggleGrupo(grupo.schema)">
+            <button type="button" class="tree-grupo-header" (click)="toggleGrupo(grupo.key)">
               <i class="bi tree-chevron" [ngClass]="grupo.expandido ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
-              <i class="bi bi-folder-fill tree-grupo-icon"></i>
+              <i class="bi tree-grupo-icon" [ngClass]="grupo.esDelegacion ? 'bi-building-fill' : 'bi-folder-fill'"></i>
               <span class="tree-grupo-nombre">{{ grupo.nombre }}</span>
-              <code class="tree-grupo-codigo">{{ grupo.codigo }}</code>
+              <code class="tree-grupo-codigo" *ngIf="!grupo.ocultarCodigo && grupo.codigo">{{ grupo.codigo }}</code>
               <span class="tree-grupo-count">{{ contarVisibles(grupo) }}/{{ grupo.vistas.length }}</span>
             </button>
 
@@ -118,19 +118,23 @@
               <div class="tree-vista"
                    *ngFor="let vista of grupo.vistas"
                    [class.vista-inactiva]="!vista.estado"
-                   (click)="abrirVista(vista)">
+                   [class.vista-mantenimiento]="esEnMantenimiento(vista)"
+                   (click)="!esEnMantenimiento(vista) && abrirVista(vista)">
                 <div class="tree-vista-icon">
-                  <i class="pi pi-chart-bar"></i>
+                  <i class="pi" [ngClass]="esEnMantenimiento(vista) ? 'pi-wrench' : 'pi-chart-bar'"></i>
                 </div>
                 <div class="tree-vista-info">
                   <span class="tree-vista-nombre">{{ vista.nombre }}</span>
+                  <small class="tree-vista-meta" *ngIf="grupo.esDelegacion && vista.schemaDisplay">{{ vista.schemaDisplay }}</small>
                   <small class="tree-vista-meta" *ngIf="vista.column_count">{{ vista.column_count }} columnas</small>
                 </div>
-                <p-tag [value]="vista.estado ? 'Visible' : 'No visible'"
+                <p-tag *ngIf="esEnMantenimiento(vista)" value="En mantenimiento" severity="warn" styleClass="tree-vista-tag"></p-tag>
+                <p-tag *ngIf="!esEnMantenimiento(vista)"
+                       [value]="vista.estado ? 'Visible' : 'No visible'"
                        [severity]="vista.estado ? 'success' : 'warn'"
                        styleClass="tree-vista-tag">
                 </p-tag>
-                <i class="pi pi-external-link tree-vista-action"></i>
+                <i class="pi pi-external-link tree-vista-action" *ngIf="!esEnMantenimiento(vista)"></i>
               </div>
             </div>
           </div>
@@ -154,9 +158,13 @@
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-vista>
-            <tr class="vista-row" [class.vista-inactiva]="!vista.estado">
+            <tr class="vista-row"
+                [class.vista-inactiva]="!vista.estado"
+                [class.vista-mantenimiento]="esEnMantenimiento(vista)">
               <td class="text-center">
-                <div class="vista-avatar"><i class="pi pi-chart-bar"></i></div>
+                <div class="vista-avatar">
+                  <i class="pi" [ngClass]="esEnMantenimiento(vista) ? 'pi-wrench' : 'pi-chart-bar'"></i>
+                </div>
               </td>
               <td>
                 <div class="vista-info">
@@ -166,11 +174,18 @@
               </td>
               <td><span class="categoria-badge">{{ vista.schemaDisplay }}</span></td>
               <td>
-                <p-tag [value]="vista.estado ? 'Visible' : 'No visible'" [severity]="vista.estado ? 'success' : 'warn'"></p-tag>
+                <p-tag *ngIf="esEnMantenimiento(vista)" value="En mantenimiento" severity="warn"></p-tag>
+                <p-tag *ngIf="!esEnMantenimiento(vista)"
+                       [value]="vista.estado ? 'Visible' : 'No visible'"
+                       [severity]="vista.estado ? 'success' : 'warn'"></p-tag>
               </td>
               <td class="text-center">
-                <button class="btn-action-icon btn-action-primary" (click)="abrirVista(vista)" pTooltip="Abrir vista" tooltipPosition="left">
-                  <i class="pi pi-external-link"></i>
+                <button class="btn-action-icon btn-action-primary"
+                        (click)="abrirVista(vista)"
+                        [disabled]="esEnMantenimiento(vista)"
+                        [pTooltip]="esEnMantenimiento(vista) ? 'Vista en mantenimiento' : 'Abrir vista'"
+                        tooltipPosition="left">
+                  <i class="pi" [ngClass]="esEnMantenimiento(vista) ? 'pi-wrench' : 'pi-external-link'"></i>
                 </button>
               </td>
             </tr>

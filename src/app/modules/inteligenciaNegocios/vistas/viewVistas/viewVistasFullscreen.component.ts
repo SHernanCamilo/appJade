@@ -9,7 +9,7 @@ import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../serv
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
 import { getColumnType, humanizeColumnName } from '../../helpers/column-type.helper';
-import { handleFabricError, isFiltersRequiredError, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
+import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
@@ -38,6 +38,8 @@ export class ViewVistasFullscreenComponent implements OnInit, OnDestroy {
 
   isHeavyView = false;
   showFilterRequired = false;
+  isMaintenanceMode = false;
+  maintenanceMessage = 'Esta vista está en mantenimiento. Intente más tarde.';
   filterRequiredMessage = '';
   filterColumns: FabricColumn[] = [];
   suggestedFilterValues: Record<string, string> = {};
@@ -122,6 +124,13 @@ export class ViewVistasFullscreenComponent implements OnInit, OnDestroy {
           return;
         }
 
+        if (isVistaEnMantenimiento(this.vista)) {
+          this.isMaintenanceMode = true;
+          this.maintenanceMessage = `La vista '${this.vista.nombre}' está en mantenimiento. Intente más tarde.`;
+          this.isLoading = false;
+          return;
+        }
+
         this.cargarDatos();
       },
       error: () => {
@@ -170,6 +179,12 @@ export class ViewVistasFullscreenComponent implements OnInit, OnDestroy {
             type: col.type,
             nullable: col.nullable ?? true
           }));
+          return;
+        }
+
+        if (isMaintenanceError(err)) {
+          this.isMaintenanceMode = true;
+          this.maintenanceMessage = err.error.message ?? this.maintenanceMessage;
           return;
         }
 
