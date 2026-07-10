@@ -84,24 +84,26 @@ export class FabricExportService {
     this.exportProgressSubject.next({ status: 'pending', progress: 0, rows: 0, message: 'Iniciando exportación...' });
 
     // 1. Iniciar export async
-    this.http.post<{ success: boolean; job_id: string }>(`${baseUrl}/start`, {
+    this.http.post<{ success: boolean; job_id: string; message?: string }>(`${baseUrl}/start`, {
       schema_name: options.schema,
       view: options.viewName,
       filters: options.filters ?? {},
       sort_col: options.sort_col ?? '',
       sort_dir: options.sort_dir ?? 'asc',
-      max_rows: options.max_rows ?? 1_000_000,
+      max_rows: options.max_rows ?? 500_000,
       format: options.format ?? 'excel'
     }).subscribe({
-      next: (res) => {
-        if (!res.job_id) {
+      next: (res: any) => {
+        // Normalizar respuesta — el job_id puede venir en diferentes formatos
+        const jobId = res?.job_id ?? res?.data?.job_id;
+        if (!jobId) {
           this.exportProgressSubject.next(null);
           this.decrementPending();
-          this.messageService.add({ key: TOAST_KEY, severity: 'error', summary: 'Error', detail: 'No se pudo iniciar la exportación', life: 5000 });
+          this.messageService.add({ key: TOAST_KEY, severity: 'error', summary: 'Error', detail: res?.message ?? 'No se pudo iniciar la exportación', life: 5000 });
           return;
         }
         // 2. Polling
-        this.pollExportStatus(res.job_id, label, baseUrl);
+        this.pollExportStatus(jobId, label, baseUrl);
       },
       error: (err) => {
         this.exportProgressSubject.next(null);
@@ -134,26 +136,27 @@ export class FabricExportService {
               status: 'completed',
               progress: 100,
               rows: d.rows ?? 0,
-              message: 'Descargando archivo...',
+              message: 'Descarga lista',
               filename: d.filename,
               fileSize: d.file_size_human
             });
 
-            // 3. Descargar
+            // 3. Descargar — intentar con HttpClient, fallback a window.open
             this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob' }).subscribe({
               next: (blob) => {
                 this.triggerDownload(blob, d.filename ?? `${label}.xlsx`);
-                this.exportProgressSubject.next(null);
+                setTimeout(() => this.exportProgressSubject.next(null), 3000);
                 this.decrementPending();
                 this.messageService.add({
-                  key: TOAST_KEY, severity: 'success', summary: 'Excel listo',
+                  key: TOAST_KEY, severity: 'success', summary: 'Excel descargado',
                   detail: `${(d.rows ?? 0).toLocaleString('es-CO')} filas · ${d.file_size_human ?? ''}`, life: 6000
                 });
               },
               error: () => {
-                this.exportProgressSubject.next(null);
+                // Fallback: abrir en nueva pestaña (el navegador manejará la descarga)
+                window.open(`${baseUrl}/download/${jobId}`, '_blank');
+                setTimeout(() => this.exportProgressSubject.next(null), 3000);
                 this.decrementPending();
-                this.messageService.add({ key: TOAST_KEY, severity: 'error', summary: 'Error', detail: 'No se pudo descargar el archivo', life: 5000 });
               }
             });
             return;
