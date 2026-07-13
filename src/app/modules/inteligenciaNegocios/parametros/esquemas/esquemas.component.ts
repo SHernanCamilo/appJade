@@ -3,6 +3,17 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
+import { AgGridAngular } from 'ag-grid-angular';
+import {
+  CellValueChangedEvent,
+  ColDef,
+  GridApi,
+  GridReadyEvent,
+  ICellRendererParams,
+  RowSelectionOptions,
+  SelectionColumnDef
+} from 'ag-grid-community';
+import { forkJoin } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { DropdownModule } from 'primeng/dropdown';
@@ -11,15 +22,17 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
-import { TableModule } from 'primeng/table';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { TabViewModule } from 'primeng/tabview';
-import { CheckboxModule } from 'primeng/checkbox';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { DataTableComponent } from '../../../../complements/shared/data-table/data-table.component';
 import { TableColumn } from '../../../../complements/shared/data-table/table-column.model';
+import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 import { ContextoService, Empresa as EmpresaContexto } from '../../../../core/services/contexto.service';
 import { environment } from '../../../../environments/environment';
+import { EstadoTagCellComponent } from './cell-renderers/estado-tag-cell.component';
+import { VistaAccionesCellComponent } from './cell-renderers/vista-acciones-cell.component';
+import { VistaDepartamentosCellComponent } from './cell-renderers/vista-departamentos-cell.component';
 import {
   BiGrupo,
   BiGrupoPayload,
@@ -47,11 +60,13 @@ import {
     ConfirmDialogModule,
     TagModule,
     TooltipModule,
-    TableModule,
     MultiSelectModule,
     TabViewModule,
-    CheckboxModule,
-    DataTableComponent
+    AgGridAngular,
+    DataTableComponent,
+    VistaDepartamentosCellComponent,
+    VistaAccionesCellComponent,
+    EstadoTagCellComponent
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './esquemas.component.html',
@@ -117,6 +132,43 @@ export class EsquemasComponent implements OnInit {
     { label: 'Mantenimiento', value: 'mantenimiento' }
   ];
 
+  readonly localeText = AG_GRID_LOCALE;
+  readonly rowSelection: RowSelectionOptions = {
+    mode: 'multiRow',
+    checkboxes: true,
+    headerCheckbox: true,
+    enableClickSelection: false
+  };
+  readonly selectionColumnDef: SelectionColumnDef = {
+    pinned: 'left',
+    width: 48,
+    sortable: false,
+    resizable: false
+  };
+
+  vistasColumnDefs: ColDef<BiVista>[] = [];
+  delegacionColumnDefs: ColDef<BiDelegacionVista>[] = [];
+  defaultColDef: ColDef = {
+    sortable: true,
+    filter: true,
+    resizable: true,
+    minWidth: 110
+  };
+
+  vistasSeleccionadasCount = 0;
+  isBulkUpdatingEstado = false;
+
+  readonly vistasNoRowsTemplate =
+    '<span class="ag-overlay-empty">No hay vistas configuradas. Seleccione vistas del catálogo Fabric y haga clic en Agregar.</span>';
+  readonly delegacionNoRowsTemplate =
+    '<span class="ag-overlay-empty">No hay vistas en este esquema. Agregue vistas en la pestaña Vistas.</span>';
+  readonly delegacionUsuarioNoRowsTemplate =
+    '<span class="ag-overlay-empty">Seleccione empresa y usuario para configurar delegación.</span>';
+
+  private vistasGridApi?: GridApi<BiVista>;
+  private delegacionGridApi?: GridApi<BiDelegacionVista>;
+  private delegacionUsuarioGridApi?: GridApi<BiDelegacionVista>;
+
   constructor(
     private fb: FormBuilder,
     private biGrupoService: BiGrupoService,
@@ -131,9 +183,216 @@ export class EsquemasComponent implements OnInit {
 
   ngOnInit(): void {
     this.buildModalColumns();
+    this.buildVistasColumnDefs();
+    this.buildDelegacionColumnDefs();
     this.loadEmpresasDisponibles();
     this.loadDepartamentosCatalogo();
     this.loadDelegacionEmpresas();
+  }
+
+  private buildVistasColumnDefs(): void {
+    this.vistasColumnDefs = [
+      {
+        field: 'nombre',
+        headerName: 'Nombre',
+        minWidth: 140,
+        maxWidth: 220,
+        cellRenderer: (params: ICellRendererParams<BiVista>) => {
+          const span = document.createElement('span');
+          span.className = 'codigo-badge';
+          span.textContent = String(params.value ?? '');
+          return span;
+        }
+      },
+      {
+        field: 'descripcion',
+        headerName: 'Descripción',
+        flex: 1,
+        minWidth: 180,
+        editable: () => this.puedeGestionarVistas,
+        cellEditor: 'agTextCellEditor'
+      },
+      {
+        colId: 'departamentos',
+        headerName: 'Departamentos',
+        minWidth: 220,
+        flex: 1,
+        sortable: false,
+        filter: false,
+        cellRenderer: VistaDepartamentosCellComponent,
+        cellRendererParams: () => ({
+          departamentosOptions: this.departamentosOptions,
+          puedeGestionar: this.puedeGestionarVistas,
+          savingVistaId: this.savingVistaId,
+          onChange: (vista: BiVista, departamentos: string[] | null) => this.onDepartamentosChange(vista, departamentos)
+        })
+      },
+      {
+        field: 'estado',
+        headerName: 'Estado',
+        width: 140,
+        cellRenderer: EstadoTagCellComponent,
+        cellRendererParams: {
+          getEstadoLabel: (estado: BiVistaEstado) => this.getEstadoLabel(estado),
+          getEstadoSeverity: (estado: BiVistaEstado) => this.getEstadoSeverity(estado)
+        }
+      },
+      {
+        colId: 'accion',
+        headerName: 'Acción',
+        width: 72,
+        maxWidth: 72,
+        sortable: false,
+        filter: false,
+        pinned: 'right',
+        cellClass: 'accion-grid-cell',
+        cellRenderer: VistaAccionesCellComponent,
+        cellRendererParams: () => ({
+          puedeGestionar: this.puedeGestionarVistas,
+          savingVistaId: this.savingVistaId,
+          onDelete: (vista: BiVista) => this.eliminarVista(vista)
+        })
+      }
+    ];
+  }
+
+  private buildDelegacionColumnDefs(): void {
+    this.delegacionColumnDefs = [
+      {
+        field: 'nombre',
+        headerName: 'Vista',
+        flex: 1,
+        minWidth: 180,
+        cellRenderer: (params: ICellRendererParams<BiDelegacionVista>) => {
+          const wrap = document.createElement('div');
+          const badge = document.createElement('span');
+          badge.className = 'codigo-badge';
+          badge.textContent = String(params.value ?? '');
+          wrap.appendChild(badge);
+          if (params.data?.descripcion) {
+            const desc = document.createElement('small');
+            desc.className = 'delegacion-desc';
+            desc.textContent = params.data.descripcion;
+            wrap.appendChild(desc);
+          }
+          return wrap;
+        }
+      },
+      {
+        field: 'descripcion',
+        hide: true
+      },
+      {
+        field: 'estado',
+        headerName: 'Estado',
+        width: 140,
+        cellRenderer: EstadoTagCellComponent,
+        cellRendererParams: {
+          getEstadoLabel: (estado: BiVistaEstado) => this.getEstadoLabel(estado),
+          getEstadoSeverity: (estado: BiVistaEstado) => this.getEstadoSeverity(estado)
+        }
+      }
+    ];
+  }
+
+  onVistasGridReady(event: GridReadyEvent<BiVista>): void {
+    this.vistasGridApi = event.api;
+    this.onVistasSelectionChanged();
+    this.refreshVistasGridData();
+  }
+
+  private refreshVistasGridData(): void {
+    if (!this.vistasGridApi) {
+      return;
+    }
+    this.vistasGridApi.setGridOption('rowData', this.vistas);
+    this.vistasGridApi.sizeColumnsToFit();
+  }
+
+  onVistasSelectionChanged(): void {
+    this.vistasSeleccionadasCount = this.vistasGridApi?.getSelectedRows().length ?? 0;
+  }
+
+  onVistaCellValueChanged(event: CellValueChangedEvent<BiVista>): void {
+    if (event.colDef.field !== 'descripcion' || !event.data) {
+      return;
+    }
+    this.onDescripcionChange(event.data, String(event.newValue ?? '').trim());
+  }
+
+  refreshVistasGridCells(): void {
+    this.vistasGridApi?.refreshCells({ force: true });
+  }
+
+  onDelegacionGridReady(event: GridReadyEvent<BiDelegacionVista>): void {
+    this.delegacionGridApi = event.api;
+    this.syncDelegacionGridSelection(this.delegacionGridApi, this.delegacionVistas);
+  }
+
+  onDelegacionUsuarioGridReady(event: GridReadyEvent<BiDelegacionVista>): void {
+    this.delegacionUsuarioGridApi = event.api;
+    this.syncDelegacionGridSelection(this.delegacionUsuarioGridApi, this.delegacionUsuarioVistas);
+  }
+
+  onDelegacionSelectionChanged(): void {
+    this.syncDelegadaFromGrid(this.delegacionGridApi, this.delegacionVistas);
+  }
+
+  onDelegacionUsuarioSelectionChanged(): void {
+    this.syncDelegadaFromGrid(this.delegacionUsuarioGridApi, this.delegacionUsuarioVistas);
+  }
+
+  private syncDelegacionGridSelection(gridApi: GridApi<BiDelegacionVista> | undefined, vistas: BiDelegacionVista[]): void {
+    if (!gridApi) {
+      return;
+    }
+    gridApi.deselectAll();
+    gridApi.forEachNode(node => {
+      if (node.data && vistas.some(v => v.id === node.data!.id && v.delegada)) {
+        node.setSelected(true);
+      }
+    });
+  }
+
+  private syncDelegadaFromGrid(gridApi: GridApi<BiDelegacionVista> | undefined, vistas: BiDelegacionVista[]): void {
+    if (!gridApi) {
+      return;
+    }
+    const selectedIds = new Set(gridApi.getSelectedRows().map(v => v.id));
+    vistas.forEach(vista => {
+      vista.delegada = selectedIds.has(vista.id);
+    });
+  }
+
+  aplicarEstadoMasivo(estado: BiVistaEstado): void {
+    const seleccionadas = this.vistasGridApi?.getSelectedRows() ?? [];
+    if (!this.puedeGestionarVistas || seleccionadas.length === 0) {
+      this.showWarn('Seleccione al menos una vista');
+      return;
+    }
+
+    const aActualizar = seleccionadas.filter(v => (v.estado ?? 'activo') !== estado);
+    if (aActualizar.length === 0) {
+      this.showInfo(`Las vistas seleccionadas ya están en estado ${this.getEstadoLabel(estado)}`);
+      return;
+    }
+
+    this.isBulkUpdatingEstado = true;
+    forkJoin(aActualizar.map(vista => this.biVistaService.updateVista(vista.id, { estado }))).subscribe({
+      next: (actualizadas) => {
+        const mapa = new Map(actualizadas.map(v => [v.id, v]));
+        this.vistas = this.vistas.map(v => mapa.get(v.id) ?? v);
+        this.isBulkUpdatingEstado = false;
+        this.vistasGridApi?.deselectAll();
+        this.onVistasSelectionChanged();
+        this.refreshVistasGridCells();
+        this.showSuccess(`Estado "${this.getEstadoLabel(estado)}" aplicado a ${actualizadas.length} vista(s)`);
+      },
+      error: (err) => {
+        this.isBulkUpdatingEstado = false;
+        this.showError(err?.error?.message || 'Error al actualizar el estado de las vistas seleccionadas');
+      }
+    });
   }
 
   private loadDelegacionEmpresas(): void {
@@ -154,6 +413,15 @@ export class EsquemasComponent implements OnInit {
 
   onTabChange(index: number): void {
     this.activeTabIndex = index;
+
+    if (index === 0) {
+      setTimeout(() => {
+        this.refreshVistasGridData();
+        this.vistasGridApi?.sizeColumnsToFit();
+      });
+      return;
+    }
+
     if (index !== 1 || !this.puedeGestionarVistas) {
       return;
     }
@@ -444,6 +712,7 @@ export class EsquemasComponent implements OnInit {
     this.esquemaListoParaVistas = true;
     this.selectedFabricViews = [];
     this.cargarCatalogoFabric(false);
+    setTimeout(() => this.refreshVistasGridData());
   }
 
   private prepararNuevoRegistro(codigo: string): void {
@@ -543,6 +812,7 @@ export class EsquemasComponent implements OnInit {
         this.selectedFabricViews = [];
         this.cargarCatalogoFabric(true);
         this.isSyncingFabric = false;
+        setTimeout(() => this.refreshVistasGridData());
         this.showSuccess(response.message || 'Vistas sincronizadas desde Fabric');
       },
       error: (err) => {
@@ -619,14 +889,17 @@ export class EsquemasComponent implements OnInit {
     }
 
     this.savingVistaId = vista.id;
+    this.refreshVistasGridCells();
     this.biVistaService.updateVista(vista.id, { descripcion: valor }).subscribe({
       next: (actualizada) => {
         this.vistas = this.vistas.map(v => v.id === actualizada.id ? actualizada : v);
         this.savingVistaId = null;
+        this.refreshVistasGridCells();
         this.showSuccess('Descripción actualizada');
       },
       error: (err) => {
         this.savingVistaId = null;
+        this.refreshVistasGridCells();
         this.showError(err?.error?.message || 'Error al guardar la descripción');
       }
     });
@@ -638,16 +911,19 @@ export class EsquemasComponent implements OnInit {
     }
 
     this.savingVistaId = vista.id;
+    this.refreshVistasGridCells();
     const normalizados = (departamentos ?? []).length ? departamentos : null;
 
     this.biVistaService.updateVista(vista.id, { departamentos: normalizados }).subscribe({
       next: (actualizada) => {
         this.vistas = this.vistas.map(v => v.id === actualizada.id ? actualizada : v);
         this.savingVistaId = null;
+        this.refreshVistasGridCells();
         this.showSuccess('Departamentos actualizados');
       },
       error: (err) => {
         this.savingVistaId = null;
+        this.refreshVistasGridCells();
         this.showError(err?.error?.message || 'Error al guardar departamentos');
       }
     });
@@ -784,6 +1060,7 @@ export class EsquemasComponent implements OnInit {
         this.delegacionTieneConfig = data.tiene_config;
         this.delegacionEmpresaTienePool = data.tiene_config;
         this.isLoadingDelegacion = false;
+        setTimeout(() => this.syncDelegacionGridSelection(this.delegacionGridApi, this.delegacionVistas));
       },
       error: (err) => {
         this.delegacionVistas = [];
@@ -793,12 +1070,13 @@ export class EsquemasComponent implements OnInit {
     });
   }
 
-  toggleDelegacionVista(vista: BiDelegacionVista, delegada: boolean): void {
-    vista.delegada = delegada;
-  }
-
   seleccionarTodasDelegacion(seleccionar: boolean): void {
     this.delegacionVistas.forEach(v => { v.delegada = seleccionar; });
+    if (seleccionar) {
+      this.delegacionGridApi?.selectAll();
+    } else {
+      this.delegacionGridApi?.deselectAll();
+    }
   }
 
   guardarDelegacion(): void {
@@ -846,6 +1124,7 @@ export class EsquemasComponent implements OnInit {
         this.delegacionUsuarioTieneConfig = data.tiene_config;
         this.delegacionEmpresaTienePool = data.empresa_tiene_config || !!data.es_misma_empresa;
         this.isLoadingDelegacionUsuario = false;
+        setTimeout(() => this.syncDelegacionGridSelection(this.delegacionUsuarioGridApi, this.delegacionUsuarioVistas));
       },
       error: (err) => {
         this.delegacionUsuarioVistas = [];
@@ -855,12 +1134,13 @@ export class EsquemasComponent implements OnInit {
     });
   }
 
-  toggleDelegacionUsuarioVista(vista: BiDelegacionVista, delegada: boolean): void {
-    vista.delegada = delegada;
-  }
-
   seleccionarTodasDelegacionUsuario(seleccionar: boolean): void {
     this.delegacionUsuarioVistas.forEach(v => { v.delegada = seleccionar; });
+    if (seleccionar) {
+      this.delegacionUsuarioGridApi?.selectAll();
+    } else {
+      this.delegacionUsuarioGridApi?.deselectAll();
+    }
   }
 
   guardarDelegacionUsuario(): void {

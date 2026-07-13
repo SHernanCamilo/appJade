@@ -190,103 +190,40 @@
 
           <p class="vistas-table-hint" *ngIf="puedeGestionarVistas && vistas.length > 0">
             <i class="pi pi-info-circle"></i>
-            Departamentos vac&iacute;o = visible para todos. Estado: Activo, Inactivo o Mantenimiento.
+            Departamentos vac&iacute;o = visible para todos. Seleccione filas y aplique estado: Activo, Inactivo o Mantenimiento.
           </p>
 
-          <div class="usuarios-table-wrap">
-            <p-table
-              [value]="vistas"
-              styleClass="usuarios-table p-datatable-sm p-datatable-striped"
-              [scrollable]="true"
-              scrollHeight="flex">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Nombre</th>
-                  <th>Descripci&oacute;n</th>
-                  <th style="min-width: 200px">Departamentos</th>
-                  <th style="width: 160px">Acci&oacute;n</th>
-                </tr>
-              </ng-template>
+          <div class="vistas-bulk-bar" *ngIf="puedeGestionarVistas && vistasSeleccionadasCount > 0">
+            <span class="vistas-bulk-count">
+              <i class="pi pi-check-square"></i>
+              {{ vistasSeleccionadasCount }} vista(s) seleccionada(s)
+            </span>
+            <span class="vistas-bulk-label">Cambiar estado:</span>
+            <button type="button" class="btn-estado btn-estado-activo" (click)="aplicarEstadoMasivo('activo')" [disabled]="isBulkUpdatingEstado">Activo</button>
+            <button type="button" class="btn-estado btn-estado-inactivo" (click)="aplicarEstadoMasivo('inactivo')" [disabled]="isBulkUpdatingEstado">Inactivo</button>
+            <button type="button" class="btn-estado btn-estado-mantenimiento" (click)="aplicarEstadoMasivo('mantenimiento')" [disabled]="isBulkUpdatingEstado">Mantenimiento</button>
+          </div>
 
-              <ng-template pTemplate="body" let-vista>
-                <tr>
-                  <td>
-                    <span class="codigo-badge">{{ vista.nombre }}</span>
-                  </td>
-                  <td>
-                    <input
-                      pInputText
-                      class="w-100 descripcion-input"
-                      [ngModel]="vista.descripcion || ''"
-                      (blur)="onDescripcionChange(vista, descripcionInput.value)"
-                      (keyup.enter)="onDescripcionChange(vista, descripcionInput.value)"
-                      #descripcionInput
-                      maxlength="255"
-                      placeholder="Descripci&oacute;n de la vista"
-                      [disabled]="!puedeGestionarVistas || savingVistaId === vista.id" />
-                  </td>
-                  <td>
-                    <p-multiSelect
-                      [ngModel]="vista.departamentos || []"
-                      (ngModelChange)="onDepartamentosChange(vista, $event)"
-                      [options]="departamentosOptions"
-                      optionLabel="label"
-                      optionValue="value"
-                      placeholder="Todos"
-                      [showClear]="true"
-                      [filter]="true"
-                      [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
-                      [loading]="savingVistaId === vista.id"
-                      [maxSelectedLabels]="2"
-                      selectedItemsLabel="{0} sedes"
-                      appendTo="body"
-                      styleClass="w-full dept-multiselect">
-                    </p-multiSelect>
-                  </td>
-                  <td>
-                    <div class="accion-vista-cell">
-                      <p-dropdown
-                        [ngModel]="vista.estado || 'activo'"
-                        (ngModelChange)="onEstadoChange(vista, $event)"
-                        [options]="estadoOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
-                        appendTo="body"
-                        styleClass="estado-dropdown">
-                        <ng-template pTemplate="item" let-item>
-                          <p-tag [value]="item.label" [severity]="getEstadoSeverity(item.value)"></p-tag>
-                        </ng-template>
-                      </p-dropdown>
-                      <button
-                        type="button"
-                        class="btn-icon-danger"
-                        (click)="eliminarVista(vista)"
-                        [disabled]="!puedeGestionarVistas || savingVistaId === vista.id"
-                        pTooltip="Eliminar vista"
-                        tooltipPosition="top">
-                        <i class="pi pi-trash"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </ng-template>
-
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="4" class="text-center py-4">
-                    <i class="pi pi-table text-muted" style="font-size: 2rem;"></i>
-                    <p class="text-muted mt-2 mb-0">No hay vistas configuradas</p>
-                    <small class="text-muted" *ngIf="puedeGestionarVistas">
-                      Seleccione vistas del cat&aacute;logo Fabric y haga clic en Agregar
-                    </small>
-                    <small class="text-muted" *ngIf="!puedeGestionarVistas">
-                      Complete y guarde los datos principales del esquema
-                    </small>
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
+          <div class="usuarios-table-wrap esquemas-grid-wrap">
+            <ag-grid-angular
+              class="ag-theme-alpine esquemas-vistas-grid"
+              [style]="{ width: '100%', height: '380px', display: 'block' }"
+              [rowData]="vistas"
+              [columnDefs]="vistasColumnDefs"
+              [defaultColDef]="defaultColDef"
+              [localeText]="localeText"
+              [rowSelection]="rowSelection"
+              [selectionColumnDef]="selectionColumnDef"
+              [animateRows]="true"
+              [pagination]="true"
+              [paginationPageSize]="25"
+              [paginationPageSizeSelector]="[25, 50, 100]"
+              [enableCellTextSelection]="true"
+              [overlayNoRowsTemplate]="vistasNoRowsTemplate"
+              (gridReady)="onVistasGridReady($event)"
+              (selectionChanged)="onVistasSelectionChanged()"
+              (cellValueChanged)="onVistaCellValueChanged($event)">
+            </ag-grid-angular>
           </div>
             </div>
           </p-tabPanel>
@@ -400,51 +337,24 @@
                 <span class="delegacion-count">{{ delegacionSeleccionadas }} / {{ delegacionVistas.length }} seleccionadas</span>
               </div>
 
-              <div class="usuarios-table-wrap" *ngIf="puedeGestionarDelegacion">
-                <p-table
-                  [value]="delegacionVistas"
+              <div class="usuarios-table-wrap esquemas-grid-wrap" *ngIf="puedeGestionarDelegacion">
+                <ag-grid-angular
+                  class="ag-theme-alpine esquemas-delegacion-grid"
+                  [style]="{ width: '100%', height: '380px', display: 'block' }"
+                  [rowData]="delegacionVistas"
+                  [columnDefs]="delegacionColumnDefs"
+                  [defaultColDef]="defaultColDef"
+                  [localeText]="localeText"
+                  [rowSelection]="rowSelection"
+                  [selectionColumnDef]="selectionColumnDef"
+                  [animateRows]="true"
+                  [pagination]="true"
+                  [paginationPageSize]="25"
                   [loading]="isLoadingDelegacion"
-                  styleClass="usuarios-table p-datatable-sm p-datatable-striped"
-                  [scrollable]="true"
-                  scrollHeight="flex">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th style="width: 52px"></th>
-                      <th>Vista</th>
-                      <th style="width: 120px">Estado</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-vista>
-                    <tr>
-                      <td class="text-center">
-                        <p-checkbox
-                          [binary]="true"
-                          [ngModel]="vista.delegada"
-                          (ngModelChange)="toggleDelegacionVista(vista, $event)"
-                          [disabled]="isSavingDelegacion">
-                        </p-checkbox>
-                      </td>
-                      <td>
-                        <span class="codigo-badge">{{ vista.nombre }}</span>
-                        <small class="d-block text-muted" *ngIf="vista.descripcion">{{ vista.descripcion }}</small>
-                      </td>
-                      <td>
-                        <p-tag
-                          [value]="getEstadoLabel(vista.estado || 'activo')"
-                          [severity]="getEstadoSeverity(vista.estado || 'activo')">
-                        </p-tag>
-                      </td>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="emptymessage">
-                    <tr>
-                      <td colspan="3" class="text-center py-4 text-muted">
-                        <span *ngIf="isLoadingDelegacion">Cargando vistas...</span>
-                        <span *ngIf="!isLoadingDelegacion">No hay vistas en este esquema. Agregue vistas en la pesta&ntilde;a Vistas.</span>
-                      </td>
-                    </tr>
-                  </ng-template>
-                </p-table>
+                  [overlayNoRowsTemplate]="delegacionNoRowsTemplate"
+                  (gridReady)="onDelegacionGridReady($event)"
+                  (selectionChanged)="onDelegacionSelectionChanged()">
+                </ag-grid-angular>
               </div>
               </ng-container>
 
@@ -466,51 +376,24 @@
                 <span class="delegacion-count">{{ delegacionUsuarioSeleccionadas }} / {{ delegacionUsuarioVistas.length }} seleccionadas</span>
               </div>
 
-              <div class="usuarios-table-wrap" *ngIf="puedeGestionarDelegacionUsuario">
-                <p-table
-                  [value]="delegacionUsuarioVistas"
+              <div class="usuarios-table-wrap esquemas-grid-wrap" *ngIf="puedeGestionarDelegacionUsuario">
+                <ag-grid-angular
+                  class="ag-theme-alpine esquemas-delegacion-grid"
+                  [style]="{ width: '100%', height: '380px', display: 'block' }"
+                  [rowData]="delegacionUsuarioVistas"
+                  [columnDefs]="delegacionColumnDefs"
+                  [defaultColDef]="defaultColDef"
+                  [localeText]="localeText"
+                  [rowSelection]="rowSelection"
+                  [selectionColumnDef]="selectionColumnDef"
+                  [animateRows]="true"
+                  [pagination]="true"
+                  [paginationPageSize]="25"
                   [loading]="isLoadingDelegacionUsuario"
-                  styleClass="usuarios-table p-datatable-sm p-datatable-striped"
-                  [scrollable]="true"
-                  scrollHeight="flex">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th style="width: 52px"></th>
-                      <th>Vista del esquema {{ schemaActual | uppercase }}</th>
-                      <th style="width: 120px">Estado</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-vista>
-                    <tr>
-                      <td class="text-center">
-                        <p-checkbox
-                          [binary]="true"
-                          [ngModel]="vista.delegada"
-                          (ngModelChange)="toggleDelegacionUsuarioVista(vista, $event)"
-                          [disabled]="isSavingDelegacionUsuario">
-                        </p-checkbox>
-                      </td>
-                      <td>
-                        <span class="codigo-badge">{{ vista.nombre }}</span>
-                        <small class="d-block text-muted" *ngIf="vista.descripcion">{{ vista.descripcion }}</small>
-                      </td>
-                      <td>
-                        <p-tag
-                          [value]="getEstadoLabel(vista.estado || 'activo')"
-                          [severity]="getEstadoSeverity(vista.estado || 'activo')">
-                        </p-tag>
-                      </td>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="emptymessage">
-                    <tr>
-                      <td colspan="3" class="text-center py-4 text-muted">
-                        <span *ngIf="isLoadingDelegacionUsuario">Cargando...</span>
-                        <span *ngIf="!isLoadingDelegacionUsuario">Seleccione empresa y usuario</span>
-                      </td>
-                    </tr>
-                  </ng-template>
-                </p-table>
+                  [overlayNoRowsTemplate]="delegacionUsuarioNoRowsTemplate"
+                  (gridReady)="onDelegacionUsuarioGridReady($event)"
+                  (selectionChanged)="onDelegacionUsuarioSelectionChanged()">
+                </ag-grid-angular>
               </div>
 
               <div class="empty-select-schema" *ngIf="puedeGestionarVistas && esDelegacionUsuariosInterna && !delegacionUsuarioId">

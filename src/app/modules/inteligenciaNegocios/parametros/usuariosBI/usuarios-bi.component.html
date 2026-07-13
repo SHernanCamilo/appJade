@@ -1,0 +1,361 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi me-2" [ngClass]="modoSoloAuditoria ? 'bi-shield-check' : 'bi-people'"></i>
+          {{ modoSoloAuditoria ? 'Auditoría BI' : 'Usuarios BI' }}
+        </h1>
+        <p class="page-subtitle-modern">
+          <ng-container *ngIf="!modoSoloAuditoria">
+            Consulta de grupos Azure, esquemas y vistas delegadas por usuario
+          </ng-container>
+          <ng-container *ngIf="modoSoloAuditoria">
+            Consultas y descargas de vistas BI por empresa, esquema y rango de fechas
+          </ng-container>
+          <span class="empresa-badge" *ngIf="!esTransversal && empresaNombre">
+            <i class="pi pi-building me-1"></i>{{ empresaNombre }}
+          </span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button
+          *ngIf="!modoSoloAuditoria"
+          type="button"
+          class="btn-action btn-action-outline"
+          (click)="irModoAuditoria()">
+          <i class="pi pi-history"></i>
+          Auditoría
+        </button>
+        <button
+          *ngIf="modoSoloAuditoria"
+          type="button"
+          class="btn-action btn-action-outline"
+          (click)="irModoPermisos()">
+          <i class="pi pi-users"></i>
+          Permisos usuarios
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <!-- Modo permisos -->
+    <div class="two-panel-layout" *ngIf="!modoSoloAuditoria">
+
+      <div class="panel-left">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Consulta</span>
+        </div>
+
+        <div class="panel-form">
+          <div class="param-group" *ngIf="esTransversal">
+            <label class="param-label">Empresa</label>
+            <p-dropdown
+              [(ngModel)]="empresaId"
+              [options]="empresasOptions"
+              (onChange)="onEmpresaChange()"
+              placeholder="Seleccionar empresa"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingEmpresas"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+          </div>
+
+          <div class="param-group" *ngIf="!esTransversal">
+            <label class="param-label">Empresa</label>
+            <div class="empresa-readonly">
+              <i class="pi pi-building"></i>
+              <span>{{ empresaNombre }}</span>
+            </div>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Usuario</label>
+            <p-dropdown
+              [(ngModel)]="usuarioId"
+              [options]="usuariosOptions"
+              (onChange)="onUsuarioChange()"
+              placeholder="Seleccionar usuario..."
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [disabled]="!empresaId"
+              [loading]="isLoadingUsuarios"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+          </div>
+
+          <div class="consulta-actions">
+            <button
+              type="button"
+              class="btn-action btn-action-primary"
+              (click)="traerGruposUsuario(false)"
+              [disabled]="!puedeConsultar || isLoadingPermisos">
+              <i class="pi pi-search" [class.pi-spin]="isLoadingPermisos"></i>
+              Consultar permisos
+            </button>
+            <button
+              type="button"
+              class="btn-action btn-action-outline"
+              (click)="traerGruposUsuario(true)"
+              [disabled]="!puedeConsultar || isLoadingPermisos"
+              pTooltip="Sincroniza grupos GG-BD-* desde Azure y luego consulta"
+              tooltipPosition="top">
+              <i class="pi pi-cloud-download" [class.pi-spin]="isLoadingPermisos"></i>
+              Traer grupos Azure
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-right">
+        <div class="permisos-resumen" *ngIf="permisos">
+          <div class="resumen-card">
+            <span class="resumen-label">Usuario</span>
+            <strong>{{ resumenUsuario }}</strong>
+          </div>
+          <div class="resumen-card">
+            <span class="resumen-label">Departamento</span>
+            <strong>{{ permisos.departamento || 'Sin departamento' }}</strong>
+          </div>
+          <div class="resumen-card">
+            <span class="resumen-label">Grupos totales</span>
+            <strong>{{ permisos.grupos_totales.length }}</strong>
+          </div>
+          <div class="resumen-card">
+            <span class="resumen-label">Esquemas totales</span>
+            <strong>{{ permisos.esquemas_totales.length }}</strong>
+          </div>
+        </div>
+
+        <p-tabView [(activeIndex)]="activeTabIndex" styleClass="usuarios-bi-tabview">
+          <p-tabPanel header="Grupos Azure">
+            <div class="grid-section">
+              <ag-grid-angular
+                class="ag-theme-alpine usuarios-bi-grid"
+                [style]="{ width: '100%', height: '360px', display: 'block' }"
+                [rowData]="gruposDirectosRows"
+                [columnDefs]="gruposDirectosColumnDefs"
+                [defaultColDef]="defaultColDef"
+                [localeText]="localeText"
+                [pagination]="true"
+                [paginationPageSize]="25"
+                [overlayNoRowsTemplate]="'<span class=&quot;ag-overlay-empty&quot;>Consulte un usuario para ver sus grupos Azure directos.</span>'">
+              </ag-grid-angular>
+            </div>
+          </p-tabPanel>
+
+          <p-tabPanel header="Esquemas">
+            <div class="grid-section">
+              <ag-grid-angular
+                class="ag-theme-alpine usuarios-bi-grid"
+                [style]="{ width: '100%', height: '360px', display: 'block' }"
+                [rowData]="esquemasRows"
+                [columnDefs]="esquemasColumnDefs"
+                [defaultColDef]="defaultColDef"
+                [localeText]="localeText"
+                [pagination]="true"
+                [paginationPageSize]="25"
+                [overlayNoRowsTemplate]="'<span class=&quot;ag-overlay-empty&quot;>Sin esquemas efectivos para este usuario.</span>'">
+              </ag-grid-angular>
+            </div>
+          </p-tabPanel>
+
+          <p-tabPanel header="Vistas delegadas (empresa)">
+            <div class="grid-section">
+              <ag-grid-angular
+                class="ag-theme-alpine usuarios-bi-grid"
+                [style]="{ width: '100%', height: '360px', display: 'block' }"
+                [rowData]="vistasDelegadasEmpresaRows"
+                [columnDefs]="vistasDelegadasColumnDefs"
+                [defaultColDef]="defaultColDef"
+                [localeText]="localeText"
+                [pagination]="true"
+                [paginationPageSize]="25"
+                [overlayNoRowsTemplate]="'<span class=&quot;ag-overlay-empty&quot;>No hay vistas delegadas por empresa para este usuario.</span>'">
+              </ag-grid-angular>
+            </div>
+          </p-tabPanel>
+
+          <p-tabPanel header="Vistas delegadas (usuario)">
+            <div class="grid-section">
+              <ag-grid-angular
+                class="ag-theme-alpine usuarios-bi-grid"
+                [style]="{ width: '100%', height: '360px', display: 'block' }"
+                [rowData]="vistasDelegadasUsuarioRows"
+                [columnDefs]="vistasDelegadasColumnDefs"
+                [defaultColDef]="defaultColDef"
+                [localeText]="localeText"
+                [pagination]="true"
+                [paginationPageSize]="25"
+                [overlayNoRowsTemplate]="'<span class=&quot;ag-overlay-empty&quot;>No hay vistas delegadas individualmente a este usuario.</span>'">
+              </ag-grid-angular>
+            </div>
+          </p-tabPanel>
+        </p-tabView>
+      </div>
+    </div>
+
+    <!-- Modo auditoría solo -->
+    <div class="auditoria-solo-layout" *ngIf="modoSoloAuditoria">
+      <div class="panel-right auditoria-solo-panel">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Filtros de auditoría</span>
+        </div>
+
+        <div class="auditoria-section auditoria-section-solo">
+          <div class="auditoria-filtros auditoria-filtros-solo">
+            <div class="auditoria-filtro" *ngIf="esTransversal">
+              <label class="param-label">Empresa</label>
+              <p-dropdown
+                [(ngModel)]="empresaId"
+                [options]="empresasOptions"
+                (onChange)="onEmpresaAuditoriaChange()"
+                placeholder="Seleccionar empresa"
+                [showClear]="true"
+                [filter]="true"
+                filterBy="label"
+                [loading]="isLoadingEmpresas"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+                appendTo="body">
+              </p-dropdown>
+            </div>
+
+            <div class="auditoria-filtro" *ngIf="!esTransversal">
+              <label class="param-label">Empresa</label>
+              <div class="empresa-readonly">
+                <i class="pi pi-building"></i>
+                <span>{{ empresaNombre }}</span>
+              </div>
+            </div>
+
+            <div class="auditoria-filtro">
+              <label class="param-label">Desde</label>
+              <p-calendar
+                [(ngModel)]="auditoriaFechaDesde"
+                dateFormat="dd/mm/yy"
+                [showIcon]="true"
+                appendTo="body"
+                styleClass="w-full">
+              </p-calendar>
+            </div>
+
+            <div class="auditoria-filtro">
+              <label class="param-label">Hasta</label>
+              <p-calendar
+                [(ngModel)]="auditoriaFechaHasta"
+                dateFormat="dd/mm/yy"
+                [showIcon]="true"
+                appendTo="body"
+                styleClass="w-full">
+              </p-calendar>
+            </div>
+
+            <div class="auditoria-filtro">
+              <label class="param-label">Esquema</label>
+              <p-dropdown
+                [(ngModel)]="auditoriaSchema"
+                [options]="auditoriaEsquemasOptions"
+                placeholder="Todos los esquemas"
+                [showClear]="true"
+                [filter]="true"
+                filterBy="label"
+                [disabled]="!empresaId"
+                [loading]="isLoadingEsquemasAuditoria"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+                appendTo="body">
+              </p-dropdown>
+            </div>
+
+            <div class="auditoria-filtro">
+              <label class="param-label">Acción</label>
+              <p-dropdown
+                [(ngModel)]="auditoriaAccion"
+                [options]="auditoriaAccionOptions"
+                placeholder="Todas"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+                appendTo="body">
+              </p-dropdown>
+            </div>
+
+            <div class="auditoria-filtro">
+              <label class="param-label">Usuario</label>
+              <p-dropdown
+                [(ngModel)]="usuarioId"
+                [options]="usuariosOptions"
+                (onChange)="onUsuarioAuditoriaChange()"
+                placeholder="Todos los usuarios"
+                [showClear]="true"
+                [filter]="true"
+                filterBy="label"
+                [disabled]="!empresaId"
+                [loading]="isLoadingUsuarios"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="w-full"
+                appendTo="body">
+              </p-dropdown>
+            </div>
+
+            <div class="auditoria-filtro auditoria-filtro-action">
+              <button
+                type="button"
+                class="btn-action btn-action-primary"
+                (click)="cargarAuditoria()"
+                [disabled]="!puedeCargarAuditoria || isLoadingAuditoria">
+                <i class="pi pi-history" [class.pi-spin]="isLoadingAuditoria"></i>
+                Cargar auditoría
+              </button>
+            </div>
+          </div>
+
+          <div class="auditoria-resumen" *ngIf="auditoriaTotal > 0">
+            <span>
+              Mostrando <strong>{{ auditoriaRows.length }}</strong> de <strong>{{ auditoriaTotal }}</strong> registros
+              <span *ngIf="usuarioId"> — filtrado por usuario seleccionado</span>
+            </span>
+          </div>
+
+          <div class="grid-section auditoria-grid-section">
+            <ag-grid-angular
+              class="ag-theme-alpine usuarios-bi-grid"
+              [style]="{ width: '100%', height: '520px', display: 'block' }"
+              [rowData]="auditoriaRows"
+              [columnDefs]="auditoriaColumnDefs"
+              [defaultColDef]="defaultColDef"
+              [localeText]="localeText"
+              [pagination]="true"
+              [paginationPageSize]="25"
+              [overlayNoRowsTemplate]="'<span class=&quot;ag-overlay-empty&quot;>Seleccione empresa y rango de fechas, luego pulse Cargar auditoría.</span>'">
+            </ag-grid-angular>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

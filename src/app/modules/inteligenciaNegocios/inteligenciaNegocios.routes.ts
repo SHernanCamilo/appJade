@@ -111,5 +111,16 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       pageTitle: 'Esquemas BI',
       pageSubtitle: 'Configuración del catálogo de esquemas por empresa'
     }
+  },
+  {
+    path: 'parametros/usuariosBI',
+    loadComponent: () =>
+      import('./parametros/usuariosBI/usuarios-bi.component').then(m => m.UsuariosBiComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-PARAMETROS-USU',
+      pageTitle: 'Usuarios BI',
+      pageSubtitle: 'Consulta de grupos Azure y permisos delegados por usuario'
+    }
   }
 ];
