@@ -242,7 +242,7 @@
                   type="button"
                   class="btn-action btn-action-primary btn-agregar"
                   (click)="agregarUsuarios()"
-                  [disabled]="!puedeGestionarUsuarios || !(selectedUsuarioIds?.length)">
+                  [disabled]="!puedeGestionarUsuarios || !selectedUsuarioIds.length">
                   <i class="pi pi-plus"></i>
                   Agregar
                 </button>
@@ -347,7 +347,7 @@
                   type="button"
                   class="btn-action btn-action-primary btn-agregar"
                   (click)="agregarJefes()"
-                  [disabled]="!puedeGestionarUsuarios || !(selectedJefeIds?.length)">
+                  [disabled]="!puedeGestionarUsuarios || !selectedJefeIds.length">
                   <i class="pi pi-plus"></i>
                   Agregar
                 </button>

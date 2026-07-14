@@ -1,0 +1,498 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-link me-2"></i>
+          Links OData — Excel
+        </h1>
+        <p class="page-subtitle-modern">
+          Generaci&oacute;n de URLs din&aacute;micas para actualizar vistas desde Microsoft Excel
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="odata-main-panel">
+      <p-tabView [(activeIndex)]="activeTabIndex" (onChange)="onTabChange($event.index)" styleClass="odata-tabview">
+
+        <!-- ═══ TAB: Links OData ═══ -->
+        <p-tabPanel header="Links OData">
+          <div class="tab-panel-content">
+            <div class="toolbar-row">
+              <div class="toolbar-info">
+                <i class="pi pi-info-circle"></i>
+                Estos links solo funcionan desde <strong>Microsoft Excel</strong> y <strong>Power Query</strong>. No pueden ser accedidos desde navegadores web.
+              </div>
+              <button class="btn-action btn-action-primary" (click)="openCreateDialog()">
+                <i class="pi pi-plus"></i>
+                Nuevo Link
+              </button>
+            </div>
+
+            <div class="table-wrap">
+              <p-table
+                [value]="links"
+                [loading]="isLoadingLinks"
+                styleClass="p-datatable-sm p-datatable-striped odata-table"
+                [scrollable]="true"
+                scrollHeight="flex"
+                [paginator]="true"
+                [rows]="10"
+                [rowsPerPageOptions]="[10, 20, 50]">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Esquema / Vista</th>
+                    <th>Visibilidad</th>
+                    <th style="width: 90px">Estado</th>
+                    <th style="width: 90px">Accesos</th>
+                    <th style="width: 200px">URL</th>
+                    <th style="width: 100px">Acci&oacute;n</th>
+                  </tr>
+                </ng-template>
+
+                <ng-template pTemplate="body" let-link>
+                  <tr>
+                    <td>
+                      <span class="link-name">{{ link.name }}</span>
+                      <small class="d-block text-muted">{{ link.created_at | date:'dd/MM/yyyy HH:mm' }}</small>
+                    </td>
+                    <td>
+                      <span class="codigo-badge">{{ link.schema }}</span>
+                      <span class="vista-label">.{{ link.view }}</span>
+                    </td>
+                    <td>
+                      <p-tag
+                        [value]="getVisibilityLabel(link.visibility)"
+                        [severity]="getVisibilitySeverity(link.visibility)">
+                      </p-tag>
+                    </td>
+                    <td>
+                      <p-tag
+                        [value]="link.active ? 'Activo' : 'Inactivo'"
+                        [severity]="link.active ? 'success' : 'danger'">
+                      </p-tag>
+                    </td>
+                    <td class="text-center">
+                      <span class="access-count">{{ link.access_count }}</span>
+                    </td>
+                    <td>
+                      <div class="url-cell">
+                        <code class="url-code">{{ link.url }}</code>
+                        <button class="btn-icon-copy" (click)="copyUrl(link.url)" pTooltip="Copiar URL" tooltipPosition="top">
+                          <i class="pi pi-copy"></i>
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        class="btn-icon-danger"
+                        (click)="deactivateLink(link)"
+                        [disabled]="!link.active"
+                        pTooltip="Desactivar link"
+                        tooltipPosition="top">
+                        <i class="pi pi-ban"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </ng-template>
+
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td colspan="7" class="text-center py-4">
+                      <i class="pi pi-link text-muted" style="font-size: 2rem;"></i>
+                      <p class="text-muted mt-2 mb-0">No hay links OData creados</p>
+                      <small class="text-muted">Haga clic en &quot;Nuevo Link&quot; para generar uno</small>
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+        </p-tabPanel>
+
+        <!-- ═══ TAB: API Keys ═══ -->
+        <p-tabPanel header="API Keys">
+          <div class="tab-panel-content">
+            <div class="toolbar-row">
+              <div class="toolbar-info">
+                <i class="pi pi-key"></i>
+                Las API Keys permiten autenticarse desde Excel sin usar la contrase&ntilde;a de Azure AD.
+              </div>
+              <button class="btn-action btn-action-primary" (click)="openKeyDialog()">
+                <i class="pi pi-plus"></i>
+                Nueva Key
+              </button>
+            </div>
+
+            <div class="table-wrap">
+              <p-table
+                [value]="apiKeys"
+                [loading]="isLoadingKeys"
+                styleClass="p-datatable-sm p-datatable-striped odata-table"
+                [scrollable]="true"
+                scrollHeight="flex"
+                [paginator]="true"
+                [rows]="10">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Prefijo</th>
+                    <th style="width: 90px">Estado</th>
+                    <th style="width: 90px">Usos</th>
+                    <th>&Uacute;ltimo uso</th>
+                    <th>Expira</th>
+                    <th style="width: 100px">Acci&oacute;n</th>
+                  </tr>
+                </ng-template>
+
+                <ng-template pTemplate="body" let-key>
+                  <tr>
+                    <td>{{ key.name }}</td>
+                    <td><code class="key-prefix">{{ key.key_prefix }}...</code></td>
+                    <td>
+                      <p-tag
+                        [value]="key.active ? 'Activa' : 'Revocada'"
+                        [severity]="key.active ? 'success' : 'danger'">
+                      </p-tag>
+                    </td>
+                    <td class="text-center">{{ key.use_count }}</td>
+                    <td>{{ key.last_used_at ? (key.last_used_at | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                    <td>{{ key.expires_at ? (key.expires_at | date:'dd/MM/yyyy') : 'Sin expiración' }}</td>
+                    <td>
+                      <button
+                        class="btn-icon-danger"
+                        (click)="revokeApiKey(key)"
+                        [disabled]="!key.active"
+                        pTooltip="Revocar key"
+                        tooltipPosition="top">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </ng-template>
+
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td colspan="7" class="text-center py-4">
+                      <i class="pi pi-key text-muted" style="font-size: 2rem;"></i>
+                      <p class="text-muted mt-2 mb-0">No tiene API Keys generadas</p>
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+        </p-tabPanel>
+
+        <!-- ═══ TAB: Permisos por Vista ═══ -->
+        <p-tabPanel header="Permisos Excel">
+          <div class="tab-panel-content">
+            <div class="toolbar-info" style="margin: 1rem;">
+              <i class="pi pi-shield"></i>
+              Asigne qu&eacute; usuarios pueden <strong>actualizar datos desde Excel</strong> para cada vista espec&iacute;fica.
+            </div>
+
+            <div class="permissions-layout">
+              <div class="permissions-selectors">
+                <div class="param-group">
+                  <label class="param-label">Esquema</label>
+                  <p-dropdown
+                    [(ngModel)]="selectedSchema"
+                    [options]="esquemas"
+                    (onChange)="onSchemaChange()"
+                    placeholder="Seleccionar esquema..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [loading]="isLoadingEsquemas"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <div class="param-group">
+                  <label class="param-label">Vista</label>
+                  <p-dropdown
+                    [(ngModel)]="selectedVistaId"
+                    [options]="vistaOptions"
+                    (onChange)="onVistaChange()"
+                    placeholder="Seleccionar vista..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [loading]="isLoadingVistas"
+                    [disabled]="!selectedSchema"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+              </div>
+
+              <!-- Asignar usuario -->
+              <div class="permissions-add-row" *ngIf="selectedVistaId">
+                <div class="param-group" style="flex: 1;">
+                  <label class="param-label">Agregar usuario</label>
+                  <p-dropdown
+                    [(ngModel)]="selectedUserId"
+                    [options]="availableUsuarios"
+                    placeholder="Buscar usuario..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [loading]="isLoadingUsuarios"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+                <button
+                  class="btn-action btn-action-primary btn-add-user"
+                  (click)="addPermission()"
+                  [disabled]="!selectedUserId || isAddingPermission">
+                  <i class="pi pi-user-plus" [class.pi-spin]="isAddingPermission"></i>
+                  {{ isAddingPermission ? 'Asignando...' : 'Asignar' }}
+                </button>
+              </div>
+
+              <!-- Tabla de usuarios con permiso -->
+              <div class="table-wrap" *ngIf="selectedVistaId">
+                <p-table
+                  [value]="permittedUsers"
+                  [loading]="isLoadingPermissions"
+                  styleClass="p-datatable-sm p-datatable-striped odata-table"
+                  [scrollable]="true"
+                  scrollHeight="flex">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Correo</th>
+                      <th style="width: 100px">Acci&oacute;n</th>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="body" let-user>
+                    <tr>
+                      <td>
+                        <div class="user-cell">
+                          <i class="pi pi-user user-icon"></i>
+                          <span>{{ user.name }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <code class="email-code">{{ user.email }}</code>
+                      </td>
+                      <td>
+                        <button
+                          class="btn-icon-danger"
+                          (click)="removePermission(user)"
+                          pTooltip="Revocar permiso"
+                          tooltipPosition="top">
+                          <i class="pi pi-user-minus"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </ng-template>
+
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="3" class="text-center py-4">
+                        <i class="pi pi-users text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">Ning&uacute;n usuario tiene permiso para esta vista</p>
+                        <small class="text-muted">Use el selector de arriba para asignar usuarios</small>
+                      </td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+
+              <div class="empty-select-schema" *ngIf="!selectedVistaId">
+                <i class="pi pi-shield"></i>
+                <p>Seleccione un esquema y una vista para gestionar los permisos de actualizaci&oacute;n desde Excel</p>
+              </div>
+            </div>
+          </div>
+        </p-tabPanel>
+
+      </p-tabView>
+    </div>
+  </div>
+
+  <!-- ═══ Dialog: Crear Link ═══ -->
+  <p-dialog
+    header="Nuevo Link OData"
+    [(visible)]="showCreateDialog"
+    [modal]="true"
+    [style]="{ width: '550px' }"
+    [breakpoints]="{ '768px': '95vw' }">
+
+    <div class="dialog-form">
+      <div class="param-group">
+        <label class="param-label">Nombre del link *</label>
+        <input pInputText [(ngModel)]="newLinkName" placeholder="Ej: Reporte mensual PT" class="w-100" maxlength="150">
+      </div>
+
+      <div class="param-group">
+        <label class="param-label">Visibilidad *</label>
+        <p-dropdown
+          [(ngModel)]="newLinkVisibility"
+          [options]="visibilityOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+          appendTo="body">
+        </p-dropdown>
+        <small class="form-hint" *ngIf="newLinkVisibility === 'public'">
+          <i class="pi pi-exclamation-triangle" style="color: #f59e0b;"></i>
+          Se generar&aacute; un token p&uacute;blico. Solo se mostrar&aacute; una vez.
+        </small>
+      </div>
+
+      <div class="param-group">
+        <label class="param-label">Esquema *</label>
+        <p-dropdown
+          [(ngModel)]="newLinkSchema"
+          [options]="esquemas"
+          (onChange)="onNewLinkSchemaChange()"
+          placeholder="Seleccionar esquema..."
+          [filter]="true"
+          filterBy="label"
+          [loading]="isLoadingEsquemas"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+          appendTo="body">
+        </p-dropdown>
+      </div>
+
+      <div class="param-group">
+        <label class="param-label">Vista *</label>
+        <p-dropdown
+          [(ngModel)]="newLinkView"
+          [options]="fabricViewOptions"
+          placeholder="Seleccionar vista..."
+          [filter]="true"
+          filterBy="label"
+          [loading]="isLoadingFabricViews"
+          [disabled]="!newLinkSchema"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+          appendTo="body">
+        </p-dropdown>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancelar" icon="pi pi-times" styleClass="p-button-text" (onClick)="showCreateDialog = false"></p-button>
+      <p-button
+        label="Generar Link"
+        icon="pi pi-link"
+        (onClick)="createLink()"
+        [disabled]="isCreatingLink || !newLinkName || !newLinkSchema || !newLinkView"
+        [loading]="isCreatingLink">
+      </p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ═══ Dialog: Crear API Key ═══ -->
+  <p-dialog
+    header="Nueva API Key"
+    [(visible)]="showKeyDialog"
+    [modal]="true"
+    [style]="{ width: '450px' }"
+    [breakpoints]="{ '768px': '95vw' }">
+
+    <div class="dialog-form">
+      <div class="param-group">
+        <label class="param-label">Nombre *</label>
+        <input pInputText [(ngModel)]="newKeyName" placeholder='Ej: "Mi Excel oficina"' class="w-100" maxlength="100">
+      </div>
+
+      <div class="param-group">
+        <label class="param-label">Expira en (d&iacute;as)</label>
+        <input pInputText [(ngModel)]="newKeyDays" type="number" placeholder="Sin expiración" class="w-100" min="1" max="365">
+        <small class="form-hint">Deje vac&iacute;o para que la key no expire</small>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancelar" icon="pi pi-times" styleClass="p-button-text" (onClick)="showKeyDialog = false"></p-button>
+      <p-button
+        label="Generar Key"
+        icon="pi pi-key"
+        (onClick)="createApiKey()"
+        [disabled]="isCreatingKey || !newKeyName"
+        [loading]="isCreatingKey">
+      </p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ═══ Dialog: Resultado ═══ -->
+  <p-dialog
+    header="Credenciales generadas"
+    [(visible)]="showResultDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{ width: '600px' }"
+    [breakpoints]="{ '768px': '95vw' }">
+
+    <div class="result-content">
+      <div class="result-warning" *ngIf="resultWarning">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ resultWarning }}</span>
+      </div>
+
+      <div class="result-item" *ngIf="resultUrl">
+        <label class="param-label">URL OData</label>
+        <div class="result-value-row">
+          <code class="result-code">{{ resultUrl }}</code>
+          <button class="btn-icon-copy" (click)="copyToClipboard(resultUrl)" pTooltip="Copiar" tooltipPosition="top">
+            <i class="pi pi-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="result-item" *ngIf="resultToken">
+        <label class="param-label">Token p&uacute;blico</label>
+        <div class="result-value-row">
+          <code class="result-code result-secret">{{ resultToken }}</code>
+          <button class="btn-icon-copy" (click)="copyToClipboard(resultToken)" pTooltip="Copiar" tooltipPosition="top">
+            <i class="pi pi-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="result-item" *ngIf="resultKey">
+        <label class="param-label">API Key</label>
+        <div class="result-value-row">
+          <code class="result-code result-secret">{{ resultKey }}</code>
+          <button class="btn-icon-copy" (click)="copyToClipboard(resultKey)" pTooltip="Copiar" tooltipPosition="top">
+            <i class="pi pi-copy"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Entendido" icon="pi pi-check" (onClick)="showResultDialog = false"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

@@ -111,5 +111,16 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       pageTitle: 'Esquemas BI',
       pageSubtitle: 'Configuración del catálogo de esquemas por empresa'
     }
+  },
+  {
+    path: 'parametros/odata-links',
+    loadComponent: () =>
+      import('./parametros/odataLinks/odataLinks.component').then(m => m.OdataLinksComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-ODATA-LINKS',
+      pageTitle: 'Links OData — Excel',
+      pageSubtitle: 'Generación de URLs dinámicas y permisos de actualización desde Excel'
+    }
   }
 ];
