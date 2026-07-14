@@ -122,6 +122,17 @@
 :host ::ng-deep .esquemas-tabview .p-tabview-panels {
   flex: 1;
   padding: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:host ::ng-deep .esquemas-tabview .p-tabview-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
 }
 
 :host ::ng-deep .esquemas-tabview .p-tabview-nav {
@@ -301,9 +312,125 @@
 }
 
 .usuarios-table-wrap {
-  flex: 1;
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: 380px;
+  height: 380px;
   overflow: hidden;
+}
+
+.esquemas-grid-wrap {
+  display: block;
+  flex: 1 1 auto;
+}
+
+:host ::ng-deep ag-grid-angular.esquemas-vistas-grid,
+:host ::ng-deep ag-grid-angular.esquemas-delegacion-grid {
+  display: block;
+  width: 100%;
+  height: 380px;
+  min-height: 380px;
+}
+
+:host ::ng-deep ag-grid-angular.esquemas-vistas-grid .ag-root-wrapper,
+:host ::ng-deep ag-grid-angular.esquemas-delegacion-grid .ag-root-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 0 0 10px 10px;
+}
+
+:host ::ng-deep ag-grid-angular.esquemas-vistas-grid .ag-theme-alpine,
+:host ::ng-deep ag-grid-angular.esquemas-delegacion-grid .ag-theme-alpine {
+  --ag-font-size: 0.82rem;
+  --ag-header-height: 38px;
+  --ag-row-height: 44px;
+  --ag-border-color: #e5e7eb;
+  --ag-header-background-color: #f9fafb;
+  --ag-row-hover-color: #f0f9ff;
+}
+
+:host ::ng-deep .ag-theme-alpine .ag-overlay-empty {
+  color: #6b7280;
+  font-size: 0.85rem;
+  padding: 1.5rem;
+  display: inline-block;
+  text-align: center;
+  max-width: 420px;
+}
+
+:host ::ng-deep .dept-multiselect-grid.p-multiselect {
+  width: 100%;
+  font-size: 0.78rem;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+:host ::ng-deep .dept-multiselect-grid .p-multiselect-label {
+  padding: 0.25rem 0.35rem;
+}
+
+:host ::ng-deep .ag-theme-alpine .delegacion-desc {
+  display: block;
+  color: #6b7280;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+}
+
+.vistas-bulk-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: #f0fdf4;
+  border-bottom: 1px solid #bbf7d0;
+}
+
+.vistas-bulk-count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #166534;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.35rem;
+}
+
+.vistas-bulk-label {
+  font-size: 0.8rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.btn-estado {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-estado:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-estado-activo {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.btn-estado-inactivo {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.btn-estado-mantenimiento {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
 }
 
 .empresa-badge {
@@ -401,6 +528,14 @@
 .vistas-table-hint i {
   color: #3b82f6;
   font-size: 0.85rem;
+}
+
+:host ::ng-deep ag-grid-angular.esquemas-vistas-grid .ag-cell.accion-grid-cell,
+:host ::ng-deep ag-grid-angular.esquemas-delegacion-grid .ag-cell.accion-grid-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
 }
 
 :host ::ng-deep .dept-multiselect.p-multiselect {

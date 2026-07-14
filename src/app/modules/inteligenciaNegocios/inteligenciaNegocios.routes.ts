@@ -122,5 +122,16 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       pageTitle: 'Links OData — Excel',
       pageSubtitle: 'Generación de URLs dinámicas y permisos de actualización desde Excel'
     }
+  },
+  {
+    path: 'parametros/usuariosBI',
+    loadComponent: () =>
+      import('./parametros/usuariosBI/usuarios-bi.component').then(m => m.UsuariosBiComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-PARAMETROS-USU',
+      pageTitle: 'Usuarios BI',
+      pageSubtitle: 'Consulta de grupos Azure y permisos delegados por usuario'
+    }
   }
 ];

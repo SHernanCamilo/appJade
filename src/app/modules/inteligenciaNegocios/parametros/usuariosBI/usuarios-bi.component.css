@@ -1,0 +1,171 @@
+@import '../esquemas/esquemas.component.css';
+
+.consulta-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.consulta-actions .btn-action {
+  width: auto;
+  min-width: 210px;
+  justify-content: center;
+}
+
+.permisos-resumen {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0;
+}
+
+.resumen-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.resumen-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.resumen-card strong {
+  font-size: 0.9rem;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+:host ::ng-deep .usuarios-bi-tabview.p-tabview {
+  height: auto;
+}
+
+.grid-section {
+  padding: 0.75rem 1rem 1rem;
+}
+
+:host ::ng-deep ag-grid-angular.usuarios-bi-grid .ag-root-wrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+:host ::ng-deep .ag-overlay-empty {
+  color: #6b7280;
+  font-size: 0.85rem;
+  padding: 1.5rem;
+}
+
+@media (max-width: 1100px) {
+  .permisos-resumen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .permisos-resumen {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auditoria-section {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.auditoria-filtros {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 0.75rem;
+}
+
+.auditoria-filtro-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auditoria-filtro-action .btn-action {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+.auditoria-resumen {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.auditoria-grid-section {
+  padding: 0;
+}
+
+:host ::ng-deep .auditoria-filtros .p-calendar {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .auditoria-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .auditoria-filtros {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auditoria-solo-layout {
+  padding: 0 1.5rem 1.5rem;
+}
+
+.auditoria-solo-panel {
+  width: 100%;
+  max-width: 100%;
+}
+
+.auditoria-section-solo {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.auditoria-filtros-solo {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.auditoria-filtros-solo .auditoria-filtro-action {
+  grid-column: span 1;
+}
+
+@media (max-width: 1200px) {
+  .auditoria-filtros-solo {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .auditoria-filtros-solo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .auditoria-solo-layout {
+    padding: 0 0.75rem 1rem;
+  }
+
+  .auditoria-filtros-solo {
+    grid-template-columns: 1fr;
+  }
+}
