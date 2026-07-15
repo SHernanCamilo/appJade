@@ -220,6 +220,15 @@
   box-shadow: 0 2px 8px rgba(15, 118, 110, 0.35);
 }
 
+.btn-toolbar-pivot {
+  background: #7c3aed;
+}
+
+.btn-toolbar-pivot:hover:not(:disabled) {
+  background: #6d28d9;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+
 .grid-loading {
   display: inline-flex;
   align-items: center;

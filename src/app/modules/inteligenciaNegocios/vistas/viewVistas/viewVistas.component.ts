@@ -456,6 +456,13 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     window.open(fullUrl, '_blank');
   }
 
+  abrirPivot(): void {
+    const urlTree = this.router.createUrlTree([this.listPath, 'viewVistas', 'pivot', this.schema, this.viewName]);
+    const url = this.router.serializeUrl(urlTree);
+    const fullUrl = this.location.prepareExternalUrl(url);
+    window.open(fullUrl, '_blank');
+  }
+
   // ── Descarga Excel en segundo plano (backend genera el archivo) ───────────
 
   descargarExcel(): void {

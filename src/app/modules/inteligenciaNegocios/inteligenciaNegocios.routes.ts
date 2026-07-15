@@ -35,6 +35,12 @@ function vistasReporteRoutes(config: {
       data: { listPath }
     },
     {
+      path: `${config.path}/viewVistas/pivot/:schema/:viewName`,
+      loadComponent: () =>
+        import('./vistas/viewVistas/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
+      data: { listPath }
+    },
+    {
       path: `${config.path}/viewVistas/:schema/:viewName`,
       loadComponent: () =>
         import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
@@ -65,6 +71,12 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     path: 'vistas/viewVistas/fullscreen/:schema/:viewName',
     loadComponent: () =>
       import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
+    data: { listPath: '/inteligenciaNegocios/vistas' }
+  },
+  {
+    path: 'vistas/viewVistas/pivot/:schema/:viewName',
+    loadComponent: () =>
+      import('./vistas/viewVistas/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
     data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {

@@ -62,6 +62,11 @@
         </div>
         
         <div class="toolbar-actions">
+          <button type="button" class="btn-toolbar btn-toolbar-pivot" (click)="abrirPivot()"
+            [disabled]="isLoadingVista || !vista"
+            title="Tabla dinámica — Dinamizar datos como Excel">
+            <i class="pi pi-table"></i> Dinamizar
+          </button>
           <button type="button" class="btn-toolbar btn-toolbar-download" (click)="descargarExcel()"
             [disabled]="isLoadingVista || !vista || !hayDatosParaExportar"
             title="Descargar Excel">

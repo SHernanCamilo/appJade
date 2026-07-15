@@ -409,6 +409,38 @@ export class VistasService {
     }, { responseType: 'blob' });
   }
 
+  /**
+   * Ejecutar agregación server-side (GROUP BY) para tablas dinámicas.
+   * Fabric SQL hace el cálculo y devuelve datos resumidos (~50-500 filas).
+   */
+  aggregate(
+    schema: string,
+    viewName: string,
+    options: {
+      rows: string[];
+      columns?: string[];
+      values: { field: string; aggregation: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'count_distinct' }[];
+      filters?: Record<string, string>;
+      limit?: number;
+    }
+  ): Observable<{
+    success: boolean;
+    data: Record<string, unknown>[];
+    aggregation: { rows: string[]; columns: string[]; values: { field: string; aggregation: string; alias: string }[] };
+    meta: { total_groups: number; elapsed_ms?: number };
+    message?: string;
+  }> {
+    return this.http.post<any>(`${this.baseUrl}/aggregate`, {
+      schema_name: schema,
+      view: viewName,
+      rows: options.rows,
+      columns: options.columns ?? [],
+      values: options.values,
+      filters: options.filters ?? {},
+      limit: options.limit ?? 10000,
+    });
+  }
+
   private buildDataPayload(
     schema: string,
     viewName: string,
