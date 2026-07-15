@@ -319,6 +319,32 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     const filters: Record<string, string> = {};
 
     for (const [col, model] of Object.entries(filterModel as Record<string, any>)) {
+      // Filtro de fecha (agDateColumnFilter) — usa dateFrom/dateTo
+      if (model.dateFrom) {
+        const tipo = model.type ?? 'equals';
+        const dateFrom = model.dateFrom.split(' ')[0]; // "2026-07-14 00:00:00" → "2026-07-14"
+
+        switch (tipo) {
+          case 'equals':
+            filters[col] = dateFrom;
+            break;
+          case 'greaterThan':
+            filters[col] = `>${dateFrom}`;
+            break;
+          case 'lessThan':
+            filters[col] = `<${dateFrom}`;
+            break;
+          case 'inRange':
+            const dateTo = model.dateTo ? model.dateTo.split(' ')[0] : dateFrom;
+            filters[col] = `${dateFrom}..${dateTo}`;
+            break;
+          default:
+            filters[col] = dateFrom;
+        }
+        continue;
+      }
+
+      // Filtro de texto/número — usa filter
       if (model.filter !== undefined && model.filter !== null && model.filter !== '') {
         const tipo = model.type ?? 'contains';
         const valor = this.formatGridFilterValue(model.filter);
