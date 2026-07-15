@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ColDef } from 'ag-grid-community';
 import { environment } from '../../../environments/environment';
+import { getColumnType } from '../helpers/column-type.helper';
 
 export interface EsquemaCatalogo {
   schema: string;
