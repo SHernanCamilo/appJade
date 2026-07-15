@@ -5,6 +5,8 @@ export interface ExcelColumn {
   header: string;
   key: string;
   width: number;
+  /** Si true, la celda se marca como texto en Excel (preserva ceros iniciales) */
+  isText?: boolean;
 }
 
 export interface ExcelStyleConfig {
@@ -124,9 +126,26 @@ export class ExcelExportService {
     });
     colHeaderRow.commit();
 
-    // Agregar datos
+    // Agregar datos — preservar ceros iniciales en columnas de texto
+    const textColumnIndices = new Set(
+      columns.map((col, i) => col.isText ? i : -1).filter(i => i >= 0)
+    );
+
     data.forEach(row => {
-      const dataRow = worksheet.addRow(columns.map(col => row[col.key]));
+      const rowValues = columns.map(col => row[col.key]);
+      const dataRow = worksheet.addRow(rowValues);
+
+      // Marcar celdas de columnas de texto como @text para preservar ceros iniciales
+      if (textColumnIndices.size > 0) {
+        textColumnIndices.forEach(colIdx => {
+          const cell = dataRow.getCell(colIdx + 1);
+          if (cell.value !== null && cell.value !== undefined) {
+            cell.numFmt = '@'; // Formato texto explícito
+            cell.value = String(cell.value); // Forzar como string
+          }
+        });
+      }
+
       dataRow.commit();
     });
 

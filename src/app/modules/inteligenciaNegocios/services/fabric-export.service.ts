@@ -256,7 +256,10 @@ export class FabricExportService {
       .map(col => ({
         header: col.headerName || col.field,
         key: col.field,
-        width: Math.max(12, Math.round((col.width || 120) / 7))
+        width: Math.max(12, Math.round((col.width || 120) / 7)),
+        // Marcar como texto si el filtro es texto o si el cellDataType es 'text'
+        // Esto preserva ceros iniciales en Excel (Placa, Código, etc.)
+        isText: col.filter === 'agTextColumnFilter' || col.cellDataType === 'text'
       }));
   }
 

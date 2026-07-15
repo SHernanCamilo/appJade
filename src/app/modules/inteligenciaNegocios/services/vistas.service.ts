@@ -146,6 +146,31 @@ function mapColumnType(type: string): string {
   return 'agTextColumnFilter';
 }
 
+/**
+ * Detecta si un valor string es realmente una fecha (formato ISO: YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss).
+ */
+function looksLikeDate(value: unknown): boolean {
+  if (typeof value !== 'string' || value.length < 10) return false;
+  return /^\d{4}-\d{2}-\d{2}/.test(value);
+}
+
+/**
+ * Detecta si una columna debería tratarse como texto (preservar ceros iniciales).
+ * Columnas como Placa, Codigo, NIT, Documento, etc.
+ */
+function shouldBeText(colName: string, sampleValues: unknown[]): boolean {
+  const nameLC = colName.toLowerCase();
+  // Columnas que típicamente tienen ceros al inicio
+  const textPatterns = ['placa', 'codigo', 'cod', 'nit', 'documento', 'cedula', 'id_', 'num_', 'telefono', 'celular', 'consecutivo'];
+  if (textPatterns.some(p => nameLC.includes(p))) return true;
+
+  // Si algún valor empieza con "0" y tiene solo dígitos → es texto (código, no número)
+  for (const val of sampleValues) {
+    if (typeof val === 'string' && /^0\d+$/.test(val)) return true;
+  }
+  return false;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -445,12 +470,63 @@ export class VistasService {
 
   private buildColumnDefs(columns: FabricColumn[], rows: Record<string, unknown>[]): ColDef[] {
     if (columns.length > 0) {
-      return columns.map(col => ({
-        field: col.name,
-        headerName: col.name.replace(/_/g, ' '),
-        filter: mapColumnType(col.type),
-        minWidth: 120
-      }));
+      return columns.map(col => {
+        const colType = getColumnType(col.type);
+        const sampleValues = rows.slice(0, 20).map(r => r[col.name]);
+
+        // Si la API dice que es número pero los datos tienen ceros al inicio → tratar como texto
+        const forceText = colType === 'number' && shouldBeText(col.name, sampleValues);
+
+        // Si la API dice texto pero los valores parecen fechas → tratar como fecha
+        const inferDate = colType === 'text' && sampleValues.some(v => looksLikeDate(v));
+
+        let filter: string;
+        let valueFormatter: ((params: any) => string) | undefined;
+        let cellDataType: string | undefined;
+
+        if (forceText) {
+          filter = 'agTextColumnFilter';
+          cellDataType = 'text';
+        } else if (colType === 'date' || inferDate) {
+          filter = 'agDateColumnFilter';
+          // Formatear fechas para mostrar YYYY-MM-DD sin hora
+          valueFormatter = (params: any) => {
+            if (!params.value) return '';
+            const val = String(params.value);
+            // Si tiene T (ISO datetime) → solo mostrar la fecha
+            return val.includes('T') ? val.split('T')[0] : val.substring(0, 10);
+          };
+        } else if (colType === 'number') {
+          filter = 'agNumberColumnFilter';
+        } else {
+          filter = 'agTextColumnFilter';
+        }
+
+        const colDef: ColDef = {
+          field: col.name,
+          headerName: col.name.replace(/_/g, ' '),
+          filter,
+          minWidth: 120,
+        };
+
+        if (valueFormatter) colDef.valueFormatter = valueFormatter;
+        if (cellDataType) colDef.cellDataType = cellDataType;
+
+        // Para filtro de fechas, necesitamos un comparador que entienda strings ISO
+        if (filter === 'agDateColumnFilter') {
+          colDef.filterParams = {
+            comparator: (filterDate: Date, cellValue: string) => {
+              if (!cellValue) return -1;
+              const cellDate = new Date(cellValue.substring(0, 10));
+              if (cellDate < filterDate) return -1;
+              if (cellDate > filterDate) return 1;
+              return 0;
+            }
+          };
+        }
+
+        return colDef;
+      });
     }
 
     return this.buildColumnDefsFromRows(rows);
@@ -462,11 +538,50 @@ export class VistasService {
       return [];
     }
 
-    return Object.keys(sample).map(key => ({
-      field: key,
-      headerName: key.replace(/_/g, ' '),
-      filter: typeof sample[key] === 'number' ? 'agNumberColumnFilter' : 'agTextColumnFilter',
-      minWidth: 120
-    }));
+    return Object.keys(sample).map(key => {
+      const sampleValues = rows.slice(0, 20).map(r => r[key]);
+      const firstNonNull = sampleValues.find(v => v !== null && v !== undefined && v !== '');
+
+      let filter: string;
+      let valueFormatter: ((params: any) => string) | undefined;
+
+      if (shouldBeText(key, sampleValues)) {
+        filter = 'agTextColumnFilter';
+      } else if (looksLikeDate(firstNonNull)) {
+        filter = 'agDateColumnFilter';
+        valueFormatter = (params: any) => {
+          if (!params.value) return '';
+          const val = String(params.value);
+          return val.includes('T') ? val.split('T')[0] : val.substring(0, 10);
+        };
+      } else if (typeof firstNonNull === 'number') {
+        filter = 'agNumberColumnFilter';
+      } else {
+        filter = 'agTextColumnFilter';
+      }
+
+      const colDef: ColDef = {
+        field: key,
+        headerName: key.replace(/_/g, ' '),
+        filter,
+        minWidth: 120
+      };
+
+      if (valueFormatter) colDef.valueFormatter = valueFormatter;
+
+      if (filter === 'agDateColumnFilter') {
+        colDef.filterParams = {
+          comparator: (filterDate: Date, cellValue: string) => {
+            if (!cellValue) return -1;
+            const cellDate = new Date(cellValue.substring(0, 10));
+            if (cellDate < filterDate) return -1;
+            if (cellDate > filterDate) return 1;
+            return 0;
+          }
+        };
+      }
+
+      return colDef;
+    });
   }
 }
