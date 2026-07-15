@@ -99,6 +99,7 @@ export class OdataLinksComponent implements OnInit {
   showKeyDialog = false;
   newKeyName = '';
   newKeyDays: number | null = null;
+  newKeyScope: 'private' | 'shared' = 'private';
   isCreatingKey = false;
 
   // ─── Resultado ──────────────────────────────────────
@@ -112,6 +113,11 @@ export class OdataLinksComponent implements OnInit {
     { label: 'Privado (solo creador)', value: 'private' },
     { label: 'Organizacional (@medilaser)', value: 'organizational' },
     { label: 'Público (con token)', value: 'public' }
+  ];
+
+  scopeOptions = [
+    { label: 'Privada (solo mi usuario)', value: 'private' },
+    { label: 'Compartida (cualquier usuario con permiso Excel)', value: 'shared' }
   ];
 
   constructor(
@@ -281,6 +287,7 @@ export class OdataLinksComponent implements OnInit {
     this.showKeyDialog = true;
     this.newKeyName = '';
     this.newKeyDays = null;
+    this.newKeyScope = 'private';
   }
 
   createApiKey(): void {
@@ -290,7 +297,7 @@ export class OdataLinksComponent implements OnInit {
     }
 
     this.isCreatingKey = true;
-    this.odataService.createApiKey(this.newKeyName, this.newKeyDays ?? undefined).subscribe({
+    this.odataService.createApiKey(this.newKeyName, this.newKeyDays ?? undefined, this.newKeyScope).subscribe({
       next: res => {
         this.isCreatingKey = false;
         this.showKeyDialog = false;

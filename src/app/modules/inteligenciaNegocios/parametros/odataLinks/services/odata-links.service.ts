@@ -54,6 +54,7 @@ export interface OdataApiKey {
   id: number;
   name: string;
   key_prefix: string;
+  scope: 'private' | 'shared';
   active: boolean;
   expires_at: string | null;
   last_used_at: string | null;
@@ -68,8 +69,9 @@ export interface OdataApiKeyCreateResponse {
     name: string;
     key: string;
     prefix: string;
+    scope: 'private' | 'shared';
     expires_at: string | null;
-    instructions: { excel: string };
+    instructions: string;
   };
   warning: string;
 }
@@ -114,10 +116,10 @@ export class OdataLinksService {
     ).pipe(map(r => r.data ?? []));
   }
 
-  createApiKey(name: string, expiresDays?: number): Observable<OdataApiKeyCreateResponse> {
+  createApiKey(name: string, expiresDays?: number, scope: 'private' | 'shared' = 'private'): Observable<OdataApiKeyCreateResponse> {
     return this.http.post<OdataApiKeyCreateResponse>(
       `${this.baseUrl}/odata/api-keys`,
-      { name, expires_days: expiresDays }
+      { name, expires_days: expiresDays, scope }
     );
   }
 

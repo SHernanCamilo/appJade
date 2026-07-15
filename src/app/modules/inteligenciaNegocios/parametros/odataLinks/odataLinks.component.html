@@ -150,6 +150,7 @@
                   <tr>
                     <th>Nombre</th>
                     <th>Prefijo</th>
+                    <th style="width: 100px">Tipo</th>
                     <th style="width: 90px">Estado</th>
                     <th style="width: 90px">Usos</th>
                     <th>&Uacute;ltimo uso</th>
@@ -162,6 +163,13 @@
                   <tr>
                     <td>{{ key.name }}</td>
                     <td><code class="key-prefix">{{ key.key_prefix }}...</code></td>
+                    <td>
+                      <p-tag
+                        [value]="key.scope === 'shared' ? 'Compartida' : 'Privada'"
+                        [severity]="key.scope === 'shared' ? 'info' : 'secondary'"
+                        [pTooltip]="key.scope === 'shared' ? 'Cualquier usuario con permiso Excel puede usarla' : 'Solo el creador puede usarla'">
+                      </p-tag>
+                    </td>
                     <td>
                       <p-tag
                         [value]="key.active ? 'Activa' : 'Revocada'"
@@ -186,7 +194,7 @@
 
                 <ng-template pTemplate="emptymessage">
                   <tr>
-                    <td colspan="7" class="text-center py-4">
+                    <td colspan="8" class="text-center py-4">
                       <i class="pi pi-key text-muted" style="font-size: 2rem;"></i>
                       <p class="text-muted mt-2 mb-0">No tiene API Keys generadas</p>
                     </td>
@@ -424,6 +432,13 @@
       <div class="param-group">
         <label class="param-label">Nombre *</label>
         <input pInputText [(ngModel)]="newKeyName" placeholder='Ej: "Mi Excel oficina"' class="w-100" maxlength="100">
+      </div>
+
+      <div class="param-group">
+        <label class="param-label">Tipo de key</label>
+        <p-dropdown [options]="scopeOptions" [(ngModel)]="newKeyScope" optionLabel="label" optionValue="value" styleClass="w-100"></p-dropdown>
+        <small class="form-hint" *ngIf="newKeyScope === 'private'">Solo usted puede usar esta key con su correo</small>
+        <small class="form-hint" *ngIf="newKeyScope === 'shared'">Cualquier usuario con permiso Excel puede usar esta key con su propio correo</small>
       </div>
 
       <div class="param-group">
