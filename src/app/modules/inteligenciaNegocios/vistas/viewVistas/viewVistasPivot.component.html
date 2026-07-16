@@ -1,92 +1,118 @@
-<div class="pivot-container">
+<div class="pivot-page">
   <!-- Header -->
-  <div class="pivot-header">
-    <div class="pivot-title">
-      <i class="pi pi-table"></i>
-      <span>Tabla Dinámica — {{ vistaLabel }}</span>
+  <header class="pivot-header">
+    <div class="header-left">
+      <i class="pi pi-table header-icon"></i>
+      <div>
+        <h1 class="header-title">Tabla Dinámica</h1>
+        <span class="header-subtitle">{{ vistaLabel }}</span>
+      </div>
     </div>
-    <div class="pivot-stats" *ngIf="showPivot">
-      <span class="badge-rows">{{ totalGroups.toLocaleString('es-CO') }} grupos</span>
-      <span class="badge-time" *ngIf="elapsedMs">{{ (elapsedMs / 1000).toFixed(1) }}s</span>
+    <div class="header-right" *ngIf="showResults()">
+      <button class="btn-action btn-reconfig" (click)="volverAConfigurar()">
+        <i class="pi pi-cog"></i> Configurar
+      </button>
+      <button class="btn-action btn-export" (click)="exportExcel()">
+        <i class="pi pi-file-excel"></i> Exportar CSV
+      </button>
+    </div>
+  </header>
+
+  <!-- Métricas -->
+  <div class="metrics-bar" *ngIf="showResults() && metrics.length > 0">
+    <div class="metric-card" *ngFor="let m of metrics" [style.--accent]="m.color">
+      <i [class]="m.icon + ' metric-icon'"></i>
+      <div class="metric-content">
+        <span class="metric-value">{{ m.value }}</span>
+        <span class="metric-label">{{ m.label }}</span>
+      </div>
     </div>
   </div>
 
-  <!-- Configuración -->
-  <div class="pivot-config" *ngIf="!isLoadingColumns && !showPivot">
-    <div class="config-section">
-      <h4><i class="pi pi-list"></i> Agrupar por (filas)</h4>
-      <div class="chips-container">
-        <span class="chip" *ngFor="let row of selectedRows">
-          {{ row }}
-          <i class="pi pi-times chip-remove" (click)="removeRow(row)"></i>
-        </span>
+  <!-- Panel de Configuración -->
+  <section class="config-panel" *ngIf="!showResults() && !isLoadingColumns()">
+    <div class="config-card">
+      <div class="config-card-header">
+        <i class="pi pi-list"></i>
+        <span>Agrupar por</span>
       </div>
-      <select class="config-select" (change)="addRow($any($event.target).value); $any($event.target).value=''">
-        <option value="">+ Agregar columna...</option>
-        <option *ngFor="let col of columns" [value]="col.name" [disabled]="selectedRows.includes(col.name)">
-          {{ col.name }} ({{ col.type }})
-        </option>
-      </select>
+      <div class="config-card-body">
+        <div class="chips">
+          <span class="chip" *ngFor="let row of selectedRows">
+            {{ row }}
+            <i class="pi pi-times chip-x" (click)="removeRow(row)"></i>
+          </span>
+        </div>
+        <select class="select-field" (change)="addRow($any($event.target).value); $any($event.target).value=''">
+          <option value="">+ Agregar columna...</option>
+          <option *ngFor="let col of allColumns" [value]="col.name" [disabled]="selectedRows.includes(col.name)">
+            {{ col.name }}
+          </option>
+        </select>
+      </div>
     </div>
 
-    <div class="config-section">
-      <h4><i class="pi pi-calculator"></i> Valores a calcular</h4>
-      <div class="value-rows">
-        <div class="value-row" *ngFor="let val of selectedValues; let i = index">
-          <select [(ngModel)]="val.field" class="config-select">
-            <option value="*">Registros (COUNT *)</option>
+    <div class="config-card">
+      <div class="config-card-header">
+        <i class="pi pi-calculator"></i>
+        <span>Valores a calcular</span>
+      </div>
+      <div class="config-card-body">
+        <div class="value-item" *ngFor="let val of selectedValues; let i = index">
+          <select [(ngModel)]="val.field" class="select-field select-grow">
+            <option value="*">COUNT(*) — Registros</option>
             <option *ngFor="let col of numericColumns" [value]="col.name">{{ col.name }}</option>
           </select>
-          <select [(ngModel)]="val.aggregation" class="config-select-sm">
+          <select [(ngModel)]="val.aggregation" class="select-field select-agg">
             <option *ngFor="let opt of aggOptions" [value]="opt.value">{{ opt.label }}</option>
           </select>
-          <button class="btn-remove" (click)="removeValue(i)" *ngIf="selectedValues.length > 1">
+          <button class="btn-icon-remove" (click)="removeValue(i)" *ngIf="selectedValues.length > 1">
             <i class="pi pi-trash"></i>
           </button>
         </div>
+        <button class="btn-add-value" (click)="addValue()">
+          <i class="pi pi-plus-circle"></i> Agregar métrica
+        </button>
       </div>
-      <button class="btn-add" (click)="addValue()">
-        <i class="pi pi-plus"></i> Agregar valor
-      </button>
     </div>
 
-    <div class="config-actions">
-      <button class="btn-execute" (click)="ejecutarAgregacion()" [disabled]="isLoadingData || selectedRows.length === 0">
-        <i class="pi pi-play" *ngIf="!isLoadingData"></i>
-        <i class="pi pi-spin pi-spinner" *ngIf="isLoadingData"></i>
-        {{ isLoadingData ? 'Calculando...' : 'Ejecutar tabla dinámica' }}
-      </button>
-    </div>
-  </div>
-
-  <!-- Botón volver a configurar -->
-  <div class="pivot-toolbar" *ngIf="showPivot">
-    <button class="btn-reconfig" (click)="showPivot = false">
-      <i class="pi pi-cog"></i> Cambiar configuración
+    <button class="btn-execute" (click)="ejecutar()" [disabled]="isLoadingData() || selectedRows.length === 0">
+      <i class="pi pi-bolt" *ngIf="!isLoadingData()"></i>
+      <i class="pi pi-spin pi-spinner" *ngIf="isLoadingData()"></i>
+      {{ isLoadingData() ? 'Procesando en Fabric...' : 'Ejecutar análisis' }}
     </button>
-  </div>
+  </section>
 
   <!-- Loading -->
-  <div class="pivot-loading" *ngIf="isLoadingColumns || isLoadingData">
-    <div class="spinner"></div>
-    <p *ngIf="isLoadingColumns">Cargando columnas...</p>
-    <p *ngIf="isLoadingData">Ejecutando agregación en Fabric SQL...</p>
+  <div class="loading-state" *ngIf="isLoadingColumns() || isLoadingData()">
+    <div class="loading-spinner"></div>
+    <p class="loading-text" *ngIf="isLoadingColumns()">Cargando estructura de la vista...</p>
+    <p class="loading-text" *ngIf="isLoadingData()">Ejecutando agregación en Microsoft Fabric...</p>
+    <p class="loading-sub" *ngIf="isLoadingData()">Esto puede tomar algunos segundos según el volumen de datos</p>
   </div>
 
   <!-- Error -->
-  <div class="pivot-error" *ngIf="errorMessage">
-    <i class="pi pi-exclamation-triangle"></i>
-    <p>{{ errorMessage }}</p>
-    <button class="btn-retry" (click)="errorMessage = ''">Intentar de nuevo</button>
+  <div class="error-state" *ngIf="errorMessage()">
+    <i class="pi pi-exclamation-circle error-icon"></i>
+    <p class="error-text">{{ errorMessage() }}</p>
+    <button class="btn-action" (click)="errorMessage.set('')">Reintentar</button>
   </div>
 
-  <!-- WebDataRocks Pivot Table -->
-  <div class="pivot-wrapper" [class.hidden]="!showPivot">
-    <app-wbr-pivot #pivotRef
-      [toolbar]="true"
-      [width]="'100%'"
-      [height]="'calc(100vh - 140px)'"
-      (ready)="onPivotReady()">
-    </app-wbr-pivot>
+  <!-- Resultado: Ag-Grid con totales -->
+  <div class="grid-container" *ngIf="showResults()">
+    <ag-grid-angular
+      class="ag-theme-alpine"
+      style="width: 100%; height: calc(100vh - 240px);"
+      [rowData]="pivotData"
+      [columnDefs]="pivotColumnDefs"
+      [defaultColDef]="defaultColDef"
+      [localeText]="localeText"
+      [animateRows]="true"
+      [pinnedBottomRowData]="pinnedBottomRowData"
+      [suppressPaginationPanel]="true"
+      [pagination]="true"
+      [paginationAutoPageSize]="true"
+      (gridReady)="onGridReady($event)">
+    </ag-grid-angular>
   </div>
 </div>

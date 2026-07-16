@@ -1,52 +1,74 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { WebdatarocksPivotModule, WebdatarocksComponent } from '@webdatarocks/ngx-webdatarocks';
+import { AgGridAngular } from 'ag-grid-angular';
+import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 
 import { VistasService, FabricColumn } from '../../services/vistas.service';
+import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 
 interface AggValue {
   field: string;
   aggregation: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'count_distinct';
 }
 
+interface MetricCard {
+  label: string;
+  value: string;
+  icon: string;
+  color: string;
+}
+
 @Component({
   selector: 'app-view-vistas-pivot',
   standalone: true,
-  imports: [CommonModule, FormsModule, WebdatarocksPivotModule],
+  imports: [CommonModule, FormsModule, AgGridAngular],
   templateUrl: './viewVistasPivot.component.html',
   styleUrl: './viewVistasPivot.component.css'
 })
 export class ViewVistasPivotComponent implements OnInit {
-  @ViewChild('pivotRef') pivotRef!: WebdatarocksComponent;
-
   schema = '';
   viewName = '';
   vistaLabel = '';
 
-  // Estado
-  isLoadingColumns = true;
-  isLoadingData = false;
-  showPivot = false;
-  errorMessage = '';
-  elapsedMs = 0;
-  totalGroups = 0;
+  // Estado reactivo
+  isLoadingColumns = signal(true);
+  isLoadingData = signal(false);
+  showResults = signal(false);
+  errorMessage = signal('');
 
-  // Columnas de la vista
+  // Columnas
   columns: FabricColumn[] = [];
   numericColumns: FabricColumn[] = [];
-  textColumns: FabricColumn[] = [];
+  allColumns: FabricColumn[] = [];
 
-  // Configuración del usuario
+  // Configuración pivot
   selectedRows: string[] = [];
   selectedValues: AggValue[] = [];
   filters: Record<string, string> = {};
 
-  // Datos resultado
+  // Resultado
   pivotData: Record<string, unknown>[] = [];
+  pivotColumnDefs: ColDef[] = [];
+  totalGroups = 0;
+  elapsedMs = 0;
+  metrics: MetricCard[] = [];
 
-  private pivotReady = false;
+  // Ag-Grid
+  localeText = AG_GRID_LOCALE;
+  private gridApi?: GridApi;
+
+  defaultColDef: ColDef = {
+    sortable: true,
+    filter: true,
+    resizable: true,
+    minWidth: 130,
+    floatingFilter: true,
+  };
+
+  // Pinned bottom row para totales
+  pinnedBottomRowData: Record<string, unknown>[] = [];
 
   readonly aggOptions = [
     { label: 'Suma', value: 'sum' },
@@ -64,59 +86,50 @@ export class ViewVistasPivotComponent implements OnInit {
   ngOnInit(): void {
     this.schema = this.route.snapshot.paramMap.get('schema') ?? '';
     this.viewName = this.route.snapshot.paramMap.get('viewName') ?? '';
-    this.vistaLabel = `${this.schema}.${this.viewName}`;
+    this.vistaLabel = `${this.schema.toUpperCase()}.${this.viewName}`;
 
     if (!this.schema || !this.viewName) {
-      this.errorMessage = 'Parámetros de vista inválidos.';
-      this.isLoadingColumns = false;
+      this.errorMessage.set('Parámetros inválidos.');
+      this.isLoadingColumns.set(false);
       return;
     }
 
     this.loadColumns();
   }
 
-  onPivotReady(): void {
-    this.pivotReady = true;
-    if (this.pivotData.length > 0) {
-      this.feedPivot();
-    }
-  }
-
   private loadColumns(): void {
     this.vistasService.getColumnas(this.schema, this.viewName).subscribe({
       next: (res) => {
         this.columns = res.data?.columns ?? [];
+        this.allColumns = this.columns;
         this.numericColumns = this.columns.filter(c =>
           ['int', 'bigint', 'decimal', 'numeric', 'float', 'real', 'money', 'smallmoney', 'smallint', 'tinyint']
             .some(t => c.type.toLowerCase().includes(t))
         );
-        this.textColumns = this.columns.filter(c =>
-          !['int', 'bigint', 'decimal', 'numeric', 'float', 'real', 'money', 'smallmoney', 'smallint', 'tinyint']
-            .some(t => c.type.toLowerCase().includes(t))
-        );
 
-        // Defaults: primeras 2 columnas texto como filas, primera numérica como SUM
-        if (this.textColumns.length > 0) {
-          this.selectedRows = [this.textColumns[0].name];
-        }
+        // Defaults inteligentes
+        const textCols = this.columns.filter(c => !this.numericColumns.includes(c));
+        if (textCols.length > 0) this.selectedRows = [textCols[0].name];
         if (this.numericColumns.length > 0) {
           this.selectedValues = [{ field: this.numericColumns[0].name, aggregation: 'sum' }];
         } else {
           this.selectedValues = [{ field: '*', aggregation: 'count' }];
         }
 
-        this.isLoadingColumns = false;
+        this.isLoadingColumns.set(false);
       },
       error: () => {
-        this.errorMessage = 'Error al obtener columnas de la vista.';
-        this.isLoadingColumns = false;
+        this.errorMessage.set('Error al cargar columnas.');
+        this.isLoadingColumns.set(false);
       }
     });
   }
 
+  // ── Configuración ──────────────────────────────────────────────────────
+
   addRow(colName: string): void {
-    if (!this.selectedRows.includes(colName)) {
-      this.selectedRows.push(colName);
+    if (colName && !this.selectedRows.includes(colName)) {
+      this.selectedRows = [...this.selectedRows, colName];
     }
   }
 
@@ -126,25 +139,24 @@ export class ViewVistasPivotComponent implements OnInit {
 
   addValue(): void {
     const field = this.numericColumns.length > 0 ? this.numericColumns[0].name : '*';
-    this.selectedValues.push({ field, aggregation: 'count' });
+    this.selectedValues = [...this.selectedValues, { field, aggregation: 'count' }];
   }
 
   removeValue(index: number): void {
-    this.selectedValues.splice(index, 1);
+    this.selectedValues = this.selectedValues.filter((_, i) => i !== index);
   }
 
-  ejecutarAgregacion(): void {
-    if (this.selectedRows.length === 0) {
-      this.errorMessage = 'Seleccione al menos una columna para agrupar.';
-      return;
-    }
-    if (this.selectedValues.length === 0) {
-      this.errorMessage = 'Seleccione al menos un valor a calcular.';
+  // ── Ejecución ──────────────────────────────────────────────────────────
+
+  ejecutar(): void {
+    if (this.selectedRows.length === 0 || this.selectedValues.length === 0) {
+      this.errorMessage.set('Seleccione al menos una columna y un valor.');
       return;
     }
 
-    this.errorMessage = '';
-    this.isLoadingData = true;
+    this.errorMessage.set('');
+    this.isLoadingData.set(true);
+    this.showResults.set(false);
 
     this.vistasService.aggregate(this.schema, this.viewName, {
       rows: this.selectedRows,
@@ -153,44 +165,148 @@ export class ViewVistasPivotComponent implements OnInit {
       limit: 10000,
     }).subscribe({
       next: (res) => {
-        this.isLoadingData = false;
+        this.isLoadingData.set(false);
         if (!res.success) {
-          this.errorMessage = res.message ?? 'Error en la agregación.';
+          this.errorMessage.set(res.message ?? 'Error.');
           return;
         }
+
         this.pivotData = res.data ?? [];
         this.totalGroups = res.meta?.total_groups ?? this.pivotData.length;
         this.elapsedMs = res.meta?.elapsed_ms ?? 0;
-        this.showPivot = true;
-
-        if (this.pivotReady) {
-          this.feedPivot();
-        }
+        this.buildColumnDefs();
+        this.buildMetrics();
+        this.showResults.set(true);
       },
       error: (err) => {
-        this.isLoadingData = false;
-        this.errorMessage = err?.error?.message ?? 'Error al ejecutar la agregación.';
+        this.isLoadingData.set(false);
+        this.errorMessage.set(err?.error?.message ?? 'Error en la agregación.');
       }
     });
   }
 
-  private feedPivot(): void {
-    if (!this.pivotRef?.webDataRocks || this.pivotData.length === 0) return;
+  volverAConfigurar(): void {
+    this.showResults.set(false);
+  }
 
-    this.pivotRef.webDataRocks.setReport({
-      dataSource: {
-        data: this.pivotData
-      },
-      options: {
-        grid: {
-          type: 'compact',
-          showTotals: 'on',
-          showGrandTotals: 'on'
-        },
-        configuratorActive: true,
-        configuratorButton: true
-      },
-      localization: 'https://cdn.webdatarocks.com/loc/es.json'
+  // ── Construcción de columnas y métricas ────────────────────────────────
+
+  private buildColumnDefs(): void {
+    if (this.pivotData.length === 0) {
+      this.pivotColumnDefs = [];
+      return;
+    }
+
+    const keys = Object.keys(this.pivotData[0]);
+    this.pivotColumnDefs = keys.map(key => {
+      const isNumeric = this.pivotData.some(row => typeof row[key] === 'number');
+      const colDef: ColDef = {
+        field: key,
+        headerName: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        filter: isNumeric ? 'agNumberColumnFilter' : 'agTextColumnFilter',
+        minWidth: 140,
+      };
+
+      if (isNumeric) {
+        colDef.valueFormatter = (params) => {
+          if (params.value == null) return '';
+          return Number(params.value).toLocaleString('es-CO', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+          });
+        };
+        colDef.cellStyle = { textAlign: 'right', fontWeight: '500' };
+      }
+
+      return colDef;
+    });
+  }
+
+  private buildMetrics(): void {
+    if (this.pivotData.length === 0) {
+      this.metrics = [];
+      this.pinnedBottomRowData = [];
+      return;
+    }
+
+    this.metrics = [];
+    const totalsRow: Record<string, unknown> = {};
+
+    // Marcar la primera columna del total
+    if (this.selectedRows.length > 0) {
+      totalsRow[this.selectedRows[0]] = '⟹ TOTAL';
+    }
+
+    // Métrica: Total de grupos
+    this.metrics.push({
+      label: 'Grupos',
+      value: this.totalGroups.toLocaleString('es-CO'),
+      icon: 'pi pi-th-large',
+      color: '#7c3aed',
+    });
+
+    // Métrica: Tiempo de respuesta
+    this.metrics.push({
+      label: 'Tiempo',
+      value: `${(this.elapsedMs / 1000).toFixed(1)}s`,
+      icon: 'pi pi-clock',
+      color: '#0891b2',
+    });
+
+    // Métricas por cada valor agregado + fila de totales
+    for (const val of this.selectedValues) {
+      const alias = val.field === '*' ? 'registros_count' : `${val.field}_${val.aggregation}`;
+      const values = this.pivotData
+        .map(row => Number(row[alias] ?? 0))
+        .filter(v => !isNaN(v));
+
+      if (values.length === 0) continue;
+
+      const total = values.reduce((a, b) => a + b, 0);
+      const max = Math.max(...values);
+      const avg = total / values.length;
+
+      // Fila de totales
+      totalsRow[alias] = total;
+
+      if (val.aggregation === 'sum' || val.aggregation === 'count') {
+        this.metrics.push({
+          label: `Total ${val.field === '*' ? 'Registros' : val.field}`,
+          value: total.toLocaleString('es-CO', { maximumFractionDigits: 0 }),
+          icon: val.aggregation === 'count' ? 'pi pi-hashtag' : 'pi pi-dollar',
+          color: '#059669',
+        });
+      }
+
+      if (val.aggregation === 'sum' && values.length > 1) {
+        this.metrics.push({
+          label: `Máx ${val.field}`,
+          value: max.toLocaleString('es-CO', { maximumFractionDigits: 0 }),
+          icon: 'pi pi-arrow-up',
+          color: '#dc2626',
+        });
+        this.metrics.push({
+          label: `Promedio ${val.field}`,
+          value: avg.toLocaleString('es-CO', { maximumFractionDigits: 0 }),
+          icon: 'pi pi-chart-bar',
+          color: '#d97706',
+        });
+      }
+    }
+
+    this.pinnedBottomRowData = [totalsRow];
+  }
+
+  // ── Grid ───────────────────────────────────────────────────────────────
+
+  onGridReady(event: GridReadyEvent): void {
+    this.gridApi = event.api;
+    this.gridApi.sizeColumnsToFit();
+  }
+
+  exportExcel(): void {
+    this.gridApi?.exportDataAsCsv({
+      fileName: `pivot_${this.schema}_${this.viewName}_${new Date().toISOString().split('T')[0]}`,
     });
   }
 }

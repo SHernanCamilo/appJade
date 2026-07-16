@@ -522,12 +522,24 @@ export class VistasService {
           cellDataType = 'text';
         } else if (colType === 'date' || inferDate) {
           filter = 'agDateColumnFilter';
-          // Formatear fechas para mostrar YYYY-MM-DD sin hora
+          // Formatear fechas según el tipo:
+          // - datetime/datetime2 con T → "YYYY-MM-DD HH:mm"
+          // - date sin hora → "YYYY-MM-DD 00:00"
+          const isDatetime = col.type.toLowerCase().includes('datetime');
           valueFormatter = (params: any) => {
             if (!params.value) return '';
             const val = String(params.value);
-            // Si tiene T (ISO datetime) → solo mostrar la fecha
-            return val.includes('T') ? val.split('T')[0] : val.substring(0, 10);
+
+            if (val.includes('T')) {
+              // Formato ISO: 2026-07-16T10:21:22.000 → 2026-07-16 10:21
+              const [datePart, timePart] = val.split('T');
+              const time = timePart ? timePart.substring(0, 5) : '00:00';
+              return `${datePart} ${time}`;
+            }
+
+            // Solo fecha: 2026-07-16 → mostrar con 00:00 si es datetime
+            const datePart = val.substring(0, 10);
+            return isDatetime ? `${datePart} 00:00` : datePart;
           };
         } else if (colType === 'number') {
           filter = 'agNumberColumnFilter';
@@ -585,7 +597,12 @@ export class VistasService {
         valueFormatter = (params: any) => {
           if (!params.value) return '';
           const val = String(params.value);
-          return val.includes('T') ? val.split('T')[0] : val.substring(0, 10);
+          if (val.includes('T')) {
+            const [datePart, timePart] = val.split('T');
+            const time = timePart ? timePart.substring(0, 5) : '00:00';
+            return `${datePart} ${time}`;
+          }
+          return val.substring(0, 10);
         };
       } else if (typeof firstNonNull === 'number') {
         filter = 'agNumberColumnFilter';
