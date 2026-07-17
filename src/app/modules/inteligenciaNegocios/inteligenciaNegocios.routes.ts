@@ -145,5 +145,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       pageTitle: 'Usuarios BI',
       pageSubtitle: 'Consulta de grupos Azure y permisos delegados por usuario'
     }
+  },
+  {
+    path: 'formularios/cruceCuentaSoat',
+    loadComponent: () =>
+      import('./formularios/cruceCuentaSoat/cruceCuentaSoat.component').then(
+        m => m.CruceCuentaSoatComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORM-CRUCE-SOAT',
+      pageSubtitle: 'Consulta de facturación SOAT por cédula'
+    }
   }
 ];

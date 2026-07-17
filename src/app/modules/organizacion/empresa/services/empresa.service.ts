@@ -48,6 +48,22 @@ export class EmpresaService {
     return this.http.get<Empresa>(`${this.apiUrl}/${id}`);
   }
 
+  getLogoBase64(id: number): Observable<{
+    success: boolean;
+    nombre?: string;
+    logo_url?: string | null;
+    logo_base64?: string | null;
+    message?: string;
+  }> {
+    return this.http.get<{
+      success: boolean;
+      nombre?: string;
+      logo_url?: string | null;
+      logo_base64?: string | null;
+      message?: string;
+    }>(`${this.apiUrl}/${id}/logo-base64`);
+  }
+
   createEmpresa(empresa: CreateEmpresaRequest): Observable<Empresa> {
     return this.http.post<Empresa>(this.apiUrl, empresa);
   }

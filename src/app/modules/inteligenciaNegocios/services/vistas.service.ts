@@ -162,7 +162,7 @@ function looksLikeDate(value: unknown): boolean {
 function shouldBeText(colName: string, sampleValues: unknown[]): boolean {
   const nameLC = colName.toLowerCase();
   // Columnas que típicamente tienen ceros al inicio
-  const textPatterns = ['placa', 'codigo', 'cod', 'nit', 'documento', 'cedula', 'id_', 'num_', 'telefono', 'celular', 'consecutivo'];
+  const textPatterns = ['placa', 'codigo', 'cod', 'nit', 'documento', 'cedula', 'identificacion', 'id_', 'num_', 'telefono', 'celular', 'consecutivo'];
   if (textPatterns.some(p => nameLC.includes(p))) return true;
 
   // Si algún valor empieza con "0" y tiene solo dígitos → es texto (código, no número)

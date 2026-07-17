@@ -1,0 +1,163 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" type="button" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-id-card me-2"></i>
+          Cruce de cuentas - SOAT
+        </h1>
+        <p class="page-subtitle-modern">
+          Consulte facturación SOAT por cédula en
+          <span class="vista-chip">fr.VW_Billing_Facturacion_Soat</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="search-panel">
+      <div class="search-form">
+        <div class="search-field">
+          <label for="numero-cc">Número de CC</label>
+          <input
+            id="numero-cc"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Ej: 1007447932"
+            [ngModel]="numeroCc"
+            (ngModelChange)="onCcInput($event)"
+            (keydown)="onCcKeydown($event)"
+            [disabled]="isLoading"
+            maxlength="20">
+        </div>
+
+        <div class="search-actions">
+          <button
+            type="button"
+            class="btn-toolbar btn-toolbar-primary"
+            (click)="consultar()"
+            [disabled]="isLoading || !numeroCc.trim()">
+            <i class="pi" [class.pi-spin]="isLoading" [class.pi-spinner]="isLoading" [class.pi-search]="!isLoading"></i>
+            {{ isLoading ? 'Consultando...' : 'Consultar' }}
+          </button>
+
+          <button
+            type="button"
+            class="btn-toolbar"
+            (click)="limpiar()"
+            [disabled]="isLoading && !consultado"
+            pTooltip="Limpiar consulta">
+            <i class="pi pi-times"></i>
+            Limpiar
+          </button>
+
+          <button
+            type="button"
+            class="btn-toolbar"
+            (click)="recargar()"
+            [disabled]="isLoading || !ultimaConsulta"
+            pTooltip="Recargar última consulta">
+            <i class="pi pi-refresh"></i>
+            Recargar
+          </button>
+
+          <button
+            type="button"
+            class="btn-toolbar btn-toolbar-pdf"
+            (click)="exportarConstancia()"
+            [disabled]="!puedeExportar"
+            pTooltip="Exportar constancia SOAT en PDF">
+            <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-pdf]="!isExporting"></i>
+            {{ isExporting ? 'Generando PDF...' : 'Exportar PDF' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="search-hint" *ngIf="ultimaConsulta">
+        <i class="pi pi-filter-fill"></i>
+        Filtrado por Identificacion =
+        <strong>{{ ultimaConsulta }}</strong>
+        <span *ngIf="!isLoading"> · {{ totalRegistros | number }} registro(s)</span>
+      </div>
+    </div>
+
+    <div class="grid-section">
+      <div *ngIf="!consultado && !isLoading" class="empty-state">
+        <i class="pi pi-search"></i>
+        <p>Digite el número de cédula y pulse <strong>Consultar</strong> para ver las facturas SOAT coincidentes.</p>
+      </div>
+
+      <div class="grid-wrapper" *ngIf="consultado"
+        [class.is-loading]="isLoading && rowData.length === 0">
+
+        <app-grid-loader
+          *ngIf="isLoading && rowData.length === 0"
+          [mensaje]="'Consultando facturación SOAT...'"
+          [subtitulo]="'Filtrando fr.VW_Billing_Facturacion_Soat por Identificacion'"
+          [columnas]="6"
+          [filas]="8">
+        </app-grid-loader>
+
+        <div *ngIf="!isLoading && rowData.length === 0" class="empty-state empty-state-inline">
+          <i class="pi pi-inbox"></i>
+          <p>No hay registros para la CC <strong>{{ ultimaConsulta }}</strong>.</p>
+        </div>
+
+        <ag-grid-angular
+          *ngIf="rowData.length > 0"
+          class="ag-theme-alpine bi-vista-grid"
+          [rowData]="rowData"
+          [columnDefs]="columnDefs"
+          [defaultColDef]="defaultColDef"
+          [localeText]="localeText"
+          [animateRows]="true"
+          [pagination]="false"
+          [enableCellTextSelection]="true"
+          [ensureDomOrder]="true"
+          (gridReady)="onGridReady($event)">
+        </ag-grid-angular>
+
+        <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0">
+          <div class="pagination-info">
+            {{ ((paginaActual - 1) * pageSize) + 1 | number }} —
+            {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
+            de {{ totalRegistros | number }}
+          </div>
+          <div class="pagination-controls">
+            <button class="btn-page" type="button" [disabled]="!canGoPrev || isLoading" (click)="irPagina(1)" pTooltip="Primera">
+              <i class="pi pi-angle-double-left"></i>
+            </button>
+            <button class="btn-page" type="button" [disabled]="!canGoPrev || isLoading" (click)="irPagina(paginaActual - 1)">
+              <i class="pi pi-angle-left"></i>
+            </button>
+            <span class="page-indicator">{{ paginaActual }} / {{ totalPaginas }}</span>
+            <button class="btn-page" type="button" [disabled]="!canGoNext || isLoading" (click)="irPagina(paginaActual + 1)">
+              <i class="pi pi-angle-right"></i>
+            </button>
+            <button class="btn-page" type="button" [disabled]="!canGoNext || isLoading" (click)="irPagina(totalPaginas)" pTooltip="Última">
+              <i class="pi pi-angle-double-right"></i>
+            </button>
+          </div>
+          <div class="pagination-size">
+            <select [(ngModel)]="pageSize" (change)="onPageSizeChange()" [disabled]="isLoading">
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+              <option [value]="200">200</option>
+            </select>
+            <span>por página</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
