@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 export interface Sede {
   id: number;
   nombre: string;
+  prefijo?: string | null;
   id_Sucursal: number;
   sucursal?: {
     id: number;
@@ -22,6 +23,7 @@ export interface Sede {
 
 export interface CreateSedeRequest {
   nombre: string;
+  prefijo?: string | null;
   id_Sucursal: number;
 }
 

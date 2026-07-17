@@ -96,6 +96,7 @@ export class SucursalesComponent implements OnInit {
   initForm(): void {
     this.sucursalForm = this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(3)]],
+      prefijo: ['', [Validators.maxLength(10)]],
       id_Empresa: [null, [Validators.required]]
     });
   }
@@ -103,6 +104,7 @@ export class SucursalesComponent implements OnInit {
   buildColumns(): void {
     this.columns = [
       { field: 'nombre', header: 'Sucursal', sortable: true, filter: true, filterType: 'text' },
+      { field: 'prefijo', header: 'Prefijo', sortable: true, filter: true, filterType: 'text' },
       {
         field: 'empresa.nombre',
         header: 'Empresa',
@@ -233,6 +235,7 @@ export class SucursalesComponent implements OnInit {
     this.currentSucursalId = sucursal.id;
     this.sucursalForm.patchValue({
       nombre: sucursal.nombre,
+      prefijo: sucursal.prefijo ?? '',
       id_Empresa: sucursal.id_Empresa
     });
     this.showForm = true;

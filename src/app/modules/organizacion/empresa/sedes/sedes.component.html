@@ -60,6 +60,21 @@
             </small>
           </div>
 
+          <div class="mb-3">
+            <label for="prefijo">Prefijo</label>
+            <input
+              pInputText
+              id="prefijo"
+              formControlName="prefijo"
+              maxlength="10"
+              placeholder="Ej: PRINC"
+              style="text-transform: uppercase"
+              [class.ng-invalid]="sedeForm.get('prefijo')?.invalid && sedeForm.get('prefijo')?.touched">
+            <small class="p-error" *ngIf="sedeForm.get('prefijo')?.hasError('maxlength') && sedeForm.get('prefijo')?.touched">
+              El prefijo no puede exceder 10 caracteres
+            </small>
+          </div>
+
           <div class="row">
             <div class="col-md-6 mb-3">
               <label for="id_Empresa">Empresa *  </label>
@@ -129,7 +144,7 @@
       title="Lista de Sedes"
       titleIcon="bi bi-geo-alt"
       [showGlobalSearch]="canSearch()"
-      [globalFilterFields]="['nombre', 'sucursal.nombre', 'sucursal.empresa.nombre']"
+      [globalFilterFields]="['nombre', 'prefijo', 'sucursal.nombre', 'sucursal.empresa.nombre']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sedes"
       emptyMessage="No hay sedes registradas">
 
@@ -138,6 +153,10 @@
           <i class="bi bi-pin-map-fill" style="font-size: 1.5rem; color: #10b981;"></i>
           <span class="fw-semibold">{{ row.nombre }}</span>
         </div>
+      </ng-template>
+
+      <ng-template pTemplate="cell-prefijo" let-row>
+        <p-tag [value]="row.prefijo || 'N/A'" severity="secondary"></p-tag>
       </ng-template>
 
       <ng-template pTemplate="cell-sucursal.nombre" let-row>

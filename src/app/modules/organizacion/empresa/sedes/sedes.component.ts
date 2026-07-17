@@ -101,6 +101,7 @@ export class SedesComponent implements OnInit {
   initForm(): void {
     this.sedeForm = this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(3)]],
+      prefijo: ['', [Validators.maxLength(10)]],
       id_Sucursal: [null, [Validators.required]]
     });
   }
@@ -162,6 +163,7 @@ export class SedesComponent implements OnInit {
 
     this.columns = [
       { field: 'nombre', header: 'Sede', sortable: true, filter: true, filterType: 'text' },
+      { field: 'prefijo', header: 'Prefijo', sortable: true, filter: true, filterType: 'text' },
       {
         field: 'sucursal.nombre',
         header: 'Sucursal',
@@ -283,6 +285,7 @@ export class SedesComponent implements OnInit {
     
     this.sedeForm.patchValue({
       nombre: sede.nombre,
+      prefijo: sede.prefijo ?? '',
       id_Sucursal: sede.id_Sucursal
     });
     this.showForm = true;

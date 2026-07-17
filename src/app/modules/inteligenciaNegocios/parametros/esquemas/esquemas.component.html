@@ -264,12 +264,22 @@
                   </p-dropdown>
                 </div>
 
-                <div class="delegacion-empresa-label" *ngIf="esDelegacionUsuariosInterna">
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'usuario'">
                   <label class="param-label">Empresa</label>
-                  <div class="delegacion-empresa-fija">
-                    <i class="pi pi-building"></i>
-                    <span>{{ esquemaEmpresaNombre }}</span>
-                  </div>
+                  <p-dropdown
+                    [(ngModel)]="delegacionEmpresaId"
+                    [options]="delegacionEmpresasOptions"
+                    (onChange)="onDelegacionEmpresaChange()"
+                    placeholder="Seleccionar empresa..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
                 </div>
 
                 <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'usuario'">
@@ -282,7 +292,7 @@
                     [showClear]="true"
                     [filter]="true"
                     filterBy="label"
-                    [disabled]="!puedeGestionarVistas || isLoadingUsuariosEmpresa"
+                    [disabled]="!puedeGestionarVistas || !delegacionEmpresaId || isLoadingUsuariosEmpresa"
                     [loading]="isLoadingUsuariosEmpresa"
                     optionLabel="label"
                     optionValue="value"
@@ -315,8 +325,8 @@
               <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'empresa'">
                 Delegaci&oacute;n a empresas externas. Defina qu&eacute; vistas del esquema podr&aacute;n ver.
               </small>
-              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && esDelegacionUsuariosInterna">
-                Asigne vistas individuales a usuarios de <strong>{{ esquemaEmpresaNombre }}</strong>. Solo ver&aacute;n las vistas marcadas, aunque no tengan el esquema completo en Azure.
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'usuario'">
+                Elija la empresa y el usuario para asignar vistas. Solo ver&aacute;n las vistas marcadas, aunque no tengan el esquema completo en Azure.
               </small>
 
               <!-- Por empresa -->
@@ -360,13 +370,17 @@
 
               <!-- Por usuario -->
               <ng-container *ngIf="delegacionModo === 'usuario'">
-              <p class="vistas-table-hint" *ngIf="esDelegacionUsuariosInterna && delegacionUsuarioTieneConfig">
+              <p class="vistas-table-hint" *ngIf="delegacionUsuarioId && delegacionUsuarioTieneConfig">
                 <i class="pi pi-info-circle"></i>
                 Este usuario solo ver&aacute; las vistas marcadas de este esquema.
               </p>
-              <p class="vistas-table-hint" *ngIf="esDelegacionUsuariosInterna && !delegacionUsuarioTieneConfig && delegacionUsuarioVistas.length > 0 && delegacionUsuarioId">
+              <p class="vistas-table-hint" *ngIf="delegacionUsuarioId && !delegacionUsuarioTieneConfig && delegacionUsuarioVistas.length > 0">
                 <i class="pi pi-info-circle"></i>
                 Sin vistas marcadas = el usuario no tendr&aacute; acceso a este esquema por delegaci&oacute;n.
+              </p>
+              <p class="vistas-table-hint" *ngIf="delegacionEmpresaId && !esDelegacionUsuariosInterna && !delegacionEmpresaTienePool">
+                <i class="pi pi-exclamation-triangle"></i>
+                La empresa seleccionada a&uacute;n no tiene delegaci&oacute;n por empresa. Configure primero el pool de vistas en &laquo;Por empresa&raquo;.
               </p>
 
               <div class="delegacion-actions" *ngIf="puedeGestionarDelegacionUsuario && delegacionUsuarioVistas.length > 0">
@@ -396,9 +410,13 @@
                 </ag-grid-angular>
               </div>
 
-              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && esDelegacionUsuariosInterna && !delegacionUsuarioId">
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && !delegacionEmpresaId">
+                <i class="pi pi-building"></i>
+                <p>Seleccione una empresa para listar sus usuarios</p>
+              </div>
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && delegacionEmpresaId && !delegacionUsuarioId">
                 <i class="pi pi-user"></i>
-                <p>Seleccione un usuario de {{ esquemaEmpresaNombre }} para asignar vistas</p>
+                <p>Seleccione un usuario de {{ delegacionEmpresaNombre }} para asignar vistas</p>
               </div>
               </ng-container>
 

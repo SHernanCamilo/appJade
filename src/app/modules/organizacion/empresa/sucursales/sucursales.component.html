@@ -61,6 +61,21 @@
           </div>
 
           <div class="mb-3">
+            <label for="prefijo">Prefijo</label>
+            <input
+              pInputText
+              id="prefijo"
+              formControlName="prefijo"
+              maxlength="10"
+              placeholder="Ej: NVA"
+              style="text-transform: uppercase"
+              [class.ng-invalid]="sucursalForm.get('prefijo')?.invalid && sucursalForm.get('prefijo')?.touched">
+            <small class="p-error" *ngIf="sucursalForm.get('prefijo')?.hasError('maxlength') && sucursalForm.get('prefijo')?.touched">
+              El prefijo no puede exceder 10 caracteres
+            </small>
+          </div>
+
+          <div class="mb-3">
             <label for="id_Empresa">Empresa *</label>
             <p-dropdown 
               id="id_Empresa"
@@ -106,7 +121,7 @@
       [loading]="isLoading"
       title="Lista de Sucursales"
       titleIcon="bi bi-shop"
-      [globalFilterFields]="['nombre', 'empresa.nombre']"
+      [globalFilterFields]="['nombre', 'prefijo', 'empresa.nombre']"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sucursales"
       emptyMessage="No hay sucursales registradas">
 
@@ -115,6 +130,10 @@
           <i class="bi bi-shop-window" style="font-size: 1.5rem; color: #3b82f6;"></i>
           <span class="fw-semibold">{{ row.nombre }}</span>
         </div>
+      </ng-template>
+
+      <ng-template pTemplate="cell-prefijo" let-row>
+        <p-tag [value]="row.prefijo || 'N/A'" severity="secondary"></p-tag>
       </ng-template>
 
       <ng-template pTemplate="cell-empresa.nombre" let-row>

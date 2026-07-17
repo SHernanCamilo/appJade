@@ -500,7 +500,7 @@ export class EsquemasComponent implements OnInit {
     return this.delegacionEmpresasOptions.find(o => o.value === id)?.label ?? '';
   }
 
-  /** Por empresa: solo empresas externas. Por usuario: usa la empresa del esquema. */
+  /** Por empresa: solo empresas externas. Por usuario: todas las empresas. */
   get delegacionEmpresasOptionsFiltradas(): { label: string; value: number }[] {
     const ownerId = this.esquemaEmpresaId;
     if (this.delegacionModo === 'empresa' && ownerId) {
@@ -509,8 +509,20 @@ export class EsquemasComponent implements OnInit {
     return this.delegacionEmpresasOptions;
   }
 
+  /** Usuario + misma empresa del esquema (pool = todas las vistas del esquema). */
   get esDelegacionUsuariosInterna(): boolean {
-    return this.delegacionModo === 'usuario' && !!this.esquemaEmpresaId;
+    return this.delegacionModo === 'usuario'
+      && !!this.delegacionEmpresaId
+      && this.delegacionEmpresaId === this.esquemaEmpresaId;
+  }
+
+  get delegacionEmpresaNombre(): string {
+    const id = this.delegacionEmpresaId;
+    if (!id) {
+      return '';
+    }
+    return this.delegacionEmpresasOptions.find(o => o.value === id)?.label
+      ?? this.esquemaEmpresaNombre;
   }
 
   get delegacionSeleccionadas(): number {
@@ -526,13 +538,13 @@ export class EsquemasComponent implements OnInit {
   }
 
   get puedeGestionarDelegacionUsuario(): boolean {
-    if (!this.puedeGestionarVistas || !this.delegacionUsuarioId) {
+    if (!this.puedeGestionarVistas || !this.delegacionEmpresaId || !this.delegacionUsuarioId) {
       return false;
     }
     if (this.esDelegacionUsuariosInterna) {
       return true;
     }
-    return !!this.delegacionEmpresaId && this.delegacionEmpresaTienePool;
+    return this.delegacionEmpresaTienePool;
   }
 
   get fabricOptionsDisponibles(): { label: string; value: string }[] {
@@ -985,10 +997,14 @@ export class EsquemasComponent implements OnInit {
       return;
     }
 
-    this.cargarUsuariosEmpresa();
-    if (this.delegacionModo === 'empresa') {
-      this.cargarDelegacion();
+    if (this.delegacionModo === 'usuario') {
+      // Misma empresa del esquema: pool completo. Externa: depende de delegación por empresa.
+      this.delegacionEmpresaTienePool = this.esDelegacionUsuariosInterna;
+      this.cargarUsuariosEmpresa();
+      return;
     }
+
+    this.cargarDelegacion();
   }
 
   setDelegacionModo(modo: 'empresa' | 'usuario'): void {
@@ -999,9 +1015,10 @@ export class EsquemasComponent implements OnInit {
       this.delegacionUsuarioId = null;
       this.delegacionUsuarioVistas = [];
       this.delegacionUsuarioTieneConfig = false;
+      this.delegacionEmpresaTienePool = !!this.esquemaEmpresaId;
+      this.delegacionUsuariosOptions = [];
 
-      if (this.esquemaEmpresaId) {
-        this.delegacionEmpresaTienePool = true;
+      if (this.delegacionEmpresaId) {
         this.cargarUsuariosEmpresa();
       }
       return;
@@ -1009,8 +1026,10 @@ export class EsquemasComponent implements OnInit {
 
     this.delegacionEmpresaId = null;
     this.delegacionUsuarioId = null;
+    this.delegacionUsuariosOptions = [];
     this.delegacionUsuarioVistas = [];
     this.delegacionVistas = [];
+    this.delegacionEmpresaTienePool = false;
   }
 
   onDelegacionUsuarioChange(): void {
@@ -1022,11 +1041,10 @@ export class EsquemasComponent implements OnInit {
   }
 
   private cargarUsuariosEmpresa(): void {
-    const empresaId = this.esDelegacionUsuariosInterna
-      ? this.esquemaEmpresaId
-      : this.delegacionEmpresaId;
+    const empresaId = this.delegacionEmpresaId;
 
     if (!empresaId) {
+      this.delegacionUsuariosOptions = [];
       return;
     }
 
@@ -1105,9 +1123,7 @@ export class EsquemasComponent implements OnInit {
   }
 
   cargarDelegacionUsuario(): void {
-    const empresaId = this.esDelegacionUsuariosInterna
-      ? this.esquemaEmpresaId
-      : this.delegacionEmpresaId;
+    const empresaId = this.delegacionEmpresaId;
 
     if (!this.currentGrupoId || !empresaId || !this.delegacionUsuarioId) {
       return;
@@ -1144,9 +1160,7 @@ export class EsquemasComponent implements OnInit {
   }
 
   guardarDelegacionUsuario(): void {
-    const empresaId = this.esDelegacionUsuariosInterna
-      ? this.esquemaEmpresaId
-      : this.delegacionEmpresaId;
+    const empresaId = this.delegacionEmpresaId;
 
     if (!this.currentGrupoId || !empresaId || !this.delegacionUsuarioId) {
       return;
