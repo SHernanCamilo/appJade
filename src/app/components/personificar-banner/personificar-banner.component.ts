@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { PersonificarService, PersonificacionData } from '../../services/personificar.service';
+import { environment } from '../../environments/environment';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -215,40 +216,37 @@ export class PersonificarBannerComponent implements OnInit, OnDestroy {
     
     this.personificarService.finalizarPersonificacion().subscribe({
       next: (response) => {
-        if (response.success) {
-          // console.log('✅ Personificación finalizada exitosamente');
-          
-          // Ocultar el banner inmediatamente
+        if (response.success && response.data?.token) {
           this.personificacionData = { activa: false };
-          
-          // IMPORTANTE: Limpiar TODO antes de guardar el nuevo token
+
+          // Limpiar sesión personificada; el usuario original se recarga con /auth/me
           localStorage.removeItem('user');
           localStorage.removeItem('sidebar_modules');
-          
-          // Guardar el nuevo token LIMPIO (sin claims de personificación)
           localStorage.setItem('token', response.data.token);
-          
-          // Verificar que el token nuevo NO tiene personificación
-          try {
-            const payload = JSON.parse(atob(response.data.token.split('.')[1]));
-            // console.log('🔑 Nuevo token - personificando:', payload.personificando);
-          } catch (e) {
-            // console.log('🔑 No se pudo decodificar el token');
-          }
-          
+          this.personificarService.resetearVerificacion();
+
           this.messageService.add({
             severity: 'success',
             summary: 'Personificación Finalizada',
             detail: response.message,
-            life: 1000
+            life: 1500
           });
-          
-          // Recargar inmediatamente
+
+          // Redirección al dashboard respetando el base path (/plataform en prod)
           setTimeout(() => {
-            window.location.replace(window.location.origin + '/dashboard');
-          }, 1000);
+            const base = (environment.URL_FRONTEND || window.location.origin).replace(/\/$/, '');
+            window.location.href = `${base}/dashboard`;
+          }, 300);
+          return;
         }
+
         this.finalizando = false;
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Aviso',
+          detail: response.message || 'No se pudo finalizar la personificación',
+          life: 4000
+        });
       },
       error: (error) => {
         console.error('Error finalizando personificación:', error);
