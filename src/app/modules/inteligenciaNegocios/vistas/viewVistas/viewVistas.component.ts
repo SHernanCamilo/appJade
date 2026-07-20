@@ -326,7 +326,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
 
         switch (tipo) {
           case 'equals':
-            filters[col] = dateFrom;
+            // Para datetime: buscar todo el día (rango inicio..fin del día)
+            filters[col] = `${dateFrom}..${dateFrom}`;
             break;
           case 'greaterThan':
             filters[col] = `>${dateFrom}`;
@@ -334,12 +335,15 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
           case 'lessThan':
             filters[col] = `<${dateFrom}`;
             break;
+          case 'notEqual':
+            filters[col] = `!=${dateFrom}`;
+            break;
           case 'inRange':
             const dateTo = model.dateTo ? model.dateTo.split(' ')[0] : dateFrom;
             filters[col] = `${dateFrom}..${dateTo}`;
             break;
           default:
-            filters[col] = dateFrom;
+            filters[col] = `${dateFrom}..${dateFrom}`;
         }
         continue;
       }
