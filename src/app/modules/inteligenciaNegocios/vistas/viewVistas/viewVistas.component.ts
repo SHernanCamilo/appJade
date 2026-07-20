@@ -444,7 +444,12 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     if (!this.gridApi) return;
     this.gridApi.setGridOption('columnDefs', this.columnDefs);
     this.gridApi.setGridOption('rowData', this.rowData);
-    this.gridApi.sizeColumnsToFit();
+    // Forzar re-render después de un tick para evitar bug visual de Ag-Grid
+    // donde las filas no se pintan tras cambio de filtro server-side
+    setTimeout(() => {
+      this.gridApi?.sizeColumnsToFit();
+      this.gridApi?.refreshCells({ force: true });
+    }, 50);
   }
 
   volverAlListado(): void { this.router.navigate([this.listPath]); }
