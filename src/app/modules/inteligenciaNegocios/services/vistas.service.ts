@@ -557,16 +557,13 @@ export class VistasService {
         if (valueFormatter) colDef.valueFormatter = valueFormatter;
         if (cellDataType) colDef.cellDataType = cellDataType;
 
-        // Para filtro de fechas, necesitamos un comparador que entienda strings ISO
+        // Para filtro de fechas server-side: el comparator siempre retorna 0 (match)
+        // porque el filtrado real se hace en el backend. Esto evita que Ag-Grid
+        // oculte filas que ya vienen filtradas del servidor.
         if (filter === 'agDateColumnFilter') {
           colDef.filterParams = {
-            comparator: (filterDate: Date, cellValue: string) => {
-              if (!cellValue) return -1;
-              const cellDate = new Date(cellValue.substring(0, 10));
-              if (cellDate < filterDate) return -1;
-              if (cellDate > filterDate) return 1;
-              return 0;
-            }
+            comparator: () => 0, // Siempre match — filtrado es server-side
+            inRangeInclusive: true,
           };
         }
 
@@ -621,13 +618,8 @@ export class VistasService {
 
       if (filter === 'agDateColumnFilter') {
         colDef.filterParams = {
-          comparator: (filterDate: Date, cellValue: string) => {
-            if (!cellValue) return -1;
-            const cellDate = new Date(cellValue.substring(0, 10));
-            if (cellDate < filterDate) return -1;
-            if (cellDate > filterDate) return 1;
-            return 0;
-          }
+          comparator: () => 0,
+          inRangeInclusive: true,
         };
       }
 
