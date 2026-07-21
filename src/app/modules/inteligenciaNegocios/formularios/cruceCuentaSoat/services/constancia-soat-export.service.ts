@@ -33,7 +33,6 @@ interface FilaConstancia {
   suc: string;
   fechaFact: string;
   valorFact: number;
-  estado: string;
   grupoAtencion: string;
   entidad: string;
 }
@@ -44,7 +43,6 @@ const COL_ALIASES: Record<keyof FilaConstancia | 'nombrePaciente' | 'identificac
   suc: ['Suc', 'Sucursal', 'CodSucursal', 'CodigoSucursal', 'Sede', 'CodSede'],
   fechaFact: ['FechaFactura', 'Fecha_Factura', 'FechaFact', 'Fecha_Fact'],
   valorFact: ['VrFactura', 'ValorFactura', 'Valor_Factura', 'Vr_Factura', 'ValorFact'],
-  estado: ['EstadoDocumento', 'Estado_Documento', 'Estado'],
   grupoAtencion: ['GrupoAtencion', 'Grupo_Atencion', 'GrupoAten', 'GrupoAtencionNombre', 'NombreGrupoAtencion'],
   entidad: ['Entidad', 'NombreEntidad', 'EntidadNombre'],
   nombrePaciente: ['NombrePaciente', 'Nombre_Paciente', 'Nombre', 'Paciente', 'NombreCompleto'],
@@ -80,26 +78,34 @@ export class ConstanciaSoatExportService {
 
     const logoDataUrl = await this.resolveLogoDataUrl(options.logoBase64 || options.logoUrl);
 
+    const cellFija = (text: string, fillColor: string, alignment: 'left' | 'center' | 'right' = 'center') => ({
+      text,
+      style: 'tableCell',
+      alignment,
+      fillColor,
+      noWrap: true
+    });
+
     const tableBody = [
       [
         { text: 'Nro Fact', style: 'tableHeader', alignment: 'center' },
         { text: 'Ingreso', style: 'tableHeader', alignment: 'center' },
-        { text: 'Suc.', style: 'tableHeader', alignment: 'center' },
+        { text: 'Sucursal', style: 'tableHeader', alignment: 'center' },
         { text: 'Fecha Fact', style: 'tableHeader', alignment: 'center' },
         { text: 'Valor Fact', style: 'tableHeader', alignment: 'center' },
-        { text: 'Estado', style: 'tableHeader', alignment: 'center' },
+        { text: 'Nro Poliza', style: 'tableHeader', alignment: 'center' },
         { text: 'GrupoAtencion', style: 'tableHeader', alignment: 'center' },
         { text: 'Entidad', style: 'tableHeader', alignment: 'center' }
       ],
       ...filas.map((fila, index) => {
         const fillColor = index % 2 === 0 ? '#DDEBF7' : '#FFFFFF';
         return [
-          { text: fila.nroFact, style: 'tableCell', alignment: 'center', fillColor },
-          { text: fila.ingreso, style: 'tableCell', alignment: 'center', fillColor },
-          { text: fila.suc, style: 'tableCell', alignment: 'center', fillColor },
-          { text: fila.fechaFact, style: 'tableCell', alignment: 'center', fillColor },
-          { text: formatearMonedaCop(fila.valorFact), style: 'tableCell', alignment: 'right', fillColor },
-          { text: fila.estado, style: 'tableCell', alignment: 'center', fillColor },
+          cellFija(fila.nroFact, fillColor),
+          cellFija(fila.ingreso, fillColor),
+          cellFija(fila.suc, fillColor),
+          cellFija(fila.fechaFact, fillColor),
+          cellFija(formatearMonedaCop(fila.valorFact, false), fillColor, 'right'),
+          cellFija('', fillColor),
           { text: fila.grupoAtencion, style: 'tableCell', alignment: 'left', fillColor },
           { text: fila.entidad, style: 'tableCell', alignment: 'left', fillColor }
         ];
@@ -153,7 +159,7 @@ export class ConstanciaSoatExportService {
         {
           columns: [
             { text: 'Un total de:', style: 'label', width: 90 },
-            { text: formatearMonedaCop(total), style: 'totalValue', width: '*' }
+            { text: formatearMonedaCop(total, false), style: 'totalValue', width: '*' }
           ],
           margin: [0, 0, 0, 4]
         },
@@ -167,7 +173,8 @@ export class ConstanciaSoatExportService {
         {
           table: {
             headerRows: 1,
-            widths: [52, 48, 28, 42, 52, 48, '*', '*'],
+            // LETTER útil ~532pt: columnas cortas más anchas para evitar cortes (Florencia, fechas, factura)
+            widths: [62, 54, 52, 54, 62, 48, '*', '*'],
             body: tableBody
           },
           layout: {
@@ -191,10 +198,11 @@ export class ConstanciaSoatExportService {
         {
           text: formatearFechaLarga(new Date()),
           style: 'fechaEmision',
-          margin: [0, 0, 0, 28]
+          margin: [0, 0, 0, 48]
         },
         {
           stack: [
+            { text: '________________________________', style: 'firmaLinea', margin: [0, 0, 0, 8] },
             { text: firmante, style: 'firmaNombre' },
             { text: cargo, style: 'firmaCargo' },
             { text: empresaNombre, style: 'firmaEmpresa' }
@@ -249,6 +257,10 @@ export class ConstanciaSoatExportService {
         fechaEmision: {
           fontSize: 10,
           bold: true,
+          color: '#222222'
+        },
+        firmaLinea: {
+          fontSize: 10,
           color: '#222222'
         },
         firmaNombre: {
@@ -341,7 +353,6 @@ export class ConstanciaSoatExportService {
       suc: String(this.pick(row, COL_ALIASES.suc) ?? ''),
       fechaFact: formatearFechaCorta(this.pick(row, COL_ALIASES.fechaFact)),
       valorFact: this.toNumber(this.pick(row, COL_ALIASES.valorFact)),
-      estado: String(this.pick(row, COL_ALIASES.estado) ?? ''),
       grupoAtencion: this.limpiarCodigoPrefijo(String(this.pick(row, COL_ALIASES.grupoAtencion) ?? '')),
       entidad: this.limpiarCodigoPrefijo(String(this.pick(row, COL_ALIASES.entidad) ?? ''))
     };

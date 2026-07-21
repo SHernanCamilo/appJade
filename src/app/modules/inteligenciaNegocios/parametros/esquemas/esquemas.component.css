@@ -149,6 +149,12 @@
   flex-wrap: wrap;
 }
 
+.delegacion-toolbar > .btn-action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
 .delegacion-modo-switch {
   display: flex;
   gap: 0.5rem;
@@ -188,8 +194,20 @@
 }
 
 .delegacion-empresa-select {
-  flex: 1;
-  min-width: 240px;
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:host ::ng-deep .delegacion-empresa-select .p-dropdown {
+  width: 100%;
+  max-width: 100%;
+}
+
+:host ::ng-deep .delegacion-empresa-select .p-dropdown .p-dropdown-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .delegacion-empresa-label {

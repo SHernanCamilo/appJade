@@ -75,12 +75,12 @@ export function numeroALetrasPesos(valor: number): string {
   return `${letras} PESOS M/CTE`;
 }
 
-export function formatearMonedaCop(valor: number): string {
+export function formatearMonedaCop(valor: number, conDecimales = true): string {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: conDecimales ? 2 : 0,
+    maximumFractionDigits: conDecimales ? 2 : 0
   }).format(Number(valor) || 0);
 }
 
