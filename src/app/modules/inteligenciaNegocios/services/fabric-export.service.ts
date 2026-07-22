@@ -115,6 +115,95 @@ export class FabricExportService {
   }
 
   private pollExportStatus(jobId: string, label: string, baseUrl: string): void {
+    // Intentar SSE primero, fallback a polling si no soportado
+    if (typeof EventSource !== 'undefined') {
+      this.streamExportSSE(jobId, label, baseUrl);
+    } else {
+      this.pollExportStatusLegacy(jobId, label, baseUrl);
+    }
+  }
+
+  /**
+   * SSE: conexión persistente al endpoint de streaming.
+   * Reduce de 20+ requests a 1 sola conexión por export.
+   */
+  private streamExportSSE(jobId: string, label: string, baseUrl: string): void {
+    const sseUrl = `${environment.URL_SERVICIOS}/fabric/viewer/export/stream/${jobId}`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = (event: MessageEvent) => {
+      let data: ExportProgress & { file_size_human?: string };
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      if (data.status === 'processing' || data.status === 'pending') {
+        this.exportProgressSubject.next({
+          status: data.status,
+          progress: data.progress ?? 0,
+          rows: data.rows ?? 0,
+          message: data.message ?? 'Procesando...'
+        });
+        return;
+      }
+
+      if (data.status === 'completed') {
+        eventSource.close();
+        this.exportProgressSubject.next({
+          status: 'completed',
+          progress: 100,
+          rows: data.rows ?? 0,
+          message: 'Descarga lista',
+          filename: data.filename,
+          fileSize: data.file_size_human ?? data.fileSize
+        });
+
+        // Descargar archivo
+        this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob' }).subscribe({
+          next: (blob) => {
+            this.triggerDownload(blob, data.filename ?? `${label}.xlsx`);
+            setTimeout(() => this.exportProgressSubject.next(null), 3000);
+            this.decrementPending();
+            this.messageService.add({
+              key: TOAST_KEY, severity: 'success', summary: 'Excel descargado',
+              detail: `${(data.rows ?? 0).toLocaleString('es-CO')} filas · ${data.file_size_human ?? ''}`, life: 6000
+            });
+          },
+          error: () => {
+            window.open(`${baseUrl}/download/${jobId}`, '_blank');
+            setTimeout(() => this.exportProgressSubject.next(null), 3000);
+            this.decrementPending();
+          }
+        });
+        return;
+      }
+
+      if (data.status === 'failed') {
+        eventSource.close();
+        this.exportProgressSubject.next(null);
+        this.decrementPending();
+        this.messageService.add({
+          key: TOAST_KEY, severity: 'error', summary: 'Exportación fallida',
+          detail: data.message ?? 'Error generando el Excel', life: 8000
+        });
+      }
+    };
+
+    eventSource.onerror = () => {
+      // SSE se reconecta automáticamente, pero si se cierra definitivamente, fallback
+      if (eventSource.readyState === EventSource.CLOSED) {
+        this.pollExportStatusLegacy(jobId, label, baseUrl);
+      }
+      // Si readyState === CONNECTING, SSE está reconectando automáticamente (no hacer nada)
+    };
+  }
+
+  /**
+   * Fallback: polling clásico cada 2s (para navegadores sin SSE o si falla).
+   */
+  private pollExportStatusLegacy(jobId: string, label: string, baseUrl: string): void {
     const poll = setInterval(() => {
       this.http.get<{ success: boolean; data: any }>(`${baseUrl}/status/${jobId}`).subscribe({
         next: (res) => {
