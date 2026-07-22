@@ -53,6 +53,11 @@ export class FabricExportService {
   private exportProgressSubject = new BehaviorSubject<ExportProgress | null>(null);
   readonly exportProgress$ = this.exportProgressSubject.asObservable();
 
+  /** Referencia activa para poder cancelar */
+  private activeEventSource: EventSource | null = null;
+  private activePollInterval: ReturnType<typeof setInterval> | null = null;
+  private activeJobId: string | null = null;
+
   constructor(
     private http: HttpClient,
     private vistasService: VistasService,
@@ -74,6 +79,30 @@ export class FabricExportService {
       return;
     }
     this.exportarExcelEnSegundoPlano(options);
+  }
+
+  /**
+   * Cancela el export en progreso:
+   * - Cierra EventSource o clearInterval
+   * - Limpia el estado de progreso
+   * - No detiene el job en el server (se completará solo en background)
+   */
+  cancelExport(): void {
+    if (this.activeEventSource) {
+      this.activeEventSource.close();
+      this.activeEventSource = null;
+    }
+    if (this.activePollInterval) {
+      clearInterval(this.activePollInterval);
+      this.activePollInterval = null;
+    }
+    this.activeJobId = null;
+    this.exportProgressSubject.next(null);
+    this.decrementPending();
+    this.messageService.add({
+      key: TOAST_KEY, severity: 'info', summary: 'Exportación cancelada',
+      detail: 'Se canceló la descarga. El servidor liberará los recursos.', life: 4000
+    });
   }
 
   exportarExcelEnSegundoPlano(options: FabricExportOptions): void {
@@ -130,6 +159,8 @@ export class FabricExportService {
   private streamExportSSE(jobId: string, label: string, baseUrl: string): void {
     const sseUrl = `${environment.URL_SERVICIOS}/fabric/viewer/export/stream/${jobId}`;
     const eventSource = new EventSource(sseUrl);
+    this.activeEventSource = eventSource;
+    this.activeJobId = jobId;
 
     eventSource.onmessage = (event: MessageEvent) => {
       let data: ExportProgress & { file_size_human?: string };
@@ -204,6 +235,7 @@ export class FabricExportService {
    * Fallback: polling clásico cada 2s (para navegadores sin SSE o si falla).
    */
   private pollExportStatusLegacy(jobId: string, label: string, baseUrl: string): void {
+    this.activeJobId = jobId;
     const poll = setInterval(() => {
       this.http.get<{ success: boolean; data: any }>(`${baseUrl}/status/${jobId}`).subscribe({
         next: (res) => {
@@ -268,6 +300,7 @@ export class FabricExportService {
         }
       });
     }, 2000); // Poll cada 2 segundos
+    this.activePollInterval = poll;
   }
 
   private async exportarExcelLocal(options: FabricExportDesdeGrillaOptions): Promise<void> {

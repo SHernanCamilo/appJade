@@ -765,3 +765,26 @@
   min-width: 35px;
   text-align: right;
 }
+
+.export-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+.export-cancel-btn:hover {
+  background: #fca5a5;
+  transform: scale(1.1);
+}
+.export-cancel-btn i {
+  font-size: 0.75rem;
+}

@@ -492,4 +492,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
       sort_dir: this.sortDir
     });
   }
+
+  cancelExport(): void {
+    this.fabricExportService.cancelExport();
+  }
 }
