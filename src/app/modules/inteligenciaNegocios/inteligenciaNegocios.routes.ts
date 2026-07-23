@@ -136,6 +136,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     }
   },
   {
+    path: 'parametros/fabric-metrics',
+    loadComponent: () =>
+      import('./parametros/fabricMetrics/fabricMetrics.component').then(m => m.FabricMetricsComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FABRIC-METRICS',
+      pageTitle: 'Monitoreo Fabric',
+      pageSubtitle: 'Dashboard de métricas en tiempo real de Graph-Fabric'
+    }
+  },
+  {
     path: 'parametros/usuariosBI',
     loadComponent: () =>
       import('./parametros/usuariosBI/usuarios-bi.component').then(m => m.UsuariosBiComponent),
