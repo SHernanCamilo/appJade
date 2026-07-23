@@ -349,22 +349,29 @@
             </div>
 
             <div style="padding: 0 1rem;">
-              <!-- Agregar dominio -->
+              <!-- Agregar dominio desde los existentes -->
               <div class="permissions-add-row" style="margin-bottom: 1rem;">
                 <div class="param-group" style="flex: 1;">
-                  <label class="param-label">Dominio (ej: &#64;farmaqx.com)</label>
-                  <input type="text" pInputText [(ngModel)]="newDomainName" placeholder="@dominio.com" style="width: 100%;" />
-                </div>
-                <div class="param-group" style="flex: 1;">
-                  <label class="param-label">Empresa/Tenant</label>
-                  <input type="text" pInputText [(ngModel)]="newDomainTenant" placeholder="Nombre empresa" style="width: 100%;" />
+                  <label class="param-label">Seleccionar dominio</label>
+                  <p-dropdown
+                    [(ngModel)]="selectedDomainId"
+                    [options]="inactiveDomainOptions"
+                    placeholder="Seleccionar dominio a activar..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
                 </div>
                 <button
                   class="btn-action btn-action-primary btn-add-user"
-                  (click)="addDomain()"
-                  [disabled]="!newDomainName || isAddingDomain">
-                  <i class="pi pi-plus" [class.pi-spin]="isAddingDomain"></i>
-                  {{ isAddingDomain ? 'Agregando...' : 'Agregar' }}
+                  (click)="activateDomain()"
+                  [disabled]="!selectedDomainId || isAddingDomain">
+                  <i class="pi pi-check" [class.pi-spin]="isAddingDomain"></i>
+                  {{ isAddingDomain ? 'Activando...' : 'Activar' }}
                 </button>
               </div>
 
@@ -395,7 +402,7 @@
                       </span>
                     </td>
                     <td>
-                      <button class="btn-icon-warning" (click)="toggleDomain(domain)" pTooltip="Activar/Desactivar" tooltipPosition="top">
+                      <button class="btn-icon-toggle" (click)="toggleDomain(domain)" [pTooltip]="domain.activo ? 'Desactivar' : 'Activar'" tooltipPosition="top">
                         <i class="pi" [class.pi-eye]="domain.activo" [class.pi-eye-slash]="!domain.activo"></i>
                       </button>
                       <button class="btn-icon-danger" (click)="removeDomain(domain)" pTooltip="Eliminar" tooltipPosition="top">

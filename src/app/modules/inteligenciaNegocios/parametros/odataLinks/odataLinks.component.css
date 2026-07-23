@@ -223,7 +223,27 @@
   cursor: not-allowed;
 }
 
-.key-prefix {
+.btn-icon-toggle {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #f59e0b;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-right: 4px;
+}
+
+.btn-icon-toggle:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #d97706;
+}.key-prefix {
   font-size: 0.8rem;
   color: #059669;
   background: #ecfdf5;

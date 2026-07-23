@@ -89,8 +89,7 @@ export class OdataLinksComponent implements OnInit {
   allowedDomains: AllowedDomain[] = [];
   isLoadingDomains = false;
   isAddingDomain = false;
-  newDomainName = '';
-  newDomainTenant = '';
+  selectedDomainId: number | null = null;
 
   // ─── Crear Link Dialog ──────────────────────────────
   showCreateDialog = false;
@@ -511,6 +510,13 @@ export class OdataLinksComponent implements OnInit {
 
   // ─── Dominios Permitidos ────────────────────────────
 
+  /** Opciones para el dropdown: dominios inactivos que se pueden activar */
+  get inactiveDomainOptions(): { label: string; value: number }[] {
+    return this.allowedDomains
+      .filter(d => !d.activo)
+      .map(d => ({ label: `${d.domain} (${d.tenant_name ?? 'Sin empresa'})`, value: d.id }));
+  }
+
   loadAllowedDomains(): void {
     this.isLoadingDomains = true;
     this.odataService.getAllowedDomains().subscribe({
@@ -525,27 +531,20 @@ export class OdataLinksComponent implements OnInit {
     });
   }
 
-  addDomain(): void {
-    if (!this.newDomainName) return;
+  activateDomain(): void {
+    if (!this.selectedDomainId) return;
 
     this.isAddingDomain = true;
-    const domain = this.newDomainName.startsWith('@') ? this.newDomainName : `@${this.newDomainName}`;
-
-    this.odataService.addAllowedDomain({
-      domain,
-      tenant_id: 'manual',
-      tenant_name: this.newDomainTenant || domain.replace('@', ''),
-    }).subscribe({
+    this.odataService.toggleDomainStatus(this.selectedDomainId).subscribe({
       next: () => {
         this.isAddingDomain = false;
-        this.newDomainName = '';
-        this.newDomainTenant = '';
+        this.selectedDomainId = null;
         this.loadAllowedDomains();
-        this.showSuccess('Dominio agregado correctamente');
+        this.showSuccess('Dominio activado correctamente');
       },
-      error: err => {
+      error: () => {
         this.isAddingDomain = false;
-        this.showError(err?.error?.errors?.domain?.[0] || err?.error?.message || 'Error al agregar dominio');
+        this.showError('Error al activar dominio');
       }
     });
   }
