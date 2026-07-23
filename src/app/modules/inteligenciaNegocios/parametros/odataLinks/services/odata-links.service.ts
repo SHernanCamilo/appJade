@@ -82,6 +82,19 @@ export interface VistaPermissionUser {
   email: string;
 }
 
+export interface AllowedDomain {
+  id: number;
+  domain: string;
+  tenant_id: string | null;
+  tenant_name: string | null;
+  id_empresa: number | null;
+  activo: boolean;
+  descripcion: string | null;
+  created_at: string;
+  updated_at: string;
+  empresa?: { id: number; nombre: string } | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -145,6 +158,36 @@ export class OdataLinksService {
   removePermission(vistaId: number, userId: number): Observable<void> {
     return this.http.delete<void>(
       `${this.baseUrl}/bi-vistas/${vistaId}/permissions/${userId}`
+    );
+  }
+
+  // ─── Dominios Permitidos OData ──────────────────────
+
+  getAllowedDomains(): Observable<AllowedDomain[]> {
+    return this.http.get<{ domains: AllowedDomain[]; total: number }>(
+      `${this.baseUrl}/odata/allowed-domains`
+    ).pipe(map(r => r.domains ?? []));
+  }
+
+  addAllowedDomain(payload: { domain: string; tenant_id: string; tenant_name: string; id_empresa?: number; descripcion?: string }): Observable<{ domain: AllowedDomain }> {
+    return this.http.post<{ domain: AllowedDomain }>(
+      `${this.baseUrl}/odata/allowed-domains`, payload
+    );
+  }
+
+  updateAllowedDomain(id: number, payload: Partial<{ domain: string; tenant_id: string; tenant_name: string; id_empresa: number; activo: boolean; descripcion: string }>): Observable<{ domain: AllowedDomain }> {
+    return this.http.put<{ domain: AllowedDomain }>(
+      `${this.baseUrl}/odata/allowed-domains/${id}`, payload
+    );
+  }
+
+  removeAllowedDomain(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/odata/allowed-domains/${id}`);
+  }
+
+  toggleDomainStatus(id: number): Observable<{ domain: AllowedDomain }> {
+    return this.http.patch<{ domain: AllowedDomain }>(
+      `${this.baseUrl}/odata/allowed-domains/${id}/toggle`, {}
     );
   }
 }

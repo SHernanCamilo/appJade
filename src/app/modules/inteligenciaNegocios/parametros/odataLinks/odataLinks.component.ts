@@ -20,6 +20,7 @@ import {
   OdataLink,
   OdataApiKey,
   VistaPermissionUser,
+  AllowedDomain,
   OdataLinkCreatePayload
 } from './services/odata-links.service';
 import {
@@ -84,6 +85,13 @@ export class OdataLinksComponent implements OnInit {
   isLoadingUsuarios = false;
   isAddingPermission = false;
 
+  // ─── Dominios Permitidos ────────────────────────────
+  allowedDomains: AllowedDomain[] = [];
+  isLoadingDomains = false;
+  isAddingDomain = false;
+  newDomainName = '';
+  newDomainTenant = '';
+
   // ─── Crear Link Dialog ──────────────────────────────
   showCreateDialog = false;
   newLinkName = '';
@@ -132,6 +140,7 @@ export class OdataLinksComponent implements OnInit {
     this.loadLinks();
     this.loadApiKeys();
     this.loadEsquemas();
+    this.loadAllowedDomains();
   }
 
   onTabChange(index: number): void {
@@ -498,5 +507,68 @@ export class OdataLinksComponent implements OnInit {
 
   private showError(detail: string): void {
     this.messageService.add({ severity: 'error', summary: 'Error', detail });
+  }
+
+  // ─── Dominios Permitidos ────────────────────────────
+
+  loadAllowedDomains(): void {
+    this.isLoadingDomains = true;
+    this.odataService.getAllowedDomains().subscribe({
+      next: domains => {
+        this.allowedDomains = domains;
+        this.isLoadingDomains = false;
+      },
+      error: () => {
+        this.isLoadingDomains = false;
+        this.showError('Error al cargar dominios permitidos');
+      }
+    });
+  }
+
+  addDomain(): void {
+    if (!this.newDomainName) return;
+
+    this.isAddingDomain = true;
+    const domain = this.newDomainName.startsWith('@') ? this.newDomainName : `@${this.newDomainName}`;
+
+    this.odataService.addAllowedDomain({
+      domain,
+      tenant_id: 'manual',
+      tenant_name: this.newDomainTenant || domain.replace('@', ''),
+    }).subscribe({
+      next: () => {
+        this.isAddingDomain = false;
+        this.newDomainName = '';
+        this.newDomainTenant = '';
+        this.loadAllowedDomains();
+        this.showSuccess('Dominio agregado correctamente');
+      },
+      error: err => {
+        this.isAddingDomain = false;
+        this.showError(err?.error?.errors?.domain?.[0] || err?.error?.message || 'Error al agregar dominio');
+      }
+    });
+  }
+
+  toggleDomain(domain: AllowedDomain): void {
+    this.odataService.toggleDomainStatus(domain.id).subscribe({
+      next: () => {
+        domain.activo = !domain.activo;
+        this.showSuccess(`Dominio ${domain.activo ? 'activado' : 'desactivado'}`);
+      },
+      error: () => this.showError('Error al cambiar estado del dominio')
+    });
+  }
+
+  removeDomain(domain: AllowedDomain): void {
+    if (!confirm(`¿Eliminar el dominio ${domain.domain}? Los usuarios de este dominio perderán acceso OData.`)) return;
+
+    this.odataService.removeAllowedDomain(domain.id).subscribe({
+      next: () => {
+        this.allowedDomains = this.allowedDomains.filter(d => d.id !== domain.id);
+        this.showSuccess('Dominio eliminado');
+      },
+      error: () => this.showError('Error al eliminar dominio')
+    });
   }
 }

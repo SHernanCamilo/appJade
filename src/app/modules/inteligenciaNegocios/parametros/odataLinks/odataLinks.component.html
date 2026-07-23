@@ -339,6 +339,84 @@
           </div>
         </p-tabPanel>
 
+        <!-- ═══ TAB: Dominios Permitidos ═══ -->
+        <p-tabPanel header="Dominios OData">
+          <div class="tab-panel-content">
+            <div class="toolbar-info" style="margin: 1rem;">
+              <i class="pi pi-globe"></i>
+              Dominios de correo autorizados para <strong>actualizar datos desde Excel</strong> v&iacute;a OData.
+              Un usuario necesita: dominio permitido + permiso en la vista + API Key v&aacute;lida.
+            </div>
+
+            <div style="padding: 0 1rem;">
+              <!-- Agregar dominio -->
+              <div class="permissions-add-row" style="margin-bottom: 1rem;">
+                <div class="param-group" style="flex: 1;">
+                  <label class="param-label">Dominio (ej: &#64;farmaqx.com)</label>
+                  <input type="text" pInputText [(ngModel)]="newDomainName" placeholder="@dominio.com" style="width: 100%;" />
+                </div>
+                <div class="param-group" style="flex: 1;">
+                  <label class="param-label">Empresa/Tenant</label>
+                  <input type="text" pInputText [(ngModel)]="newDomainTenant" placeholder="Nombre empresa" style="width: 100%;" />
+                </div>
+                <button
+                  class="btn-action btn-action-primary btn-add-user"
+                  (click)="addDomain()"
+                  [disabled]="!newDomainName || isAddingDomain">
+                  <i class="pi pi-plus" [class.pi-spin]="isAddingDomain"></i>
+                  {{ isAddingDomain ? 'Agregando...' : 'Agregar' }}
+                </button>
+              </div>
+
+              <!-- Tabla de dominios -->
+              <p-table
+                [value]="allowedDomains"
+                [loading]="isLoadingDomains"
+                styleClass="p-datatable-sm p-datatable-striped"
+                [scrollable]="true"
+                scrollHeight="400px">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Dominio</th>
+                    <th>Empresa</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th style="width: 100px;">Acción</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-domain>
+                  <tr>
+                    <td><strong>{{ domain.domain }}</strong></td>
+                    <td>{{ domain.tenant_name ?? '-' }}</td>
+                    <td>{{ domain.descripcion ?? '-' }}</td>
+                    <td>
+                      <span class="badge" [class.badge-success]="domain.activo" [class.badge-danger]="!domain.activo">
+                        {{ domain.activo ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                    <td>
+                      <button class="btn-icon-warning" (click)="toggleDomain(domain)" pTooltip="Activar/Desactivar" tooltipPosition="top">
+                        <i class="pi" [class.pi-eye]="domain.activo" [class.pi-eye-slash]="!domain.activo"></i>
+                      </button>
+                      <button class="btn-icon-danger" (click)="removeDomain(domain)" pTooltip="Eliminar" tooltipPosition="top">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr>
+                    <td colspan="5" class="text-center py-4">
+                      <i class="pi pi-globe text-muted" style="font-size: 2rem;"></i>
+                      <p class="text-muted mt-2 mb-0">No hay dominios configurados</p>
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </div>
+        </p-tabPanel>
+
       </p-tabView>
     </div>
   </div>
