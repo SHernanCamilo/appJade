@@ -304,6 +304,116 @@
   user-select: text;
 }
 
+.export-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.export-dialog-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.45;
+}
+
+.export-modo-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.export-modo-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.export-modo-option:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+.export-modo-option.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.export-modo-option input {
+  margin-top: 0.2rem;
+  accent-color: #2563eb;
+}
+
+.export-modo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.export-modo-text strong {
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.export-modo-text small {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.export-poliza-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.export-poliza-field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.export-poliza-field select {
+  height: 42px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  font-size: 0.95rem;
+  color: #111827;
+  background: #fff;
+  outline: none;
+}
+
+.export-poliza-field select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.export-poliza-meta {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.export-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.soat-export-dialog .p-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 @media (max-width: 768px) {
   .dashboard-content,
   .page-header-modern {

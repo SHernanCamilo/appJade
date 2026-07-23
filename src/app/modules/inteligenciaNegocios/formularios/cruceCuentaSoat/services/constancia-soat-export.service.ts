@@ -28,6 +28,7 @@ export interface ConstanciaSoatExportOptions {
 }
 
 interface FilaConstancia {
+  nroPoliza: string;
   nroFact: string;
   ingreso: string;
   suc: string;
@@ -38,6 +39,7 @@ interface FilaConstancia {
 }
 
 const COL_ALIASES: Record<keyof FilaConstancia | 'nombrePaciente' | 'identificacion', string[]> = {
+  nroPoliza: ['NumeroPolizaSOAT', 'Numero_Poliza_SOAT', 'NroPolizaSOAT', 'NroPoliza', 'NumeroPoliza', 'PolizaSOAT', 'Poliza'],
   nroFact: ['NroDocumento', 'Nro_Documento', 'NumeroDocumento', 'NroFact', 'Nro_Fact', 'NumeroFactura', 'NoFactura', 'NroFactura', 'DocumentoFactura', 'Factura'],
   ingreso: ['Ingreso', 'NoIngreso', 'NumeroIngreso', 'NroIngreso', 'CodIngreso'],
   suc: ['Suc', 'Sucursal', 'CodSucursal', 'CodigoSucursal', 'Sede', 'CodSede'],
@@ -51,6 +53,27 @@ const COL_ALIASES: Record<keyof FilaConstancia | 'nombrePaciente' | 'identificac
 
 @Injectable({ providedIn: 'root' })
 export class ConstanciaSoatExportService {
+  /** Números de póliza únicos presentes en los registros. */
+  listarPolizas(rows: Record<string, unknown>[]): string[] {
+    const set = new Set<string>();
+    for (const row of rows) {
+      const poliza = String(this.pick(row, COL_ALIASES.nroPoliza) ?? '').trim();
+      if (poliza) {
+        set.add(poliza);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  }
+
+  /** Filtra registros por número de póliza SOAT. */
+  filtrarPorPoliza(rows: Record<string, unknown>[], nroPoliza: string): Record<string, unknown>[] {
+    const target = nroPoliza.trim();
+    if (!target) {
+      return [];
+    }
+    return rows.filter(row => String(this.pick(row, COL_ALIASES.nroPoliza) ?? '').trim() === target);
+  }
+
   async exportar(options: ConstanciaSoatExportOptions): Promise<void> {
     if (!options.rows.length) {
       throw new Error('No hay registros para exportar.');
@@ -88,24 +111,24 @@ export class ConstanciaSoatExportService {
 
     const tableBody = [
       [
+        { text: 'Nro Poliza', style: 'tableHeader', alignment: 'center' },
         { text: 'Nro Fact', style: 'tableHeader', alignment: 'center' },
         { text: 'Ingreso', style: 'tableHeader', alignment: 'center' },
         { text: 'Sucursal', style: 'tableHeader', alignment: 'center' },
         { text: 'Fecha Fact', style: 'tableHeader', alignment: 'center' },
         { text: 'Valor Fact', style: 'tableHeader', alignment: 'center' },
-        { text: 'Nro Poliza', style: 'tableHeader', alignment: 'center' },
         { text: 'GrupoAtencion', style: 'tableHeader', alignment: 'center' },
         { text: 'Entidad', style: 'tableHeader', alignment: 'center' }
       ],
       ...filas.map((fila, index) => {
         const fillColor = index % 2 === 0 ? '#DDEBF7' : '#FFFFFF';
         return [
+          cellFija(fila.nroPoliza, fillColor),
           cellFija(fila.nroFact, fillColor),
           cellFija(fila.ingreso, fillColor),
           cellFija(fila.suc, fillColor),
           cellFija(fila.fechaFact, fillColor),
           cellFija(formatearMonedaCop(fila.valorFact, false), fillColor, 'right'),
-          cellFija('', fillColor),
           { text: fila.grupoAtencion, style: 'tableCell', alignment: 'left', fillColor },
           { text: fila.entidad, style: 'tableCell', alignment: 'left', fillColor }
         ];
@@ -173,8 +196,8 @@ export class ConstanciaSoatExportService {
         {
           table: {
             headerRows: 1,
-            // LETTER útil ~532pt: columnas cortas más anchas para evitar cortes (Florencia, fechas, factura)
-            widths: [62, 54, 52, 54, 62, 48, '*', '*'],
+            // LETTER útil ~532pt: Nro Poliza primero; columnas cortas más anchas para evitar cortes
+            widths: [68, 58, 50, 48, 52, 58, '*', '*'],
             body: tableBody
           },
           layout: {
@@ -348,6 +371,7 @@ export class ConstanciaSoatExportService {
 
   private mapFila(row: Record<string, unknown>): FilaConstancia {
     return {
+      nroPoliza: String(this.pick(row, COL_ALIASES.nroPoliza) ?? ''),
       nroFact: String(this.pick(row, COL_ALIASES.nroFact) ?? ''),
       ingreso: String(this.pick(row, COL_ALIASES.ingreso) ?? ''),
       suc: String(this.pick(row, COL_ALIASES.suc) ?? ''),

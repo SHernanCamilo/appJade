@@ -74,7 +74,7 @@
           <button
             type="button"
             class="btn-toolbar btn-toolbar-pdf"
-            (click)="exportarConstancia()"
+            (click)="abrirExportDialog()"
             [disabled]="!puedeExportar"
             pTooltip="Exportar constancia SOAT en PDF">
             <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-pdf]="!isExporting"></i>
@@ -160,4 +160,88 @@
       </div>
     </div>
   </div>
+
+  <p-dialog
+    header="Exportar Certificado SOAT"
+    [(visible)]="showExportDialog"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '420px', maxWidth: '95vw' }"
+    styleClass="soat-export-dialog"
+    (onHide)="cerrarExportDialog()">
+
+    <div class="export-dialog-body">
+      <p class="export-dialog-hint">
+        Elija el tipo de constancia para la CC <strong>{{ ultimaConsulta }}</strong>.
+      </p>
+
+      <div class="export-modo-options" role="radiogroup" aria-label="Tipo de exportación">
+        <label class="export-modo-option" [class.is-active]="exportModo === 'completa'">
+          <input
+            type="radio"
+            name="exportModo"
+            value="completa"
+            [(ngModel)]="exportModo"
+            (ngModelChange)="onExportModoChange()"
+            [disabled]="isLoadingExportData || isExporting">
+          <span class="export-modo-text">
+            <strong>Completa</strong>
+            <small>Todas las facturas de la cédula</small>
+          </span>
+        </label>
+
+        <label class="export-modo-option" [class.is-active]="exportModo === 'poliza'">
+          <input
+            type="radio"
+            name="exportModo"
+            value="poliza"
+            [(ngModel)]="exportModo"
+            (ngModelChange)="onExportModoChange()"
+            [disabled]="isLoadingExportData || isExporting">
+          <span class="export-modo-text">
+            <strong>Póliza</strong>
+            <small>Solo facturas de una póliza</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="export-poliza-field" *ngIf="exportModo === 'poliza'">
+        <label for="select-poliza">Número de póliza</label>
+        <select
+          id="select-poliza"
+          [(ngModel)]="polizaSeleccionada"
+          [disabled]="isLoadingExportData || isExporting || polizasDisponibles.length === 0">
+          <option value="" disabled>Seleccione una póliza</option>
+          <option *ngFor="let poliza of polizasDisponibles" [value]="poliza">{{ poliza }}</option>
+        </select>
+        <small class="export-poliza-meta" *ngIf="!isLoadingExportData">
+          {{ polizasDisponibles.length }} póliza(s) encontrada(s)
+        </small>
+      </div>
+
+      <div class="export-loading" *ngIf="isLoadingExportData">
+        <i class="pi pi-spin pi-spinner"></i>
+        Cargando facturas y pólizas...
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <button
+        type="button"
+        class="btn-toolbar"
+        (click)="cerrarExportDialog()"
+        [disabled]="isExporting">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn-toolbar btn-toolbar-pdf"
+        (click)="confirmarExport()"
+        [disabled]="!puedeConfirmarExport">
+        <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-pdf]="!isExporting"></i>
+        {{ isExporting ? 'Generando...' : 'Generar PDF' }}
+      </button>
+    </ng-template>
+  </p-dialog>
 </div>
