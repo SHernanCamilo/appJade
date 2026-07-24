@@ -23,6 +23,9 @@
       <div class="dash-meta">
         <span class="uptime-badge" pTooltip="Tiempo desde último reinicio">⏱ {{ uptimeHours() | number:'1.0-0' }}h uptime</span>
         <span class="update-badge">{{ lastUpdate() }}</span>
+        <button class="refresh-btn" (click)="refresh()" pTooltip="Actualizar ahora" tooltipPosition="left">
+          <i class="pi pi-refresh" [class.pi-spin]="connectionStatus() === 'connecting'"></i>
+        </button>
       </div>
     </div>
 
@@ -60,7 +63,7 @@
       <div class="chart-panel">
         <div class="panel-header">
           <h3>Actividad en tiempo real</h3>
-          <span class="panel-badge live">LIVE</span>
+          <span class="panel-badge live" pTooltip="Auto-refresh cada 5 min">LIVE · 5min</span>
         </div>
         <div class="chart-wrap">
           <p-chart type="line" [data]="lineChartData()" [options]="lineChartOptions" height="220px"></p-chart>

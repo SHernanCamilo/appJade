@@ -78,6 +78,25 @@
 }
 .update-badge { background: #ecfdf5; color: #059669; }
 
+.refresh-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.refresh-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
 /* ── KPI Row ────────────────────────────────────────────────────────────── */
 .kpi-row {
   display: grid;

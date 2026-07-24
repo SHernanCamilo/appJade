@@ -97,7 +97,7 @@ export class FabricMetricsComponent implements OnInit, OnDestroy {
   private cacheData: number[] = [];
   private elapsedData: number[] = [];
   private readonly MAX_POINTS = 60;
-  private readonly POLL_MS = 5000;
+  private readonly POLL_MS = 300_000; // 5 minutos
   private pollSub?: Subscription;
 
   constructor(private metricsService: FabricMetricsService) {}
@@ -109,6 +109,15 @@ export class FabricMetricsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
+  }
+
+  /** Botón de refresh manual */
+  refresh(): void {
+    this.connectionStatus.set('connecting');
+    this.metricsService.getServiceMetrics().subscribe({
+      next: data => this.processData(data),
+      error: () => this.connectionStatus.set('disconnected')
+    });
   }
 
   private loadInitial(): void {
