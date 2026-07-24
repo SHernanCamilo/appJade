@@ -136,7 +136,7 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     }
   },
   {
-    path: 'parametros/fabric-metrics',
+    path: 'fabric-metrics',
     loadComponent: () =>
       import('./parametros/fabricMetrics/fabricMetrics.component').then(m => m.FabricMetricsComponent),
     canActivate: [moduleGuard],
