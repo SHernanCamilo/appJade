@@ -1,129 +1,174 @@
-<div class="metrics-dashboard">
-  <div class="metrics-header">
-    <h2><i class="pi pi-chart-line"></i> Monitoreo Graph-Fabric</h2>
-    <span class="last-update" *ngIf="lastUpdate">Actualizado: {{ lastUpdate }}</span>
-  </div>
-
-  <!-- KPIs principales -->
-  <div class="kpi-grid" *ngIf="metrics">
-    <div class="kpi-card">
-      <div class="kpi-value">{{ formatNumber(metrics.queries.total_queries) }}</div>
-      <div class="kpi-label">Total queries</div>
+<!-- Skeleton loading -->
+@if (isLoading()) {
+  <div class="metrics-dashboard">
+    <div class="dash-header"><p-skeleton width="200px" height="28px"></p-skeleton></div>
+    <div class="kpi-row">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="kpi-card"><p-skeleton width="60px" height="32px"></p-skeleton><p-skeleton width="80px" height="12px"></p-skeleton></div>
+      }
     </div>
-    <div class="kpi-card">
-      <div class="kpi-value">{{ metrics.queries.cache_hit_rate | number:'1.1-1' }}%</div>
-      <div class="kpi-label">Cache Hit Rate</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">{{ formatMs(metrics.queries.avg_elapsed_ms) }}</div>
-      <div class="kpi-label">Tiempo promedio</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">{{ metrics.queries.queries_per_minute | number:'1.1-1' }}</div>
-      <div class="kpi-label">Queries/min</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">{{ formatNumber(metrics.queries.total_rows_served) }}</div>
-      <div class="kpi-label">Filas servidas</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">{{ metrics.queries.unique_views }}</div>
-      <div class="kpi-label">Vistas únicas</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">{{ metrics.queries.unique_users }}</div>
-      <div class="kpi-label">Usuarios activos</div>
-    </div>
-    <div class="kpi-card" [class.kpi-warning]="metrics.queries.total_errors > 10">
-      <div class="kpi-value">{{ metrics.queries.total_errors }}</div>
-      <div class="kpi-label">Errores</div>
+    <div class="charts-grid">
+      <div class="chart-panel"><p-skeleton width="100%" height="220px"></p-skeleton></div>
+      <div class="chart-panel"><p-skeleton width="100%" height="220px"></p-skeleton></div>
     </div>
   </div>
-
-  <!-- Gráficos en tiempo real -->
-  <div class="charts-grid" *ngIf="!isLoading">
-    <div class="chart-card">
-      <h3>Actividad en tiempo real</h3>
-      <div class="chart-container">
-        <p-chart type="line" [data]="lineChartData" [options]="lineChartOptions" height="250px"></p-chart>
+} @else {
+  <div class="metrics-dashboard animate-in">
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="dash-title">
+        <span class="status-dot" [class.connected]="connectionStatus() === 'connected'" [class.disconnected]="connectionStatus() === 'disconnected'"></span>
+        <h2>Monitoreo Graph-Fabric</h2>
+      </div>
+      <div class="dash-meta">
+        <span class="uptime-badge" pTooltip="Tiempo desde último reinicio">⏱ {{ uptimeHours() | number:'1.0-0' }}h uptime</span>
+        <span class="update-badge">{{ lastUpdate() }}</span>
       </div>
     </div>
 
-    <div class="chart-card">
-      <h3>Cache Hit Rate %</h3>
-      <div class="chart-container">
-        <p-chart type="line" [data]="cacheChartData" [options]="lineChartOptions" height="250px"></p-chart>
+    <!-- KPI Cards -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-value accent-green">{{ formatNumber(totalQueries()) }}</div>
+        <div class="kpi-label">Queries totales</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" [class.accent-green]="cacheHitPct() > 50" [class.accent-amber]="cacheHitPct() <= 50">{{ cacheHitPct() | number:'1.1-1' }}%</div>
+        <div class="kpi-label">Cache Hit Rate</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" [class.accent-amber]="avgTime() > 5000" [class.accent-red]="avgTime() > 30000">{{ formatMs(avgTime()) }}</div>
+        <div class="kpi-label">Tiempo promedio</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value accent-blue">{{ queriesPerMin() | number:'1.1-1' }}</div>
+        <div class="kpi-label">Queries/min</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">{{ formatNumber(rowsServed()) }}</div>
+        <div class="kpi-label">Filas servidas</div>
+      </div>
+      <div class="kpi-card" [class.kpi-alert]="errorCount() > 5">
+        <div class="kpi-value" [class.accent-red]="errorCount() > 0">{{ errorCount() }}</div>
+        <div class="kpi-label">Errores</div>
       </div>
     </div>
 
-    <div class="chart-card chart-wide">
-      <h3>Top 10 vistas más consultadas</h3>
-      <div class="chart-container">
-        <p-chart type="bar" [data]="topViewsChartData" [options]="topViewsChartOptions" height="300px"></p-chart>
+    <!-- Charts Row -->
+    <div class="charts-grid">
+      <!-- Activity Line Chart -->
+      <div class="chart-panel">
+        <div class="panel-header">
+          <h3>Actividad en tiempo real</h3>
+          <span class="panel-badge live">LIVE</span>
+        </div>
+        <div class="chart-wrap">
+          <p-chart type="line" [data]="lineChartData()" [options]="lineChartOptions" height="220px"></p-chart>
+        </div>
+      </div>
+
+      <!-- Cache Doughnut + Info -->
+      <div class="chart-panel cache-panel">
+        <div class="panel-header">
+          <h3>Cache vs Fabric</h3>
+        </div>
+        <div class="cache-layout">
+          <div class="doughnut-wrap">
+            <p-chart type="doughnut" [data]="cacheChartData()" [options]="doughnutOptions" height="160px"></p-chart>
+            <div class="doughnut-center">
+              <span class="doughnut-pct">{{ cacheHitPct() | number:'1.0-0' }}%</span>
+              <span class="doughnut-label">cache</span>
+            </div>
+          </div>
+          <div class="cache-stats">
+            <div class="stat-row"><span class="stat-dot green"></span><span>Cache (Redis)</span><strong>{{ metrics()?.queries?.total_cached | number }}</strong></div>
+            <div class="stat-row"><span class="stat-dot slate"></span><span>Fabric directo</span><strong>{{ (totalQueries() - (metrics()?.queries?.total_cached ?? 0)) | number }}</strong></div>
+            <div class="stat-row"><span class="stat-dot blue"></span><span>Vistas únicas</span><strong>{{ metrics()?.queries?.unique_views }}</strong></div>
+            <div class="stat-row"><span class="stat-dot purple"></span><span>Usuarios activos</span><strong>{{ metrics()?.queries?.unique_users }}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Views Bar Chart -->
+    <div class="chart-panel wide-panel">
+      <div class="panel-header">
+        <h3>Top vistas más consultadas</h3>
+        <span class="panel-count">{{ topViews().length }} vistas</span>
+      </div>
+      <div class="chart-wrap">
+        <p-chart type="bar" [data]="topViewsChartData()" [options]="barChartOptions" height="260px"></p-chart>
+      </div>
+    </div>
+
+    <!-- Bottom Row: Slow Queries + Top Users -->
+    <div class="bottom-grid">
+      <!-- Slow Queries -->
+      <div class="table-panel">
+        <div class="panel-header">
+          <h3>⚠️ Queries lentas (&gt;5s)</h3>
+          <span class="panel-count">{{ slowQueries().length }}</span>
+        </div>
+        @if (slowQueries().length > 0) {
+          <p-table [value]="slowQueries()" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="240px">
+            <ng-template pTemplate="header">
+              <tr><th>Vista</th><th>Usuario</th><th>Tiempo</th><th>Filas</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-q>
+              <tr class="animate-row">
+                <td class="cell-view">{{ q.schema }}.{{ q.view }}</td>
+                <td class="cell-user">{{ q.user_email?.split('@')[0] }}</td>
+                <td><p-tag [value]="formatMs(q.elapsed_ms)" [severity]="getElapsedSeverity(q.elapsed_ms)"></p-tag></td>
+                <td>{{ formatNumber(q.rows_returned) }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="4" class="empty-msg">✅ Sin queries lentas</td></tr>
+            </ng-template>
+          </p-table>
+        } @else {
+          <div class="empty-state"><span>✅</span><p>Sin queries lentas. Todo fluye bien.</p></div>
+        }
+      </div>
+
+      <!-- Top Users -->
+      <div class="table-panel">
+        <div class="panel-header">
+          <h3>👥 Usuarios más activos</h3>
+        </div>
+        @if (topUsers().length > 0) {
+          <div class="user-list">
+            @for (u of topUsers().slice(0, 8); track u.user; let i = $index) {
+              <div class="user-row animate-row" [style.animation-delay]="(i * 50) + 'ms'">
+                <span class="user-rank">{{ i + 1 }}</span>
+                <span class="user-email">{{ u.user.split('@')[0] }}</span>
+                <span class="user-count">{{ u.count }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state"><p>Sin datos aún</p></div>
+        }
+      </div>
+
+      <!-- Service Info -->
+      <div class="table-panel service-panel">
+        <div class="panel-header">
+          <h3>🖥️ Estado del servicio</h3>
+        </div>
+        @if (metrics()) {
+          <div class="service-grid">
+            <div class="svc-item"><span>Pool ODBC</span><strong>{{ metrics()?.service?.pool_size }}</strong></div>
+            <div class="svc-item"><span>Max concurrentes</span><strong>{{ metrics()?.service?.max_concurrent_queries }}</strong></div>
+            <div class="svc-item"><span>Threads activos</span><strong>{{ metrics()?.service?.active_threads }}</strong></div>
+            <div class="svc-item"><span>Timeout (s)</span><strong>{{ metrics()?.service?.command_timeout_s }}</strong></div>
+            <div class="svc-item"><span>Redis RAM</span><strong>{{ metrics()?.redis?.used_memory_human }}</strong></div>
+            <div class="svc-item"><span>Redis clientes</span><strong>{{ metrics()?.redis?.connected_clients }}</strong></div>
+            <div class="svc-item"><span>Redis keys</span><strong>{{ metrics()?.redis?.keys | number }}</strong></div>
+            <div class="svc-item"><span>Query máx (ms)</span><strong>{{ formatMs(metrics()?.queries?.max_elapsed_ms ?? 0) }}</strong></div>
+          </div>
+        }
       </div>
     </div>
   </div>
-
-  <!-- Tabla: Queries lentas -->
-  <div class="table-section" *ngIf="slowQueries.length > 0">
-    <h3><i class="pi pi-exclamation-triangle" style="color: #f59e0b;"></i> Queries lentas (> 5s)</h3>
-    <p-table [value]="slowQueries" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="300px">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Hora</th>
-          <th>Vista</th>
-          <th>Usuario</th>
-          <th>Tiempo</th>
-          <th>Filas</th>
-          <th>Cache</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-q>
-        <tr>
-          <td>{{ q.timestamp | date:'HH:mm:ss' }}</td>
-          <td><strong>{{ q.schema }}.{{ q.view }}</strong></td>
-          <td>{{ q.user_email }}</td>
-          <td [class.text-danger]="q.elapsed_ms > 30000">{{ formatMs(q.elapsed_ms) }}</td>
-          <td>{{ formatNumber(q.rows_returned) }}</td>
-          <td>
-            <p-tag [value]="q.cached ? 'Cache' : 'Fabric'" [severity]="q.cached ? 'success' : 'warn'"></p-tag>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
-
-  <!-- Tabla: Top usuarios -->
-  <div class="tables-row" *ngIf="topUsers.length > 0">
-    <div class="table-section half">
-      <h3><i class="pi pi-users"></i> Usuarios más activos</h3>
-      <p-table [value]="topUsers" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="250px">
-        <ng-template pTemplate="header">
-          <tr><th>Usuario</th><th>Queries</th></tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-u>
-          <tr><td>{{ u.user }}</td><td><strong>{{ formatNumber(u.count) }}</strong></td></tr>
-        </ng-template>
-      </p-table>
-    </div>
-
-    <div class="table-section half" *ngIf="metrics">
-      <h3><i class="pi pi-server"></i> Estado del servicio</h3>
-      <div class="service-info">
-        <div class="info-row"><span>Pool conexiones</span><strong>{{ metrics.service.pool_size }}</strong></div>
-        <div class="info-row"><span>Threads activos</span><strong>{{ metrics.service.active_threads }}</strong></div>
-        <div class="info-row"><span>Timeout (s)</span><strong>{{ metrics.service.command_timeout_s }}</strong></div>
-        <div class="info-row"><span>Redis memoria</span><strong>{{ metrics.redis.used_memory_human }}</strong></div>
-        <div class="info-row"><span>Redis clientes</span><strong>{{ metrics.redis.connected_clients }}</strong></div>
-        <div class="info-row"><span>Redis keys</span><strong>{{ formatNumber(metrics.redis.keys) }}</strong></div>
-        <div class="info-row"><span>Uptime</span><strong>{{ metrics.queries.uptime_hours | number:'1.1-1' }}h</strong></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Loading state -->
-  <div class="loading-state" *ngIf="isLoading">
-    <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
-    <p>Conectando con Graph-Fabric...</p>
-  </div>
-</div>
+}
