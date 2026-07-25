@@ -1,10 +1,17 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ChartModule } from 'primeng/chart';
 import { TableModule } from 'primeng/table';
 import { TooltipModule } from 'primeng/tooltip';
 import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
+import { TabViewModule } from 'primeng/tabview';
+import { CalendarModule } from 'primeng/calendar';
+import { DropdownModule } from 'primeng/dropdown';
+import { ButtonModule } from 'primeng/button';
+import { MessageService } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
 import { Subscription, interval } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 
@@ -13,13 +20,17 @@ import {
   ServiceMetrics,
   TopView,
   TopUser,
-  SlowQuery
+  SlowQuery,
+  ErrorLog,
+  ErrorLogSummary,
+  ErrorByView
 } from '../../services/fabric-metrics.service';
 
 @Component({
   selector: 'app-fabric-metrics',
   standalone: true,
-  imports: [CommonModule, ChartModule, TableModule, TooltipModule, TagModule, SkeletonModule],
+  imports: [CommonModule, FormsModule, ChartModule, TableModule, TooltipModule, TagModule, SkeletonModule, TabViewModule, CalendarModule, DropdownModule, ButtonModule, ToastModule],
+  providers: [MessageService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './fabricMetrics.component.html',
   styleUrl: './fabricMetrics.component.css'
@@ -99,8 +110,6 @@ export class FabricMetricsComponent implements OnInit, OnDestroy {
   private readonly MAX_POINTS = 60;
   private readonly POLL_MS = 300_000; // 5 minutos
   private pollSub?: Subscription;
-
-  constructor(private metricsService: FabricMetricsService) {}
 
   ngOnInit(): void {
     this.loadInitial();
@@ -229,4 +238,82 @@ export class FabricMetricsComponent implements OnInit, OnDestroy {
     if (ms > 5000) return 'warn';
     return 'success';
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB: LOGS DE ERRORES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  errorLogs = signal<ErrorLog[]>([]);
+  errorSummary = signal<ErrorLogSummary | null>(null);
+  errorsByView = signal<ErrorByView[]>([]);
+  isLoadingLogs = signal(false);
+
+  // Filtros
+  logFilterType = '';
+  logFilterSchema = '';
+  logFilterView = '';
+  logDateRange: Date[] = [];
+  logShowUnresolved = false;
+
+  readonly errorTypeOptions = [
+    { label: 'Todos', value: '' },
+    { label: 'Timeout', value: 'timeout' },
+    { label: 'Fabric Error', value: 'fabric_error' },
+    { label: 'Permiso', value: 'permission' },
+  ];
+
+  loadErrorLogs(): void {
+    this.isLoadingLogs.set(true);
+
+    const params: Record<string, unknown> = { limit: 100 };
+    if (this.logFilterType) params['error_type'] = this.logFilterType;
+    if (this.logFilterSchema) params['schema'] = this.logFilterSchema;
+    if (this.logFilterView) params['view'] = this.logFilterView;
+    if (this.logShowUnresolved) params['unresolved'] = true;
+    if (this.logDateRange?.length === 2 && this.logDateRange[0] && this.logDateRange[1]) {
+      params['from'] = this.logDateRange[0].toISOString().slice(0, 10);
+      params['to'] = this.logDateRange[1].toISOString().slice(0, 10) + ' 23:59:59';
+    }
+
+    this.metricsService.getErrorLogs(params as any).subscribe({
+      next: res => {
+        this.errorLogs.set(res.data ?? []);
+        this.errorSummary.set(res.summary ?? null);
+        this.isLoadingLogs.set(false);
+      },
+      error: () => this.isLoadingLogs.set(false)
+    });
+
+    this.metricsService.getErrorsByView(7).subscribe({
+      next: views => this.errorsByView.set(views)
+    });
+  }
+
+  resolveError(log: ErrorLog): void {
+    this.metricsService.resolveError(log.id).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Resuelto', detail: `Error #${log.id} marcado como resuelto`, life: 3000 });
+        this.loadErrorLogs();
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo resolver', life: 4000 })
+    });
+  }
+
+  resolveView(schema: string, view: string): void {
+    this.metricsService.resolveView(schema, view).subscribe({
+      next: res => {
+        this.messageService.add({ severity: 'success', summary: 'Vista reactivada', detail: res.message, life: 4000 });
+        this.loadErrorLogs();
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo reactivar', life: 4000 })
+    });
+  }
+
+  onTabChange(event: { index: number }): void {
+    if (event.index === 1 && this.errorLogs().length === 0) {
+      this.loadErrorLogs();
+    }
+  }
+
+  constructor(private metricsService: FabricMetricsService, private messageService: MessageService) {}
 }
