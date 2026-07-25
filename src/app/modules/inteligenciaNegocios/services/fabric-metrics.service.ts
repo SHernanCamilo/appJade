@@ -123,4 +123,89 @@ export class FabricMetricsService {
   getFabricSummary(): Observable<unknown> {
     return this.http.get(`${this.baseUrl}/fabric/summary`);
   }
+
+  // ── Error Logs ────────────────────────────────────────
+
+  /** Lista de errores con filtros opcionales */
+  getErrorLogs(params: ErrorLogFilters = {}): Observable<ErrorLogResponse> {
+    const httpParams: Record<string, string> = {};
+    if (params.schema) httpParams['schema'] = params.schema;
+    if (params.view) httpParams['view'] = params.view;
+    if (params.error_type) httpParams['error_type'] = params.error_type;
+    if (params.from) httpParams['from'] = params.from;
+    if (params.to) httpParams['to'] = params.to;
+    if (params.unresolved) httpParams['unresolved'] = '1';
+    httpParams['limit'] = (params.limit ?? 50).toString();
+
+    return this.http.get<ErrorLogResponse>(`${this.baseUrl}/error-logs`, { params: httpParams });
+  }
+
+  /** Errores agrupados por vista */
+  getErrorsByView(days = 7): Observable<ErrorByView[]> {
+    return this.http.get<{ data: ErrorByView[] }>(
+      `${this.baseUrl}/error-logs/by-view`, { params: { days: days.toString() } }
+    ).pipe(map(r => r.data ?? []));
+  }
+
+  /** Marcar un error como resuelto */
+  resolveError(id: number): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/error-logs/${id}/resolve`, {});
+  }
+
+  /** Resolver todos los errores de una vista y quitar mantenimiento */
+  resolveView(schema: string, view: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/error-logs/resolve-view`, { schema, view });
+  }
+}
+
+// ── Interfaces de Error Logs ──────────────────────────
+
+export interface ErrorLog {
+  id: number;
+  schema_name: string;
+  view_name: string;
+  error_type: 'timeout' | 'fabric_error' | 'permission' | 'unknown';
+  error_category: string;
+  error_message: string;
+  error_detail: string | null;
+  user_email: string | null;
+  department: string | null;
+  elapsed_ms: number | null;
+  auto_maintenance_applied: boolean;
+  notification_sent: boolean;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export interface ErrorLogSummary {
+  total: number;
+  today: number;
+  timeouts: number;
+  fabric_errors: number;
+  auto_maintenance: number;
+}
+
+export interface ErrorLogResponse {
+  success: boolean;
+  summary: ErrorLogSummary;
+  data: ErrorLog[];
+}
+
+export interface ErrorLogFilters {
+  schema?: string;
+  view?: string;
+  error_type?: string;
+  from?: string;
+  to?: string;
+  unresolved?: boolean;
+  limit?: number;
+}
+
+export interface ErrorByView {
+  schema_name: string;
+  view_name: string;
+  error_type: string;
+  error_count: number;
+  last_error: string;
 }
