@@ -84,34 +84,4 @@
       <app-grid-loader></app-grid-loader>
     </div>
   }
-
-  <!-- Dialog para abrir PDF -->
-  <p-dialog
-    [(visible)]="showPdfDialog"
-    [header]="pdfTitle"
-    [modal]="true"
-    [style]="{width: '500px'}"
-    [closable]="true">
-    <div class="pdf-dialog-content">
-      <div class="pdf-dialog-icon">
-        <i class="pi pi-file-pdf"></i>
-      </div>
-      <p class="pdf-dialog-msg">
-        Este documento se encuentra en el servidor de archivos de la clinica.
-        Seleccione una opcion para visualizarlo:
-      </p>
-      <div class="pdf-dialog-actions">
-        <button class="btn-abrir-red" (click)="abrirDesdeRed()">
-          <i class="pi pi-external-link"></i> Abrir desde la red
-        </button>
-        <button class="btn-copiar-ruta" (click)="copiarRutaDialog()">
-          <i class="pi pi-copy"></i> Copiar ruta
-        </button>
-      </div>
-      <div class="pdf-dialog-ruta">
-        <span class="ruta-label">Ubicacion del archivo:</span>
-        <code class="ruta-text">{{ pdfUrl }}</code>
-      </div>
-    </div>
-  </p-dialog>
 </div>

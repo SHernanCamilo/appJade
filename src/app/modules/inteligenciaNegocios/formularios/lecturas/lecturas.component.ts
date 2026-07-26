@@ -231,21 +231,19 @@ export class LecturasComponent implements OnDestroy {
       return;
     }
 
-    // Mostrar dialog con informacion y opciones para abrir
-    this.pdfTitle = `${row.Paciente} - ${row.Servicio}`;
-    this.pdfUrl = ruta;
-    this.showPdfDialog = true;
-  }
+    // Intentar abrir via file:// directamente (transparente para el usuario)
+    const fileUrl = this.smbToFileUrl(ruta);
+    const win = window.open(fileUrl, '_blank');
 
-  abrirDesdeRed(): void {
-    // Intentar abrir via file:// (funciona si el PC tiene acceso SMB al share)
-    const fileUrl = this.smbToFileUrl(this.pdfUrl);
-    window.open(fileUrl, '_blank');
-  }
-
-  copiarRutaDialog(): void {
-    this.copyToClipboard(this.pdfUrl);
-    this.messageService.add({ severity: 'success', summary: 'Copiado', detail: 'Ruta copiada. Abra el Explorador de archivos y pegue en la barra de direcciones.', life: 5000 });
+    // Si el navegador bloquea, notificar
+    if (!win) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'No se pudo abrir',
+        detail: 'El archivo no esta disponible desde este equipo. Verifique que esta conectado a la red de la clinica.',
+        life: 6000
+      });
+    }
   }
 
   copyRuta(row: LecturaRow): void {
