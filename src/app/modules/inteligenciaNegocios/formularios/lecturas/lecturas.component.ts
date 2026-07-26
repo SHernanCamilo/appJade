@@ -231,23 +231,21 @@ export class LecturasComponent implements OnDestroy {
       return;
     }
 
-    // Convertir ruta SMB a formato file:// para abrir desde la red interna
-    const fileUrl = this.smbToFileUrl(ruta);
+    // Mostrar dialog con informacion y opciones para abrir
     this.pdfTitle = `${row.Paciente} - ${row.Servicio}`;
+    this.pdfUrl = ruta;
+    this.showPdfDialog = true;
+  }
 
-    // Intentar abrir en nueva ventana (funciona si el usuario esta en la red)
-    const win = window.open(fileUrl, '_blank');
+  abrirDesdeRed(): void {
+    // Intentar abrir via file:// (funciona si el PC tiene acceso SMB al share)
+    const fileUrl = this.smbToFileUrl(this.pdfUrl);
+    window.open(fileUrl, '_blank');
+  }
 
-    if (!win) {
-      // Si el navegador bloquea, copiar al portapapeles
-      this.copyToClipboard(ruta);
-      this.messageService.add({
-        severity: 'info',
-        summary: 'Ruta copiada',
-        detail: 'La ruta fue copiada al portapapeles. Peguela en Ejecutar (Win+R) o en el Explorador de archivos.',
-        life: 6000
-      });
-    }
+  copiarRutaDialog(): void {
+    this.copyToClipboard(this.pdfUrl);
+    this.messageService.add({ severity: 'success', summary: 'Copiado', detail: 'Ruta copiada. Abra el Explorador de archivos y pegue en la barra de direcciones.', life: 5000 });
   }
 
   copyRuta(row: LecturaRow): void {
