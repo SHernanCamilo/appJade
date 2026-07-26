@@ -115,23 +115,25 @@ export class LecturasComponent implements OnDestroy {
   // ─── Carga de profesionales (valores unicos) ────────────────────────────
 
   loadProfesionales(): void {
-    this.isLoadingProfesionales = true;
-    // Cargar solo 200 filas para extraer nombres unicos (no sobrecargar)
-    this.vistasService.getVistaDatos(this.schema, this.viewName, {
-      columns: ['Profesional'],
-      limit: 200,
-      offset: 0,
-      filters: {},
-    }).subscribe({
-      next: (res) => {
-        const profesionales = [...new Set(
-          (res.rowData ?? []).map(r => r['Profesional'] as string).filter(Boolean)
-        )].sort();
-        this.profesionalOptions = profesionales.map(p => ({ label: p, value: p }));
-        this.isLoadingProfesionales = false;
-      },
-      error: () => { this.isLoadingProfesionales = false; }
-    });
+    // No precargar — la vista puede tener nulls al inicio.
+    // El dropdown se llena cuando el usuario consulta datos reales.
+    this.isLoadingProfesionales = false;
+    this.profesionalOptions = [];
+  }
+
+  /** Se llama despues de cada consulta exitosa para llenar el dropdown de profesionales */
+  private updateProfesionalOptions(): void {
+    const profs = [...new Set(
+      this.rowData.map(r => r['Profesional']).filter(Boolean) as string[]
+    )].sort();
+    // Merge con existentes (para no perder opciones previas)
+    const existing = new Set(this.profesionalOptions.map(o => o.value));
+    for (const p of profs) {
+      if (!existing.has(p)) {
+        this.profesionalOptions.push({ label: p, value: p });
+      }
+    }
+    this.profesionalOptions.sort((a, b) => a.label.localeCompare(b.label));
   }
 
   // ─── Autocomplete paciente ──────────────────────────────────────────────
@@ -209,6 +211,7 @@ export class LecturasComponent implements OnDestroy {
         this.rowData = (res.rowData ?? []) as LecturaRow[];
         this.consultado = true;
         this.isLoading = false;
+        this.updateProfesionalOptions();
 
         if (this.rowData.length === 0) {
           this.messageService.add({ severity: 'info', summary: 'Sin resultados', detail: 'No se encontraron lecturas con los filtros aplicados.', life: 4000 });
