@@ -5,8 +5,6 @@ import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { DialogModule } from 'primeng/dialog';
-import { DropdownModule } from 'primeng/dropdown';
 import { AutoCompleteModule } from 'primeng/autocomplete';
 import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
@@ -36,8 +34,6 @@ interface LecturaRow {
     AgGridAngular,
     ToastModule,
     TooltipModule,
-    DialogModule,
-    DropdownModule,
     AutoCompleteModule,
     GridLoaderComponent
   ],
@@ -51,15 +47,13 @@ export class LecturasComponent implements OnDestroy {
   private readonly viewName = 'VW_ReportView_Imagenologia';
 
   // Filtros
-  pacienteQuery = '';
-  pacienteSuggestions: { label: string; value: string }[] = [];
   selectedPaciente: string = '';
+  pacienteSuggestions: { label: string; value: string }[] = [];
   profesionalFilter = '';
-  profesionalOptions: { label: string; value: string }[] = [];
+  profesionalSuggestions: { label: string; value: string }[] = [];
 
   // Estado
   isLoading = false;
-  isLoadingProfesionales = false;
   consultado = false;
   showPdfDialog = false;
   pdfUrl = '';
@@ -100,9 +94,7 @@ export class LecturasComponent implements OnDestroy {
   constructor(
     private vistasService: VistasService,
     private messageService: MessageService
-  ) {
-    this.loadProfesionales();
-  }
+  ) {}
 
   ngOnDestroy(): void {
     this.sub?.unsubscribe();
@@ -112,42 +104,15 @@ export class LecturasComponent implements OnDestroy {
     this.gridApi = event.api;
   }
 
-  // ─── Carga de profesionales (valores unicos) ────────────────────────────
-
-  loadProfesionales(): void {
-    // No precargar — la vista puede tener nulls al inicio.
-    // El dropdown se llena cuando el usuario consulta datos reales.
-    this.isLoadingProfesionales = false;
-    this.profesionalOptions = [];
-  }
-
-  /** Se llama despues de cada consulta exitosa para llenar el dropdown de profesionales */
-  private updateProfesionalOptions(): void {
-    const profs = [...new Set(
-      this.rowData.map(r => r['Profesional']).filter(Boolean) as string[]
-    )].sort();
-    // Merge con existentes (para no perder opciones previas)
-    const existing = new Set(this.profesionalOptions.map(o => o.value));
-    for (const p of profs) {
-      if (!existing.has(p)) {
-        this.profesionalOptions.push({ label: p, value: p });
-      }
-    }
-    this.profesionalOptions.sort((a, b) => a.label.localeCompare(b.label));
-  }
-
-  // ─── Autocomplete paciente ──────────────────────────────────────────────
+  // ─── Autocomplete Paciente (busca por Documento) ────────────────────────
 
   searchPaciente(event: { query: string }): void {
     const query = event.query.trim();
-    if (query.length < 3) {
-      this.pacienteSuggestions = [];
-      return;
-    }
+    if (query.length < 3) { this.pacienteSuggestions = []; return; }
 
     this.vistasService.getVistaDatos(this.schema, this.viewName, {
       columns: ['Documento', 'Paciente'],
-      limit: 20,
+      limit: 50,
       offset: 0,
       filters: { Documento: `%${query}%` },
     }).subscribe({
@@ -156,14 +121,11 @@ export class LecturasComponent implements OnDestroy {
         this.pacienteSuggestions = (res.rowData ?? [])
           .filter(r => {
             const key = `${r['Documento']}`;
-            if (seen.has(key)) return false;
+            if (!key || seen.has(key)) return false;
             seen.add(key);
             return true;
           })
-          .map(r => ({
-            label: `${r['Documento']} - ${r['Paciente']}`,
-            value: r['Documento'] as string,
-          }));
+          .map(r => ({ label: `${r['Documento']} - ${r['Paciente']}`, value: r['Documento'] as string }));
       }
     });
   }
@@ -172,6 +134,34 @@ export class LecturasComponent implements OnDestroy {
     const item = (event as Record<string, unknown>)['value'] as Record<string, string> | undefined;
     if (item && item['value']) {
       this.selectedPaciente = item['value'];
+    }
+  }
+
+  // ─── Autocomplete Profesional (busca por nombre) ────────────────────────
+
+  searchProfesional(event: { query: string }): void {
+    const query = event.query.trim();
+    if (query.length < 3) { this.profesionalSuggestions = []; return; }
+
+    this.vistasService.getVistaDatos(this.schema, this.viewName, {
+      columns: ['Profesional'],
+      limit: 50,
+      offset: 0,
+      filters: { Profesional: `%${query}%` },
+    }).subscribe({
+      next: (res) => {
+        const profs = [...new Set(
+          (res.rowData ?? []).map(r => r['Profesional'] as string).filter(Boolean)
+        )].sort();
+        this.profesionalSuggestions = profs.map(p => ({ label: p, value: p }));
+      }
+    });
+  }
+
+  onProfesionalSelect(event: unknown): void {
+    const item = (event as Record<string, unknown>)['value'] as Record<string, string> | undefined;
+    if (item && item['value']) {
+      this.profesionalFilter = item['value'];
     }
   }
 
@@ -211,7 +201,6 @@ export class LecturasComponent implements OnDestroy {
         this.rowData = (res.rowData ?? []) as LecturaRow[];
         this.consultado = true;
         this.isLoading = false;
-        this.updateProfesionalOptions();
 
         if (this.rowData.length === 0) {
           this.messageService.add({ severity: 'info', summary: 'Sin resultados', detail: 'No se encontraron lecturas con los filtros aplicados.', life: 4000 });

@@ -6,64 +6,62 @@
     <span class="header-sub">Consulta de lecturas radiologicas por paciente o profesional</span>
   </div>
 
-  <!-- Filtros -->
-  <div class="filtros-panel">
-    <div class="filtro-group">
-      <label class="filtro-label">Paciente (Documento o Nombre)</label>
+  <!-- Filtros en una sola linea -->
+  <div class="filtros-row">
+    <div class="filtro-item">
+      <label class="filtro-label">Paciente</label>
       <p-autoComplete
         [(ngModel)]="selectedPaciente"
         [suggestions]="pacienteSuggestions"
         (completeMethod)="searchPaciente($event)"
         (onSelect)="onPacienteSelect($event)"
         field="label"
-        placeholder="Escriba documento o nombre..."
+        placeholder="Documento o nombre (min 3 caracteres)..."
         [minLength]="3"
         [showClear]="true"
         [forceSelection]="false"
-        styleClass="filtro-autocomplete"
+        styleClass="w-full"
         appendTo="body">
       </p-autoComplete>
     </div>
 
-    <div class="filtro-group">
+    <div class="filtro-item">
       <label class="filtro-label">Profesional</label>
-      <p-dropdown
+      <p-autoComplete
         [(ngModel)]="profesionalFilter"
-        [options]="profesionalOptions"
-        optionLabel="label"
-        optionValue="value"
-        placeholder="Escriba o seleccione..."
+        [suggestions]="profesionalSuggestions"
+        (completeMethod)="searchProfesional($event)"
+        (onSelect)="onProfesionalSelect($event)"
+        field="label"
+        placeholder="Nombre del profesional (min 3 caracteres)..."
+        [minLength]="3"
         [showClear]="true"
-        [filter]="true"
-        [editable]="true"
-        filterBy="label"
-        [loading]="isLoadingProfesionales"
-        styleClass="filtro-dropdown"
+        [forceSelection]="false"
+        styleClass="w-full"
         appendTo="body">
-      </p-dropdown>
+      </p-autoComplete>
     </div>
 
     <button class="btn-consultar" (click)="consultar()" [disabled]="isLoading">
-      <i class="pi pi-search" [class.pi-spin]="isLoading" [class.pi-spinner]="isLoading"></i>
-      {{ isLoading ? 'Consultando...' : 'Consultar' }}
+      <i class="pi" [class.pi-search]="!isLoading" [class.pi-spin]="isLoading" [class.pi-spinner]="isLoading"></i>
+      {{ isLoading ? 'Buscando...' : 'Consultar' }}
     </button>
   </div>
 
-  <!-- Aviso obligatorio -->
+  <!-- Aviso -->
   @if (!consultado && !isLoading) {
     <div class="aviso-filtro">
       <i class="pi pi-info-circle"></i>
-      Debe filtrar por al menos un paciente o un profesional para consultar las lecturas.
+      Filtre por paciente o profesional para consultar las lecturas. Escriba al menos 3 caracteres.
     </div>
   }
 
-  <!-- Tabla de resultados -->
+  <!-- Resultados -->
   @if (consultado) {
     <div class="resultados-panel">
       <div class="resultados-header">
-        <span class="resultados-count"><i class="pi pi-list"></i> {{ rowData.length }} lecturas encontradas</span>
+        <span class="resultados-count"><i class="pi pi-list"></i> {{ rowData.length }} lecturas</span>
       </div>
-
       <ag-grid-angular
         class="ag-theme-alpine"
         [rowData]="rowData"
@@ -79,10 +77,7 @@
     </div>
   }
 
-  <!-- Loading -->
   @if (isLoading) {
-    <div class="loading-state">
-      <app-grid-loader></app-grid-loader>
-    </div>
+    <div class="loading-state"><app-grid-loader></app-grid-loader></div>
   }
 </div>
