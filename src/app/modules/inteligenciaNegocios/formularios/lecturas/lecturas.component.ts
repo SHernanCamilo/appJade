@@ -166,9 +166,11 @@ export class LecturasComponent implements OnDestroy {
     });
   }
 
-  onPacienteSelect(event: { label: string; value: string }): void {
-    // Cuando seleccionan del dropdown, guardar el documento
-    this.selectedPaciente = event.value;
+  onPacienteSelect(event: unknown): void {
+    const item = (event as Record<string, unknown>)['value'] as Record<string, string> | undefined;
+    if (item && item['value']) {
+      this.selectedPaciente = item['value'];
+    }
   }
 
   // ─── Consultar ──────────────────────────────────────────────────────────
