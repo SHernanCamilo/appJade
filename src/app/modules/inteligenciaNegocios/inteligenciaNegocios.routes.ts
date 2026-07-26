@@ -177,7 +177,7 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       ),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'BI-FORMULARIOS-LECTURAS',
+      moduleCode: 'BI-FORMULARIOS-LECTU',
       pageTitle: 'Lecturas Imagenologia',
       pageSubtitle: 'Consulta de lecturas radiologicas por paciente o profesional'
     }
