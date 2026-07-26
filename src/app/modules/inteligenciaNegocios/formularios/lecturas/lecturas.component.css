@@ -45,14 +45,15 @@
 :host ::ng-deep .ag-header-cell-label { font-size: 0.78rem; font-weight: 600; }
 :host ::ng-deep .ag-cell { font-size: 0.8rem; }
 
-/* Boton Ver PDF */
-:host ::ng-deep .btn-ver-pdf {
-  display: inline-flex; align-items: center; gap: 0.25rem;
-  padding: 0.2rem 0.5rem; background: #fef2f2; color: #dc2626;
-  border: 1px solid #fca5a5; border-radius: 4px; font-size: 0.7rem;
-  font-weight: 600; cursor: pointer; transition: all 0.15s;
+/* Boton Ver Lectura */
+:host ::ng-deep .btn-ver-lectura {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.7rem; background: #2563eb; color: #fff;
+  border: none; border-radius: 6px; font-size: 0.72rem;
+  font-weight: 600; cursor: pointer; transition: background 0.2s;
 }
-:host ::ng-deep .btn-ver-pdf:hover { background: #dc2626; color: #fff; }
+:host ::ng-deep .btn-ver-lectura:hover { background: #1d4ed8; }
+:host ::ng-deep .btn-ver-lectura i { font-size: 0.7rem; }
 
 .loading-state { padding: 2rem; text-align: center; }
 

@@ -61,18 +61,21 @@ export class LecturasComponent implements OnDestroy {
   // Datos
   rowData: LecturaRow[] = [];
   columnDefs: ColDef[] = [
-    { field: 'Documento', headerName: 'Documento', width: 120 },
-    { field: 'Paciente', headerName: 'Paciente', width: 220 },
-    { field: 'Servicio', headerName: 'Servicio', width: 200 },
-    { field: 'FechaLectura', headerName: 'Fecha Lectura', width: 160 },
-    { field: 'Profesional', headerName: 'Profesional', width: 200 },
+    { field: 'Documento', headerName: 'Documento', width: 130, minWidth: 120 },
+    { field: 'Paciente', headerName: 'Paciente', width: 220, minWidth: 180 },
+    { field: 'Servicio', headerName: 'Servicio', width: 280, minWidth: 200 },
+    { field: 'FechaLectura', headerName: 'Fecha Lectura', width: 170, minWidth: 150 },
+    { field: 'Profesional', headerName: 'Profesional', width: 220, minWidth: 180 },
     {
       field: 'Ruta',
       headerName: 'Lectura',
-      width: 120,
+      width: 100,
+      minWidth: 90,
+      sortable: false,
+      filter: false,
       cellRenderer: (params: { value: string }) => {
-        if (!params.value) return '-';
-        return '<button class="btn-ver-pdf"><i class="pi pi-file-pdf"></i> Ver</button>';
+        if (!params.value) return '<span style="color:#94a3b8;">—</span>';
+        return '<button class="btn-ver-lectura"><i class="pi pi-eye"></i> Abrir</button>';
       },
       onCellClicked: (event: { data: LecturaRow }) => this.openPdf(event.data)
     }
