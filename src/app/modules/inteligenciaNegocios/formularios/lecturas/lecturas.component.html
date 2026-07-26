@@ -1,0 +1,85 @@
+<p-toast></p-toast>
+
+<div class="lecturas-container">
+  <div class="lecturas-header">
+    <h2><i class="pi pi-file-pdf"></i> Lecturas Imagenologia</h2>
+    <span class="header-sub">Consulta de lecturas radiologicas por paciente o profesional</span>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filtros-panel">
+    <div class="filtro-group">
+      <label class="filtro-label">Paciente (Documento o Nombre)</label>
+      <p-autoComplete
+        [(ngModel)]="selectedPaciente"
+        [suggestions]="pacienteSuggestions"
+        (completeMethod)="searchPaciente($event)"
+        field="label"
+        placeholder="Escriba documento o nombre..."
+        [minLength]="3"
+        [showClear]="true"
+        styleClass="filtro-autocomplete"
+        appendTo="body">
+      </p-autoComplete>
+    </div>
+
+    <div class="filtro-group">
+      <label class="filtro-label">Profesional</label>
+      <p-dropdown
+        [(ngModel)]="profesionalFilter"
+        [options]="profesionalOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccionar profesional..."
+        [showClear]="true"
+        [filter]="true"
+        filterBy="label"
+        [loading]="isLoadingProfesionales"
+        styleClass="filtro-dropdown"
+        appendTo="body">
+      </p-dropdown>
+    </div>
+
+    <button class="btn-consultar" (click)="consultar()" [disabled]="isLoading">
+      <i class="pi pi-search" [class.pi-spin]="isLoading" [class.pi-spinner]="isLoading"></i>
+      {{ isLoading ? 'Consultando...' : 'Consultar' }}
+    </button>
+  </div>
+
+  <!-- Aviso obligatorio -->
+  @if (!consultado && !isLoading) {
+    <div class="aviso-filtro">
+      <i class="pi pi-info-circle"></i>
+      Debe filtrar por al menos un paciente o un profesional para consultar las lecturas.
+    </div>
+  }
+
+  <!-- Tabla de resultados -->
+  @if (consultado) {
+    <div class="resultados-panel">
+      <div class="resultados-header">
+        <span class="resultados-count"><i class="pi pi-list"></i> {{ rowData.length }} lecturas encontradas</span>
+      </div>
+
+      <ag-grid-angular
+        class="ag-theme-alpine"
+        [rowData]="rowData"
+        [columnDefs]="columnDefs"
+        [defaultColDef]="defaultColDef"
+        [localeText]="localeText"
+        [animateRows]="true"
+        [pagination]="true"
+        [paginationPageSize]="20"
+        [domLayout]="'autoHeight'"
+        (gridReady)="onGridReady($event)">
+      </ag-grid-angular>
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (isLoading) {
+    <div class="loading-state">
+      <app-grid-loader></app-grid-loader>
+    </div>
+  }
+</div>

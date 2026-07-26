@@ -168,5 +168,18 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       moduleCode: 'BI-FORM-CRUCE-SOAT',
       pageSubtitle: 'Consulta de facturación SOAT por cédula'
     }
+  },
+  {
+    path: 'formularios/lecturas',
+    loadComponent: () =>
+      import('./formularios/lecturas/lecturas.component').then(
+        m => m.LecturasComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORMULARIOS-LECTURAS',
+      pageTitle: 'Lecturas Imagenologia',
+      pageSubtitle: 'Consulta de lecturas radiologicas por paciente o profesional'
+    }
   }
 ];

@@ -1,0 +1,137 @@
+.lecturas-container {
+  padding: 1.5rem;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.lecturas-header {
+  margin-bottom: 1.5rem;
+}
+.lecturas-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.lecturas-header h2 i { color: #dc2626; }
+.header-sub {
+  display: block;
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 0.3rem;
+}
+
+/* Filtros */
+.filtros-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  padding: 1.2rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 1.2rem;
+}
+.filtro-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 220px;
+}
+.filtro-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.btn-consultar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  height: 38px;
+}
+.btn-consultar:hover:not(:disabled) { background: #1d4ed8; }
+.btn-consultar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Aviso */
+.aviso-filtro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.2rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+.aviso-filtro i { font-size: 1.1rem; }
+
+/* Resultados */
+.resultados-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.resultados-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.resultados-count {
+  font-size: 0.82rem;
+  color: #475569;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Boton Ver PDF dentro de ag-grid */
+:host ::ng-deep .btn-ver-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+:host ::ng-deep .btn-ver-pdf:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.loading-state {
+  padding: 3rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .filtros-panel { flex-direction: column; }
+  .filtro-group { min-width: 100%; }
+}
