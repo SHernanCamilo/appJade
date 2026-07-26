@@ -53,7 +53,7 @@ export class LecturasComponent implements OnDestroy {
   // Filtros
   pacienteQuery = '';
   pacienteSuggestions: { label: string; value: string }[] = [];
-  selectedPaciente: { label: string; value: string } | null = null;
+  selectedPaciente: string = '';
   profesionalFilter = '';
   profesionalOptions: { label: string; value: string }[] = [];
 
@@ -116,9 +116,10 @@ export class LecturasComponent implements OnDestroy {
 
   loadProfesionales(): void {
     this.isLoadingProfesionales = true;
+    // Cargar solo 200 filas para extraer nombres unicos (no sobrecargar)
     this.vistasService.getVistaDatos(this.schema, this.viewName, {
       columns: ['Profesional'],
-      limit: 5000,
+      limit: 200,
       offset: 0,
       filters: {},
     }).subscribe({
@@ -165,10 +166,21 @@ export class LecturasComponent implements OnDestroy {
     });
   }
 
+  onPacienteSelect(event: { label: string; value: string }): void {
+    // Cuando seleccionan del dropdown, guardar el documento
+    this.selectedPaciente = event.value;
+  }
+
   // ─── Consultar ──────────────────────────────────────────────────────────
 
   consultar(): void {
-    const doc = this.selectedPaciente?.value ?? '';
+    // Extraer documento del paciente (puede ser string directo o objeto seleccionado)
+    let doc = '';
+    if (typeof this.selectedPaciente === 'string') {
+      // El usuario escribio directamente o selecciono y quedo el label
+      const match = this.selectedPaciente.match(/^(\d+)/);
+      doc = match ? match[1] : this.selectedPaciente.trim();
+    }
     const prof = this.profesionalFilter ?? '';
 
     if (!doc && !prof) {

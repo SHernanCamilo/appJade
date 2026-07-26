@@ -14,10 +14,12 @@
         [(ngModel)]="selectedPaciente"
         [suggestions]="pacienteSuggestions"
         (completeMethod)="searchPaciente($event)"
+        (onSelect)="onPacienteSelect($event)"
         field="label"
         placeholder="Escriba documento o nombre..."
         [minLength]="3"
         [showClear]="true"
+        [forceSelection]="false"
         styleClass="filtro-autocomplete"
         appendTo="body">
       </p-autoComplete>
