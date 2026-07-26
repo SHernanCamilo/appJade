@@ -6,40 +6,40 @@
     <span class="header-sub">Consulta de lecturas radiologicas por paciente o profesional</span>
   </div>
 
-  <!-- Filtros en una sola linea -->
+  <!-- Filtros -->
   <div class="filtros-row">
     <div class="filtro-item">
       <label class="filtro-label">Paciente</label>
-      <p-autoComplete
+      <p-dropdown
         [(ngModel)]="selectedPaciente"
-        [suggestions]="pacienteSuggestions"
-        (completeMethod)="searchPaciente($event)"
-        (onSelect)="onPacienteSelect($event)"
-        field="label"
-        placeholder="Documento o nombre (min 3 caracteres)..."
-        [minLength]="3"
+        [options]="pacienteOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccionar paciente..."
         [showClear]="true"
-        [forceSelection]="false"
+        [filter]="true"
+        filterBy="label"
+        [loading]="isLoadingPacientes"
         styleClass="w-full"
         appendTo="body">
-      </p-autoComplete>
+      </p-dropdown>
     </div>
 
     <div class="filtro-item">
       <label class="filtro-label">Profesional</label>
-      <p-autoComplete
+      <p-dropdown
         [(ngModel)]="profesionalFilter"
-        [suggestions]="profesionalSuggestions"
-        (completeMethod)="searchProfesional($event)"
-        (onSelect)="onProfesionalSelect($event)"
-        field="label"
-        placeholder="Nombre del profesional (min 3 caracteres)..."
-        [minLength]="3"
+        [options]="profesionalOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccionar profesional..."
         [showClear]="true"
-        [forceSelection]="false"
+        [filter]="true"
+        filterBy="label"
+        [loading]="isLoadingProfesionales"
         styleClass="w-full"
         appendTo="body">
-      </p-autoComplete>
+      </p-dropdown>
     </div>
 
     <button class="btn-consultar" (click)="consultar()" [disabled]="isLoading">
@@ -52,7 +52,7 @@
   @if (!consultado && !isLoading) {
     <div class="aviso-filtro">
       <i class="pi pi-info-circle"></i>
-      Filtre por paciente o profesional para consultar las lecturas. Escriba al menos 3 caracteres.
+      Seleccione al menos un paciente o un profesional para consultar las lecturas.
     </div>
   }
 

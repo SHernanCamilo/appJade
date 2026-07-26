@@ -5,7 +5,7 @@ import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { AutoCompleteModule } from 'primeng/autocomplete';
+import { DropdownModule } from 'primeng/dropdown';
 import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
 
@@ -34,7 +34,7 @@ interface LecturaRow {
     AgGridAngular,
     ToastModule,
     TooltipModule,
-    AutoCompleteModule,
+    DropdownModule,
     GridLoaderComponent
   ],
   providers: [MessageService],
@@ -47,17 +47,16 @@ export class LecturasComponent implements OnDestroy {
   private readonly viewName = 'VW_ReportView_Imagenologia';
 
   // Filtros
-  selectedPaciente: string = '';
-  pacienteSuggestions: { label: string; value: string }[] = [];
+  selectedPaciente = '';
+  pacienteOptions: { label: string; value: string }[] = [];
+  isLoadingPacientes = false;
   profesionalFilter = '';
-  profesionalSuggestions: { label: string; value: string }[] = [];
+  profesionalOptions: { label: string; value: string }[] = [];
+  isLoadingProfesionales = false;
 
   // Estado
   isLoading = false;
   consultado = false;
-  showPdfDialog = false;
-  pdfUrl = '';
-  pdfTitle = '';
 
   // Datos
   rowData: LecturaRow[] = [];
@@ -94,7 +93,9 @@ export class LecturasComponent implements OnDestroy {
   constructor(
     private vistasService: VistasService,
     private messageService: MessageService
-  ) {}
+  ) {
+    this.loadDropdowns();
+  }
 
   ngOnDestroy(): void {
     this.sub?.unsubscribe();
@@ -104,77 +105,57 @@ export class LecturasComponent implements OnDestroy {
     this.gridApi = event.api;
   }
 
-  // ─── Autocomplete Paciente (busca por Documento) ────────────────────────
+  // ─── Cargar datos para los dropdowns ────────────────────────────────────
 
-  searchPaciente(event: { query: string }): void {
-    const query = event.query.trim();
-    if (query.length < 3) { this.pacienteSuggestions = []; return; }
+  private loadDropdowns(): void {
+    this.isLoadingPacientes = true;
+    this.isLoadingProfesionales = true;
 
+    // Cargar pacientes y profesionales en una sola consulta (las primeras 1000 filas con datos)
     this.vistasService.getVistaDatos(this.schema, this.viewName, {
-      columns: ['Documento', 'Paciente'],
-      limit: 50,
+      columns: ['Documento', 'Paciente', 'Profesional'],
+      limit: 1000,
       offset: 0,
-      filters: { Documento: `%${query}%` },
+      filters: {},
+      sort_col: 'FechaLectura',
+      sort_dir: 'desc',
     }).subscribe({
       next: (res) => {
-        const seen = new Set<string>();
-        this.pacienteSuggestions = (res.rowData ?? [])
-          .filter(r => {
-            const key = `${r['Documento']}`;
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .map(r => ({ label: `${r['Documento']} - ${r['Paciente']}`, value: r['Documento'] as string }));
-      }
-    });
-  }
+        const rows = res.rowData ?? [];
 
-  onPacienteSelect(event: unknown): void {
-    const item = (event as Record<string, unknown>)['value'] as Record<string, string> | undefined;
-    if (item && item['value']) {
-      this.selectedPaciente = item['value'];
-    }
-  }
+        // Pacientes unicos
+        const pacientesMap = new Map<string, string>();
+        for (const r of rows) {
+          const doc = r['Documento'] as string;
+          const nombre = r['Paciente'] as string;
+          if (doc && !pacientesMap.has(doc)) {
+            pacientesMap.set(doc, `${doc} - ${nombre ?? ''}`);
+          }
+        }
+        this.pacienteOptions = [...pacientesMap.entries()]
+          .map(([value, label]) => ({ label, value }))
+          .sort((a, b) => a.label.localeCompare(b.label));
 
-  // ─── Autocomplete Profesional (busca por nombre) ────────────────────────
-
-  searchProfesional(event: { query: string }): void {
-    const query = event.query.trim();
-    if (query.length < 3) { this.profesionalSuggestions = []; return; }
-
-    this.vistasService.getVistaDatos(this.schema, this.viewName, {
-      columns: ['Profesional'],
-      limit: 50,
-      offset: 0,
-      filters: { Profesional: `%${query}%` },
-    }).subscribe({
-      next: (res) => {
+        // Profesionales unicos
         const profs = [...new Set(
-          (res.rowData ?? []).map(r => r['Profesional'] as string).filter(Boolean)
+          rows.map(r => r['Profesional'] as string).filter(Boolean)
         )].sort();
-        this.profesionalSuggestions = profs.map(p => ({ label: p, value: p }));
+        this.profesionalOptions = profs.map(p => ({ label: p, value: p }));
+
+        this.isLoadingPacientes = false;
+        this.isLoadingProfesionales = false;
+      },
+      error: () => {
+        this.isLoadingPacientes = false;
+        this.isLoadingProfesionales = false;
       }
     });
-  }
-
-  onProfesionalSelect(event: unknown): void {
-    const item = (event as Record<string, unknown>)['value'] as Record<string, string> | undefined;
-    if (item && item['value']) {
-      this.profesionalFilter = item['value'];
-    }
   }
 
   // ─── Consultar ──────────────────────────────────────────────────────────
 
   consultar(): void {
-    // Extraer documento del paciente (puede ser string directo o objeto seleccionado)
-    let doc = '';
-    if (typeof this.selectedPaciente === 'string') {
-      // El usuario escribio directamente o selecciono y quedo el label
-      const match = this.selectedPaciente.match(/^(\d+)/);
-      doc = match ? match[1] : this.selectedPaciente.trim();
-    }
+    const doc = this.selectedPaciente ?? '';
     const prof = this.profesionalFilter ?? '';
 
     if (!doc && !prof) {
