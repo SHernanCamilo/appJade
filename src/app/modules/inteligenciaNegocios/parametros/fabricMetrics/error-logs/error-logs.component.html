@@ -1,0 +1,106 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="error-logs-panel">
+  <!-- Summary cards -->
+  @if (summary()) {
+    <div class="summary-row">
+      <div class="sum-card"><span class="sum-value">{{ summary()!.today }}</span><span class="sum-label">Errores hoy</span></div>
+      <div class="sum-card sum-danger"><span class="sum-value">{{ summary()!.timeouts }}</span><span class="sum-label">Timeouts hoy</span></div>
+      <div class="sum-card sum-warn"><span class="sum-value">{{ summary()!.fabric_errors }}</span><span class="sum-label">Fabric errors hoy</span></div>
+      <div class="sum-card sum-alert"><span class="sum-value">{{ summary()!.auto_maintenance }}</span><span class="sum-label">En mantenimiento</span></div>
+    </div>
+  }
+
+  <!-- Vistas con mas errores (para resolver rapido) -->
+  @if (errorsByView().length > 0) {
+    <div class="section-card">
+      <div class="section-header">
+        <h4><i class="pi pi-exclamation-circle"></i> Vistas con errores recurrentes (7 dias)</h4>
+      </div>
+      <div class="view-error-grid">
+        @for (item of errorsByView().slice(0, 6); track item.view_name) {
+          <div class="view-error-item">
+            <div class="vei-info">
+              <span class="vei-name">{{ item.schema_name }}.{{ item.view_name }}</span>
+              <span class="vei-detail">
+                <p-tag [value]="item.error_type" [severity]="getTypeSeverity(item.error_type)" styleClass="tag-sm"></p-tag>
+                <span class="vei-count">{{ item.error_count }} errores</span>
+              </span>
+            </div>
+            <button class="btn-resolve" (click)="resolveView(item)" pTooltip="Resolver y reactivar vista">
+              <i class="pi pi-check-circle"></i> Resolver
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Filtros -->
+  <div class="filters-row">
+    <div class="filter-group">
+      <label>Esquema</label>
+      <input type="text" pInputText [(ngModel)]="filterSchema" placeholder="ej: ca, df" class="filter-input" />
+    </div>
+    <div class="filter-group">
+      <label>Vista</label>
+      <input type="text" pInputText [(ngModel)]="filterView" placeholder="nombre parcial" class="filter-input" />
+    </div>
+    <div class="filter-group">
+      <label>Tipo</label>
+      <p-dropdown [(ngModel)]="filterType" [options]="errorTypes" optionLabel="label" optionValue="value" styleClass="filter-dd" appendTo="body"></p-dropdown>
+    </div>
+    <div class="filter-group">
+      <label>Desde</label>
+      <p-calendar [(ngModel)]="filterFrom" dateFormat="yy-mm-dd" [showTime]="false" styleClass="filter-cal" appendTo="body"></p-calendar>
+    </div>
+    <div class="filter-group">
+      <label>Hasta</label>
+      <p-calendar [(ngModel)]="filterTo" dateFormat="yy-mm-dd" [showTime]="false" styleClass="filter-cal" appendTo="body"></p-calendar>
+    </div>
+    <div class="filter-actions">
+      <button class="btn-filter" (click)="applyFilters()"><i class="pi pi-search"></i> Filtrar</button>
+      <button class="btn-clear" (click)="clearFilters()"><i class="pi pi-times"></i></button>
+    </div>
+  </div>
+
+  <!-- Tabla de logs -->
+  <p-table [value]="logs()" [loading]="isLoading()" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="400px" [paginator]="true" [rows]="20">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Fecha</th>
+        <th>Vista</th>
+        <th>Tipo</th>
+        <th>Mensaje</th>
+        <th>Usuario</th>
+        <th>Mant.</th>
+        <th>Accion</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-log>
+      <tr [class.row-unresolved]="!log.resolved_at" [class.row-maintenance]="log.auto_maintenance_applied">
+        <td class="cell-date">{{ log.created_at | date:'dd/MM HH:mm' }}</td>
+        <td class="cell-view"><strong>{{ log.schema_name }}</strong>.{{ log.view_name }}</td>
+        <td><p-tag [value]="log.error_type" [severity]="getTypeSeverity(log.error_type)"></p-tag></td>
+        <td class="cell-msg" [pTooltip]="log.error_message" tooltipPosition="top">{{ log.error_message | slice:0:60 }}</td>
+        <td class="cell-user">{{ log.user_email?.split('@')[0] ?? '-' }}</td>
+        <td>
+          @if (log.auto_maintenance_applied) {
+            <i class="pi pi-wrench" style="color:#f59e0b;" pTooltip="Vista en mantenimiento"></i>
+          }
+        </td>
+        <td>
+          @if (!log.resolved_at) {
+            <button class="btn-resolve-sm" (click)="resolveError(log)" pTooltip="Marcar resuelto"><i class="pi pi-check"></i></button>
+          } @else {
+            <span class="resolved-badge"><i class="pi pi-check-circle"></i> {{ log.resolved_by?.split('@')[0] }}</span>
+          }
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="7" class="empty-msg"><i class="pi pi-check-circle" style="color:#10b981;"></i> Sin errores registrados con estos filtros</td></tr>
+    </ng-template>
+  </p-table>
+</div>

@@ -1,0 +1,62 @@
+.lecturas-container { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+.lecturas-header { margin-bottom: 1.2rem; }
+.lecturas-header h2 { margin: 0; font-size: 1.2rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 0.5rem; }
+.lecturas-header h2 i { color: #dc2626; font-size: 1.1rem; }
+.header-sub { display: block; font-size: 0.8rem; color: #64748b; margin-top: 0.2rem; }
+
+/* Filtros en linea */
+.filtros-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+  padding: 1rem 1.2rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+.filtro-item { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
+.filtro-label { font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; }
+
+.btn-consultar {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.55rem 1.2rem; background: #2563eb; color: #fff;
+  border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: background 0.2s; white-space: nowrap; height: 36px;
+}
+.btn-consultar:hover:not(:disabled) { background: #1d4ed8; }
+.btn-consultar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Aviso */
+.aviso-filtro {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.8rem 1rem; background: #eff6ff; border: 1px solid #bfdbfe;
+  border-radius: 8px; color: #1e40af; font-size: 0.82rem;
+}
+
+/* Resultados */
+.resultados-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+.resultados-header { display: flex; align-items: center; padding: 0.6rem 1rem; border-bottom: 1px solid #f1f5f9; }
+.resultados-count { font-size: 0.8rem; color: #475569; font-weight: 500; display: flex; align-items: center; gap: 0.3rem; }
+
+/* AG Grid custom */
+:host ::ng-deep .ag-theme-alpine { --ag-header-background-color: #f8fafc; --ag-row-hover-color: #f1f5f9; }
+:host ::ng-deep .ag-header-cell-label { font-size: 0.78rem; font-weight: 600; }
+:host ::ng-deep .ag-cell { font-size: 0.8rem; }
+
+/* Boton Ver Lectura */
+:host ::ng-deep .btn-ver-lectura {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.7rem; background: #2563eb; color: #fff;
+  border: none; border-radius: 6px; font-size: 0.72rem;
+  font-weight: 600; cursor: pointer; transition: background 0.2s;
+}
+:host ::ng-deep .btn-ver-lectura:hover { background: #1d4ed8; }
+:host ::ng-deep .btn-ver-lectura i { font-size: 0.7rem; }
+
+.loading-state { padding: 2rem; text-align: center; }
+
+@media (max-width: 768px) {
+  .filtros-row { flex-direction: column; align-items: stretch; }
+}

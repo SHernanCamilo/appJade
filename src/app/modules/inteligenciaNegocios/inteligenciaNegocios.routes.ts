@@ -170,15 +170,29 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     }
   },
   {
-    path: 'formularios/perfilFarmacoterapeutico',
+    path: 'formularios/lecturas',
     loadComponent: () =>
-      import('./formularios/perfilFarmacoterapeutico/perfilFarmacoterapeutico.component').then(
-        m => m.PerfilFarmacoterapeuticoComponent
+      import('./formularios/lecturas/lecturas.component').then(
+        m => m.LecturasComponent
       ),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'BI-FORM-PFARMA',
-      pageSubtitle: 'Consulta de perfil farmacoterapéutico por cédula'
+      moduleCode: 'BI-FORMULARIOS-LECTU',
+      pageTitle: 'Lecturas Imagenologia',
+      pageSubtitle: 'Consulta de lecturas radiologicas por paciente o profesional'
+    
+    }
+  },
+  {
+    path: 'formularios/perfilFarmacoterapeutico',
+      loadComponent: () =>
+        import('./formularios/perfilFarmacoterapeutico/perfilFarmacoterapeutico.component').then(
+          m => m.PerfilFarmacoterapeuticoComponent
+        ),
+      canActivate: [moduleGuard],
+      data: {
+        moduleCode: 'BI-FORM-PFARMA',
+        pageSubtitle: 'Consulta de perfil farmacoterapéutico por cédula'
     }
   }
 ];
