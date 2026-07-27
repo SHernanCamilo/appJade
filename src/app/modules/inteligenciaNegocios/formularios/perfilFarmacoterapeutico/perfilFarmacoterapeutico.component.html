@@ -80,6 +80,16 @@
             <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-excel]="!isExporting"></i>
             {{ isExporting ? 'Generando...' : 'Exportar' }}
           </button>
+
+          <button
+            type="button"
+            class="btn-toolbar btn-toolbar-temporal"
+            (click)="guardarTemporal()"
+            [disabled]="!puedeGuardarTemporal"
+            pTooltip="Guardar borrador temporal de alergias y días diligenciados">
+            <i class="pi pi-save"></i>
+            Guardado temporal
+          </button>
         </div>
       </div>
 
@@ -88,6 +98,10 @@
         Filtrado por Documento =
         <strong>{{ ultimaConsulta }}</strong>
         <span *ngIf="!isLoading && medicamentos.length"> · {{ medicamentos.length }} medicamento(s)</span>
+        <span *ngIf="tieneTemporal" class="hint-temporal"> · Temporal restaurado</span>
+        <span *ngIf="medicamentosNuevos > 0" class="hint-nuevos">
+          · {{ medicamentosNuevos }} nuevo(s)
+        </span>
       </div>
     </div>
 
@@ -230,9 +244,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let med of medicamentos">
+            <tr *ngFor="let med of medicamentos" [class.med-row-nuevo]="med.esNuevo">
               <td class="col-cuenta">{{ med.cuenta || '—' }}</td>
-              <td class="col-producto">{{ med.producto }}</td>
+              <td class="col-producto">
+                <span *ngIf="med.esNuevo" class="badge-nuevo">Nuevo</span>
+                {{ med.producto }}
+              </td>
               <td class="col-conc">{{ med.concentracion || '—' }}</td>
               <td class="col-pres">{{ med.presentacion || '—' }}</td>
               <td class="col-dosis">{{ med.dosis || '—' }}</td>

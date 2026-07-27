@@ -182,6 +182,11 @@
   padding: 0.35rem 0.75rem;
 }
 
+.hint-seleccion {
+  color: #9f1239;
+  font-weight: 700;
+}
+
 .grid-section {
   background: white;
   border-radius: 12px;

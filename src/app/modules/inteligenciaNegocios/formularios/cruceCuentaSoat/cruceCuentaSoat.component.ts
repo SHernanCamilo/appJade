@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
+import { ColDef, GridApi, GridReadyEvent, RowSelectionOptions, SelectionColumnDef } from 'ag-grid-community';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { DialogModule } from 'primeng/dialog';
@@ -66,7 +66,26 @@ export class CruceCuentaSoatComponent implements OnDestroy {
   isLoadingExportData = false;
   private exportRowsCache: Record<string, unknown>[] = [];
 
+  /** Filas marcadas en la grilla para exportar solo esas facturas. */
+  filasSeleccionadasCount = 0;
+
   localeText = AG_GRID_LOCALE;
+
+  readonly rowSelection: RowSelectionOptions = {
+    mode: 'multiRow',
+    checkboxes: true,
+    headerCheckbox: true,
+    enableClickSelection: false
+  };
+
+  readonly selectionColumnDef: SelectionColumnDef = {
+    pinned: 'left',
+    width: 48,
+    maxWidth: 52,
+    sortable: false,
+    resizable: false,
+    suppressHeaderMenuButton: true
+  };
 
   defaultColDef: ColDef = {
     sortable: true,
@@ -184,6 +203,7 @@ export class CruceCuentaSoatComponent implements OnDestroy {
     this.paginaActual = 1;
     this.isLoading = false;
     this.isExporting = false;
+    this.filasSeleccionadasCount = 0;
     this.cerrarExportDialog();
   }
 
@@ -192,6 +212,19 @@ export class CruceCuentaSoatComponent implements OnDestroy {
       return;
     }
     this.cargarDatos(this.ultimaConsulta);
+  }
+
+  /**
+   * Si hay facturas seleccionadas en la grilla → PDF directo con esas filas.
+   * Si no hay selección → abre el diálogo Completa / Póliza (comportamiento actual).
+   */
+  onClickExportarPdf(): void {
+    const seleccionadas = this.getFilasSeleccionadas();
+    if (seleccionadas.length > 0) {
+      void this.exportarFilasSeleccionadas(seleccionadas);
+      return;
+    }
+    this.abrirExportDialog();
   }
 
   /** Abre el pop de opciones: Completa o por Póliza. */
@@ -258,6 +291,23 @@ export class CruceCuentaSoatComponent implements OnDestroy {
       }
     }
 
+    await this.generarPdf(rows, this.exportModo === 'poliza'
+      ? `Constancia de la póliza ${this.polizaSeleccionada} (CC ${this.ultimaConsulta}).`
+      : `Constancia completa de la CC ${this.ultimaConsulta}.`);
+  }
+
+  private async exportarFilasSeleccionadas(rows: Record<string, unknown>[]): Promise<void> {
+    await this.generarPdf(
+      rows,
+      `Constancia con ${rows.length} factura(s) seleccionada(s) (CC ${this.ultimaConsulta}).`
+    );
+  }
+
+  private async generarPdf(rows: Record<string, unknown>[], detalleOk: string): Promise<void> {
+    if (!this.ultimaConsulta || !rows.length || this.isExporting) {
+      return;
+    }
+
     this.isExporting = true;
     try {
       const firmante = await this.obtenerDatosFirmante();
@@ -273,14 +323,10 @@ export class CruceCuentaSoatComponent implements OnDestroy {
         ciudadEmision: firmante.ciudadEmision
       });
 
-      const detalle = this.exportModo === 'poliza'
-        ? `Constancia de la póliza ${this.polizaSeleccionada} (CC ${this.ultimaConsulta}).`
-        : `Constancia completa de la CC ${this.ultimaConsulta}.`;
-
       this.messageService.add({
         severity: 'success',
         summary: 'PDF generado',
-        detail: detalle,
+        detail: detalleOk,
         life: 4000
       });
 
@@ -379,6 +425,16 @@ export class CruceCuentaSoatComponent implements OnDestroy {
 
   onGridReady(event: GridReadyEvent): void {
     this.gridApi = event.api;
+    this.filasSeleccionadasCount = event.api.getSelectedRows()?.length ?? 0;
+  }
+
+  onSelectionChanged(): void {
+    this.filasSeleccionadasCount = this.gridApi?.getSelectedRows()?.length ?? 0;
+  }
+
+  private getFilasSeleccionadas(): Record<string, unknown>[] {
+    const rows = this.gridApi?.getSelectedRows() ?? [];
+    return rows as Record<string, unknown>[];
   }
 
   /** Datos del firmante y logo real de la empresa (API, no solo sesión). */
@@ -473,6 +529,7 @@ export class CruceCuentaSoatComponent implements OnDestroy {
         this.rowData = response.rowData;
         this.meta = response.meta;
         this.isLoading = false;
+        this.filasSeleccionadasCount = 0;
 
         if (response.rowData.length === 0) {
           this.messageService.add({

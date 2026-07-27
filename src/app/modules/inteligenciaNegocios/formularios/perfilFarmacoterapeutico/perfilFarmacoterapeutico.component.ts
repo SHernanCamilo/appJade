@@ -12,6 +12,10 @@ import { VistasService } from '../../services/vistas.service';
 import { handleFabricError } from '../../helpers/fabric-error.helper';
 import { EmpresaService } from '../../../organizacion/empresa/services/empresa.service';
 import { PerfilFarmacoterapeuticoExportService } from './services/perfil-farmacoterapeutico-export.service';
+import {
+  PerfilFarmacoDraft,
+  PerfilFarmacoterapeuticoDraftService
+} from './services/perfil-farmacoterapeutico-draft.service';
 
 interface PacientePerfil {
   nombre: string;
@@ -42,6 +46,8 @@ interface MedicamentoFila {
   peso: string;
   /** Texto editable por día del mes (clave = número de día). */
   dias: Record<number, string>;
+  /** Presente en la vista pero no en el guardado temporal. */
+  esNuevo?: boolean;
 }
 
 @Component({
@@ -80,6 +86,8 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
   diasDelMes: number[] = [];
   logoUrl: string | null = null;
   empresaNombre = 'Clínica Medilaser S.A.S.';
+  tieneTemporal = false;
+  medicamentosNuevos = 0;
 
   private dataSub?: Subscription;
 
@@ -88,7 +96,8 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
     private readonly messageService: MessageService,
     private readonly empresaService: EmpresaService,
     private readonly cdr: ChangeDetectorRef,
-    private readonly exportService: PerfilFarmacoterapeuticoExportService
+    private readonly exportService: PerfilFarmacoterapeuticoExportService,
+    private readonly draftService: PerfilFarmacoterapeuticoDraftService
   ) {}
 
   ngOnInit(): void {
@@ -104,6 +113,10 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
   }
 
   get puedeExportar(): boolean {
+    return !!this.paciente && !this.isLoading && !this.isExporting;
+  }
+
+  get puedeGuardarTemporal(): boolean {
     return !!this.paciente && !this.isLoading && !this.isExporting;
   }
 
@@ -172,6 +185,8 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
     this.consultado = false;
     this.ultimaConsulta = '';
     this.isLoading = false;
+    this.tieneTemporal = false;
+    this.medicamentosNuevos = 0;
   }
 
   recargar(): void {
@@ -179,6 +194,34 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
       return;
     }
     this.cargarDatos(this.ultimaConsulta);
+  }
+
+  guardarTemporal(): void {
+    if (!this.paciente || !this.ultimaConsulta) {
+      return;
+    }
+
+    try {
+      this.draftService.guardar(this.buildDraftPayload());
+      this.tieneTemporal = true;
+      this.medicamentosNuevos = 0;
+      this.medicamentos = this.medicamentos.map(m => ({ ...m, esNuevo: false }));
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Guardado temporal',
+        detail: `Borrador guardado para la CC ${this.ultimaConsulta}.`,
+        life: 4500
+      });
+      this.cdr.detectChanges();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'No se pudo guardar el temporal.';
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error al guardar',
+        detail,
+        life: 6000
+      });
+    }
   }
 
   async exportarExcel(): Promise<void> {
@@ -198,19 +241,25 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
         });
       }
 
+      const documento = this.ultimaConsulta || this.paciente.historia;
       const filename = await this.exportService.exportar({
         paciente: this.paciente,
         medicamentos: this.medicamentos,
         diasDelMes: this.diasDelMes,
-        documento: this.ultimaConsulta || this.paciente.historia,
+        documento,
         empresaNombre: this.empresaNombre,
         logoDataUrl
       });
 
+      this.draftService.eliminar(documento);
+      this.tieneTemporal = false;
+      this.medicamentosNuevos = 0;
+      this.medicamentos = this.medicamentos.map(m => ({ ...m, esNuevo: false }));
+
       this.messageService.add({
         severity: 'success',
         summary: 'Excel generado',
-        detail: filename,
+        detail: `${filename} · Temporal eliminado.`,
         life: 5000
       });
     } catch (err) {
@@ -235,6 +284,8 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
     this.paciente = null;
     this.medicamentos = [];
     this.diasDelMes = [];
+    this.tieneTemporal = false;
+    this.medicamentosNuevos = 0;
 
     this.dataSub = this.vistasService.getVistaDatosTodos(this.schema, this.viewName, {
       filters: { [this.filterColumn]: cc }
@@ -260,12 +311,15 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
         this.paciente = this.mapPaciente(rows[0], cc);
         this.diasDelMes = this.buildDiasDelMes(this.paciente.mesReferencia);
         this.medicamentos = this.mapMedicamentos(rows, this.diasDelMes);
+        this.aplicarTemporalSiExiste(cc);
         void this.cargarLogoMedilaser();
       },
       error: (err: unknown) => {
         this.isLoading = false;
         this.paciente = null;
         this.medicamentos = [];
+        this.tieneTemporal = false;
+        this.medicamentosNuevos = 0;
         const detail = err instanceof HttpErrorResponse
           ? handleFabricError(err)
           : 'No se pudo consultar el perfil farmacoterapéutico.';
@@ -276,6 +330,106 @@ export class PerfilFarmacoterapeuticoComponent implements OnInit, OnDestroy {
           life: 7000
         });
       }
+    });
+  }
+
+  private buildDraftPayload(): PerfilFarmacoDraft {
+    if (!this.paciente) {
+      throw new Error('No hay paciente para guardar.');
+    }
+
+    return {
+      documento: this.ultimaConsulta || this.paciente.historia,
+      guardadoEn: new Date().toISOString(),
+      diasDelMes: [...this.diasDelMes],
+      paciente: {
+        nombre: this.paciente.nombre,
+        edad: this.paciente.edad,
+        sexo: this.paciente.sexo,
+        peso: this.paciente.peso,
+        historia: this.paciente.historia,
+        ingreso: this.paciente.ingreso,
+        diagnostico: this.paciente.diagnostico,
+        servicio: this.paciente.servicio,
+        cama: this.paciente.cama,
+        alergias: this.paciente.alergias,
+        alergiasCual: this.paciente.alergiasCual,
+        mesReferencia: this.paciente.mesReferencia.toISOString()
+      },
+      medicamentos: this.medicamentos.map(m => ({
+        key: m.key,
+        cuenta: m.cuenta,
+        producto: m.producto,
+        concentracion: m.concentracion,
+        presentacion: m.presentacion,
+        dosis: m.dosis,
+        unidad: m.unidad,
+        viaAdm: m.viaAdm,
+        frecuencia: m.frecuencia,
+        unidadFrecuencia: m.unidadFrecuencia,
+        peso: m.peso,
+        dias: Object.fromEntries(
+          Object.entries(m.dias).map(([k, v]) => [String(k), v ?? ''])
+        )
+      }))
+    };
+  }
+
+  /**
+   * Si hay borrador temporal para la CC:
+   * - restaura alergias y casillas DIA/MES
+   * - marca en amarillo los medicamentos nuevos de la vista que no estaban en el temporal
+   */
+  private aplicarTemporalSiExiste(cc: string): void {
+    const draft = this.draftService.obtener(cc);
+    if (!draft || !this.paciente) {
+      this.tieneTemporal = false;
+      this.medicamentosNuevos = 0;
+      return;
+    }
+
+    this.tieneTemporal = true;
+
+    const alergias = draft.paciente.alergias;
+    if (alergias === 'si' || alergias === 'no' || alergias === 'no_esp' || alergias === '') {
+      this.paciente.alergias = alergias;
+    }
+    this.paciente.alergiasCual = draft.paciente.alergiasCual ?? '';
+
+    const draftByKey = new Map(draft.medicamentos.map(m => [m.key, m]));
+    let nuevos = 0;
+
+    this.medicamentos = this.medicamentos.map(med => {
+      const saved = draftByKey.get(med.key);
+      if (!saved) {
+        nuevos++;
+        return { ...med, esNuevo: true };
+      }
+
+      const dias: Record<number, string> = { ...med.dias };
+      for (const d of this.diasDelMes) {
+        const val = saved.dias?.[String(d)] ?? saved.dias?.[d as unknown as string];
+        if (val != null) {
+          dias[d] = String(val);
+        }
+      }
+
+      return { ...med, dias, esNuevo: false };
+    });
+
+    this.medicamentosNuevos = nuevos;
+
+    const cuando = draft.guardadoEn
+      ? new Date(draft.guardadoEn).toLocaleString('es-CO')
+      : '';
+
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Temporal restaurado',
+      detail: nuevos > 0
+        ? `Borrador cargado${cuando ? ` (${cuando})` : ''}. ${nuevos} medicamento(s) nuevo(s) marcado(s) en amarillo.`
+        : `Borrador cargado${cuando ? ` (${cuando})` : ''}.`,
+      life: 6500
     });
   }
 

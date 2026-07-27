@@ -162,6 +162,27 @@
   border-color: #166534;
 }
 
+.perfil-farmaco-page .btn-toolbar-temporal {
+  background: #b45309;
+  border-color: #b45309;
+  color: #fff;
+}
+
+.perfil-farmaco-page .btn-toolbar-temporal:hover:not(:disabled) {
+  background: #92400e;
+  border-color: #92400e;
+}
+
+.perfil-farmaco-page .hint-temporal {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.perfil-farmaco-page .hint-nuevos {
+  color: #a16207;
+  font-weight: 700;
+}
+
 .perfil-farmaco-page .search-hint {
   margin-top: 0.9rem;
   display: inline-flex;
@@ -502,6 +523,28 @@
 .perfil-farmaco-page .dia-input:focus {
   background: #eff6ff;
   box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.perfil-farmaco-page .med-row-nuevo > td {
+  background: #fef08a !important;
+}
+
+.perfil-farmaco-page .med-row-nuevo .col-producto {
+  background: #fef08a !important;
+}
+
+.perfil-farmaco-page .badge-nuevo {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  background: #ca8a04;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
 }
 
 .perfil-farmaco-page .empty-meds {
