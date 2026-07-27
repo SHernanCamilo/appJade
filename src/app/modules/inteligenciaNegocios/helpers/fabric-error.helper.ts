@@ -37,6 +37,9 @@ export function handleFabricError(error: HttpErrorResponse): string {
       }
       return error.error?.message ?? 'Filtros requeridos para esta vista.';
     case 429:
+      if (error.error?.code === 'fabric_busy') {
+        return error.error?.message ?? 'El sistema está procesando muchas consultas pesadas. Reintente en unos segundos.';
+      }
       return `Demasiadas solicitudes. Reintente en ${error.error?.retry_after ?? 60}s.`;
     case 503:
       if (error.error?.estado === 'mantenimiento') {
