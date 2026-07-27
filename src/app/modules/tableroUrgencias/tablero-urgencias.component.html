@@ -1,0 +1,129 @@
+<div class="tablero-container">
+  <!-- Header -->
+  <header class="tablero-header">
+    <h1 class="tablero-title">Tiempos de Atención en Urgencias</h1>
+    <img [src]="logoUrl" alt="Clínica Medilaser" class="tablero-logo" />
+  </header>
+
+  <!-- Loading -->
+  @if (isLoading) {
+    <div class="tablero-loading">
+      <div class="spinner"></div>
+      <p>Cargando información...</p>
+    </div>
+  }
+
+  <!-- Error -->
+  @if (error && !isLoading) {
+    <div class="tablero-error">
+      <i class="pi pi-exclamation-triangle"></i>
+      <p>{{ error }}</p>
+      <button class="btn-retry" (click)="cargarDatos()">Reintentar</button>
+    </div>
+  }
+
+  <!-- Vista principal: seleccionar sede -->
+  @if (!isLoading && !error && !unidadSeleccionada) {
+    <div class="sedes-panel">
+      @for (sede of sedes; track sede.nombre) {
+        <div class="sede-card" [class.active]="sedeSeleccionada === sede"
+             (click)="seleccionarSede(sede)">
+          <div class="sede-header">
+            <span class="sede-nombre">{{ sede.nombre }}</span>
+            <i class="pi" [class.pi-chevron-down]="sedeSeleccionada === sede"
+               [class.pi-chevron-right]="sedeSeleccionada !== sede"></i>
+          </div>
+
+          <!-- Unidades de la sede expandida -->
+          @if (sedeSeleccionada === sede) {
+            <div class="unidades-grid">
+              @for (unidad of sede.unidades; track unidad.IdUnidad) {
+                <button class="unidad-btn" (click)="seleccionarUnidad(unidad); $event.stopPropagation()">
+                  <span class="unidad-nombre">{{ unidad.Unidad }}</span>
+                  <span class="unidad-badge">{{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }} pac.</span>
+                </button>
+              }
+              @empty {
+                <p class="sin-unidades">Sin unidades disponibles</p>
+              }
+            </div>
+          }
+        </div>
+      } @empty {
+        <div class="tablero-empty">
+          <p>No hay datos disponibles en este momento.</p>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Vista detalle: información de la unidad seleccionada -->
+  @if (unidadSeleccionada) {
+    <div class="detalle-panel">
+      <!-- Barra superior con sede -->
+      <div class="detalle-sede-bar">
+        <button class="btn-volver" (click)="volver()">
+          <i class="pi pi-arrow-left"></i> Volver
+        </button>
+        <span class="detalle-sede-nombre">{{ unidadSeleccionada.Sede }} - {{ unidadSeleccionada.Unidad }}</span>
+      </div>
+
+      <!-- Cards de métricas -->
+      <div class="metricas-grid">
+        <!-- Pacientes en espera Triage -->
+        <div class="metrica-card triage">
+          <div class="metrica-circle">
+            <span class="metrica-numero">{{ unidadSeleccionada.PacientesEsperaTriage }}</span>
+          </div>
+          <div class="metrica-info">
+            <span class="metrica-label">Pacientes en Espera Triage</span>
+            <span class="metrica-tiempo">
+              <i class="pi pi-clock"></i>
+              {{ formatMinutos(unidadSeleccionada.TiempoEsperaTriage) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Pacientes en espera Consulta -->
+        <div class="metrica-card consulta">
+          <div class="metrica-circle consulta-circle">
+            <span class="metrica-numero">{{ unidadSeleccionada.PacientesEsperaConsulta }}</span>
+          </div>
+          <div class="metrica-info">
+            <span class="metrica-label">Pacientes en Espera Consulta</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tiempos de espera en consulta por triage -->
+      <div class="tiempos-panel">
+        <div class="tiempos-header">
+          <span>Tiempo de espera en Consulta</span>
+        </div>
+        <div class="tiempos-grid">
+          <div class="tiempo-item triage-ii">
+            <span class="tiempo-label">TRIAGE II</span>
+            <span class="tiempo-valor">
+              <i class="pi pi-clock"></i>
+              {{ formatMinutos(unidadSeleccionada.TII) }}
+            </span>
+          </div>
+          <div class="tiempo-item triage-iii">
+            <span class="tiempo-label">TRIAGE III</span>
+            <span class="tiempo-valor">
+              <i class="pi pi-clock"></i>
+              {{ formatMinutos(unidadSeleccionada.TIII) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Footer con auto-refresh indicator -->
+  <footer class="tablero-footer">
+    <span class="refresh-indicator">
+      <span class="pulse-dot"></span> Actualización automática cada 30s
+    </span>
+  </footer>
+</div>

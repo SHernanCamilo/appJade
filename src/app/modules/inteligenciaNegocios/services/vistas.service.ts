@@ -574,6 +574,15 @@ export class VistasService {
     return this.buildColumnDefsFromRows(rows);
   }
 
+  /**
+   * Genera la URL completa para abrir un PDF de lectura de imagenología.
+   * El backend sirve el PDF como proxy desde Azure File Share.
+   */
+  getLecturaPdfUrl(rutaArchivo: string): string {
+    const baseApiUrl = environment.URL_SERVICIOS;
+    return `${baseApiUrl}/fabric/lecturas/pdf?path=${encodeURIComponent(rutaArchivo)}`;
+  }
+
   private buildColumnDefsFromRows(rows: Record<string, unknown>[]): ColDef[] {
     const sample = rows[0];
     if (!sample) {

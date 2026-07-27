@@ -207,16 +207,21 @@ export class LecturasComponent implements OnDestroy {
       return;
     }
 
-    // Intentar abrir via file:// directamente (transparente para el usuario)
-    const fileUrl = this.smbToFileUrl(ruta);
-    const win = window.open(fileUrl, '_blank');
+    // Abrir via backend proxy (el backend descarga desde Azure File Share y sirve el PDF)
+    const pdfUrl = this.vistasService.getLecturaPdfUrl(ruta);
 
-    // Si el navegador bloquea, notificar
+    // Abrir en nueva pestaña — el interceptor JWT no aplica para window.open,
+    // así que pasamos el token como query param (el backend acepta ambos)
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+    const urlWithAuth = `${pdfUrl}&token=${encodeURIComponent(token)}`;
+
+    const win = window.open(urlWithAuth, '_blank');
+
     if (!win) {
       this.messageService.add({
         severity: 'error',
         summary: 'No se pudo abrir',
-        detail: 'El archivo no esta disponible desde este equipo. Verifique que esta conectado a la red de la clinica.',
+        detail: 'El navegador bloqueó la ventana emergente. Permita pop-ups para este sitio.',
         life: 6000
       });
     }
@@ -224,24 +229,14 @@ export class LecturasComponent implements OnDestroy {
 
   copyRuta(row: LecturaRow): void {
     if (!row.Ruta) return;
-    this.copyToClipboard(row.Ruta);
-    this.messageService.add({ severity: 'success', summary: 'Copiado', detail: 'Ruta copiada al portapapeles', life: 3000 });
-  }
-
-  private smbToFileUrl(smbPath: string): string {
-    // \\server\share\path → file://///server/share/path
-    return 'file:///' + smbPath.replace(/\\/g, '/');
-  }
-
-  private copyToClipboard(text: string): void {
-    navigator.clipboard.writeText(text).catch(() => {
-      // Fallback para navegadores que no soportan clipboard API
+    navigator.clipboard.writeText(row.Ruta).catch(() => {
       const el = document.createElement('textarea');
-      el.value = text;
+      el.value = row.Ruta;
       document.body.appendChild(el);
       el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
     });
+    this.messageService.add({ severity: 'success', summary: 'Copiado', detail: 'Ruta copiada al portapapeles', life: 3000 });
   }
 }

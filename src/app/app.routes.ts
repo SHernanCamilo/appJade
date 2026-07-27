@@ -14,6 +14,10 @@ export const routes: Routes = [
     path: 'auth/microsoft/callback',
     loadComponent: () => import('./modules/auth/microsoft-callback/microsoft-callback.component').then(m => m.MicrosoftCallbackComponent)
   },
+  {
+    path: 'tableroUrgencias',
+    loadComponent: () => import('./modules/tableroUrgencias/tablero-urgencias.component').then(m => m.TableroUrgenciasComponent)
+  },
   
   
   // Rutas protegidas con layout
