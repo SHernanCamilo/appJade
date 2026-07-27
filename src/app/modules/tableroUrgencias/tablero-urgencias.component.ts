@@ -46,7 +46,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   });
 
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
-  private readonly apiUrl = `${environment.URL_SERVICIOS}/tablero-urgencias`;
+  private readonly apiUrl = `${environment.URL_SERVICIOS}/tableros/urgencias`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -62,13 +62,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   cargarDatos(): void {
-    // Si hay token, enviarlo para que el backend filtre por sucursal
-    const token = localStorage.getItem('token') || '';
-    const url = token
-      ? `${this.apiUrl}?token=${encodeURIComponent(token)}`
-      : this.apiUrl;
-
-    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sucursal?: string; filtered?: boolean }>(url).subscribe({
+    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sucursal?: string }>(this.apiUrl).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.agruparPorSede(res.data);
@@ -80,8 +74,12 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
         this.error.set('');
       },
-      error: () => {
-        this.error.set('No se pudo cargar el tablero de urgencias.');
+      error: (err) => {
+        if (err.status === 403) {
+          this.error.set('No tiene permisos para ver el tablero de urgencias.');
+        } else {
+          this.error.set('No se pudo cargar el tablero de urgencias.');
+        }
         this.isLoading.set(false);
       }
     });

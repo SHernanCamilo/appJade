@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './modules/auth/login/login.component';
 import { DashboardComponent } from './modules/dashboard/dashboard.component';
 import { authGuard } from './modules/auth/auth.guard';
+import { tableroGuard } from './core/guards/tablero.guard';
 import { MainLayoutComponent } from './complements/layout/main-layout/main-layout.component';
 
 export const routes: Routes = [
@@ -14,9 +15,12 @@ export const routes: Routes = [
     path: 'auth/microsoft/callback',
     loadComponent: () => import('./modules/auth/microsoft-callback/microsoft-callback.component').then(m => m.MicrosoftCallbackComponent)
   },
+
+  // Tablero de Urgencias — requiere login + rol "Tablero"
   {
     path: 'tableroUrgencias',
-    loadComponent: () => import('./modules/tableroUrgencias/tablero-urgencias.component').then(m => m.TableroUrgenciasComponent)
+    loadComponent: () => import('./modules/tableroUrgencias/tablero-urgencias.component').then(m => m.TableroUrgenciasComponent),
+    canActivate: [tableroGuard]
   },
   
   
