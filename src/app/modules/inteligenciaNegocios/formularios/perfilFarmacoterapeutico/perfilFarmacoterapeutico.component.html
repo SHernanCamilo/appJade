@@ -1,0 +1,264 @@
+<div class="page-container perfil-farmaco-page">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" type="button" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-heart me-2"></i>
+          Perfil Farmacoterapéutico
+        </h1>
+        <p class="page-subtitle-modern">
+          Consulte el formato de seguimiento en
+          <span class="vista-chip">in.VW_PerfilMedicamentos</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="search-panel">
+      <div class="search-form">
+        <div class="search-field">
+          <label for="numero-cc">Número de CC</label>
+          <input
+            id="numero-cc"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Ej: 1070971610"
+            [ngModel]="numeroCc"
+            (ngModelChange)="onCcInput($event)"
+            (keydown)="onCcKeydown($event)"
+            [disabled]="isLoading"
+            maxlength="20">
+        </div>
+
+        <div class="search-actions">
+          <button
+            type="button"
+            class="btn-toolbar btn-toolbar-primary"
+            (click)="consultar()"
+            [disabled]="isLoading || !numeroCc.trim()">
+            <i class="pi" [class.pi-spin]="isLoading" [class.pi-spinner]="isLoading" [class.pi-search]="!isLoading"></i>
+            {{ isLoading ? 'Consultando...' : 'Consultar' }}
+          </button>
+
+          <button
+            type="button"
+            class="btn-toolbar"
+            (click)="limpiar()"
+            [disabled]="isLoading && !consultado"
+            pTooltip="Limpiar consulta">
+            <i class="pi pi-times"></i>
+            Limpiar
+          </button>
+
+          <button
+            type="button"
+            class="btn-toolbar"
+            (click)="recargar()"
+            [disabled]="isLoading || !ultimaConsulta"
+            pTooltip="Recargar última consulta">
+            <i class="pi pi-refresh"></i>
+            Recargar
+          </button>
+
+          <button
+            type="button"
+            class="btn-toolbar btn-toolbar-excel"
+            (click)="exportarExcel()"
+            [disabled]="!puedeExportar"
+            pTooltip="Exportar perfil a Excel">
+            <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-excel]="!isExporting"></i>
+            {{ isExporting ? 'Generando...' : 'Exportar' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="search-hint" *ngIf="ultimaConsulta">
+        <i class="pi pi-filter-fill"></i>
+        Filtrado por Documento =
+        <strong>{{ ultimaConsulta }}</strong>
+        <span *ngIf="!isLoading && medicamentos.length"> · {{ medicamentos.length }} medicamento(s)</span>
+      </div>
+    </div>
+
+    <div *ngIf="!consultado && !isLoading" class="empty-state">
+      <i class="pi pi-search"></i>
+      <p>Digite el número de cédula y pulse <strong>Consultar</strong> para generar el perfil farmacoterapéutico.</p>
+    </div>
+
+    <div *ngIf="isLoading" class="empty-state">
+      <i class="pi pi-spin pi-spinner"></i>
+      <p>Consultando <strong>in.VW_PerfilMedicamentos</strong>...</p>
+    </div>
+
+    <div *ngIf="consultado && !isLoading && !paciente" class="empty-state">
+      <i class="pi pi-inbox"></i>
+      <p>No hay registros para la CC <strong>{{ ultimaConsulta }}</strong>.</p>
+    </div>
+
+    <!-- Formato tipo Excel -->
+    <div class="formato-sheet" *ngIf="paciente && !isLoading">
+      <table class="formato-header-table">
+        <tr>
+          <td class="logo-cell">
+            <img
+              *ngIf="logoUrl"
+              [src]="logoUrl"
+              alt="Logo {{ empresaNombre }}"
+              class="empresa-logo"
+              (error)="onLogoError()">
+            <div *ngIf="!logoUrl" class="logo-fallback">
+              <strong>{{ empresaNombre }}</strong>
+            </div>
+          </td>
+          <td class="title-cell">
+            <div class="formato-title">FORMATO DE SEGUIMIENTO Y CONTROL FARMACOTERAPÉUTICO</div>
+            <div class="formato-subtitle">PERFIL FARMACOTERAPÉUTICO</div>
+          </td>
+          <td class="meta-cell">
+            <table class="meta-grid">
+              <tr>
+                <th>VERSIÓN</th>
+                <td>4</td>
+              </tr>
+              <tr>
+                <th>VIGENCIA</th>
+                <td>Feb-24</td>
+              </tr>
+              <tr>
+                <th>CÓDIGO</th>
+                <td>F-SF-770 MD</td>
+              </tr>
+              <tr>
+                <th>PÁGINA</th>
+                <td>1 de 1</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <div class="section-bar">
+        <span>DATOS DEL PACIENTE</span>
+      </div>
+
+      <table class="paciente-table">
+        <tr>
+          <th>Nombre:</th>
+          <td colspan="3">{{ paciente.nombre }}</td>
+          <th>Edad:</th>
+          <td>{{ paciente.edad }}</td>
+          <th>Sexo:</th>
+          <td>{{ paciente.sexo }}</td>
+          <th>Peso(Kg.):</th>
+          <td>{{ paciente.peso }}</td>
+          <th>Historia Nº:</th>
+          <td class="historia-cell">{{ paciente.historia }}</td>
+        </tr>
+        <tr>
+          <th>Ingreso:</th>
+          <td colspan="3">{{ paciente.ingreso }}</td>
+          <th>Diagnóstico:</th>
+          <td colspan="5">{{ paciente.diagnostico }}</td>
+          <th>Servicio:</th>
+          <td colspan="2">{{ paciente.servicio }}</td>
+        </tr>
+        <tr>
+          <th>N. Cama:</th>
+          <td colspan="3">{{ paciente.cama }}</td>
+          <th colspan="2">Antecedentes alérgicos:</th>
+          <td colspan="6" class="alergias-block">
+            <div class="alergias-opciones">
+              <label>
+                <input type="radio" name="alergias-opcion" [(ngModel)]="paciente.alergias" value="si">
+                Si
+              </label>
+              <label>
+                <input type="radio" name="alergias-opcion" [(ngModel)]="paciente.alergias" value="no">
+                No
+              </label>
+              <label>
+                <input type="radio" name="alergias-opcion" [(ngModel)]="paciente.alergias" value="no_esp">
+                No esp.
+              </label>
+            </div>
+            <div class="alergias-cual">
+              <span class="cual-label">Cual:</span>
+              <input
+                type="text"
+                class="cual-input"
+                [(ngModel)]="paciente.alergiasCual"
+                placeholder="Detalle de alergias"
+                autocomplete="off">
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <div class="meds-caption" *ngIf="mesEtiqueta">
+        Mes de referencia: <strong>{{ mesEtiqueta }}</strong>
+      </div>
+
+      <div class="meds-scroll">
+        <table class="meds-table">
+          <thead>
+            <tr>
+              <th class="col-cuenta" rowspan="2">Cuenta</th>
+              <th class="col-producto" rowspan="2">Producto</th>
+              <th class="col-conc" rowspan="2">Concentracion</th>
+              <th class="col-pres" rowspan="2">Presentacion</th>
+              <th class="col-dosis" rowspan="2">Dosis</th>
+              <th class="col-unid" rowspan="2">Unidad</th>
+              <th class="col-via" rowspan="2">ViaAdm</th>
+              <th class="col-freq" rowspan="2">Frecuencia</th>
+              <th class="col-ufreq" rowspan="2">UnidadFrecuencia</th>
+              <th class="col-peso" rowspan="2">Peso</th>
+              <th class="dias-group" [attr.colspan]="diasDelMes.length">DIA/MES</th>
+            </tr>
+            <tr>
+              <th class="dia-col" *ngFor="let dia of diasDelMes">{{ dia }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let med of medicamentos">
+              <td class="col-cuenta">{{ med.cuenta || '—' }}</td>
+              <td class="col-producto">{{ med.producto }}</td>
+              <td class="col-conc">{{ med.concentracion || '—' }}</td>
+              <td class="col-pres">{{ med.presentacion || '—' }}</td>
+              <td class="col-dosis">{{ med.dosis || '—' }}</td>
+              <td class="col-unid">{{ med.unidad || '—' }}</td>
+              <td class="col-via">{{ med.viaAdm || '—' }}</td>
+              <td class="col-freq">{{ med.frecuencia || '—' }}</td>
+              <td class="col-ufreq">{{ med.unidadFrecuencia || '—' }}</td>
+              <td class="col-peso">{{ med.peso || '—' }}</td>
+              <td class="dia-col" *ngFor="let dia of diasDelMes">
+                <input
+                  type="text"
+                  class="dia-input"
+                  [(ngModel)]="med.dias[dia]"
+                  maxlength="6"
+                  autocomplete="off"
+                  [attr.aria-label]="'Día ' + dia + ' · ' + med.producto">
+              </td>
+            </tr>
+            <tr *ngIf="medicamentos.length === 0">
+              <td [attr.colspan]="diasDelMes.length + 10" class="empty-meds">
+                Sin medicamentos registrados para esta consulta.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

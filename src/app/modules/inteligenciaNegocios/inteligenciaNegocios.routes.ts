@@ -168,5 +168,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       moduleCode: 'BI-FORM-CRUCE-SOAT',
       pageSubtitle: 'Consulta de facturación SOAT por cédula'
     }
+  },
+  {
+    path: 'formularios/perfilFarmacoterapeutico',
+    loadComponent: () =>
+      import('./formularios/perfilFarmacoterapeutico/perfilFarmacoterapeutico.component').then(
+        m => m.PerfilFarmacoterapeuticoComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORM-PFARMA',
+      pageSubtitle: 'Consulta de perfil farmacoterapéutico por cédula'
+    }
   }
 ];

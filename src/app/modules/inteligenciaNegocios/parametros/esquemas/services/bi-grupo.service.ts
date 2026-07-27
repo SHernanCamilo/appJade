@@ -189,6 +189,25 @@ export class BiGrupoService {
       { empresa_id: empresaId, user_id: userId, vista_ids: vistaIds }
     ).pipe(map(r => r.data));
   }
+
+  getDelegacionEsquema(grupoOrigenId: number, destinoId: number): Observable<BiDelegacionEsquemaResponse> {
+    const params = new HttpParams().set('destino_id', destinoId.toString());
+    return this.http.get<{ success: boolean; data: BiDelegacionEsquemaResponse }>(
+      `${this.apiUrl}/${grupoOrigenId}/delegaciones-esquemas`,
+      { params }
+    ).pipe(map(r => r.data));
+  }
+
+  saveDelegacionEsquema(
+    grupoOrigenId: number,
+    destinoId: number,
+    vistaIds: number[]
+  ): Observable<{ vista_ids: number[] }> {
+    return this.http.put<{ success: boolean; message?: string; data: { vista_ids: number[] } }>(
+      `${this.apiUrl}/${grupoOrigenId}/delegaciones-esquemas`,
+      { destino_id: destinoId, vista_ids: vistaIds }
+    ).pipe(map(r => r.data));
+  }
 }
 
 export interface BiDelegacionVista {
@@ -216,6 +235,17 @@ export interface BiDelegacionUsuarioResponse {
   schema: string;
   empresa_tiene_config: boolean;
   es_misma_empresa?: boolean;
+  tiene_config: boolean;
+  vista_ids: number[];
+  vistas: BiDelegacionVista[];
+}
+
+export interface BiDelegacionEsquemaResponse {
+  empresa_id: number;
+  id_bi_grupos_origen: number;
+  id_bi_grupos_destino: number;
+  schema_origen: string;
+  schema_destino: string;
   tiene_config: boolean;
   vista_ids: number[];
   vistas: BiDelegacionVista[];
