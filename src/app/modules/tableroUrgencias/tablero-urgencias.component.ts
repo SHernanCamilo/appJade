@@ -1,14 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 
-interface SedeData {
-  nombre: string;
-  unidades: UnidadData[];
-}
-
-interface UnidadData {
+interface UnidadUrgencias {
   IdSede: string;
   Sede: string;
   IdUnidad: number;
@@ -20,30 +15,44 @@ interface UnidadData {
   TIII: number;
 }
 
+interface SedeAgrupada {
+  nombre: string;
+  unidades: UnidadUrgencias[];
+}
+
 @Component({
   selector: 'app-tablero-urgencias',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tablero-urgencias.component.html',
   styleUrl: './tablero-urgencias.component.css'
 })
 export class TableroUrgenciasComponent implements OnInit, OnDestroy {
-  sedes: SedeData[] = [];
-  sedeSeleccionada: SedeData | null = null;
-  unidadSeleccionada: UnidadData | null = null;
-  isLoading = true;
-  error = '';
+  // Estado reactivo con signals
+  readonly sedes = signal<SedeAgrupada[]>([]);
+  readonly sedeSeleccionada = signal<SedeAgrupada | null>(null);
+  readonly unidadSeleccionada = signal<UnidadUrgencias | null>(null);
+  readonly isLoading = signal(true);
+  readonly error = signal('');
+  readonly lastUpdate = signal<Date | null>(null);
+  readonly sucursalUsuario = signal<string | null>(null);
+
+  // Computed
+  readonly totalPacientes = computed(() => {
+    const unidad = this.unidadSeleccionada();
+    if (!unidad) return 0;
+    return unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta;
+  });
+
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly apiUrl = `${environment.URL_SERVICIOS}/tablero-urgencias`;
 
-  // Logo Medilaser (URL pública del logo corporativo)
-  readonly logoUrl = 'assets/media/logos/jade-one-horizontal-dark.png';
-
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   ngOnInit(): void {
     this.cargarDatos();
-    // Auto-refresh cada 30 segundos
-    this.refreshInterval = setInterval(() => this.cargarDatos(), 30000);
+    this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
   }
 
   ngOnDestroy(): void {
@@ -53,47 +62,46 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   cargarDatos(): void {
-    const url = `${environment.URL_SERVICIOS}/tablero-urgencias`;
-    this.http.get<{ success: boolean; data: UnidadData[] }>(url).subscribe({
+    // Si hay token, enviarlo para que el backend filtre por sucursal
+    const token = localStorage.getItem('token') || '';
+    const url = token
+      ? `${this.apiUrl}?token=${encodeURIComponent(token)}`
+      : this.apiUrl;
+
+    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sucursal?: string; filtered?: boolean }>(url).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.agruparPorSede(res.data);
+          this.lastUpdate.set(new Date());
+          if (res.sucursal) {
+            this.sucursalUsuario.set(res.sucursal);
+          }
         }
-        this.isLoading = false;
+        this.isLoading.set(false);
+        this.error.set('');
       },
       error: () => {
-        this.error = 'No se pudo cargar el tablero de urgencias.';
-        this.isLoading = false;
+        this.error.set('No se pudo cargar el tablero de urgencias.');
+        this.isLoading.set(false);
       }
     });
   }
 
-  private agruparPorSede(data: UnidadData[]): void {
-    const sedeMap = new Map<string, UnidadData[]>();
-    for (const row of data) {
-      const key = row.Sede ?? 'Sin Sede';
-      if (!sedeMap.has(key)) sedeMap.set(key, []);
-      sedeMap.get(key)!.push(row);
+  seleccionarSede(sede: SedeAgrupada): void {
+    if (this.sedeSeleccionada() === sede) {
+      this.sedeSeleccionada.set(null);
+    } else {
+      this.sedeSeleccionada.set(sede);
+      this.unidadSeleccionada.set(null);
     }
-    this.sedes = [...sedeMap.entries()].map(([nombre, unidades]) => ({ nombre, unidades }));
   }
 
-  seleccionarSede(sede: SedeData): void {
-    this.sedeSeleccionada = this.sedeSeleccionada === sede ? null : sede;
-    this.unidadSeleccionada = null;
-  }
-
-  seleccionarUnidad(unidad: UnidadData): void {
-    this.unidadSeleccionada = unidad;
+  seleccionarUnidad(unidad: UnidadUrgencias): void {
+    this.unidadSeleccionada.set(unidad);
   }
 
   volver(): void {
-    this.unidadSeleccionada = null;
-  }
-
-  volverASedes(): void {
-    this.unidadSeleccionada = null;
-    this.sedeSeleccionada = null;
+    this.unidadSeleccionada.set(null);
   }
 
   formatMinutos(minutos: number): string {
@@ -102,5 +110,15 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     const h = Math.floor(minutos / 60);
     const m = minutos % 60;
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
+  }
+
+  private agruparPorSede(data: UnidadUrgencias[]): void {
+    const map = new Map<string, UnidadUrgencias[]>();
+    for (const row of data) {
+      const key = row.Sede ?? 'Sin Sede';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(row);
+    }
+    this.sedes.set([...map.entries()].map(([nombre, unidades]) => ({ nombre, unidades })));
   }
 }

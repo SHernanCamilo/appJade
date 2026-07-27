@@ -1,129 +1,112 @@
-<div class="tablero-container">
+<div class="tablero-wrapper">
   <!-- Header -->
   <header class="tablero-header">
-    <h1 class="tablero-title">Tiempos de Atención en Urgencias</h1>
-    <img [src]="logoUrl" alt="Clínica Medilaser" class="tablero-logo" />
+    <h1>Tiempos de Atención en Urgencias</h1>
+    <img src="assets/media/logos/jade-one-horizontal-dark.png" alt="Logo" class="logo" />
   </header>
 
-  <!-- Loading -->
-  @if (isLoading) {
-    <div class="tablero-loading">
-      <div class="spinner"></div>
-      <p>Cargando información...</p>
+  <!-- Loading skeleton -->
+  @if (isLoading()) {
+    <div class="loading-container">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
     </div>
   }
 
   <!-- Error -->
-  @if (error && !isLoading) {
-    <div class="tablero-error">
-      <i class="pi pi-exclamation-triangle"></i>
-      <p>{{ error }}</p>
-      <button class="btn-retry" (click)="cargarDatos()">Reintentar</button>
+  @if (error() && !isLoading()) {
+    <div class="error-container">
+      <span class="error-icon">⚠</span>
+      <p>{{ error() }}</p>
+      <button (click)="cargarDatos()">Reintentar</button>
     </div>
   }
 
-  <!-- Vista principal: seleccionar sede -->
-  @if (!isLoading && !error && !unidadSeleccionada) {
-    <div class="sedes-panel">
-      @for (sede of sedes; track sede.nombre) {
-        <div class="sede-card" [class.active]="sedeSeleccionada === sede"
+  <!-- Vista detalle de unidad -->
+  @if (unidadSeleccionada(); as unidad) {
+    <div class="detalle-view">
+      <div class="detalle-bar">
+        <button class="btn-volver" (click)="volver()">← Volver</button>
+        <span class="detalle-titulo">{{ unidad.Sede }} — {{ unidad.Unidad }}</span>
+      </div>
+
+      <div class="metricas">
+        <!-- Espera Triage -->
+        <div class="metrica-card">
+          <div class="metrica-circle azul">
+            <span>{{ unidad.PacientesEsperaTriage }}</span>
+          </div>
+          <div class="metrica-texto">
+            <strong>Pacientes en Espera Triage</strong>
+            <span class="metrica-sub">⏱ {{ formatMinutos(unidad.TiempoEsperaTriage) }}</span>
+          </div>
+        </div>
+
+        <!-- Espera Consulta -->
+        <div class="metrica-card">
+          <div class="metrica-circle verde">
+            <span>{{ unidad.PacientesEsperaConsulta }}</span>
+          </div>
+          <div class="metrica-texto">
+            <strong>Pacientes en Espera Consulta</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tiempos Triage -->
+      <div class="tiempos-panel">
+        <div class="tiempos-titulo">Tiempo de espera en Consulta</div>
+        <div class="tiempos-row">
+          <div class="tiempo-item">
+            <span class="tiempo-badge naranja">TRIAGE II</span>
+            <span class="tiempo-valor">⏱ {{ formatMinutos(unidad.TII) }}</span>
+          </div>
+          <div class="tiempo-item">
+            <span class="tiempo-badge amarillo">TRIAGE III</span>
+            <span class="tiempo-valor">⏱ {{ formatMinutos(unidad.TIII) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Vista de sedes (solo si no hay unidad seleccionada) -->
+  @if (!isLoading() && !error() && !unidadSeleccionada()) {
+    <div class="sedes-list">
+      @for (sede of sedes(); track sede.nombre) {
+        <div class="sede-item" [class.expanded]="sedeSeleccionada() === sede"
              (click)="seleccionarSede(sede)">
-          <div class="sede-header">
+          <div class="sede-row">
             <span class="sede-nombre">{{ sede.nombre }}</span>
-            <i class="pi" [class.pi-chevron-down]="sedeSeleccionada === sede"
-               [class.pi-chevron-right]="sedeSeleccionada !== sede"></i>
+            <span class="sede-chevron">{{ sedeSeleccionada() === sede ? '▲' : '▼' }}</span>
           </div>
 
-          <!-- Unidades de la sede expandida -->
-          @if (sedeSeleccionada === sede) {
-            <div class="unidades-grid">
+          @if (sedeSeleccionada() === sede) {
+            <div class="unidades-container" (click)="$event.stopPropagation()">
               @for (unidad of sede.unidades; track unidad.IdUnidad) {
-                <button class="unidad-btn" (click)="seleccionarUnidad(unidad); $event.stopPropagation()">
-                  <span class="unidad-nombre">{{ unidad.Unidad }}</span>
-                  <span class="unidad-badge">{{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }} pac.</span>
+                <button class="unidad-chip" (click)="seleccionarUnidad(unidad)">
+                  {{ unidad.Unidad }}
+                  <span class="chip-badge">{{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }}</span>
                 </button>
-              }
-              @empty {
-                <p class="sin-unidades">Sin unidades disponibles</p>
+              } @empty {
+                <p class="empty-msg">Sin unidades</p>
               }
             </div>
           }
         </div>
       } @empty {
-        <div class="tablero-empty">
-          <p>No hay datos disponibles en este momento.</p>
-        </div>
+        <div class="empty-msg">No hay datos disponibles.</div>
       }
     </div>
   }
 
-  <!-- Vista detalle: información de la unidad seleccionada -->
-  @if (unidadSeleccionada) {
-    <div class="detalle-panel">
-      <!-- Barra superior con sede -->
-      <div class="detalle-sede-bar">
-        <button class="btn-volver" (click)="volver()">
-          <i class="pi pi-arrow-left"></i> Volver
-        </button>
-        <span class="detalle-sede-nombre">{{ unidadSeleccionada.Sede }} - {{ unidadSeleccionada.Unidad }}</span>
-      </div>
-
-      <!-- Cards de métricas -->
-      <div class="metricas-grid">
-        <!-- Pacientes en espera Triage -->
-        <div class="metrica-card triage">
-          <div class="metrica-circle">
-            <span class="metrica-numero">{{ unidadSeleccionada.PacientesEsperaTriage }}</span>
-          </div>
-          <div class="metrica-info">
-            <span class="metrica-label">Pacientes en Espera Triage</span>
-            <span class="metrica-tiempo">
-              <i class="pi pi-clock"></i>
-              {{ formatMinutos(unidadSeleccionada.TiempoEsperaTriage) }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Pacientes en espera Consulta -->
-        <div class="metrica-card consulta">
-          <div class="metrica-circle consulta-circle">
-            <span class="metrica-numero">{{ unidadSeleccionada.PacientesEsperaConsulta }}</span>
-          </div>
-          <div class="metrica-info">
-            <span class="metrica-label">Pacientes en Espera Consulta</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tiempos de espera en consulta por triage -->
-      <div class="tiempos-panel">
-        <div class="tiempos-header">
-          <span>Tiempo de espera en Consulta</span>
-        </div>
-        <div class="tiempos-grid">
-          <div class="tiempo-item triage-ii">
-            <span class="tiempo-label">TRIAGE II</span>
-            <span class="tiempo-valor">
-              <i class="pi pi-clock"></i>
-              {{ formatMinutos(unidadSeleccionada.TII) }}
-            </span>
-          </div>
-          <div class="tiempo-item triage-iii">
-            <span class="tiempo-label">TRIAGE III</span>
-            <span class="tiempo-valor">
-              <i class="pi pi-clock"></i>
-              {{ formatMinutos(unidadSeleccionada.TIII) }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- Footer con auto-refresh indicator -->
+  <!-- Footer -->
   <footer class="tablero-footer">
-    <span class="refresh-indicator">
-      <span class="pulse-dot"></span> Actualización automática cada 30s
-    </span>
+    <span class="pulse"></span>
+    <span>Actualización automática cada 30s</span>
+    @if (lastUpdate()) {
+      <span class="last-update">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span>
+    }
   </footer>
 </div>
