@@ -74,11 +74,11 @@
           <button
             type="button"
             class="btn-toolbar btn-toolbar-pdf"
-            (click)="abrirExportDialog()"
+            (click)="onClickExportarPdf()"
             [disabled]="!puedeExportar"
-            pTooltip="Exportar constancia SOAT en PDF">
+            [pTooltip]="filasSeleccionadasCount > 0 ? 'Exportar solo las facturas seleccionadas' : 'Exportar constancia SOAT en PDF'">
             <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-pdf]="!isExporting"></i>
-            {{ isExporting ? 'Generando PDF...' : 'Exportar PDF' }}
+            {{ isExporting ? 'Generando PDF...' : (filasSeleccionadasCount > 0 ? 'Exportar PDF (' + filasSeleccionadasCount + ')' : 'Exportar PDF') }}
           </button>
         </div>
       </div>
@@ -88,6 +88,9 @@
         Filtrado por Identificacion =
         <strong>{{ ultimaConsulta }}</strong>
         <span *ngIf="!isLoading"> · {{ totalRegistros | number }} registro(s)</span>
+        <span *ngIf="filasSeleccionadasCount > 0" class="hint-seleccion">
+          · {{ filasSeleccionadasCount }} seleccionada(s)
+        </span>
       </div>
     </div>
 
@@ -120,11 +123,14 @@
           [columnDefs]="columnDefs"
           [defaultColDef]="defaultColDef"
           [localeText]="localeText"
+          [rowSelection]="rowSelection"
+          [selectionColumnDef]="selectionColumnDef"
           [animateRows]="true"
           [pagination]="false"
           [enableCellTextSelection]="true"
           [ensureDomOrder]="true"
-          (gridReady)="onGridReady($event)">
+          (gridReady)="onGridReady($event)"
+          (selectionChanged)="onSelectionChanged()">
         </ag-grid-angular>
 
         <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0">

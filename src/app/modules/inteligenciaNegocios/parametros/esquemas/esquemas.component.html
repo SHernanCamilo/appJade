@@ -243,6 +243,12 @@
                         (click)="setDelegacionModo('usuario')">
                   <i class="pi pi-user"></i> Por usuario
                 </button>
+                <button type="button"
+                        class="delegacion-modo-btn"
+                        [class.active]="delegacionModo === 'esquema'"
+                        (click)="setDelegacionModo('esquema')">
+                  <i class="pi pi-sitemap"></i> Por esquema
+                </button>
               </div>
 
               <div class="delegacion-toolbar">
@@ -301,6 +307,25 @@
                   </p-dropdown>
                 </div>
 
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'esquema'">
+                  <label class="param-label">Esquema destino</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionEsquemaDestinoId"
+                    [options]="delegacionEsquemasOptions"
+                    (onChange)="onDelegacionEsquemaDestinoChange()"
+                    placeholder="Seleccionar esquema..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas || !esquemaEmpresaId || isLoadingEsquemasEmpresa"
+                    [loading]="isLoadingEsquemasEmpresa"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
                 <button
                   *ngIf="delegacionModo === 'empresa'"
                   type="button"
@@ -320,6 +345,16 @@
                   <i class="pi pi-save" [class.pi-spin]="isSavingDelegacionUsuario"></i>
                   {{ isSavingDelegacionUsuario ? 'Guardando...' : 'Guardar' }}
                 </button>
+
+                <button
+                  *ngIf="delegacionModo === 'esquema'"
+                  type="button"
+                  class="btn-action btn-action-primary"
+                  (click)="guardarDelegacionEsquema()"
+                  [disabled]="!puedeGestionarDelegacionEsquema || isSavingDelegacionEsquema || isLoadingDelegacionEsquema">
+                  <i class="pi pi-save" [class.pi-spin]="isSavingDelegacionEsquema"></i>
+                  {{ isSavingDelegacionEsquema ? 'Guardando...' : 'Guardar' }}
+                </button>
               </div>
 
               <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'empresa'">
@@ -327,6 +362,9 @@
               </small>
               <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'usuario'">
                 Elija la empresa y el usuario para asignar vistas. Solo ver&aacute;n las vistas marcadas, aunque no tengan el esquema completo en Azure.
+              </small>
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'esquema'">
+                Quienes tengan el esquema destino podr&aacute;n ver las vistas marcadas de este esquema (misma empresa). Ej: AA ve vistas de DF.
               </small>
 
               <!-- Por empresa -->
@@ -417,6 +455,54 @@
               <div class="empty-select-schema" *ngIf="puedeGestionarVistas && delegacionEmpresaId && !delegacionUsuarioId">
                 <i class="pi pi-user"></i>
                 <p>Seleccione un usuario de {{ delegacionEmpresaNombre }} para asignar vistas</p>
+              </div>
+              </ng-container>
+
+              <!-- Por esquema -->
+              <ng-container *ngIf="delegacionModo === 'esquema'">
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacionEsquema && delegacionEsquemaTieneConfig">
+                <i class="pi pi-info-circle"></i>
+                Los usuarios con <strong>{{ delegacionEsquemaDestinoNombre }}</strong> ver&aacute;n solo las vistas marcadas de este esquema.
+              </p>
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacionEsquema && !delegacionEsquemaTieneConfig && delegacionEsquemaVistas.length > 0">
+                <i class="pi pi-info-circle"></i>
+                Sin vistas marcadas = el esquema destino no recibe vistas de este esquema por delegaci&oacute;n.
+              </p>
+
+              <div class="delegacion-actions" *ngIf="puedeGestionarDelegacionEsquema && delegacionEsquemaVistas.length > 0">
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionEsquema(true)">Marcar todas</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionEsquema(false)">Ninguna</button>
+                <span class="delegacion-count">{{ delegacionEsquemaSeleccionadas }} / {{ delegacionEsquemaVistas.length }} seleccionadas</span>
+              </div>
+
+              <div class="usuarios-table-wrap esquemas-grid-wrap" *ngIf="puedeGestionarDelegacionEsquema">
+                <ag-grid-angular
+                  class="ag-theme-alpine esquemas-delegacion-grid"
+                  [style]="{ width: '100%', height: '380px', display: 'block' }"
+                  [rowData]="delegacionEsquemaVistas"
+                  [columnDefs]="delegacionColumnDefs"
+                  [defaultColDef]="defaultColDef"
+                  [localeText]="localeText"
+                  [rowSelection]="rowSelection"
+                  [selectionColumnDef]="selectionColumnDef"
+                  [animateRows]="true"
+                  [pagination]="true"
+                  [paginationPageSize]="25"
+                  [loading]="isLoadingDelegacionEsquema"
+                  [overlayNoRowsTemplate]="delegacionEsquemaNoRowsTemplate"
+                  (gridReady)="onDelegacionEsquemaGridReady($event)"
+                  (selectionChanged)="onDelegacionEsquemaSelectionChanged()">
+                </ag-grid-angular>
+              </div>
+
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && !esquemaEmpresaId">
+                <i class="pi pi-building"></i>
+                <p>Asigne una empresa al esquema actual para delegar entre esquemas</p>
+              </div>
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && esquemaEmpresaId && !delegacionEsquemaDestinoId">
+                <i class="pi pi-sitemap"></i>
+                <p>Seleccione un esquema destino de la misma empresa</p>
               </div>
               </ng-container>
 

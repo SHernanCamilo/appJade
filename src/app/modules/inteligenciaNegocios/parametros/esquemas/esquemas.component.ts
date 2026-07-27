@@ -110,7 +110,7 @@ export class EsquemasComponent implements OnInit {
   isLoadingDelegacion = false;
   isSavingDelegacion = false;
 
-  delegacionModo: 'empresa' | 'usuario' = 'empresa';
+  delegacionModo: 'empresa' | 'usuario' | 'esquema' = 'empresa';
   delegacionUsuarioId: number | null = null;
   delegacionUsuariosOptions: { label: string; value: number }[] = [];
   delegacionUsuarioVistas: BiDelegacionVista[] = [];
@@ -119,6 +119,15 @@ export class EsquemasComponent implements OnInit {
   isLoadingDelegacionUsuario = false;
   isSavingDelegacionUsuario = false;
   isLoadingUsuariosEmpresa = false;
+
+  /** Por esquema: destino (ej. AA) recibe vistas del esquema actual (ej. DF). */
+  delegacionEsquemaDestinoId: number | null = null;
+  delegacionEsquemasOptions: { label: string; value: number }[] = [];
+  delegacionEsquemaVistas: BiDelegacionVista[] = [];
+  delegacionEsquemaTieneConfig = false;
+  isLoadingDelegacionEsquema = false;
+  isSavingDelegacionEsquema = false;
+  isLoadingEsquemasEmpresa = false;
 
   tipoOptions = [
     { label: 'Asistencial', value: 1 },
@@ -164,10 +173,13 @@ export class EsquemasComponent implements OnInit {
     '<span class="ag-overlay-empty">No hay vistas en este esquema. Agregue vistas en la pestaña Vistas.</span>';
   readonly delegacionUsuarioNoRowsTemplate =
     '<span class="ag-overlay-empty">Seleccione empresa y usuario para configurar delegación.</span>';
+  readonly delegacionEsquemaNoRowsTemplate =
+    '<span class="ag-overlay-empty">Seleccione un esquema destino de la misma empresa.</span>';
 
   private vistasGridApi?: GridApi<BiVista>;
   private delegacionGridApi?: GridApi<BiDelegacionVista>;
   private delegacionUsuarioGridApi?: GridApi<BiDelegacionVista>;
+  private delegacionEsquemaGridApi?: GridApi<BiDelegacionVista>;
 
   constructor(
     private fb: FormBuilder,
@@ -334,12 +346,21 @@ export class EsquemasComponent implements OnInit {
     this.syncDelegacionGridSelection(this.delegacionUsuarioGridApi, this.delegacionUsuarioVistas);
   }
 
+  onDelegacionEsquemaGridReady(event: GridReadyEvent<BiDelegacionVista>): void {
+    this.delegacionEsquemaGridApi = event.api;
+    this.syncDelegacionGridSelection(this.delegacionEsquemaGridApi, this.delegacionEsquemaVistas);
+  }
+
   onDelegacionSelectionChanged(): void {
     this.syncDelegadaFromGrid(this.delegacionGridApi, this.delegacionVistas);
   }
 
   onDelegacionUsuarioSelectionChanged(): void {
     this.syncDelegadaFromGrid(this.delegacionUsuarioGridApi, this.delegacionUsuarioVistas);
+  }
+
+  onDelegacionEsquemaSelectionChanged(): void {
+    this.syncDelegadaFromGrid(this.delegacionEsquemaGridApi, this.delegacionEsquemaVistas);
   }
 
   private syncDelegacionGridSelection(gridApi: GridApi<BiDelegacionVista> | undefined, vistas: BiDelegacionVista[]): void {
@@ -545,6 +566,24 @@ export class EsquemasComponent implements OnInit {
       return true;
     }
     return this.delegacionEmpresaTienePool;
+  }
+
+  get puedeGestionarDelegacionEsquema(): boolean {
+    return this.puedeGestionarVistas
+      && !!this.esquemaEmpresaId
+      && !!this.delegacionEsquemaDestinoId;
+  }
+
+  get delegacionEsquemaSeleccionadas(): number {
+    return this.delegacionEsquemaVistas.filter(v => v.delegada).length;
+  }
+
+  get delegacionEsquemaDestinoNombre(): string {
+    const id = this.delegacionEsquemaDestinoId;
+    if (!id) {
+      return '';
+    }
+    return this.delegacionEsquemasOptions.find(o => o.value === id)?.label ?? '';
   }
 
   get fabricOptionsDisponibles(): { label: string; value: string }[] {
@@ -1007,7 +1046,7 @@ export class EsquemasComponent implements OnInit {
     this.cargarDelegacion();
   }
 
-  setDelegacionModo(modo: 'empresa' | 'usuario'): void {
+  setDelegacionModo(modo: 'empresa' | 'usuario' | 'esquema'): void {
     this.delegacionModo = modo;
 
     if (modo === 'usuario') {
@@ -1017,10 +1056,23 @@ export class EsquemasComponent implements OnInit {
       this.delegacionUsuarioTieneConfig = false;
       this.delegacionEmpresaTienePool = !!this.esquemaEmpresaId;
       this.delegacionUsuariosOptions = [];
+      this.resetDelegacionEsquemaState();
 
       if (this.delegacionEmpresaId) {
         this.cargarUsuariosEmpresa();
       }
+      return;
+    }
+
+    if (modo === 'esquema') {
+      this.delegacionEmpresaId = null;
+      this.delegacionUsuarioId = null;
+      this.delegacionUsuariosOptions = [];
+      this.delegacionUsuarioVistas = [];
+      this.delegacionVistas = [];
+      this.delegacionEmpresaTienePool = false;
+      this.resetDelegacionEsquemaState();
+      this.cargarEsquemasMismaEmpresa();
       return;
     }
 
@@ -1030,6 +1082,52 @@ export class EsquemasComponent implements OnInit {
     this.delegacionUsuarioVistas = [];
     this.delegacionVistas = [];
     this.delegacionEmpresaTienePool = false;
+    this.resetDelegacionEsquemaState();
+  }
+
+  onDelegacionEsquemaDestinoChange(): void {
+    if (!this.delegacionEsquemaDestinoId) {
+      this.delegacionEsquemaVistas = [];
+      this.delegacionEsquemaTieneConfig = false;
+      return;
+    }
+    this.cargarDelegacionEsquema();
+  }
+
+  private resetDelegacionEsquemaState(): void {
+    this.delegacionEsquemaDestinoId = null;
+    this.delegacionEsquemasOptions = [];
+    this.delegacionEsquemaVistas = [];
+    this.delegacionEsquemaTieneConfig = false;
+    this.isLoadingDelegacionEsquema = false;
+    this.isSavingDelegacionEsquema = false;
+  }
+
+  private cargarEsquemasMismaEmpresa(): void {
+    const empresaId = this.esquemaEmpresaId;
+    if (!empresaId) {
+      this.delegacionEsquemasOptions = [];
+      return;
+    }
+
+    this.isLoadingEsquemasEmpresa = true;
+    this.biGrupoService.getGrupos({ empresa_id: empresaId }).subscribe({
+      next: (grupos) => {
+        const actualId = this.currentGrupoId;
+        this.delegacionEsquemasOptions = (grupos ?? [])
+          .filter(g => g.id !== actualId)
+          .map(g => ({
+            label: `${g.codigo}${g.descripcion ? ' — ' + g.descripcion : ''}`,
+            value: g.id
+          }));
+        this.isLoadingEsquemasEmpresa = false;
+      },
+      error: () => {
+        this.delegacionEsquemasOptions = [];
+        this.isLoadingEsquemasEmpresa = false;
+        this.showError('No se pudieron cargar los esquemas de la empresa');
+      }
+    });
   }
 
   onDelegacionUsuarioChange(): void {
@@ -1183,6 +1281,67 @@ export class EsquemasComponent implements OnInit {
       error: (err) => {
         this.isSavingDelegacionUsuario = false;
         this.showError(err?.error?.message || 'Error al guardar delegaci\u00f3n por usuario');
+      }
+    });
+  }
+
+  cargarDelegacionEsquema(): void {
+    if (!this.currentGrupoId || !this.delegacionEsquemaDestinoId) {
+      return;
+    }
+
+    this.isLoadingDelegacionEsquema = true;
+    this.biGrupoService.getDelegacionEsquema(
+      this.currentGrupoId,
+      this.delegacionEsquemaDestinoId
+    ).subscribe({
+      next: (data) => {
+        this.delegacionEsquemaVistas = data.vistas ?? [];
+        this.delegacionEsquemaTieneConfig = data.tiene_config;
+        this.isLoadingDelegacionEsquema = false;
+        setTimeout(() => this.syncDelegacionGridSelection(
+          this.delegacionEsquemaGridApi,
+          this.delegacionEsquemaVistas
+        ));
+      },
+      error: (err) => {
+        this.delegacionEsquemaVistas = [];
+        this.isLoadingDelegacionEsquema = false;
+        this.showError(err?.error?.message || 'Error al cargar delegaci\u00f3n por esquema');
+      }
+    });
+  }
+
+  seleccionarTodasDelegacionEsquema(seleccionar: boolean): void {
+    this.delegacionEsquemaVistas.forEach(v => { v.delegada = seleccionar; });
+    if (seleccionar) {
+      this.delegacionEsquemaGridApi?.selectAll();
+    } else {
+      this.delegacionEsquemaGridApi?.deselectAll();
+    }
+  }
+
+  guardarDelegacionEsquema(): void {
+    if (!this.currentGrupoId || !this.delegacionEsquemaDestinoId) {
+      return;
+    }
+
+    const vistaIds = this.delegacionEsquemaVistas.filter(v => v.delegada).map(v => v.id);
+    this.isSavingDelegacionEsquema = true;
+
+    this.biGrupoService.saveDelegacionEsquema(
+      this.currentGrupoId,
+      this.delegacionEsquemaDestinoId,
+      vistaIds
+    ).subscribe({
+      next: () => {
+        this.delegacionEsquemaTieneConfig = vistaIds.length > 0;
+        this.isSavingDelegacionEsquema = false;
+        this.showSuccess('Delegaci\u00f3n por esquema guardada correctamente');
+      },
+      error: (err) => {
+        this.isSavingDelegacionEsquema = false;
+        this.showError(err?.error?.message || 'Error al guardar delegaci\u00f3n por esquema');
       }
     });
   }
