@@ -1,84 +1,98 @@
-<div class="tv-wrapper">
-  <!-- Header con logo + carrusel triage compacto -->
-  <header class="tv-header">
-    <img [src]="logoEmpresa()" alt="Logo Empresa" class="tv-logo" />
-    <div class="header-carousel">
-      @for (slide of slides; track slide; let i = $index) {
-        <img [src]="slide" [class.active]="currentSlide() === i" class="header-slide" alt="Triage {{ i + 1 }}" />
-      }
-    </div>
-    <h1>Tiempos de Atención en Urgencias</h1>
-    <div class="tv-status">
-      <span class="pulse-dot"></span>
-      @if (lastUpdate()) { <span>{{ lastUpdate()! | date:'HH:mm:ss' }}</span> }
+<div class="tablero">
+  <!-- ═══ Header: título + logo + slide ═══ -->
+  <header class="header">
+    <h1 class="title">Tiempos de Atención en Urgencias</h1>
+    <div class="header-brand">
+      <img [src]="logoEmpresa()" alt="Logo" class="brand-logo" />
+      <div class="brand-slide">
+        @for (slide of slides; track slide; let i = $index) {
+          <img [src]="slide" [class.active]="currentSlide() === i" class="slide-img" alt="Triage {{ i + 1 }}" />
+        }
+      </div>
     </div>
   </header>
 
   @if (isLoading()) {
-    <div class="tv-center"><div class="skeleton"></div><div class="skeleton"></div></div>
+    <div class="center-msg"><p>Cargando...</p></div>
   }
 
   @if (error() && !isLoading()) {
-    <div class="tv-center tv-error">
+    <div class="center-msg error">
       <p>{{ error() }}</p>
       <button (click)="cargarDatos()">Reintentar</button>
     </div>
   }
 
-  <!-- ══ Detalle de unidad seleccionada ══ -->
+  <!-- ═══ Detalle de unidad ═══ -->
   @if (unidadSeleccionada(); as u) {
-    <main class="tv-content">
-      <div class="unit-header">
-        <button class="btn-back" (click)="volver()">←</button>
-        <span class="unit-sede">{{ u.Sede }}</span>
-        <span class="unit-sep">·</span>
-        <span class="unit-name">{{ u.Unidad }}</span>
+    <div class="content">
+      <div class="sede-bar">
+        <button class="btn-volver" (click)="volver()">← Volver</button>
+        <span>{{ u.Sede }} — {{ u.Unidad }}</span>
       </div>
 
-      <!-- Tiempos triage en línea -->
-      <div class="metrics-row">
-        <div class="metric triage">
-          <div class="metric-num">{{ u.PacientesEsperaTriage }}</div>
-          <div class="metric-label">Espera Triage<br/><small>⏱ {{ formatMinutos(u.TiempoEsperaTriage) }}</small></div>
-        </div>
-        <div class="metric consulta">
-          <div class="metric-num">{{ u.PacientesEsperaConsulta }}</div>
-          <div class="metric-label">Espera Consulta</div>
-        </div>
-        <div class="metric-times">
-          <div class="time-item"><span class="badge-t2">TRIAGE II</span><span class="time-val">{{ formatMinutos(u.TII) }}</span></div>
-          <div class="time-item"><span class="badge-t3">TRIAGE III</span><span class="time-val">{{ formatMinutos(u.TIII) }}</span></div>
-        </div>
-      </div>
-    </main>
-  }
-
-  <!-- ══ Selección de sede ══ -->
-  @if (!isLoading() && !error() && !unidadSeleccionada()) {
-    <main class="tv-content select-mode">
-      <div class="sedes-panel">
-        @for (sede of sedes(); track sede.nombre) {
-          <div class="sede-card" [class.open]="sedeSeleccionada() === sede">
-            <button class="sede-btn" (click)="seleccionarSede(sede)">
-              <span class="sede-name">{{ sede.nombre }}</span>
-              <span class="sede-badge">{{ sede.unidades.length }}</span>
-              <span class="sede-chevron">{{ sedeSeleccionada() === sede ? '▲' : '▼' }}</span>
-            </button>
-            @if (sedeSeleccionada() === sede) {
-              <div class="units-wrap">
-                @for (unidad of sede.unidades; track unidad.IdUnidad) {
-                  <button class="unit-chip" (click)="seleccionarUnidad(unidad)">
-                    {{ unidad.Unidad }}
-                    <span class="chip-num">{{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }}</span>
-                  </button>
-                }
-              </div>
-            }
+      <div class="cards-row">
+        <div class="card-metric">
+          <div class="circle azul">{{ u.PacientesEsperaTriage }}</div>
+          <div class="card-text">
+            <strong>Pacientes en Espera Triage</strong>
+            <span class="sub-time">⏱ {{ formatMinutos(u.TiempoEsperaTriage) }}</span>
           </div>
-        } @empty {
-          <p class="no-data">Sin datos disponibles.</p>
-        }
+        </div>
+        <div class="card-metric">
+          <div class="circle verde">{{ u.PacientesEsperaConsulta }}</div>
+          <div class="card-text">
+            <strong>Pacientes en Espera Consulta</strong>
+          </div>
+        </div>
       </div>
-    </main>
+
+      <div class="tiempos-panel">
+        <div class="tiempos-header">Tiempo de espera en Consulta</div>
+        <div class="tiempos-body">
+          <div class="tiempo-col">
+            <span class="badge naranja">TRIAGE II</span>
+            <span class="tiempo-valor">⏱ {{ formatMinutos(u.TII) }}</span>
+          </div>
+          <div class="tiempo-col">
+            <span class="badge amarillo">TRIAGE III</span>
+            <span class="tiempo-valor">⏱ {{ formatMinutos(u.TIII) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   }
+
+  <!-- ═══ Selección de sede ═══ -->
+  @if (!isLoading() && !error() && !unidadSeleccionada()) {
+    <div class="content">
+      @for (sede of sedes(); track sede.nombre) {
+        <div class="sede-card" [class.open]="sedeSeleccionada() === sede">
+          <button class="sede-row" (click)="seleccionarSede(sede)">
+            <span class="sede-nombre">{{ sede.nombre }}</span>
+            <span class="sede-chevron">{{ sedeSeleccionada() === sede ? '▲' : '▼' }}</span>
+          </button>
+          @if (sedeSeleccionada() === sede) {
+            <div class="unidades-grid">
+              @for (unidad of sede.unidades; track unidad.IdUnidad) {
+                <button class="unidad-btn" (click)="seleccionarUnidad(unidad)">
+                  {{ unidad.Unidad }}
+                  <span class="btn-badge">{{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }}</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+      } @empty {
+        <p class="center-msg">Sin datos disponibles.</p>
+      }
+    </div>
+  }
+
+  <!-- ═══ Footer ═══ -->
+  <footer class="footer">
+    <span class="pulse-dot"></span>
+    Actualización automática cada 30s
+    @if (lastUpdate()) { <span class="last-time">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span> }
+  </footer>
 </div>
