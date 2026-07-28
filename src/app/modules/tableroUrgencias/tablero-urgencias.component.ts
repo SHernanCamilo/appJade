@@ -38,6 +38,17 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   readonly lastUpdate = signal<Date | null>(null);
   readonly sucursalUsuario = signal<string | null>(null);
 
+  // Carrusel de imágenes informativas
+  readonly slides = [
+    'assets/media/tablero-urgencias/triage-info.jpeg',
+    'assets/media/tablero-urgencias/slide-2.jpeg',
+    'assets/media/tablero-urgencias/slide-3.jpeg',
+    'assets/media/tablero-urgencias/slide-4.jpeg',
+    'assets/media/tablero-urgencias/slide-5.jpeg',
+  ];
+  readonly currentSlide = signal(0);
+  private slideInterval: ReturnType<typeof setInterval> | null = null;
+
   // Computed
   readonly totalPacientes = computed(() => {
     const unidad = this.unidadSeleccionada();
@@ -53,12 +64,15 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.cargarDatos();
     this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
+    // Carrusel: cambia cada 8 segundos
+    this.slideInterval = setInterval(() => {
+      this.currentSlide.set((this.currentSlide() + 1) % this.slides.length);
+    }, 8_000);
   }
 
   ngOnDestroy(): void {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-    }
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
+    if (this.slideInterval) clearInterval(this.slideInterval);
   }
 
   cargarDatos(): void {

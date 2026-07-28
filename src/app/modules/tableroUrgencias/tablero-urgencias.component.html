@@ -109,4 +109,22 @@
       <span class="last-update">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span>
     }
   </footer>
+
+  <!-- Carrusel informativo -->
+  @if (!isLoading() && !error()) {
+    <div class="carousel-container">
+      @for (slide of slides; track slide; let i = $index) {
+        <img
+          [src]="slide"
+          [class.active]="currentSlide() === i"
+          class="carousel-img"
+          alt="Información Triage {{ i + 1 }}" />
+      }
+      <div class="carousel-dots">
+        @for (slide of slides; track slide; let i = $index) {
+          <span class="dot" [class.active]="currentSlide() === i" (click)="currentSlide.set(i)"></span>
+        }
+      </div>
+    </div>
+  }
 </div>
