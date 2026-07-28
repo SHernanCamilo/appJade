@@ -29,7 +29,6 @@ interface SedeAgrupada {
   styleUrl: './tablero-urgencias.component.css'
 })
 export class TableroUrgenciasComponent implements OnInit, OnDestroy {
-  // Estado reactivo con signals
   readonly sedes = signal<SedeAgrupada[]>([]);
   readonly sedeSeleccionada = signal<SedeAgrupada | null>(null);
   readonly unidadSeleccionada = signal<UnidadUrgencias | null>(null);
@@ -37,37 +36,36 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   readonly error = signal('');
   readonly lastUpdate = signal<Date | null>(null);
   readonly sucursalUsuario = signal<string | null>(null);
+  readonly logoEmpresa = signal<string>('assets/media/logos/jade-one-horizontal-dark.png');
 
-  // Carrusel de imágenes informativas
+  // Carrusel — banners de triage individuales
   readonly slides = [
-    'assets/media/tablero-urgencias/triage-info.jpeg',
-    'assets/media/tablero-urgencias/slide-2.jpeg',
-    'assets/media/tablero-urgencias/slide-3.jpeg',
-    'assets/media/tablero-urgencias/slide-4.jpeg',
-    'assets/media/tablero-urgencias/slide-5.jpeg',
+    'assets/media/tablero-urgencias/Triage 1.JPG',
+    'assets/media/tablero-urgencias/Triage 2.JPG',
+    'assets/media/tablero-urgencias/Triage 3.JPG',
+    'assets/media/tablero-urgencias/Triage 4.JPG',
+    'assets/media/tablero-urgencias/Triage 5 .JPG',
   ];
   readonly currentSlide = signal(0);
-  private slideInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Computed
   readonly totalPacientes = computed(() => {
-    const unidad = this.unidadSeleccionada();
-    if (!unidad) return 0;
-    return unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta;
+    const u = this.unidadSeleccionada();
+    return u ? u.PacientesEsperaTriage + u.PacientesEsperaConsulta : 0;
   });
 
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private slideInterval: ReturnType<typeof setInterval> | null = null;
   private readonly apiUrl = `${environment.URL_SERVICIOS}/tableros/urgencias`;
 
   constructor(private readonly http: HttpClient) {}
 
   ngOnInit(): void {
     this.cargarDatos();
+    this.cargarLogoEmpresa();
     this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
-    // Carrusel: cambia cada 8 segundos
     this.slideInterval = setInterval(() => {
       this.currentSlide.set((this.currentSlide() + 1) % this.slides.length);
-    }, 8_000);
+    }, 6_000);
   }
 
   ngOnDestroy(): void {
@@ -81,40 +79,30 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         if (res.success && res.data) {
           this.agruparPorSede(res.data);
           this.lastUpdate.set(new Date());
-          if (res.sucursal) {
-            this.sucursalUsuario.set(res.sucursal);
-          }
+          if (res.sucursal) this.sucursalUsuario.set(res.sucursal);
         }
         this.isLoading.set(false);
         this.error.set('');
       },
       error: (err) => {
-        if (err.status === 403) {
-          this.error.set('No tiene permisos para ver el tablero de urgencias.');
-        } else {
-          this.error.set('No se pudo cargar el tablero de urgencias.');
-        }
+        this.error.set(err.status === 403
+          ? 'No tiene permisos para ver el tablero.'
+          : 'No se pudo cargar el tablero de urgencias.');
         this.isLoading.set(false);
       }
     });
   }
 
   seleccionarSede(sede: SedeAgrupada): void {
-    if (this.sedeSeleccionada() === sede) {
-      this.sedeSeleccionada.set(null);
-    } else {
-      this.sedeSeleccionada.set(sede);
-      this.unidadSeleccionada.set(null);
-    }
+    this.sedeSeleccionada.set(this.sedeSeleccionada() === sede ? null : sede);
+    this.unidadSeleccionada.set(null);
   }
 
   seleccionarUnidad(unidad: UnidadUrgencias): void {
     this.unidadSeleccionada.set(unidad);
   }
 
-  volver(): void {
-    this.unidadSeleccionada.set(null);
-  }
+  volver(): void { this.unidadSeleccionada.set(null); }
 
   formatMinutos(minutos: number): string {
     if (!minutos || minutos <= 0) return '0 min';
@@ -132,5 +120,23 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       map.get(key)!.push(row);
     }
     this.sedes.set([...map.entries()].map(([nombre, unidades]) => ({ nombre, unidades })));
+  }
+
+  private cargarLogoEmpresa(): void {
+    // Intentar cargar logo de la empresa desde la sesión del usuario
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const empresa = user?.empresas?.[0];
+        if (empresa?.id) {
+          this.http.get<{ logo_url?: string }>(`${environment.URL_SERVICIOS}/empresas/${empresa.id}/logo-base64`).subscribe({
+            next: (res) => {
+              if (res.logo_url) this.logoEmpresa.set(res.logo_url);
+            }
+          });
+        }
+      }
+    } catch { /* usar logo por defecto */ }
   }
 }
