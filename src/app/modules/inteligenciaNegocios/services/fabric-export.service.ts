@@ -203,7 +203,9 @@ export class FabricExportService {
             });
           },
           error: () => {
-            window.open(`${baseUrl}/download/${jobId}`, '_blank');
+            // Fallback: abrir con token en query param (window.open no envía headers)
+            const token = localStorage.getItem('token') ?? '';
+            window.open(`${baseUrl}/download/${jobId}?token=${encodeURIComponent(token)}`, '_blank');
             setTimeout(() => this.exportProgressSubject.next(null), 3000);
             this.decrementPending();
           }
@@ -274,8 +276,9 @@ export class FabricExportService {
                 });
               },
               error: () => {
-                // Fallback: abrir en nueva pestaña (el navegador manejará la descarga)
-                window.open(`${baseUrl}/download/${jobId}`, '_blank');
+                // Fallback: abrir con token en query param (window.open no envía headers)
+                const token = localStorage.getItem('token') ?? '';
+                window.open(`${baseUrl}/download/${jobId}?token=${encodeURIComponent(token)}`, '_blank');
                 setTimeout(() => this.exportProgressSubject.next(null), 3000);
                 this.decrementPending();
               }
