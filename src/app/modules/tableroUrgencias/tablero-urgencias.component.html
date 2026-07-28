@@ -1,130 +1,156 @@
-<div class="tablero-wrapper">
-  <!-- Header -->
-  <header class="tablero-header">
-    <h1>Tiempos de Atención en Urgencias</h1>
-    <img src="assets/media/logos/jade-one-horizontal-dark.png" alt="Logo" class="logo" />
+<div class="tv-wrapper">
+  <!-- ═══ Header compacto ═══ -->
+  <header class="tv-header">
+    <img src="assets/media/logos/jade-one-horizontal-dark.png" alt="Logo" class="tv-logo" />
+    <h1 class="tv-title">Tiempos de Atención en Urgencias</h1>
+    <div class="tv-clock">
+      @if (lastUpdate()) {
+        <span class="pulse-dot"></span>
+        <span>{{ lastUpdate()! | date:'HH:mm:ss' }}</span>
+      }
+    </div>
   </header>
 
-  <!-- Loading skeleton -->
+  <!-- ═══ Loading ═══ -->
   @if (isLoading()) {
-    <div class="loading-container">
-      <div class="skeleton-card"></div>
-      <div class="skeleton-card"></div>
-      <div class="skeleton-card"></div>
+    <div class="tv-loading">
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
+      <div class="skeleton-row"></div>
     </div>
   }
 
-  <!-- Error -->
+  <!-- ═══ Error ═══ -->
   @if (error() && !isLoading()) {
-    <div class="error-container">
-      <span class="error-icon">⚠</span>
+    <div class="tv-error">
+      <span class="err-icon">⚠</span>
       <p>{{ error() }}</p>
       <button (click)="cargarDatos()">Reintentar</button>
     </div>
   }
 
-  <!-- Vista detalle de unidad -->
+  <!-- ═══ MODO TV: unidad seleccionada (layout de 2 columnas) ═══ -->
   @if (unidadSeleccionada(); as unidad) {
-    <div class="detalle-view">
-      <div class="detalle-bar">
-        <button class="btn-volver" (click)="volver()">← Volver</button>
-        <span class="detalle-titulo">{{ unidad.Sede }} — {{ unidad.Unidad }}</span>
-      </div>
-
-      <div class="metricas">
-        <!-- Espera Triage -->
-        <div class="metrica-card">
-          <div class="metrica-circle azul">
-            <span>{{ unidad.PacientesEsperaTriage }}</span>
-          </div>
-          <div class="metrica-texto">
-            <strong>Pacientes en Espera Triage</strong>
-            <span class="metrica-sub">⏱ {{ formatMinutos(unidad.TiempoEsperaTriage) }}</span>
+    <main class="tv-main">
+      <!-- Columna izquierda: métricas -->
+      <section class="tv-metrics">
+        <div class="unit-bar">
+          <button class="btn-back" (click)="volver()" aria-label="Volver">←</button>
+          <div class="unit-info">
+            <span class="unit-sede">{{ unidad.Sede }}</span>
+            <span class="unit-name">{{ unidad.Unidad }}</span>
           </div>
         </div>
 
-        <!-- Espera Consulta -->
-        <div class="metrica-card">
-          <div class="metrica-circle verde">
-            <span>{{ unidad.PacientesEsperaConsulta }}</span>
-          </div>
-          <div class="metrica-texto">
-            <strong>Pacientes en Espera Consulta</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tiempos Triage -->
-      <div class="tiempos-panel">
-        <div class="tiempos-titulo">Tiempo de espera en Consulta</div>
-        <div class="tiempos-row">
-          <div class="tiempo-item">
-            <span class="tiempo-badge naranja">TRIAGE II</span>
-            <span class="tiempo-valor">⏱ {{ formatMinutos(unidad.TII) }}</span>
-          </div>
-          <div class="tiempo-item">
-            <span class="tiempo-badge amarillo">TRIAGE III</span>
-            <span class="tiempo-valor">⏱ {{ formatMinutos(unidad.TIII) }}</span>
+        <!-- Card grande: Triage -->
+        <div class="big-card triage">
+          <div class="big-number">{{ unidad.PacientesEsperaTriage }}</div>
+          <div class="big-label">
+            <span class="label-main">Pacientes en Espera</span>
+            <span class="label-sub">TRIAGE</span>
+            <span class="label-time">⏱ {{ formatMinutos(unidad.TiempoEsperaTriage) }}</span>
           </div>
         </div>
-      </div>
-    </div>
-  }
 
-  <!-- Vista de sedes (solo si no hay unidad seleccionada) -->
-  @if (!isLoading() && !error() && !unidadSeleccionada()) {
-    <div class="sedes-list">
-      @for (sede of sedes(); track sede.nombre) {
-        <div class="sede-item" [class.expanded]="sedeSeleccionada() === sede"
-             (click)="seleccionarSede(sede)">
-          <div class="sede-row">
-            <span class="sede-nombre">{{ sede.nombre }}</span>
-            <span class="sede-chevron">{{ sedeSeleccionada() === sede ? '▲' : '▼' }}</span>
+        <!-- Card grande: Consulta -->
+        <div class="big-card consulta">
+          <div class="big-number">{{ unidad.PacientesEsperaConsulta }}</div>
+          <div class="big-label">
+            <span class="label-main">Pacientes en Espera</span>
+            <span class="label-sub">CONSULTA</span>
           </div>
+        </div>
 
-          @if (sedeSeleccionada() === sede) {
-            <div class="unidades-container" (click)="$event.stopPropagation()">
-              @for (unidad of sede.unidades; track unidad.IdUnidad) {
-                <button class="unidad-chip" (click)="seleccionarUnidad(unidad)">
-                  {{ unidad.Unidad }}
-                  <span class="chip-badge">{{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }}</span>
-                </button>
-              } @empty {
-                <p class="empty-msg">Sin unidades</p>
-              }
+        <!-- Tiempos por nivel de triage -->
+        <div class="times-panel">
+          <div class="times-header">Tiempo de espera en Consulta</div>
+          <div class="times-grid">
+            <div class="time-box">
+              <span class="badge-t2">TRIAGE II</span>
+              <span class="time-value">{{ formatMinutos(unidad.TII) }}</span>
             </div>
+            <div class="time-box">
+              <span class="badge-t3">TRIAGE III</span>
+              <span class="time-value">{{ formatMinutos(unidad.TIII) }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Columna derecha: carrusel informativo -->
+      <aside class="tv-carousel">
+        @for (slide of slides; track slide; let i = $index) {
+          <img
+            [src]="slide"
+            [class.active]="currentSlide() === i"
+            class="slide-img"
+            [alt]="'Información Triage ' + (i + 1)" />
+        }
+        <div class="slide-dots">
+          @for (slide of slides; track slide; let i = $index) {
+            <button
+              class="dot"
+              [class.active]="currentSlide() === i"
+              (click)="currentSlide.set(i)"
+              [attr.aria-label]="'Ver slide ' + (i + 1)"></button>
           }
         </div>
-      } @empty {
-        <div class="empty-msg">No hay datos disponibles.</div>
-      }
-    </div>
+      </aside>
+    </main>
   }
 
-  <!-- Footer -->
-  <footer class="tablero-footer">
-    <span class="pulse"></span>
-    <span>Actualización automática cada 30s</span>
-    @if (lastUpdate()) {
-      <span class="last-update">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span>
-    }
-  </footer>
+  <!-- ═══ Selección de sede/unidad ═══ -->
+  @if (!isLoading() && !error() && !unidadSeleccionada()) {
+    <main class="tv-select">
+      <div class="select-panel">
+        <h2 class="select-title">Seleccione una sede</h2>
+        @for (sede of sedes(); track sede.nombre) {
+          <div class="sede-card" [class.open]="sedeSeleccionada() === sede">
+            <button class="sede-header" (click)="seleccionarSede(sede)">
+              <span class="sede-name">{{ sede.nombre }}</span>
+              <span class="sede-count">{{ sede.unidades.length }} unidades</span>
+              <span class="sede-arrow">{{ sedeSeleccionada() === sede ? '▲' : '▼' }}</span>
+            </button>
 
-  <!-- Carrusel informativo -->
-  @if (!isLoading() && !error()) {
-    <div class="carousel-container">
-      @for (slide of slides; track slide; let i = $index) {
-        <img
-          [src]="slide"
-          [class.active]="currentSlide() === i"
-          class="carousel-img"
-          alt="Información Triage {{ i + 1 }}" />
-      }
-      <div class="carousel-dots">
-        @for (slide of slides; track slide; let i = $index) {
-          <span class="dot" [class.active]="currentSlide() === i" (click)="currentSlide.set(i)"></span>
+            @if (sedeSeleccionada() === sede) {
+              <div class="units-grid">
+                @for (unidad of sede.unidades; track unidad.IdUnidad) {
+                  <button class="unit-btn" (click)="seleccionarUnidad(unidad)">
+                    <span class="unit-btn-name">{{ unidad.Unidad }}</span>
+                    <span class="unit-btn-total">
+                      {{ unidad.PacientesEsperaTriage + unidad.PacientesEsperaConsulta }} pac.
+                    </span>
+                  </button>
+                } @empty {
+                  <p class="no-units">Sin unidades disponibles</p>
+                }
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="no-data">No hay datos disponibles en este momento.</div>
         }
       </div>
-    </div>
+
+      <!-- Carrusel también visible en selección -->
+      <aside class="tv-carousel side">
+        @for (slide of slides; track slide; let i = $index) {
+          <img
+            [src]="slide"
+            [class.active]="currentSlide() === i"
+            class="slide-img"
+            [alt]="'Información Triage ' + (i + 1)" />
+        }
+        <div class="slide-dots">
+          @for (slide of slides; track slide; let i = $index) {
+            <button
+              class="dot"
+              [class.active]="currentSlide() === i"
+              (click)="currentSlide.set(i)"
+              [attr.aria-label]="'Ver slide ' + (i + 1)"></button>
+          }
+        </div>
+      </aside>
+    </main>
   }
 </div>
