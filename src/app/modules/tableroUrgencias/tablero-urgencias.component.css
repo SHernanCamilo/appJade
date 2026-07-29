@@ -28,13 +28,13 @@
   gap: clamp(2rem, 5vw, 5rem);
 }
 .brand-logo {
-  height: clamp(70px, 10vh, 120px);
+  height: clamp(45px, 6vh, 70px);
   object-fit: contain;
 }
 .brand-slide {
   position: relative;
-  height: clamp(80px, 12vh, 140px);
-  width: clamp(420px, 50vw, 760px);
+  height: clamp(90px, 14vh, 160px);
+  width: clamp(500px, 55vw, 850px);
   overflow: hidden;
   border-radius: 12px;
 }
