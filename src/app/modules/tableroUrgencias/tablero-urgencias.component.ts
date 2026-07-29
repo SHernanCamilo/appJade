@@ -40,11 +40,11 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
 
   // Carrusel — banners de triage individuales
   readonly slides = [
-    'assets/media/tablero-urgencias/Triage 1.JPG',
-    'assets/media/tablero-urgencias/Triage 2.JPG',
-    'assets/media/tablero-urgencias/Triage 3.JPG',
-    'assets/media/tablero-urgencias/Triage 4.JPG',
-    'assets/media/tablero-urgencias/Triage 5 .JPG',
+    'assets/media/tablero-urgencias/Triage 1.png',
+    'assets/media/tablero-urgencias/Triage 2.png',
+    'assets/media/tablero-urgencias/Triage 3.png',
+    'assets/media/tablero-urgencias/Triage 4.png',
+    'assets/media/tablero-urgencias/Triage 5 .png',
   ];
   readonly currentSlide = signal(0);
 
