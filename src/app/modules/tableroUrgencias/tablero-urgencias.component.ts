@@ -65,7 +65,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
     this.slideInterval = setInterval(() => {
       this.currentSlide.set((this.currentSlide() + 1) % this.slides.length);
-    }, 6_000);
+    }, 10_000);
   }
 
   ngOnDestroy(): void {

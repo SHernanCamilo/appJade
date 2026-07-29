@@ -33,10 +33,10 @@
 }
 .brand-slide {
   position: relative;
-  height: clamp(70px, 10vh, 120px);
-  width: clamp(360px, 42vw, 640px);
+  height: clamp(80px, 12vh, 140px);
+  width: clamp(420px, 50vw, 760px);
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 .slide-img {
   position: absolute;
@@ -45,15 +45,16 @@
   height: 100%;
   object-fit: contain;
   opacity: 0;
-  transition: opacity 0.8s ease;
+  transition: opacity 1s ease;
+  transform: scale(0.97);
 }
-.slide-img.active { opacity: 1; }
+.slide-img.active { opacity: 1; transform: scale(1); transition: opacity 1s ease, transform 0.8s ease; }
 
 /* ─── Content ─── */
 .content {
   flex: 1;
-  padding: clamp(1rem, 2vh, 2rem) clamp(1.5rem, 4vw, 4rem);
-  max-width: 960px;
+  padding: clamp(1rem, 2vh, 2rem) clamp(2rem, 4vw, 5rem);
+  max-width: 1400px;
   width: 100%;
   margin: 0 auto;
 }
@@ -116,6 +117,14 @@
 .card-text { display: flex; flex-direction: column; gap: 0.3rem; }
 .card-text strong { font-size: clamp(1.1rem, 1.8vw, 1.7rem); color: #1e293b; }
 .sub-time { font-size: clamp(1rem, 1.5vw, 1.4rem); color: #64748b; font-weight: 600; }
+
+/* Animación pulse al actualizar datos */
+@keyframes number-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.card-metric { animation: number-pulse 0.6s ease-out; }
 
 /* ─── Panel tiempos triage ─── */
 .tiempos-panel {
