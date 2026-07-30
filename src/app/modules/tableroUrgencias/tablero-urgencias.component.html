@@ -16,10 +16,11 @@
     <div class="center-msg"><p>Cargando...</p></div>
   }
 
-  @if (error() && !isLoading()) {
-    <div class="center-msg error">
-      <p>{{ error() }}</p>
-      <button (click)="cargarDatos()">Reintentar</button>
+  <!-- En modo público (TV) nunca mostramos errores: solo el logo y los datos cacheados -->
+  @if (!isLoading() && sedes().length === 0 && !unidadSeleccionada()) {
+    <div class="center-msg">
+      <img [src]="logoEmpresa()" alt="Logo" style="max-width: 300px; opacity: 0.6;" />
+      <p style="margin-top: 1rem; color: #999;">Esperando datos...</p>
     </div>
   }
 
@@ -91,7 +92,11 @@
 
   <!-- ═══ Footer ═══ -->
   <footer class="footer">
-    <span class="pulse-dot"></span>
+    @if (connected()) {
+      <span class="pulse-dot"></span>
+    } @else {
+      <span class="pulse-dot offline"></span>
+    }
     Actualización automática cada 30s
     @if (lastUpdate()) { <span class="last-time">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span> }
   </footer>

@@ -1,6 +1,7 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed, inject, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../environments/environment';
 
 interface UnidadUrgencias {
@@ -20,6 +21,19 @@ interface SedeAgrupada {
   unidades: UnidadUrgencias[];
 }
 
+/**
+ * Tablero de Urgencias — dos modos de operación:
+ *
+ * 1. PÚBLICO (TV sin login):
+ *    URL: /tableroUrgencias?t=TOKEN_SECRETO
+ *    Usa EventSource (SSE) — el servidor push datos cada 30s.
+ *    No necesita JWT. Si el SSE falla, muestra el último dato del cache.
+ *    No muestra errores técnicos: solo el logo hasta que se recupere.
+ *
+ * 2. PRIVADO (usuario logueado desde la plataforma):
+ *    URL: /tableroUrgencias (sin token)
+ *    Usa HTTP polling con JWT cada 30s (comportamiento original).
+ */
 @Component({
   selector: 'app-tablero-urgencias',
   standalone: true,
@@ -29,14 +43,18 @@ interface SedeAgrupada {
   styleUrl: './tablero-urgencias.component.css'
 })
 export class TableroUrgenciasComponent implements OnInit, OnDestroy {
+  private readonly http = inject(HttpClient);
+  private readonly route = inject(ActivatedRoute);
+  private readonly zone = inject(NgZone);
+
   readonly sedes = signal<SedeAgrupada[]>([]);
   readonly sedeSeleccionada = signal<SedeAgrupada | null>(null);
   readonly unidadSeleccionada = signal<UnidadUrgencias | null>(null);
   readonly isLoading = signal(true);
-  readonly error = signal('');
   readonly lastUpdate = signal<Date | null>(null);
   readonly sucursalUsuario = signal<string | null>(null);
   readonly logoEmpresa = signal<string>('assets/media/logos/jade-one-horizontal-dark.png');
+  readonly connected = signal(true);
 
   // Carrusel — banners de triage individuales
   readonly slides = [
@@ -53,28 +71,134 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     return u ? u.PacientesEsperaTriage + u.PacientesEsperaConsulta : 0;
   });
 
+  /** Modo público (token en URL) o privado (usuario logueado) */
+  private publicToken: string | null = null;
+  private eventSource: EventSource | null = null;
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private slideInterval: ReturnType<typeof setInterval> | null = null;
-  private readonly apiUrl = `${environment.URL_SERVICIOS}/tableros/urgencias`;
 
-  constructor(private readonly http: HttpClient) {}
+  private readonly CACHE_KEY = 'tablero_urgencias_cache';
 
   ngOnInit(): void {
-    this.cargarDatos();
-    this.cargarLogoEmpresa();
-    this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
+    // Detectar modo: si hay token en la URL, es público (TV)
+    this.publicToken = this.route.snapshot.queryParamMap.get('t');
+
+    if (this.publicToken) {
+      this.initPublicMode();
+    } else {
+      this.initPrivateMode();
+    }
+
+    // Carrusel de slides siempre activo
     this.slideInterval = setInterval(() => {
       this.currentSlide.set((this.currentSlide() + 1) % this.slides.length);
     }, 10_000);
   }
 
   ngOnDestroy(): void {
+    this.eventSource?.close();
     if (this.refreshInterval) clearInterval(this.refreshInterval);
     if (this.slideInterval) clearInterval(this.slideInterval);
   }
 
+  // =========================================================================
+  // MODO PÚBLICO — SSE (TV sin login)
+  // =========================================================================
+
+  private initPublicMode(): void {
+    // Cargar cache del navegador inmediatamente (la TV muestra algo mientras conecta)
+    this.loadFromCache();
+    this.cargarLogoEmpresa();
+    this.connectSSE();
+  }
+
+  private connectSSE(): void {
+    const url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/stream?token=${this.publicToken}`;
+
+    // EventSource se ejecuta fuera de NgZone para no disparar change detection en cada keep-alive
+    this.zone.runOutsideAngular(() => {
+      this.eventSource = new EventSource(url);
+
+      this.eventSource.addEventListener('data', (event: MessageEvent) => {
+        this.zone.run(() => this.handleSseData(event));
+      });
+
+      this.eventSource.addEventListener('reconnect', () => {
+        // El servidor pide reconexión limpia (después de 1h)
+        this.eventSource?.close();
+        setTimeout(() => this.connectSSE(), 2000);
+      });
+
+      this.eventSource.onerror = () => {
+        this.zone.run(() => {
+          this.connected.set(false);
+          // No mostrar error: la TV sigue mostrando el último dato del cache.
+          // EventSource reconecta automáticamente (comportamiento del browser).
+        });
+      };
+
+      this.eventSource.onopen = () => {
+        this.zone.run(() => this.connected.set(true));
+      };
+    });
+  }
+
+  private handleSseData(event: MessageEvent): void {
+    try {
+      const payload = JSON.parse(event.data);
+
+      if (payload.success && payload.data) {
+        this.agruparPorSede(payload.data);
+        this.lastUpdate.set(new Date());
+        this.connected.set(true);
+        this.isLoading.set(false);
+        if (payload.sede) this.sucursalUsuario.set(payload.sede);
+
+        // Guardar en cache del navegador para resiliencia
+        this.saveToCache(payload.data);
+      }
+      // Si success=false, no hacemos nada: la TV sigue mostrando el último dato
+    } catch {
+      // JSON parse error: ignorar, mantener pantalla actual
+    }
+  }
+
+  private saveToCache(data: UnidadUrgencias[]): void {
+    try {
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify({
+        data,
+        timestamp: new Date().toISOString()
+      }));
+    } catch { /* localStorage lleno o no disponible */ }
+  }
+
+  private loadFromCache(): void {
+    try {
+      const cached = localStorage.getItem(this.CACHE_KEY);
+      if (cached) {
+        const { data } = JSON.parse(cached);
+        if (data?.length > 0) {
+          this.agruparPorSede(data);
+          this.isLoading.set(false);
+        }
+      }
+    } catch { /* sin cache, esperar SSE */ }
+  }
+
+  // =========================================================================
+  // MODO PRIVADO — HTTP polling (usuario logueado)
+  // =========================================================================
+
+  private initPrivateMode(): void {
+    this.cargarDatos();
+    this.cargarLogoEmpresa();
+    this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
+  }
+
   cargarDatos(): void {
-    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sucursal?: string }>(this.apiUrl).subscribe({
+    const url = `${environment.URL_SERVICIOS}/tableros/urgencias`;
+
+    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sucursal?: string }>(url).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.agruparPorSede(res.data);
@@ -82,16 +206,17 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
           if (res.sucursal) this.sucursalUsuario.set(res.sucursal);
         }
         this.isLoading.set(false);
-        this.error.set('');
       },
-      error: (err) => {
-        this.error.set(err.status === 403
-          ? 'No tiene permisos para ver el tablero.'
-          : 'No se pudo cargar el tablero de urgencias.');
+      error: () => {
+        // En modo privado tampoco mostramos errores técnicos al tablero
         this.isLoading.set(false);
       }
     });
   }
+
+  // =========================================================================
+  // UI
+  // =========================================================================
 
   seleccionarSede(sede: SedeAgrupada): void {
     this.sedeSeleccionada.set(this.sedeSeleccionada() === sede ? null : sede);
@@ -123,7 +248,6 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   private cargarLogoEmpresa(): void {
-    // Intentar cargar logo de la empresa desde la sesión del usuario
     try {
       const userStr = localStorage.getItem('user');
       if (userStr) {

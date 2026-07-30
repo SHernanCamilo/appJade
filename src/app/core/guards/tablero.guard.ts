@@ -1,13 +1,24 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../../modules/auth/auth.service';
 
 /**
- * Guard que verifica si el usuario tiene el rol "Tablero".
- * Si no está autenticado → redirige a /login
- * Si está autenticado pero no tiene rol → redirige a /dashboard
+ * Guard del tablero de urgencias.
+ *
+ * Dos modos de acceso:
+ *   1. PÚBLICO (TV): si la URL tiene ?t=TOKEN → permite sin login.
+ *      El token se valida del lado del servidor (SSE endpoint).
+ *   2. PRIVADO (usuario logueado): valida autenticación + rol "Tablero".
  */
-export const tableroGuard: CanActivateFn = () => {
+export const tableroGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
+  // Modo público: si hay token en la URL, dejar pasar sin login.
+  // La validación real del token la hace el backend al conectar el SSE.
+  const token = route.queryParamMap.get('t');
+  if (token && token.length >= 10) {
+    return true;
+  }
+
+  // Modo privado: requiere autenticación + rol
   const auth = inject(AuthService);
   const router = inject(Router);
 

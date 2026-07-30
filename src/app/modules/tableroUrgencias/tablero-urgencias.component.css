@@ -235,6 +235,7 @@
   color: #64748b;
 }
 .pulse-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+.pulse-dot.offline { background: #ef4444; animation: none; }
 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 .last-time { color: #94a3b8; }
 
