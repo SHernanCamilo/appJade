@@ -7,6 +7,7 @@ import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { DropdownModule } from 'primeng/dropdown';
 import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TagModule } from 'primeng/tag';
@@ -45,6 +46,7 @@ interface UsuarioOption {
     DialogModule,
     DropdownModule,
     InputTextModule,
+    InputNumberModule,
     ToastModule,
     ConfirmDialogModule,
     TagModule,

@@ -45,6 +45,12 @@ export class CruceCuentaSoatComponent implements OnDestroy {
   private readonly viewName = 'VW_Billing_Facturacion_Soat';
   private readonly filterColumn = 'Identificacion';
 
+  /** Constancia siempre a nombre y logo de Clínica Medilaser (empresa id 1). */
+  private readonly medilaserEmpresaId = 1;
+  private readonly medilaserEmpresaNombre = 'Clínica Medilaser S.A.S';
+  private readonly medilaserLogoUrl =
+    'https://ticketprocess.medilaser.com.co/assets/images/Logo-Medilaser-grande.png';
+
   numeroCc = '';
   isLoading = false;
   isExporting = false;
@@ -437,7 +443,7 @@ export class CruceCuentaSoatComponent implements OnDestroy {
     return rows as Record<string, unknown>[];
   }
 
-  /** Datos del firmante y logo real de la empresa (API, no solo sesión). */
+  /** Firmante desde sesión; empresa y logo siempre Clínica Medilaser. */
   private async obtenerDatosFirmante(): Promise<{
     nombre: string;
     cargo: string;
@@ -448,7 +454,7 @@ export class CruceCuentaSoatComponent implements OnDestroy {
   }> {
     let user = this.authService.currentUser;
 
-    const necesitaRefresh = !String(user?.cargo ?? '').trim() || !user?.empresas?.length;
+    const necesitaRefresh = !String(user?.cargo ?? '').trim();
     if (necesitaRefresh) {
       try {
         user = await new Promise<any>((resolve, reject) => {
@@ -469,36 +475,31 @@ export class CruceCuentaSoatComponent implements OnDestroy {
       ).trim();
 
     const cargo = String(user?.cargo ?? '').trim();
-    const empresaSesion = Array.isArray(user?.empresas) ? user.empresas[0] : null;
-    const empresaId = Number(empresaSesion?.id || empresaSesion?.empresa_id || 0);
-
-    let empresaNombre = String(empresaSesion?.nombre ?? 'Clínica Medilaser S.A.').trim();
-    let logoUrl = String(empresaSesion?.logo ?? '').trim() || null;
+    const empresaNombre = this.medilaserEmpresaNombre;
+    let logoUrl: string | null = this.medilaserLogoUrl;
     let logoBase64: string | null = null;
 
-    if (empresaId > 0) {
-      try {
-        const logoResp = await new Promise<{
-          success: boolean;
-          nombre?: string;
-          logo_url?: string | null;
-          logo_base64?: string | null;
-        }>((resolve, reject) => {
-          this.empresaService.getLogoBase64(empresaId).subscribe({ next: resolve, error: reject });
+    try {
+      const logoResp = await new Promise<{
+        success: boolean;
+        nombre?: string;
+        logo_url?: string | null;
+        logo_base64?: string | null;
+      }>((resolve, reject) => {
+        this.empresaService.getLogoBase64(this.medilaserEmpresaId).subscribe({
+          next: resolve,
+          error: reject
         });
+      });
 
-        if (logoResp?.nombre) {
-          empresaNombre = String(logoResp.nombre).trim();
-        }
-        if (logoResp?.logo_url) {
-          logoUrl = String(logoResp.logo_url).trim();
-        }
-        if (logoResp?.logo_base64) {
-          logoBase64 = String(logoResp.logo_base64);
-        }
-      } catch {
-        // Si falla la API del logo, el export usará JadeOne como respaldo
+      if (logoResp?.logo_url) {
+        logoUrl = String(logoResp.logo_url).trim() || this.medilaserLogoUrl;
       }
+      if (logoResp?.logo_base64) {
+        logoBase64 = String(logoResp.logo_base64);
+      }
+    } catch {
+      // Si falla la API, el export usa la URL fija de Medilaser
     }
 
     const ciudadEmision = String(

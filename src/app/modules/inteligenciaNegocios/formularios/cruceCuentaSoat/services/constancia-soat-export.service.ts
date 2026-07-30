@@ -10,7 +10,9 @@ import {
 
 (pdfMake as any).vfs = (pdfFonts as any).vfs;
 
-const JADEONE_LOGO = 'assets/media/logos/jade-one-horizontal-dark.png';
+const MEDILASER_LOGO =
+  'https://ticketprocess.medilaser.com.co/assets/images/Logo-Medilaser-grande.png';
+const MEDILASER_EMPRESA = 'Clínica Medilaser S.A.S';
 
 export interface ConstanciaSoatExportOptions {
   identificacion: string;
@@ -86,13 +88,8 @@ export class ConstanciaSoatExportService {
     const identificacion = options.identificacion.trim();
     const total = filas.reduce((acc, f) => acc + (Number.isFinite(f.valorFact) ? f.valorFact : 0), 0);
 
-    const empresaNombre = (options.empresaNombre || options.clinicaTexto || 'Clínica Medilaser S.A.')
-      .replace(/\s*Sucursal\s+Florencia\s*/gi, ' ')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    const clinica = options.clinicaTexto
-      ? options.clinicaTexto.replace(/\s*Sucursal\s+Florencia\s*/gi, ' ').replace(/\s{2,}/g, ' ').trim()
-      : `La ${empresaNombre}`;
+    const empresaNombre = MEDILASER_EMPRESA;
+    const clinica = `La ${empresaNombre}`;
     const observaciones =
       options.observaciones ??
       'ANEXAR ESTE ESTADO DE CUENTA PARA UNA NUEVA SOLICITUD';
@@ -313,11 +310,11 @@ export class ConstanciaSoatExportService {
     pdfMake.createPdf(docDefinition).download(fileName);
   }
 
-  /** Logo de empresa; si falla o no existe, usa JadeOne. */
+  /** Logo de Clínica Medilaser; si falla, usa URL fija de Medilaser. */
   private async resolveLogoDataUrl(logoUrl?: string | null): Promise<string | null> {
     const candidates = [
       ...(logoUrl ? [logoUrl.trim()] : []),
-      JADEONE_LOGO
+      MEDILASER_LOGO
     ].filter(Boolean);
 
     for (const candidate of candidates) {
