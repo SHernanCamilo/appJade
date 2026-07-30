@@ -5,36 +5,43 @@ import { AuthService } from '../../modules/auth/auth.service';
 /**
  * Guard del tablero de urgencias.
  *
- * Dos modos de acceso:
- *   1. PÚBLICO (TV): si la URL tiene ?t=TOKEN → permite sin login.
- *      El token se valida del lado del servidor (SSE endpoint).
- *   2. PRIVADO (usuario logueado): valida autenticación + rol "Tablero".
+ * Siempre permite el acceso a /tableroUrgencias:
+ *   - TV sin emparejar → muestra pantalla de código
+ *   - TV emparejada (device_secret en localStorage) → muestra datos
+ *   - Usuario logueado → muestra datos con polling JWT
+ *
+ * La seguridad real está en el backend (token/device_secret), no en el guard.
+ * El guard solo redirige a login si la ruta necesita protección y no hay
+ * ninguna señal de que sea un tablero público.
  */
 export const tableroGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
-  // Modo público: si hay token en la URL, dejar pasar sin login.
-  // La validación real del token la hace el backend al conectar el SSE.
+  // Si tiene token en URL → es un tablero público legacy
   const token = route.queryParamMap.get('t');
   if (token && token.length >= 10) {
     return true;
   }
 
-  // Modo privado: requiere autenticación + rol
+  // Si tiene device_secret en localStorage → TV ya emparejada
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('tablero_device_secret')) {
+    return true;
+  }
+
+  // Si el usuario está logueado → modo privado
   const auth = inject(AuthService);
-  const router = inject(Router);
+  if (auth.isAuthenticated()) {
+    const user = auth.currentUser;
+    const roles: string[] = user?.roles ?? [];
+    const tieneRol = roles.some((r: string) => r.toLowerCase() === 'tablero');
 
-  if (!auth.isAuthenticated()) {
-    router.navigate(['/login'], { queryParams: { returnUrl: '/tableroUrgencias' } });
-    return false;
+    if (!tieneRol) {
+      const router = inject(Router);
+      router.navigate(['/dashboard']);
+      return false;
+    }
+    return true;
   }
 
-  const user = auth.currentUser;
-  const roles: string[] = user?.roles ?? [];
-  const tieneRol = roles.some((r: string) => r.toLowerCase() === 'tablero');
-
-  if (!tieneRol) {
-    router.navigate(['/dashboard']);
-    return false;
-  }
-
+  // Sin login ni device_secret → mostrar pantalla de emparejamiento
+  // (el componente detecta mode='pairing' y muestra el input de código)
   return true;
 };

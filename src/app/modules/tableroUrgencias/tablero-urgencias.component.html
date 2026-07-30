@@ -1,28 +1,63 @@
 <div class="tablero">
-  <!-- ═══ Header: título + logo + slide ═══ -->
-  <header class="header">
-    <h1 class="title">Tiempos de Atención en Urgencias</h1>
-    <div class="header-brand">
-      <img [src]="logoEmpresa()" alt="Logo" class="brand-logo" />
-      <div class="brand-slide">
-        @for (slide of slides; track slide; let i = $index) {
-          <img [src]="slide" [class.active]="currentSlide() === i" class="slide-img" alt="Triage {{ i + 1 }}" />
-        }
+  <!-- ═══ PANTALLA DE EMPAREJAMIENTO ═══ -->
+  @if (mode() === 'pairing') {
+    <div class="pairing-screen">
+      <img src="assets/media/logos/jade-one-horizontal-dark.png" alt="JadeOne" class="pairing-logo" />
+      <h1 class="pairing-title">Tablero de Urgencias</h1>
+      <p class="pairing-subtitle">Ingrese el código de activación proporcionado por el administrador</p>
+
+      <div class="pairing-input-group">
+        <input
+          type="text"
+          maxlength="6"
+          placeholder="000000"
+          [(ngModel)]="pairingCode"
+          (keyup.enter)="submitPairingCode()"
+          class="pairing-input"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="off" />
+        <button
+          (click)="submitPairingCode()"
+          [disabled]="pairingLoading()"
+          class="pairing-btn">
+          @if (pairingLoading()) { Activando... } @else { Activar }
+        </button>
       </div>
-    </div>
-  </header>
 
-  @if (isLoading()) {
-    <div class="center-msg"><p>Cargando...</p></div>
-  }
+      @if (pairingError()) {
+        <p class="pairing-error">{{ pairingError() }}</p>
+      }
 
-  <!-- En modo público (TV) nunca mostramos errores: solo el logo y los datos cacheados -->
-  @if (!isLoading() && sedes().length === 0 && !unidadSeleccionada()) {
-    <div class="center-msg">
-      <img [src]="logoEmpresa()" alt="Logo" style="max-width: 300px; opacity: 0.6;" />
-      <p style="margin-top: 1rem; color: #999;">Esperando datos...</p>
+      <p class="pairing-hint">El código tiene 6 dígitos y es válido por 5 minutos</p>
     </div>
   }
+
+  <!-- ═══ TABLERO ACTIVO (público o privado) ═══ -->
+  @if (mode() !== 'pairing') {
+    <!-- ═══ Header: título + logo + slide ═══ -->
+    <header class="header">
+      <h1 class="title">Tiempos de Atención en Urgencias</h1>
+      <div class="header-brand">
+        <img [src]="logoEmpresa()" alt="Logo" class="brand-logo" />
+        <div class="brand-slide">
+          @for (slide of slides; track slide; let i = $index) {
+            <img [src]="slide" [class.active]="currentSlide() === i" class="slide-img" alt="Triage {{ i + 1 }}" />
+          }
+        </div>
+      </div>
+    </header>
+
+    @if (isLoading()) {
+      <div class="center-msg"><p>Cargando...</p></div>
+    }
+
+    @if (!isLoading() && sedes().length === 0 && !unidadSeleccionada()) {
+      <div class="center-msg">
+        <img [src]="logoEmpresa()" alt="Logo" style="max-width: 300px; opacity: 0.6;" />
+        <p style="margin-top: 1rem; color: #999;">Esperando datos...</p>
+      </div>
+    }
 
   <!-- ═══ Detalle de unidad ═══ -->
   @if (unidadSeleccionada(); as u) {
@@ -99,5 +134,7 @@
     }
     Actualización automática cada 30s
     @if (lastUpdate()) { <span class="last-time">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span> }
+    @if (deviceName()) { <span class="last-time">· {{ deviceName() }}</span> }
   </footer>
+  } <!-- cierra @if mode() !== 'pairing' -->
 </div>

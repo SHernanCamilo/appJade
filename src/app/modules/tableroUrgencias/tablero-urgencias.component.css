@@ -250,3 +250,50 @@
   .header-brand { flex-direction: column; gap: 0.8rem; }
   .brand-slide { width: 100%; max-width: 300px; }
 }
+
+
+/* ─── Pantalla de Emparejamiento ─── */
+.pairing-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+  padding: 2rem;
+  text-align: center;
+}
+.pairing-logo { max-width: 200px; margin-bottom: 2rem; filter: brightness(0) invert(1); }
+.pairing-title { color: #fff; font-size: 2.5rem; margin: 0 0 0.5rem; }
+.pairing-subtitle { color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0 0 2.5rem; max-width: 400px; }
+.pairing-input-group { display: flex; gap: 1rem; align-items: center; }
+.pairing-input {
+  font-size: 2.5rem;
+  text-align: center;
+  letter-spacing: 0.8rem;
+  width: 280px;
+  padding: 0.8rem 1.2rem;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.pairing-input:focus { border-color: #64b5f6; }
+.pairing-input::placeholder { color: rgba(255,255,255,0.3); letter-spacing: 0.5rem; }
+.pairing-btn {
+  font-size: 1.2rem;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 12px;
+  background: #43a047;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.pairing-btn:hover { background: #2e7d32; }
+.pairing-btn:disabled { background: #666; cursor: not-allowed; }
+.pairing-error { color: #ef5350; margin-top: 1.5rem; font-size: 1rem; }
+.pairing-hint { color: rgba(255,255,255,0.5); margin-top: 2rem; font-size: 0.9rem; }

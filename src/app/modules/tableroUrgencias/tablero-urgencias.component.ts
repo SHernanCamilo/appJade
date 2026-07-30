@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed, inject, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../environments/environment';
@@ -21,23 +22,23 @@ interface SedeAgrupada {
   unidades: UnidadUrgencias[];
 }
 
+type TableroMode = 'pairing' | 'active' | 'private';
+
 /**
- * Tablero de Urgencias — dos modos de operación:
+ * Tablero de Urgencias — tres modos:
  *
- * 1. PÚBLICO (TV sin login):
- *    URL: /tableroUrgencias?t=TOKEN_SECRETO
- *    Usa EventSource (SSE) — el servidor push datos cada 30s.
- *    No necesita JWT. Si el SSE falla, muestra el último dato del cache.
- *    No muestra errores técnicos: solo el logo hasta que se recupere.
+ * 1. EMPAREJAMIENTO: la TV muestra un campo para ingresar el código de 6 dígitos.
+ *    Una vez emparejada, guarda device_secret en localStorage y pasa a modo activo.
  *
- * 2. PRIVADO (usuario logueado desde la plataforma):
- *    URL: /tableroUrgencias (sin token)
- *    Usa HTTP polling con JWT cada 30s (comportamiento original).
+ * 2. ACTIVO (público): usa EventSource (SSE) con device_secret. Sesión permanente.
+ *    Si la TV se reinicia, reconecta sola sin pedir código otra vez.
+ *
+ * 3. PRIVADO: usuario logueado con JWT (comportamiento original).
  */
 @Component({
   selector: 'app-tablero-urgencias',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tablero-urgencias.component.html',
   styleUrl: './tablero-urgencias.component.css'
@@ -47,6 +48,8 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly zone = inject(NgZone);
 
+  // Estado del tablero
+  readonly mode = signal<TableroMode>('pairing');
   readonly sedes = signal<SedeAgrupada[]>([]);
   readonly sedeSeleccionada = signal<SedeAgrupada | null>(null);
   readonly unidadSeleccionada = signal<UnidadUrgencias | null>(null);
@@ -56,7 +59,13 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   readonly logoEmpresa = signal<string>('assets/media/logos/jade-one-horizontal-dark.png');
   readonly connected = signal(true);
 
-  // Carrusel — banners de triage individuales
+  // Emparejamiento
+  readonly pairingCode = signal('');
+  readonly pairingError = signal('');
+  readonly pairingLoading = signal(false);
+  readonly deviceName = signal('');
+
+  // Carrusel
   readonly slides = [
     'assets/media/tablero-urgencias/Triage 1.png',
     'assets/media/tablero-urgencias/Triage 2.png',
@@ -71,25 +80,18 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     return u ? u.PacientesEsperaTriage + u.PacientesEsperaConsulta : 0;
   });
 
-  /** Modo público (token en URL) o privado (usuario logueado) */
-  private publicToken: string | null = null;
   private eventSource: EventSource | null = null;
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private slideInterval: ReturnType<typeof setInterval> | null = null;
 
+  private readonly DEVICE_SECRET_KEY = 'tablero_device_secret';
+  private readonly DEVICE_NAME_KEY = 'tablero_device_name';
   private readonly CACHE_KEY = 'tablero_urgencias_cache';
 
   ngOnInit(): void {
-    // Detectar modo: si hay token en la URL, es público (TV)
-    this.publicToken = this.route.snapshot.queryParamMap.get('t');
+    this.determineMode();
 
-    if (this.publicToken) {
-      this.initPublicMode();
-    } else {
-      this.initPrivateMode();
-    }
-
-    // Carrusel de slides siempre activo
+    // Carrusel siempre activo
     this.slideInterval = setInterval(() => {
       this.currentSlide.set((this.currentSlide() + 1) % this.slides.length);
     }, 10_000);
@@ -102,20 +104,110 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // MODO PÚBLICO — SSE (TV sin login)
+  // DETERMINAR MODO
   // =========================================================================
 
-  private initPublicMode(): void {
-    // Cargar cache del navegador inmediatamente (la TV muestra algo mientras conecta)
-    this.loadFromCache();
-    this.cargarLogoEmpresa();
-    this.connectSSE();
+  private determineMode(): void {
+    // Si ya tiene device_secret guardado → modo activo (reconecta solo)
+    const savedSecret = localStorage.getItem(this.DEVICE_SECRET_KEY);
+    if (savedSecret) {
+      this.deviceName.set(localStorage.getItem(this.DEVICE_NAME_KEY) ?? '');
+      this.mode.set('active');
+      this.loadFromCache();
+      this.connectSSE(savedSecret);
+      this.cargarLogoEmpresa();
+      return;
+    }
+
+    // Si hay token legacy en URL → modo activo con token
+    const legacyToken = this.route.snapshot.queryParamMap.get('t');
+    if (legacyToken && legacyToken.length >= 10) {
+      this.mode.set('active');
+      this.loadFromCache();
+      this.connectSSE(null, legacyToken);
+      this.cargarLogoEmpresa();
+      return;
+    }
+
+    // Si el usuario está logueado → modo privado (polling con JWT)
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user?.token) {
+          this.mode.set('private');
+          this.initPrivateMode();
+          return;
+        }
+      } catch { /* no es JSON válido */ }
+    }
+
+    // Sin secret ni login → pantalla de emparejamiento
+    this.mode.set('pairing');
+    this.isLoading.set(false);
   }
 
-  private connectSSE(): void {
-    const url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/stream?token=${this.publicToken}`;
+  // =========================================================================
+  // EMPAREJAMIENTO (código de 6 dígitos)
+  // =========================================================================
 
-    // EventSource se ejecuta fuera de NgZone para no disparar change detection en cada keep-alive
+  submitPairingCode(): void {
+    const code = this.pairingCode().trim();
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      this.pairingError.set('Ingrese un código de 6 dígitos.');
+      return;
+    }
+
+    this.pairingLoading.set(true);
+    this.pairingError.set('');
+
+    const url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/pair`;
+
+    this.http.post<{
+      success: boolean;
+      device_secret?: string;
+      name?: string;
+      sede?: string;
+      message?: string;
+      error?: string;
+    }>(url, { code }).subscribe({
+      next: (res) => {
+        this.pairingLoading.set(false);
+
+        if (res.success && res.device_secret) {
+          // Emparejado: guardar secret y pasar a modo activo
+          localStorage.setItem(this.DEVICE_SECRET_KEY, res.device_secret);
+          localStorage.setItem(this.DEVICE_NAME_KEY, res.name ?? '');
+          this.deviceName.set(res.name ?? '');
+          this.mode.set('active');
+          this.connectSSE(res.device_secret);
+          this.cargarLogoEmpresa();
+        } else {
+          this.pairingError.set(res.message ?? 'Código inválido.');
+        }
+      },
+      error: (err) => {
+        this.pairingLoading.set(false);
+        const msg = err?.error?.message ?? 'Error de conexión. Intente nuevamente.';
+        this.pairingError.set(msg);
+      }
+    });
+  }
+
+  // =========================================================================
+  // MODO ACTIVO — SSE (TV emparejada)
+  // =========================================================================
+
+  private connectSSE(deviceSecret: string | null, legacyToken?: string): void {
+    let url: string;
+    if (deviceSecret) {
+      url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/stream?d=${deviceSecret}`;
+    } else if (legacyToken) {
+      url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/stream?token=${legacyToken}`;
+    } else {
+      return;
+    }
+
     this.zone.runOutsideAngular(() => {
       this.eventSource = new EventSource(url);
 
@@ -124,17 +216,12 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       });
 
       this.eventSource.addEventListener('reconnect', () => {
-        // El servidor pide reconexión limpia (después de 1h)
         this.eventSource?.close();
-        setTimeout(() => this.connectSSE(), 2000);
+        setTimeout(() => this.connectSSE(deviceSecret, legacyToken), 2000);
       });
 
       this.eventSource.onerror = () => {
-        this.zone.run(() => {
-          this.connected.set(false);
-          // No mostrar error: la TV sigue mostrando el último dato del cache.
-          // EventSource reconecta automáticamente (comportamiento del browser).
-        });
+        this.zone.run(() => this.connected.set(false));
       };
 
       this.eventSource.onopen = () => {
@@ -153,23 +240,15 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         this.connected.set(true);
         this.isLoading.set(false);
         if (payload.sede) this.sucursalUsuario.set(payload.sede);
-
-        // Guardar en cache del navegador para resiliencia
         this.saveToCache(payload.data);
       }
-      // Si success=false, no hacemos nada: la TV sigue mostrando el último dato
-    } catch {
-      // JSON parse error: ignorar, mantener pantalla actual
-    }
+    } catch { /* ignorar errores de parse */ }
   }
 
   private saveToCache(data: UnidadUrgencias[]): void {
     try {
-      localStorage.setItem(this.CACHE_KEY, JSON.stringify({
-        data,
-        timestamp: new Date().toISOString()
-      }));
-    } catch { /* localStorage lleno o no disponible */ }
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify({ data, timestamp: new Date().toISOString() }));
+    } catch { /* storage lleno */ }
   }
 
   private loadFromCache(): void {
@@ -182,7 +261,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
         }
       }
-    } catch { /* sin cache, esperar SSE */ }
+    } catch { /* sin cache */ }
   }
 
   // =========================================================================
@@ -207,10 +286,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         }
         this.isLoading.set(false);
       },
-      error: () => {
-        // En modo privado tampoco mostramos errores técnicos al tablero
-        this.isLoading.set(false);
-      }
+      error: () => { this.isLoading.set(false); }
     });
   }
 
@@ -255,12 +331,10 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         const empresa = user?.empresas?.[0];
         if (empresa?.id) {
           this.http.get<{ logo_url?: string }>(`${environment.URL_SERVICIOS}/empresas/${empresa.id}/logo-base64`).subscribe({
-            next: (res) => {
-              if (res.logo_url) this.logoEmpresa.set(res.logo_url);
-            }
+            next: (res) => { if (res.logo_url) this.logoEmpresa.set(res.logo_url); }
           });
         }
       }
-    } catch { /* usar logo por defecto */ }
+    } catch { /* logo por defecto */ }
   }
 }
