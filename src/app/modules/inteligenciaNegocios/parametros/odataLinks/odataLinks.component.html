@@ -491,6 +491,22 @@
           appendTo="body">
         </p-dropdown>
       </div>
+
+      <div class="param-group">
+        <label class="param-label">M&aacute;ximo de filas</label>
+        <p-inputNumber
+          [(ngModel)]="newLinkMaxRows"
+          [min]="1000"
+          [max]="2500000"
+          [step]="50000"
+          [showButtons]="true"
+          suffix=" filas"
+          styleClass="w-full">
+        </p-inputNumber>
+        <small class="form-hint">
+          Hasta 2.5M filas. Vistas grandes (>500K) pueden tardar varios minutos en cargar en Excel.
+        </small>
+      </div>
     </div>
 
     <ng-template pTemplate="footer">

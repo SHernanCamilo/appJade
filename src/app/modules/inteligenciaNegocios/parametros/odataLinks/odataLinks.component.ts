@@ -97,7 +97,7 @@ export class OdataLinksComponent implements OnInit {
   newLinkVisibility: 'private' | 'organizational' | 'public' = 'private';
   newLinkSchema = '';
   newLinkView = '';
-  newLinkMaxRows = 100000;
+  newLinkMaxRows = 500000;
   isCreatingLink = false;
   fabricViews: FabricCatalogView[] = [];
   isLoadingFabricViews = false;
@@ -170,7 +170,7 @@ export class OdataLinksComponent implements OnInit {
     this.newLinkVisibility = 'private';
     this.newLinkSchema = '';
     this.newLinkView = '';
-    this.newLinkMaxRows = 100000;
+    this.newLinkMaxRows = 500000;
     this.fabricViews = [];
   }
 
