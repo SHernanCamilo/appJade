@@ -1322,8 +1322,8 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.isLoading = false;
-          const data = response.data;
-          this.toastOk(`Festivos sincronizados: ${data.insertados} nuevos, ${data.actualizados} actualizados`);
+          const data = response.data as any;
+          this.toastOk(`Festivos sincronizados: ${data?.insertados ?? 0} nuevos, ${data?.actualizados ?? 0} actualizados`);
           // Recargar festivos después de sincronizar
           this.cargarFestivosYConstruirCalendario();
         },

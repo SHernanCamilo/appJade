@@ -14,6 +14,13 @@ export class InventarioService {
   constructor(private http: HttpClient) { }
 
   // ==========================================
+  // DASHBOARD
+  // ==========================================
+  getDashboardStats(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/dashboard/stats`);
+  }
+
+  // ==========================================
   // PEDIDOS
   // ==========================================
   getPedidos(params?: any): Observable<ApiResponse<Pedido[]>> {

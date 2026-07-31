@@ -93,6 +93,10 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
   private empresaIdActual: number | null = null;
   private readonly PAGE_SIZE = 500;
 
+  // Modal de selección de unidades (usado en el template)
+  modalSearchTerm = '';
+  unidadesModalFiltradas: UnidadFuncional[] = [];
+
   activeAsignacionTab = 0;
 
   currentUnidadId: number | null = null;
