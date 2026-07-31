@@ -1,8 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { CardModule } from 'primeng/card';
 import { RippleModule } from 'primeng/ripple';
+import { SidebarService } from '../../complements/shared/sidebar/sidebar.service';
+import { ModuleDashboardCard, ModuleDashboardService } from '../../core/services/module-dashboard.service';
 
 @Component({
   selector: 'app-inventario',
@@ -11,28 +14,18 @@ import { RippleModule } from 'primeng/ripple';
   templateUrl: './inventario.component.html',
   styleUrl: './inventario.component.css'
 })
-export class InventarioComponent {
-  dashboardCards = [
-    {
-      title: 'Matriz de Obsolescencia',
-      icon: 'bi-grid-3x3-gap',
-      description: 'Gestión y análisis de obsolescencia de equipos',
-      color: 'primary',
-      items: [
-        { name: 'Dashboard', route: '/inventario/matrizObsolescencia/dashboardMaObsolescencia', icon: 'bi-speedometer2' },
-        { name: 'Parámetros de Matriz', route: '/inventario/matrizObsolescencia/parametrosMaObsolescencia', icon: 'bi-sliders' },
-        { name: 'Reporte Matriz', route: '/inventario/matrizObsolescencia/reporteMaObsolescencia', icon: 'bi-file-earmark-bar-graph' },
-        { name: 'Cierre de Inventario', route: '/inventario/matrizObsolescencia/cierreInventario', icon: 'bi-lock' }
-      ]
-    },
-    {
-      title: 'Interfaz Fracttal',
-      icon: 'bi-arrow-left-right',
-      description: 'Sincronización de equipos entre Fracttal y GLPI',
-      color: 'success',
-      items: [
-        { name: 'Dashboard Fracttal-GLPI', route: '/inventario/interfazFracttal/dashboardFracttal', icon: 'bi-diagram-3' }
-      ]
-    }
-  ];
+export class InventarioComponent implements OnInit {
+  private readonly sidebarService = inject(SidebarService);
+  private readonly moduleDashboardService = inject(ModuleDashboardService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  dashboardCards: ModuleDashboardCard[] = [];
+
+  ngOnInit(): void {
+    this.sidebarService.modulos$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.dashboardCards = this.moduleDashboardService.buildDashboardCards('/inventario');
+      });
+  }
 }

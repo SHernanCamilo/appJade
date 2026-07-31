@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { moduleGuard } from '../../core/guards/module.guard';
 
 export const TALENTOHUMANO_ROUTES: Routes = [
   {
@@ -13,9 +14,9 @@ export const TALENTOHUMANO_ROUTES: Routes = [
     children: [
       {
         path: 'dashboard',
-        loadComponent: () => import('./eventos/dashboard/dashboard.component')
-          .then(m => m.DashboardEventosComponent),
-        data: { title: 'Eventos - Dashboard' }
+        loadComponent: () => import('./eventos/dashboard/dashboard.component').then(m => m.DashboardEventosComponent),
+        //canActivate: [moduleGuard],
+        data: {moduleCode: 'TALHUM-EVENT-DASHBOA' }
       },
       /*
       {
@@ -25,9 +26,9 @@ export const TALENTOHUMANO_ROUTES: Routes = [
       },*/
       {
         path: 'parametros',
-        loadComponent: () => import('./eventos/parametros/parametros.component')
-          .then(m => m.ParametrosEventosComponent),
-        data: { title: 'Parámetros de Eventos' }
+        loadComponent: () => import('./eventos/parametros/parametros.component').then(m => m.ParametrosEventosComponent),
+          canActivate: [moduleGuard],
+        data: {moduleCode: 'TALHUM-EVENT-PARAM' }
       }
     ]
   },

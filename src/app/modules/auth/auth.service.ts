@@ -106,6 +106,7 @@ export class AuthService {
    * Se ejecuta si no vienen en el login
    */
   private loadSidebarModules(): void {
+    this.sidebarService.limpiarCacheLocal();
     this.http.get<any>(`${this.apiUrl}/sidebar-modules`).subscribe({
       next: (response) => {
         if (response.data || response.sidebar) {

@@ -1,0 +1,332 @@
+:host { display: block; --azul: #1a237e; --verde: #2e7d32; --naranja: #e65100; --amarillo: #f9a825; }
+
+.tablero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f0f4f8;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ─── Header ─── */
+.header {
+  text-align: center;
+  padding: 1.5rem 2rem 1rem;
+  background: #fff;
+  border-bottom: 4px solid var(--azul);
+}
+.title {
+  margin: 0 0 1.2rem;
+  font-size: clamp(1.8rem, 3.5vw, 3.2rem);
+  font-weight: 800;
+  color: var(--azul);
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.5rem, 3vw, 3rem);
+}
+.brand-logo {
+  height: clamp(70px, 10vh, 110px);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.brand-slide {
+  position: relative;
+  height: clamp(70px, 10vh, 110px);
+  width: clamp(450px, 55vw, 800px);
+  overflow: hidden;
+  border-radius: 8px;
+}
+.slide-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 1s ease, transform 0.6s ease;
+  transform: scale(0.98);
+}
+.slide-img.active { opacity: 1; transform: scale(1); }
+.slide-img.active { opacity: 1; transform: scale(1); transition: opacity 1s ease, transform 0.8s ease; }
+
+/* ─── Content ─── */
+.content {
+  flex: 1;
+  padding: clamp(1rem, 2vh, 2rem) clamp(2rem, 4vw, 5rem);
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ─── Sede bar ─── */
+.sede-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--azul);
+  color: #fff;
+  padding: 0.9rem 1.8rem;
+  border-radius: 12px;
+  margin-bottom: 1.8rem;
+  font-size: clamp(1rem, 1.6vw, 1.5rem);
+  font-weight: 700;
+}
+.btn-volver {
+  padding: 0.35rem 0.8rem;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-volver:hover { background: rgba(255,255,255,0.28); }
+
+/* ─── Cards de métricas ─── */
+.cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.card-metric {
+  display: flex;
+  align-items: center;
+  gap: clamp(1.2rem, 2.5vw, 2.5rem);
+  padding: clamp(1.5rem, 3vh, 2.8rem) clamp(1.5rem, 3vw, 3rem);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #dce3ec;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.circle {
+  flex-shrink: 0;
+  width: clamp(80px, 11vw, 140px);
+  height: clamp(80px, 11vw, 140px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(2.2rem, 4.5vw, 4.2rem);
+  font-weight: 800;
+  color: #fff;
+}
+.circle.azul { background: var(--azul); }
+.circle.verde { background: var(--verde); }
+.card-text { display: flex; flex-direction: column; gap: 0.3rem; }
+.card-text strong { font-size: clamp(1.1rem, 1.8vw, 1.7rem); color: #1e293b; }
+.sub-time { font-size: clamp(1rem, 1.5vw, 1.4rem); color: #64748b; font-weight: 600; }
+
+/* Animación pulse al actualizar datos */
+@keyframes number-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.card-metric { animation: number-pulse 0.6s ease-out; }
+
+/* ─── Panel tiempos triage ─── */
+.tiempos-panel {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #dce3ec;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.tiempos-header {
+  background: #334155;
+  color: #fff;
+  padding: 0.8rem 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: clamp(1rem, 1.5vw, 1.4rem);
+}
+.tiempos-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.tiempo-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: clamp(1.2rem, 2.5vh, 2.2rem);
+}
+.tiempo-col + .tiempo-col { border-left: 1px solid #e2e8f0; }
+.badge {
+  padding: 0.3rem 1.2rem;
+  border-radius: 6px;
+  font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+  font-weight: 800;
+  color: #fff;
+}
+.badge.naranja { background: var(--naranja); }
+.badge.amarillo { background: var(--amarillo); color: #1e293b; }
+.tiempo-valor {
+  font-size: clamp(1.5rem, 2.8vw, 2.6rem);
+  font-weight: 800;
+  color: #1e293b;
+}
+
+/* ─── Sedes selección ─── */
+.sede-card {
+  background: #fff;
+  border: 1px solid #dce3ec;
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+  overflow: hidden;
+}
+.sede-card.open { border-color: var(--azul); }
+.sede-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.8rem 1.4rem;
+  background: #f8fafc;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.sede-card.open .sede-row { background: var(--azul); }
+.sede-nombre { font-weight: 700; font-size: 0.95rem; color: #1e293b; text-transform: uppercase; }
+.sede-card.open .sede-nombre { color: #fff; }
+.sede-chevron { font-size: 0.7rem; color: #94a3b8; }
+.sede-card.open .sede-chevron { color: #fff; }
+
+.unidades-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 1rem 1.4rem;
+  background: #fbfcfe;
+}
+.unidad-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  background: var(--azul);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.unidad-btn:hover { background: #303f9f; transform: translateY(-2px); }
+.btn-badge { background: rgba(255,255,255,0.22); padding: 0.1rem 0.4rem; border-radius: 5px; font-size: 0.7rem; }
+
+/* ─── Footer ─── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.pulse-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+.pulse-dot.offline { background: #ef4444; animation: none; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+.last-time { color: #94a3b8; }
+
+/* ─── Center messages ─── */
+.center-msg { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem; padding: 2rem; color: #64748b; }
+.center-msg.error { color: #b91c1c; }
+.center-msg button { padding: 0.5rem 1.5rem; background: var(--azul); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+  .cards-row { grid-template-columns: 1fr; }
+  .header-brand { flex-direction: column; gap: 0.8rem; }
+  .brand-slide { width: 100%; max-width: 300px; }
+}
+
+
+/* ─── Pantalla de Emparejamiento ─── */
+.pairing-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+  padding: 2rem;
+  text-align: center;
+}
+.pairing-logo { max-width: 200px; margin-bottom: 2rem; filter: brightness(0) invert(1); }
+.pairing-title { color: #fff; font-size: 2.5rem; margin: 0 0 0.5rem; }
+.pairing-subtitle { color: rgba(255,255,255,0.7); font-size: 1.1rem; margin: 0 0 2.5rem; max-width: 400px; }
+.pairing-input-group { display: flex; gap: 1rem; align-items: center; }
+.pairing-input {
+  font-size: 2.5rem;
+  text-align: center;
+  letter-spacing: 0.8rem;
+  width: 280px;
+  padding: 0.8rem 1.2rem;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.pairing-input:focus { border-color: #64b5f6; }
+.pairing-input::placeholder { color: rgba(255,255,255,0.3); letter-spacing: 0.5rem; }
+.pairing-btn {
+  font-size: 1.2rem;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 12px;
+  background: #43a047;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+.pairing-btn:hover { background: #2e7d32; }
+.pairing-btn:disabled { background: #666; cursor: not-allowed; }
+.pairing-error { color: #ef5350; margin-top: 1.5rem; font-size: 1rem; }
+.pairing-hint { color: rgba(255,255,255,0.5); margin-top: 2rem; font-size: 0.9rem; }
+
+
+/* ─── Animaciones de cambio de números ─── */
+.animated-number {
+  display: inline-block;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+}
+
+/* Bump: el círculo "salta" cuando el valor cambia */
+@keyframes bump {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.15); }
+  50%  { transform: scale(0.93); }
+  70%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Cada vez que el data-v cambia, re-dispara la animación */
+[data-v] .circle { animation: bump 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+[data-v] .tiempo-valor { animation: flipIn 0.6s ease-out; }
+
+@keyframes flipIn {
+  0%   { transform: translateY(-15px); opacity: 0.3; }
+  60%  { transform: translateY(3px); opacity: 0.9; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Glow suave en los círculos */
+.circle {
+  transition: box-shadow 0.3s ease;
+}
+.circle.azul { box-shadow: 0 4px 15px rgba(26, 35, 126, 0.2); }
+.circle.verde { box-shadow: 0 4px 15px rgba(46, 125, 50, 0.2); }

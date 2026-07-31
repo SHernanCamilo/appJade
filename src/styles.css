@@ -1,3 +1,7 @@
+/* AG Grid - cargar antes que Bootstrap para evitar conflictos de layout */
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-alpine.css';
+
 /* You can add global styles to this file, and also import other style files */
 
 /* PrimeNG Icons */
@@ -924,27 +928,17 @@ app-personificar-banner {
   border-bottom: none !important;
 }
 
-/* ngx-material-timepicker: forzar z-index por encima de modales PrimeNG */
-.timepicker-overlay {
-  z-index: 99999 !important;
-}
-.timepicker-backdrop-overlay {
-  z-index: 99998 !important;
-}
-/* Fix: asegurar que el backdrop se limpie entre aperturas */
-.timepicker-overlay.ng-animating {
-  display: block !important;
-}
-/* Fix: forzar z-index en todos los elementos del timepicker */
-ngx-material-timepicker-container {
-  z-index: 99999 !important;
-}
-.cdk-overlay-container {
-  z-index: 99999 !important;
-}
-.cdk-overlay-backdrop {
-  z-index: 99998 !important;
-}
-.cdk-overlay-pane {
-  z-index: 99999 !important;
+/* AG Grid: proteger layout interno frente a resets globales/Bootstrap */
+.ag-root-wrapper,
+.ag-root-wrapper-body,
+.ag-root,
+.ag-body,
+.ag-body-viewport,
+.ag-center-cols-viewport,
+.ag-header,
+.ag-header-viewport,
+.ag-header-container,
+.ag-header-row,
+.ag-row {
+  box-sizing: border-box;
 }

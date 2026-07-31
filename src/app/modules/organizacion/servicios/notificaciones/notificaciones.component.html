@@ -1,0 +1,278 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/organizacion">
+        <i class="pi pi-arrow-left"></i> Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern"><i class="pi pi-envelope me-2"></i>Centro de Notificaciones</h1>
+        <p class="page-subtitle-modern">Monitoreo de correos de interconsultas y comunicaciones del sistema</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+
+    <!-- Filtro de fechas global -->
+    <div class="filtros-globales mb-3">
+      <div class="filtro-fecha">
+        <label>Desde</label>
+        <p-datepicker [(ngModel)]="fechaDesde" dateFormat="dd/mm/yy" [showIcon]="true"
+          styleClass="w-100" appendTo="body" placeholder="Fecha inicio">
+        </p-datepicker>
+      </div>
+      <div class="filtro-fecha">
+        <label>Hasta</label>
+        <p-datepicker [(ngModel)]="fechaHasta" dateFormat="dd/mm/yy" [showIcon]="true"
+          styleClass="w-100" appendTo="body" placeholder="Fecha fin">
+        </p-datepicker>
+      </div>
+      <div class="filtro-busqueda">
+        <label>Buscar</label>
+        <input pInputText [(ngModel)]="busqueda" placeholder="Identificación paciente..." class="w-100"
+          (keyup.enter)="aplicarFiltros()">
+      </div>
+      <div class="filtro-acciones">
+        <button class="btn-action btn-action-primary" (click)="aplicarFiltros()">
+          <i class="pi pi-search"></i> Consultar
+        </button>
+        <button class="btn-action btn-action-secondary" (click)="limpiarFiltros()" pTooltip="Limpiar filtros" tooltipPosition="top">
+          <i class="pi pi-filter-slash"></i>
+        </button>
+        <button class="btn-action btn-action-success" (click)="exportarExcel()" [disabled]="emails.length === 0"
+          pTooltip="Exportar a Excel" tooltipPosition="top">
+          <i class="pi pi-file-excel"></i> Excel
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <p-tabView [(activeIndex)]="activeTab" (onChange)="onTabChange($event.index)">
+
+      <!-- ── TAB 1: HOY / DASHBOARD ──────────────────────────────────────── -->
+      <p-tabPanel header="Resumen" leftIcon="pi pi-chart-bar">
+
+        <!-- Cards -->
+        <div class="stats-grid" *ngIf="dashboard && !isLoadingDashboard">
+          <div class="stat-card stat-blue">
+            <i class="pi pi-send"></i>
+            <div class="stat-value">{{ dashboard.resumen.enviados }}</div>
+            <div class="stat-label">Enviados</div>
+          </div>
+          <div class="stat-card stat-green">
+            <i class="pi pi-check-circle"></i>
+            <div class="stat-value">{{ dashboard.resumen.entregados }}</div>
+            <div class="stat-label">Entregados</div>
+          </div>
+          <div class="stat-card stat-red">
+            <i class="pi pi-exclamation-triangle"></i>
+            <div class="stat-value">{{ dashboard.resumen.rebotados }}</div>
+            <div class="stat-label">Rebotados</div>
+          </div>
+          <div class="stat-card stat-yellow">
+            <i class="pi pi-clock"></i>
+            <div class="stat-value">{{ dashboard.resumen.pendientes_verificacion }}</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+          <div class="stat-card stat-purple">
+            <i class="pi pi-percentage"></i>
+            <div class="stat-value">{{ dashboard.resumen.tasa_entrega | number:'1.0-1' }}%</div>
+            <div class="stat-label">Tasa Entrega</div>
+          </div>
+          <div class="stat-card stat-orange">
+            <i class="pi pi-times-circle"></i>
+            <div class="stat-value">{{ dashboard.resumen.errores }}</div>
+            <div class="stat-label">Errores</div>
+          </div>
+        </div>
+
+        <div *ngIf="isLoadingDashboard" class="p-4 text-center">
+          <p-skeleton width="100%" height="80px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="80px"></p-skeleton>
+        </div>
+
+      </p-tabPanel>
+
+      <!-- ── TAB 2: LISTADO / HISTÓRICO ──────────────────────────────────── -->
+      <p-tabPanel header="Correos Enviados" leftIcon="pi pi-list">
+
+        <!-- Filtros adicionales -->
+        <div class="filtros-tabla mb-3">
+          <p-dropdown [options]="clinicaOptions" [(ngModel)]="filtros.clinica" (onChange)="aplicarFiltros()"
+            optionLabel="label" optionValue="value" placeholder="Centro de Atención" [showClear]="true" styleClass="filtro-dropdown"
+            [filter]="true" filterPlaceholder="Buscar clínica...">
+          </p-dropdown>
+          <p-dropdown [options]="statusOptions" [(ngModel)]="filtros.status" (onChange)="aplicarFiltros()"
+            optionLabel="label" optionValue="value" placeholder="Estado envío" [showClear]="true" styleClass="filtro-dropdown">
+          </p-dropdown>
+          <p-dropdown [options]="deliveryOptions" [(ngModel)]="filtros.delivery_status" (onChange)="aplicarFiltros()"
+            optionLabel="label" optionValue="value" placeholder="Estado entrega" [showClear]="true" styleClass="filtro-dropdown">
+          </p-dropdown>
+        </div>
+
+        <!-- Tabla -->
+        <div class="modern-table-container">
+          <p-table [value]="emails" [loading]="isLoadingEmails" [lazy]="true"
+            [paginator]="true" [rows]="meta.per_page" [totalRecords]="meta.total"
+            [first]="(meta.current_page - 1) * meta.per_page"
+            (onLazyLoad)="onPageChange($event)"
+            [rowsPerPageOptions]="[10, 20, 50]" styleClass="modern-table"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width:85px">Entrega</th>
+                <th>Paciente</th>
+                <th>Profesional</th>
+                <th>Email</th>
+                <th>Clínica</th>
+                <th style="width:110px">Especialidad</th>
+                <th style="width:130px">Fecha</th>
+                <th style="width:45px"></th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-e>
+              <tr>
+                <td>
+                  <p-tag [value]="getDeliveryLabel(e.delivery_status)" [severity]="getDeliverySeverity(e.delivery_status)"></p-tag>
+                </td>
+                <td>
+                  <div class="fw-600">{{ e.nombre_paciente }}</div>
+                  <small class="text-muted">{{ e.identificacion_paciente }}</small>
+                </td>
+                <td>{{ e.profesional_nombre }}</td>
+                <td><small>{{ e.email_to }}</small></td>
+                <td><small class="fw-600">{{ e.clinica }}</small></td>
+                <td>{{ e.especialidad }}</td>
+                <td>{{ e.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  <button class="btn-action-icon btn-action-primary" (click)="verDetalle(e)" pTooltip="Ver detalle">
+                    <i class="pi pi-eye"></i>
+                  </button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="text-center py-5">
+                <i class="pi pi-inbox" style="font-size:2.5rem;color:#9ca3af"></i>
+                <p class="text-muted mt-2">No hay correos para el período seleccionado</p>
+              </td></tr>
+            </ng-template>
+            <ng-template pTemplate="loadingbody">
+              <tr *ngFor="let i of [1,2,3,4,5]">
+                <td *ngFor="let j of [1,2,3,4,5,6,7,8]"><p-skeleton></p-skeleton></td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+      </p-tabPanel>
+
+      <!-- ── TAB 3: REBOTADOS ────────────────────────────────────────────── -->
+      <p-tabPanel header="Rebotados" leftIcon="pi pi-exclamation-triangle">
+
+        <div class="d-flex justify-content-end mb-3">
+          <button class="btn-action btn-action-primary" (click)="verificarRebotes()" [disabled]="isCheckingBounces">
+            <i class="pi" [class.pi-spin]="isCheckingBounces" [class.pi-spinner]="isCheckingBounces" [class.pi-refresh]="!isCheckingBounces"></i>
+            Verificar Rebotes
+          </button>
+        </div>
+
+        <div class="modern-table-container">
+          <p-table [value]="rebotados" [loading]="isLoadingRebotados" styleClass="modern-table"
+            [paginator]="true" [rows]="10">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Email</th>
+                <th>Profesional</th>
+                <th>Paciente</th>
+                <th>Clínica</th>
+                <th>Especialidad</th>
+                <th>Motivo Rebote</th>
+                <th>Fecha</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-r>
+              <tr>
+                <td><small class="fw-600">{{ r.email_to }}</small></td>
+                <td>{{ r.profesional_nombre }}</td>
+                <td>
+                  <div>{{ r.nombre_paciente }}</div>
+                  <small class="text-muted">{{ r.identificacion_paciente }}</small>
+                </td>
+                <td><small class="fw-600">{{ r.clinica }}</small></td>
+                <td>{{ r.especialidad }}</td>
+                <td><span class="text-danger">{{ r.bounce_reason }}</span></td>
+                <td>{{ r.bounce_detected_at | date:'dd/MM/yyyy HH:mm' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="7" class="text-center py-4">
+                <i class="pi pi-check-circle" style="font-size:2rem;color:#27AE60"></i>
+                <p class="text-muted mt-2">No hay correos rebotados</p>
+              </td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+      </p-tabPanel>
+
+    </p-tabView>
+  </div>
+</div>
+
+<!-- ── DIALOG DETALLE ──────────────────────────────────────────────────────── -->
+<p-dialog header="Detalle de Notificación" [(visible)]="showDetalle" [modal]="true"
+  [style]="{width:'700px'}" [maximizable]="true">
+
+  <div *ngIf="isLoadingDetalle" class="text-center py-4">
+    <i class="pi pi-spin pi-spinner" style="font-size:2rem;color:#3b82f6"></i>
+    <p class="mt-2 text-muted">Cargando detalle...</p>
+  </div>
+
+  <div *ngIf="!isLoadingDetalle && detalle" class="detalle-content">
+    <!-- Info del email -->
+    <div class="detalle-section">
+      <div class="detalle-grid">
+        <div class="detalle-field"><label>Paciente</label><span>{{ detalle.email.nombre_paciente }} ({{ detalle.email.identificacion_paciente }})</span></div>
+        <div class="detalle-field"><label>Profesional</label><span>{{ detalle.email.profesional_nombre }}</span></div>
+        <div class="detalle-field"><label>Email</label><span>{{ detalle.email.email_to }}</span></div>
+        <div class="detalle-field"><label>Especialidad</label><span>{{ detalle.email.especialidad }}</span></div>
+        <div class="detalle-field"><label>Clínica</label><span>{{ detalle.email.clinica }}</span></div>
+        <div class="detalle-field"><label>Ingreso</label><span>{{ detalle.email.ingreso }}</span></div>
+        <div class="detalle-field"><label>Unidad</label><span>{{ detalle.email.unidad_funcional }}</span></div>
+        <div class="detalle-field"><label>Cama</label><span>{{ detalle.email.cama }}</span></div>
+        <div class="detalle-field"><label>Diagnóstico</label><span>{{ detalle.email.diagnostico }}</span></div>
+        <div class="detalle-field"><label>Orden</label><span>{{ detalle.email.orden }}</span></div>
+      </div>
+    </div>
+
+    <!-- Timeline de trazas -->
+    <div class="detalle-section">
+      <h4 class="section-subtitle"><i class="pi pi-history me-2"></i>Historial de eventos</h4>
+      <div class="trace-timeline">
+        <div class="trace-item" *ngFor="let trace of detalle.traces">
+          <div class="trace-dot" [style.background-color]="getTraceColor(trace.event_status)">
+            <i class="pi" [class]="getTraceIcon(trace.event_type)"></i>
+          </div>
+          <div class="trace-info">
+            <div class="trace-header">
+              <span class="trace-type">{{ trace.event_type }}</span>
+              <span class="trace-time">{{ trace.created_at | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+            </div>
+            <div class="trace-message">{{ trace.event_message }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cerrar" severity="secondary" (onClick)="showDetalle=false"></p-button>
+  </ng-template>
+</p-dialog>

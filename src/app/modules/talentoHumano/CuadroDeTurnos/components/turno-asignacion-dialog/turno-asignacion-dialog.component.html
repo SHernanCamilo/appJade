@@ -1,0 +1,111 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="onVisibleChange($event)"
+  [modal]="true"
+  [style]="{ width: '720px', maxWidth: '95vw' }"
+  [header]="dialogHeader()"
+  [closable]="!saving"
+  styleClass="turno-dialog p-fluid">
+
+  <div class="dialog-grid">
+    <div class="dialog-col-visual">
+      <app-plantilla-reloj-visual
+        [rangos]="rangosReloj()"
+        [vacio]="form.esDescanso || !form.idPlantilla"
+        [titulo]="form.esDescanso ? 'Día de descanso' : 'Vista previa del horario'">
+      </app-plantilla-reloj-visual>
+    </div>
+
+    <div class="dialog-col-form">
+      <div class="alert alert-info py-2 px-3 mb-3 rounded-3 d-flex align-items-center gap-2">
+        <i class="pi pi-users"></i>
+        <small>Se aplicará a <strong>{{ selectedCount }}</strong> funcionario(s).</small>
+      </div>
+
+      <div class="option-card mb-3" [class.option-active]="form.esDescanso">
+        <p-checkbox
+          [ngModel]="form.esDescanso"
+          (ngModelChange)="onDescansoChange($event)"
+          [binary]="true"
+          inputId="chkDescanso">
+        </p-checkbox>
+        <label for="chkDescanso" class="mb-0 cursor-pointer">
+          <strong>Día de Descanso</strong>
+          <small class="d-block text-muted">Sin horario laboral</small>
+        </label>
+      </div>
+
+      <div class="mb-3" [class.opacity-50]="form.esDescanso">
+        <label class="form-label small fw-bold text-uppercase text-secondary">Plantilla de Trabajo</label>
+        <p-dropdown
+          [ngModel]="form.idPlantilla"
+          (ngModelChange)="onPlantillaChange($event)"
+          [options]="plantillaOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [disabled]="form.esDescanso"
+          placeholder="Selecciona el horario"
+          [filter]="true"
+          appendTo="body"
+          styleClass="w-100">
+        </p-dropdown>
+        @if (plantillaOptions().length === 0 && !form.esDescanso) {
+          <small class="text-warning d-block mt-1">
+            <i class="pi pi-exclamation-triangle me-1"></i>No hay plantillas. Créalas en Turnos → Plantillas.
+          </small>
+        }
+      </div>
+
+      <div class="option-card mb-3 evento-card" [class.option-active]="form.tieneEvento" [class.opacity-50]="form.esDescanso || !form.idPlantilla">
+        <div class="d-flex align-items-center gap-2 w-100">
+          <p-checkbox
+            [ngModel]="form.tieneEvento"
+            (ngModelChange)="onEventoChange($event)"
+            [binary]="true"
+            [disabled]="form.esDescanso || !form.idPlantilla"
+            inputId="chkEvento">
+          </p-checkbox>
+          <label for="chkEvento" class="mb-0 flex-grow-1" [class.cursor-pointer]="!form.esDescanso && !!form.idPlantilla">
+            <strong><i class="pi pi-bolt text-warning me-1"></i> Generar Evento</strong>
+            <small class="d-block text-muted">Horas extra adicionales al turno</small>
+          </label>
+        </div>
+
+        @if (form.tieneEvento && !form.esDescanso) {
+          <div class="evento-horas mt-3 pt-3 border-top">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="small text-muted">Inicio extra</label>
+                <input type="time" class="form-control form-control-sm"
+                  [ngModel]="form.eventoInicio"
+                  (ngModelChange)="onEventoHoraChange('eventoInicio', $event)">
+              </div>
+              <div class="col-6">
+                <label class="small text-muted">Fin extra</label>
+                <input type="time" class="form-control form-control-sm"
+                  [ngModel]="form.eventoFin"
+                  (ngModelChange)="onEventoHoraChange('eventoFin', $event)">
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label small fw-bold text-uppercase text-secondary">Observación</label>
+        <input type="text" pInputText [(ngModel)]="form.observacion" class="w-100" placeholder="Ej: Cubriendo vacante">
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="d-flex justify-content-between w-100 pt-2 border-top">
+      @if (puedeEliminar) {
+        <button pButton label="Eliminar" icon="pi pi-trash" class="p-button-danger p-button-text p-button-sm" [disabled]="saving" (click)="delete.emit()"></button>
+      } @else {
+        <span></span>
+      }
+      <button pButton label="Guardar Asignación" icon="pi pi-check" class="p-button-primary p-button-sm px-4" [loading]="saving" [disabled]="saving" (click)="guardar()"></button>
+    </div>
+  </ng-template>
+</p-dialog>

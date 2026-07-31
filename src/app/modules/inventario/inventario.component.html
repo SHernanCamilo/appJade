@@ -11,14 +11,19 @@
   </div>
 
   <!-- Dashboard Cards con PrimeNG -->
-  <div class="dashboard-grid">
+  <div class="empty-state" *ngIf="dashboardCards.length === 0">
+    <i class="bi bi-shield-lock"></i>
+    <p>No tienes acceso a ningún módulo de Inventario.</p>
+  </div>
+
+  <div class="dashboard-grid" *ngIf="dashboardCards.length > 0">
     <p-card *ngFor="let card of dashboardCards" [styleClass]="'dashboard-card card-' + card.color">
       <ng-template pTemplate="header">
         <div class="card-header-custom">
-          <i class="bi {{ card.icon }}"></i>
+          <i [class]="card.icon"></i>
           <div class="header-text">
             <h3>{{ card.title }}</h3>
-            <p>{{ card.description }}</p>
+            <p *ngIf="card.description">{{ card.description }}</p>
           </div>
         </div>
       </ng-template>
@@ -28,7 +33,7 @@
            [routerLink]="item.route" 
            class="menu-item"
            pRipple>
-          <i class="bi {{ item.icon }}"></i>
+          <i [class]="item.icon"></i>
           <span>{{ item.name }}</span>
           <i class="bi bi-chevron-right"></i>
         </a>

@@ -7,7 +7,8 @@ import {
   EventNovedad,
   EventNovedadCargo,
   FlujoEventoConfig,
-  ConfiguracionFlujoUnidad
+  ConfiguracionFlujoUnidad,
+  WfGrupoUf
 } from './services/event-novedad.service';
 
 // PrimeNG
@@ -23,6 +24,8 @@ import { DropdownModule } from 'primeng/dropdown';
 import { ToggleButtonModule } from 'primeng/togglebutton';
 import { InputSwitchModule } from 'primeng/inputswitch';
 import { SkeletonModule } from 'primeng/skeleton';
+import { CheckboxModule } from 'primeng/checkbox';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { MessageService, ConfirmationService } from 'primeng/api';
 
 @Component({
@@ -32,7 +35,8 @@ import { MessageService, ConfirmationService } from 'primeng/api';
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, DialogModule,
     ToastModule, ConfirmDialogModule, TagModule, TooltipModule,
-    ToggleButtonModule, SkeletonModule, InputSwitchModule, DropdownModule
+    ToggleButtonModule, SkeletonModule, InputSwitchModule, DropdownModule,
+    CheckboxModule, MultiSelectModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './parametros.component.html',
@@ -63,19 +67,28 @@ export class ParametrosEventosComponent implements OnInit {
   isLoadingCatalogo = false;
   isSubmitting = false;
 
-  // ─── Flujos por unidad funcional ──────────────────────────────────────────
+  // ─── Flujos por UF o por grupo WF ─────────────────────────────────────────
+  flujoPorGrupo = false;
   flujoEmpresaId: number | null = null;
   flujoUnidadId: number | null = null;
+  flujoGrupoId: number | null = null;
+  flujoGrupoNombre = '';
+  flujoGrupoDescripcion = '';
+  flujoGrupoUfIds: number[] = [];
+  gruposList: WfGrupoUf[] = [];
   flujoSeleccionadoId: number | null = null;
   flujoOptions: { label: string; value: number }[] = [];
   flujoList: FlujoEventoConfig[] = [];
   unidadFlujoOptions: { label: string; value: number }[] = [];
   usuarioOptions: { label: string; value: number }[] = [];
   pasosFlujo: FlujoEventoConfig['pasos'] = [];
-  responsablesPorPaso: Record<number, number | null> = {};
+  responsablesPorPaso: Record<number, number[]> = {};
   isLoadingFlujos = false;
   isLoadingUsuariosFlujo = false;
   isSavingFlujo = false;
+  showModalGrupos = false;
+  modalGrupoSearchTerm = '';
+  isLoadingModalGrupos = false;
 
   // Dialogs
   showFormDialog    = false;
@@ -105,8 +118,13 @@ export class ParametrosEventosComponent implements OnInit {
 
   setTab(tab: 'novedad' | 'flujos' | 'gestionar' | 'configuracion'): void {
     this.activeTab = tab;
-    if (tab === 'flujos' && this.empresaOptions.length === 0) {
-      this.cargarCatalogosFlujos();
+    if (tab === 'flujos') {
+      if (this.empresaOptions.length === 0) {
+        this.cargarCatalogosFlujos();
+      }
+      if (this.flujoEmpresaId) {
+        this.cargarUsuariosFlujoEmpresa();
+      }
     }
   }
 
@@ -329,7 +347,36 @@ export class ParametrosEventosComponent implements OnInit {
     });
   }
 
-  // ─── Flujos por UF ─────────────────────────────────────────────────────────
+  // ─── Flujos por UF o grupo WF ─────────────────────────────────────────────
+
+  get puedeConfigurarFlujo(): boolean {
+    if (!this.flujoEmpresaId) return false;
+    if (this.flujoPorGrupo) {
+      return !!(this.flujoGrupoId || this.flujoGrupoNombre.trim());
+    }
+    return !!this.flujoUnidadId;
+  }
+
+  get puedeGestionarUnidadesGrupo(): boolean {
+    return !!this.flujoEmpresaId && this.flujoPorGrupo;
+  }
+
+  get gruposModalFiltrados(): WfGrupoUf[] {
+    const term = this.modalGrupoSearchTerm.trim().toLowerCase();
+    if (!term) return this.gruposList;
+    return this.gruposList.filter(g =>
+      g.nombre?.toLowerCase().includes(term)
+    );
+  }
+
+  get unidadesGrupoSeleccionadas(): { id: number; codigo: string; nombre: string }[] {
+    return this.unidadFlujoOptions
+      .filter(u => this.flujoGrupoUfIds.includes(u.value))
+      .map(u => {
+        const parts = u.label.split(' - ');
+        return { id: u.value, codigo: parts[0] || '', nombre: parts.slice(1).join(' - ') || u.label };
+      });
+  }
 
   cargarCatalogosFlujos(): void {
     this.isLoadingFlujos = true;
@@ -352,18 +399,39 @@ export class ParametrosEventosComponent implements OnInit {
     });
   }
 
+  onModoFlujoChange(): void {
+    this.flujoUnidadId = null;
+    this.flujoGrupoId = null;
+    this.flujoGrupoNombre = '';
+    this.flujoGrupoDescripcion = '';
+    this.flujoGrupoUfIds = [];
+    this.flujoSeleccionadoId = null;
+    this.pasosFlujo = [];
+    this.responsablesPorPaso = {};
+
+    if (this.flujoEmpresaId) {
+      if (this.flujoPorGrupo) {
+        this.cargarGruposEmpresa();
+      }
+    }
+  }
+
   onEmpresaFlujoChange(): void {
     this.flujoUnidadId = null;
+    this.flujoGrupoId = null;
+    this.flujoGrupoNombre = '';
+    this.flujoGrupoDescripcion = '';
+    this.flujoGrupoUfIds = [];
     this.flujoSeleccionadoId = null;
     this.pasosFlujo = [];
     this.responsablesPorPaso = {};
     this.unidadFlujoOptions = [];
+    this.gruposList = [];
     this.usuarioOptions = [];
 
     if (!this.flujoEmpresaId) return;
 
     this.isLoadingFlujos = true;
-    this.isLoadingUsuariosFlujo = true;
 
     this.svc.getUnidadesFuncionalesEmpresa(this.flujoEmpresaId).subscribe({
       next: (ops) => {
@@ -376,6 +444,20 @@ export class ParametrosEventosComponent implements OnInit {
       }
     });
 
+    if (this.flujoPorGrupo) {
+      this.cargarGruposEmpresa();
+    }
+
+    this.cargarUsuariosFlujoEmpresa();
+  }
+
+  cargarUsuariosFlujoEmpresa(): void {
+    if (!this.flujoEmpresaId) {
+      this.usuarioOptions = [];
+      return;
+    }
+
+    this.isLoadingUsuariosFlujo = true;
     this.svc.getUsuariosPorEmpresa(this.flujoEmpresaId).subscribe({
       next: (ops) => {
         this.usuarioOptions = ops;
@@ -384,7 +466,111 @@ export class ParametrosEventosComponent implements OnInit {
       error: () => {
         this.usuarioOptions = [];
         this.isLoadingUsuariosFlujo = false;
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Usuarios',
+          detail: 'No se pudieron cargar los usuarios de la empresa seleccionada',
+        });
       }
+    });
+  }
+
+  cargarGruposEmpresa(): void {
+    if (!this.flujoEmpresaId) return;
+    this.isLoadingModalGrupos = true;
+    this.svc.getGruposWf(this.flujoEmpresaId).subscribe({
+      next: (grupos) => {
+        this.gruposList = grupos;
+        this.isLoadingModalGrupos = false;
+      },
+      error: () => {
+        this.gruposList = [];
+        this.isLoadingModalGrupos = false;
+      }
+    });
+  }
+
+  nuevoGrupoFlujo(): void {
+    this.flujoGrupoId = null;
+    this.flujoGrupoNombre = '';
+    this.flujoGrupoDescripcion = '';
+    this.flujoGrupoUfIds = [];
+    this.flujoSeleccionadoId = null;
+    this.pasosFlujo = [];
+    this.responsablesPorPaso = {};
+  }
+
+  abrirModalGrupos(): void {
+    if (!this.flujoEmpresaId) return;
+    this.modalGrupoSearchTerm = '';
+    this.showModalGrupos = true;
+    this.cargarGruposEmpresa();
+  }
+
+  cerrarModalGrupos(): void {
+    this.showModalGrupos = false;
+    this.modalGrupoSearchTerm = '';
+  }
+
+  seleccionarGrupoDesdeModal(grupo: WfGrupoUf): void {
+    this.cargarDetalleGrupo(grupo.id);
+    this.cerrarModalGrupos();
+  }
+
+  buscarGrupoPorNombre(): void {
+    if (!this.flujoGrupoNombre.trim() || !this.flujoEmpresaId) return;
+    this.cargarGrupoPorNombre(this.flujoGrupoNombre.trim());
+  }
+
+  private cargarGrupoPorNombre(nombre: string): void {
+    const normalizar = (v: string) => v.trim().toLowerCase();
+    const grupo = this.gruposList.find(g => normalizar(g.nombre) === normalizar(nombre));
+    if (grupo) {
+      this.cargarDetalleGrupo(grupo.id);
+      return;
+    }
+
+    this.isLoadingFlujos = true;
+    this.svc.getGruposWf(this.flujoEmpresaId!).subscribe({
+      next: (grupos) => {
+        this.gruposList = grupos;
+        const found = grupos.find(g => normalizar(g.nombre) === normalizar(nombre));
+        if (found) {
+          this.cargarDetalleGrupo(found.id);
+        } else {
+          this.flujoGrupoId = null;
+          this.flujoGrupoDescripcion = '';
+          this.flujoGrupoUfIds = [];
+          this.flujoSeleccionadoId = null;
+          this.pasosFlujo = [];
+          this.responsablesPorPaso = {};
+          this.isLoadingFlujos = false;
+        }
+      },
+      error: () => { this.isLoadingFlujos = false; }
+    });
+  }
+
+  cargarDetalleGrupo(grupoId: number): void {
+    this.isLoadingFlujos = true;
+    this.svc.getGrupoWf(grupoId).subscribe({
+      next: (detalle) => {
+        const grupo = detalle.grupo;
+        this.flujoGrupoId = grupo.id;
+        this.flujoGrupoNombre = grupo.nombre;
+        this.flujoGrupoDescripcion = grupo.descripcion || '';
+        this.flujoGrupoUfIds = (grupo.unidades_funcionales || []).map(u => u.id);
+        this.flujoSeleccionadoId = detalle.flujo_id;
+        this.actualizarPasosPorFlujo();
+
+        const map: Record<number, number[]> = {};
+        (detalle.pasos || []).forEach(p => {
+          map[p.id] = (p.aprobadores || []).map(id => Number(id));
+        });
+        this.responsablesPorPaso = map;
+        this.isLoadingFlujos = false;
+      },
+      error: () => { this.isLoadingFlujos = false; }
     });
   }
 
@@ -400,9 +586,10 @@ export class ParametrosEventosComponent implements OnInit {
       next: (cfg: ConfiguracionFlujoUnidad) => {
         this.flujoSeleccionadoId = cfg.flujo_id;
         this.actualizarPasosPorFlujo();
-        const map: Record<number, number | null> = {};
-        Object.entries(cfg.responsables || {}).forEach(([idPaso, idUser]) => {
-          map[Number(idPaso)] = Number(idUser);
+        const map: Record<number, number[]> = {};
+        Object.entries(cfg.responsables || {}).forEach(([idPaso, ids]) => {
+          const lista = Array.isArray(ids) ? ids : [ids];
+          map[Number(idPaso)] = lista.map(id => Number(id)).filter(id => !isNaN(id));
         });
         this.responsablesPorPaso = map;
         this.isLoadingFlujos = false;
@@ -413,33 +600,63 @@ export class ParametrosEventosComponent implements OnInit {
 
   onFlujoSeleccionadoChange(): void {
     this.actualizarPasosPorFlujo();
-    const nextMap: Record<number, number | null> = {};
+    const nextMap: Record<number, number[]> = {};
     this.pasosFlujo.forEach(p => {
-      nextMap[p.id] = this.responsablesPorPaso[p.id] ?? null;
+      nextMap[p.id] = this.responsablesPorPaso[p.id] ?? [];
     });
     this.responsablesPorPaso = nextMap;
+  }
+
+  private construirResponsablesPayload(): { id_paso: number; id_user: number }[] {
+    return this.pasosFlujo.flatMap(p =>
+      (this.responsablesPorPaso[p.id] || []).map(id_user => ({
+        id_paso: p.id,
+        id_user: Number(id_user),
+      }))
+    );
   }
 
   private actualizarPasosPorFlujo(): void {
     const flujo = this.flujoList.find(f => f.id === this.flujoSeleccionadoId);
     this.pasosFlujo = flujo?.pasos || [];
+    this.pasosFlujo.forEach(p => {
+      if (!Array.isArray(this.responsablesPorPaso[p.id])) {
+        this.responsablesPorPaso[p.id] = [];
+      }
+    });
   }
 
-  guardarFlujoPorUnidad(): void {
-    if (!this.flujoUnidadId || !this.flujoSeleccionadoId) {
-      this.messageService.add({ severity: 'warn', summary: 'Validación', detail: 'Seleccione unidad funcional y flujo' });
+  quitarUnidadGrupo(ufId: number): void {
+    this.flujoGrupoUfIds = this.flujoGrupoUfIds.filter(id => id !== ufId);
+  }
+
+  guardarFlujo(): void {
+    if (!this.flujoEmpresaId || !this.flujoSeleccionadoId) {
+      this.messageService.add({ severity: 'warn', summary: 'Validación', detail: 'Seleccione empresa y flujo' });
       return;
     }
 
-    const responsables = this.pasosFlujo
-      .map(p => ({ id_paso: p.id, id_user: this.responsablesPorPaso[p.id] }))
-      .filter(r => !!r.id_user)
-      .map(r => ({ id_paso: r.id_paso, id_user: Number(r.id_user) }));
+    const responsables = this.construirResponsablesPayload();
 
     this.isSavingFlujo = true;
+
+    if (this.flujoPorGrupo) {
+      this.guardarFlujoPorGrupo(responsables);
+    } else {
+      this.guardarFlujoPorUnidad(responsables);
+    }
+  }
+
+  private guardarFlujoPorUnidad(responsables: { id_paso: number; id_user: number }[]): void {
+    if (!this.flujoUnidadId) {
+      this.messageService.add({ severity: 'warn', summary: 'Validación', detail: 'Seleccione una unidad funcional' });
+      this.isSavingFlujo = false;
+      return;
+    }
+
     this.svc.guardarConfiguracionFlujoUnidad({
       unidad_funcional_id: this.flujoUnidadId,
-      flujo_id: this.flujoSeleccionadoId,
+      flujo_id: this.flujoSeleccionadoId!,
       responsables,
     }).subscribe({
       next: (res) => {
@@ -448,6 +665,66 @@ export class ParametrosEventosComponent implements OnInit {
       },
       error: (err) => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'No se pudo guardar configuración del flujo' });
+        this.isSavingFlujo = false;
+      }
+    });
+  }
+
+  private guardarFlujoPorGrupo(responsables: { id_paso: number; id_user: number }[]): void {
+    if (!this.flujoGrupoNombre.trim()) {
+      this.messageService.add({ severity: 'warn', summary: 'Validación', detail: 'Ingrese el nombre del grupo' });
+      this.isSavingFlujo = false;
+      return;
+    }
+    if (this.flujoGrupoUfIds.length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Validación', detail: 'Seleccione al menos una unidad funcional para el grupo' });
+      this.isSavingFlujo = false;
+      return;
+    }
+
+    const asignarFlujo = (grupoId: number) => {
+      this.svc.asignarFlujoGrupoWf(grupoId, {
+        flujo_id: this.flujoSeleccionadoId!,
+        aprobadores: responsables,
+      }).subscribe({
+        next: (res) => {
+          this.messageService.add({ severity: 'success', summary: 'Éxito', detail: res.message || 'Flujo asignado al grupo correctamente' });
+          this.flujoGrupoId = grupoId;
+          this.isSavingFlujo = false;
+          this.cargarGruposEmpresa();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'No se pudo asignar el flujo al grupo' });
+          this.isSavingFlujo = false;
+        }
+      });
+    };
+
+    if (this.flujoGrupoId) {
+      this.svc.actualizarGrupoWf(this.flujoGrupoId, {
+        nombre: this.flujoGrupoNombre.trim(),
+        descripcion: this.flujoGrupoDescripcion.trim() || undefined,
+        id_empresa: this.flujoEmpresaId,
+        unidades_funcionales: this.flujoGrupoUfIds,
+      }).subscribe({
+        next: () => asignarFlujo(this.flujoGrupoId!),
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'No se pudo actualizar el grupo' });
+          this.isSavingFlujo = false;
+        }
+      });
+      return;
+    }
+
+    this.svc.crearGrupoWf({
+      nombre: this.flujoGrupoNombre.trim(),
+      descripcion: this.flujoGrupoDescripcion.trim() || undefined,
+      id_empresa: this.flujoEmpresaId,
+      unidades_funcionales: this.flujoGrupoUfIds,
+    }).subscribe({
+      next: (grupo) => asignarFlujo(grupo.id),
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'No se pudo crear el grupo' });
         this.isSavingFlujo = false;
       }
     });

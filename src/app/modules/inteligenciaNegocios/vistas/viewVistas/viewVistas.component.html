@@ -1,0 +1,229 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" type="button" (click)="volverAlListado()">
+        <i class="pi pi-arrow-left"></i>
+        Volver al listado
+      </button>
+    </div>
+
+    <div class="header-main" *ngIf="!isLoadingVista && vista">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-table me-2"></i>
+          {{ vista.nombre }}
+        </h1>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="maintenance-panel" *ngIf="!isLoadingVista && isMaintenanceMode">
+      <div class="maintenance-panel-content">
+        <i class="pi pi-wrench maintenance-icon"></i>
+        <h2>Vista en mantenimiento</h2>
+        <p>{{ maintenanceMessage }}</p>
+        <button type="button" class="btn-toolbar" (click)="volverAlListado()">
+          <i class="pi pi-arrow-left"></i> Volver al listado
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-section" *ngIf="!isLoadingVista && vista && !isMaintenanceMode">
+      <div class="grid-toolbar">
+        <div class="toolbar-left">
+          <span class="grid-hint">
+            <i class="pi pi-info-circle"></i>
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              {{ totalLabel }} · Página {{ paginaActual }} de {{ totalPaginas }}
+            </ng-container>
+            <ng-container *ngIf="usarPaginacionInfinita">
+              {{ totalLabel }} · Página {{ paginaActual }}
+            </ng-container>
+          </span>
+          <span class="heavy-view-badge" *ngIf="isHeavyView">
+            <i class="pi pi-exclamation-triangle"></i>
+            Vista con alto volumen — use filtros para mejor rendimiento
+          </span>
+          <span class="grid-loading" *ngIf="isLoadingDatos">
+            <i class="pi pi-spin pi-spinner"></i> Cargando...
+          </span>
+          <span class="filtros-badge" *ngIf="hayFiltrosActivos">
+            <i class="pi pi-filter-fill"></i> Filtrado
+            <button class="btn-limpiar-filtros" (click)="limpiarFiltros()" pTooltip="Limpiar todos los filtros">
+              <i class="pi pi-times"></i>
+            </button>
+          </span>
+          <span class="export-bg-badge" *ngIf="exportEnSegundoPlano">
+            <i class="pi pi-spin pi-spinner"></i> Exportando...
+          </span>
+        </div>
+        
+        <div class="toolbar-actions">
+          <button type="button" class="btn-toolbar btn-toolbar-pivot" (click)="abrirPivot()"
+            [disabled]="isLoadingVista || !vista"
+            title="Tabla dinámica — Dinamizar datos como Excel">
+            <i class="pi pi-table"></i> Dinamizar
+          </button>
+          <button type="button" class="btn-toolbar btn-toolbar-download" (click)="descargarExcel()"
+            [disabled]="isLoadingVista || !vista || !hayDatosParaExportar"
+            title="Descargar Excel">
+            <i class="pi pi-file-excel"></i> Descargar Excel
+          </button>
+          <button type="button" class="btn-toolbar" (click)="cargarDatos()" [disabled]="isLoadingDatos"
+            title="Recargar datos">
+            <i class="pi pi-refresh"></i> Recargar
+          </button>
+          <button type="button" class="btn-toolbar btn-toolbar-secondary" (click)="abrirEnNuevaPestana()"
+            [disabled]="isLoadingDatos || !hayDatosParaExportar" title="Pantalla completa">
+            <i class="pi pi-external-link"></i> Pantalla completa
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de progreso de exportación -->
+      <div class="export-progress-bar" *ngIf="exportProgress">
+        <div class="export-progress-content">
+          <div class="export-progress-info">
+            <i class="pi" [class.pi-spin]="exportProgress.status !== 'completed'" [class.pi-spinner]="exportProgress.status !== 'completed'" [class.pi-check-circle]="exportProgress.status === 'completed'"></i>
+            <span class="export-progress-msg">{{ exportProgress.message }}</span>
+            <span class="export-progress-rows" *ngIf="exportProgress.rows > 0">· {{ exportProgress.rows | number }} filas</span>
+            <span class="export-progress-file" *ngIf="exportProgress.filename">· {{ exportProgress.fileSize }}</span>
+          </div>
+          <div class="export-progress-track">
+            <div class="export-progress-fill" [style.width.%]="exportProgress.progress"></div>
+          </div>
+          <span class="export-progress-pct">{{ exportProgress.progress }}%</span>
+          <button class="export-cancel-btn" (click)="cancelExport()" title="Cancelar exportación" *ngIf="exportProgress.status !== 'completed'">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-required-panel" *ngIf="showFilterRequired">
+        <div class="filter-required-header">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div>
+            <strong>Esta vista requiere filtros</strong>
+            <p>{{ filterRequiredMessage }}</p>
+          </div>
+        </div>
+        <div class="filter-required-fields">
+          <div class="filter-field" *ngFor="let col of filterColumns">
+            <label [for]="'filter-' + col.name">{{ humanizeColumnName(col.name) }}</label>
+            <input *ngIf="getColumnType(col.type) === 'date'" type="date" [id]="'filter-' + col.name"
+              (change)="onSuggestedFilter(col.name, $any($event.target).value)">
+            <input *ngIf="getColumnType(col.type) === 'number'" type="number" [id]="'filter-' + col.name"
+              (input)="onSuggestedFilter(col.name, $any($event.target).value)">
+            <select *ngIf="getColumnType(col.type) === 'boolean'" [id]="'filter-' + col.name"
+              (change)="onSuggestedFilter(col.name, $any($event.target).value)">
+              <option value="">Todos</option>
+              <option value="1">Sí</option>
+              <option value="0">No</option>
+            </select>
+            <input *ngIf="getColumnType(col.type) === 'text'" type="text" [id]="'filter-' + col.name"
+              [placeholder]="'Filtrar por ' + humanizeColumnName(col.name)"
+              (input)="onSuggestedFilter(col.name, $any($event.target).value)">
+          </div>
+        </div>
+        <div class="filter-required-actions">
+          <button type="button" class="btn-toolbar" (click)="aplicarFiltrosRequeridos()">
+            <i class="pi pi-filter"></i> Aplicar filtros y consultar
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="rowData.length === 0 && !isLoadingDatos && !showFilterRequired" class="empty-grid-message">
+        <i class="pi pi-table"></i>
+        <p>Sin datos cargados para esta vista.</p>
+      </div>
+
+      <div class="grid-wrapper" *ngIf="rowData.length > 0 || isLoadingDatos"
+        [class.is-loading]="isLoadingDatos && rowData.length === 0">
+
+        <!-- Loader unificado mientras carga -->
+        <app-grid-loader *ngIf="isLoadingDatos && rowData.length === 0"
+          [mensaje]="'Consultando datos...'"
+          [subtitulo]="'Conectando con Microsoft Fabric'"
+          [columnas]="6" [filas]="10">
+        </app-grid-loader>
+
+        <!-- Grid con datos -->
+        <ag-grid-angular *ngIf="rowData.length > 0"
+          class="ag-theme-alpine bi-vista-grid"
+          [rowData]="rowData"
+          [columnDefs]="columnDefs"
+          [defaultColDef]="defaultColDef"
+          [localeText]="localeText"
+          [animateRows]="true"
+          [pagination]="false"
+          [rowSelection]="{ mode: 'singleRow', enableClickSelection: false }"
+          [sideBar]="sideBar"
+          [enableCellTextSelection]="true"
+          [ensureDomOrder]="true"
+          (gridReady)="onGridReady($event)"
+          (sortChanged)="onSortChanged()"
+          (filterChanged)="onFilterChanged()">
+        </ag-grid-angular>
+
+        <!-- Overlay de filtrado -->
+        <div class="grid-filtering-overlay" *ngIf="isFiltering && rowData.length > 0">
+          <div class="filtering-badge">
+            <i class="pi pi-spin pi-spinner"></i> Filtrando datos...
+          </div>
+        </div>
+
+        <!-- Paginación server-side — siempre visible cuando hay datos -->
+        <div class="server-pagination" *ngIf="rowData.length > 0 || totalRegistros > 0 || usarPaginacionInfinita">
+          <div class="pagination-info">
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              {{ ((paginaActual - 1) * pageSize) + 1 | number }} —
+              {{ paginaActual * pageSize > totalRegistros ? (totalRegistros | number) : (paginaActual * pageSize | number) }}
+              de {{ totalRegistros | number }}
+            </ng-container>
+            <ng-container *ngIf="usarPaginacionInfinita">
+              Página {{ paginaActual }} · navegación por lotes
+            </ng-container>
+          </div>
+          <div class="pagination-controls">
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              <button class="btn-page" [disabled]="!canGoPrev" (click)="irPagina(1)" pTooltip="Primera">
+                <i class="pi pi-angle-double-left"></i>
+              </button>
+            </ng-container>
+            <button class="btn-page" [disabled]="!canGoPrev" (click)="usarPaginacionInfinita ? paginaAnterior() : irPagina(paginaActual - 1)">
+              <i class="pi pi-angle-left"></i>
+            </button>
+            <span class="page-indicator" *ngIf="!usarPaginacionInfinita">{{ paginaActual }} / {{ totalPaginas }}</span>
+            <button class="btn-page" [disabled]="!canGoNext" (click)="usarPaginacionInfinita ? siguientePagina() : irPagina(paginaActual + 1)">
+              <i class="pi pi-angle-right"></i>
+            </button>
+            <ng-container *ngIf="!usarPaginacionInfinita">
+              <button class="btn-page" [disabled]="!canGoNext" (click)="irPagina(totalPaginas)" pTooltip="Última">
+                <i class="pi pi-angle-double-right"></i>
+              </button>
+            </ng-container>
+          </div>
+          <div class="pagination-size">
+            <select [(ngModel)]="pageSize" (change)="onPageSizeChange()">
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+            </select>
+            <span>por página</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="isLoadingVista" class="loading-state-wrapper">
+      <app-grid-loader
+        [mensaje]="'Preparando vista...'"
+        [subtitulo]="'Verificando permisos y estructura'"
+        [columnas]="5" [filas]="6">
+      </app-grid-loader>
+    </div>
+  </div>
+</div>

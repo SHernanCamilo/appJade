@@ -50,7 +50,30 @@ export interface ConfiguracionFlujoUnidad {
   unidad_funcional_id: number;
   empresa_id: number;
   flujo_id: number | null;
-  responsables: Record<string, number>;
+  responsables: Record<string, number[]>;
+}
+
+export interface WfGrupoUf {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  id_empresa?: number | null;
+  estado: boolean;
+  unidades_funcionales?: { id: number; codigo: string; nombre: string }[];
+  empresa?: { id: number; nombre: string };
+}
+
+export interface WfGrupoDetalle {
+  grupo: WfGrupoUf;
+  flujo_id: number | null;
+  flujo_nombre?: string;
+  pasos: {
+    id: number;
+    orden: number;
+    nombre_paso: string;
+    rol_aprobador: string;
+    aprobadores: number[];
+  }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -143,8 +166,25 @@ export class EventNovedadService {
 
   getUsuariosPorEmpresa(empresaId: number): Observable<{ label: string; value: number }[]> {
     return this.http.get<any[]>(`/users-por-empresa/${empresaId}`).pipe(
-      map(data => (data || []).map((u: any) => ({ label: `${u.name} (${u.email})`, value: u.id })))
+      map(data => {
+        const list = Array.isArray(data) ? data : [];
+        return list
+          .filter((u: any) => u?.id != null)
+          .map((u: any) => ({
+            label: this.formatearLabelUsuario(u),
+            value: Number(u.id),
+          }));
+      })
     );
+  }
+
+  private formatearLabelUsuario(u: any): string {
+    const nombre = (u.name || '').trim();
+    const numero = (u.numero_identificacion || '').trim();
+    if (numero && nombre) return `${numero} - ${nombre}`;
+    if (numero) return numero;
+    if (nombre) return nombre;
+    return `Usuario #${u.id}`;
   }
 
   getCatalogoFlujosEventos(): Observable<FlujoEventoConfig[]> {
@@ -164,5 +204,46 @@ export class EventNovedadService {
     responsables: { id_paso: number; id_user: number }[];
   }): Observable<any> {
     return this.http.post<ApiResponse<any>>(`${this.base}/flujos/configuracion-unidad`, payload);
+  }
+
+  // ─── Grupos WF (varias unidades funcionales) ───────────────────────────────
+
+  getGruposWf(empresaId?: number): Observable<WfGrupoUf[]> {
+    let params = new HttpParams().set('todos', '1');
+    if (empresaId) params = params.set('empresa_id', empresaId.toString());
+    return this.http.get<ApiResponse<WfGrupoUf[]>>(`${this.base}/grupos`, { params })
+      .pipe(map(r => r.data || []));
+  }
+
+  getGrupoWf(id: number): Observable<WfGrupoDetalle> {
+    return this.http.get<ApiResponse<WfGrupoDetalle>>(`${this.base}/grupos/${id}`)
+      .pipe(map(r => r.data));
+  }
+
+  crearGrupoWf(payload: {
+    nombre: string;
+    descripcion?: string;
+    id_empresa?: number | null;
+    unidades_funcionales: number[];
+  }): Observable<WfGrupoUf> {
+    return this.http.post<ApiResponse<WfGrupoUf>>(`${this.base}/grupos`, payload)
+      .pipe(map(r => r.data));
+  }
+
+  actualizarGrupoWf(id: number, payload: {
+    nombre?: string;
+    descripcion?: string;
+    id_empresa?: number | null;
+    unidades_funcionales?: number[];
+  }): Observable<WfGrupoUf> {
+    return this.http.put<ApiResponse<WfGrupoUf>>(`${this.base}/grupos/${id}`, payload)
+      .pipe(map(r => r.data));
+  }
+
+  asignarFlujoGrupoWf(grupoId: number, payload: {
+    flujo_id: number;
+    aprobadores: { id_paso: number; id_user: number }[];
+  }): Observable<any> {
+    return this.http.post<ApiResponse<any>>(`${this.base}/grupos/${grupoId}/flujo`, payload);
   }
 }

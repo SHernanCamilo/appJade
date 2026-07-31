@@ -1,0 +1,574 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-diagram-3 me-2"></i>
+          Esquemas BI
+        </h1>
+        <p class="page-subtitle-modern">
+          Configuraci&oacute;n de esquemas Fabric y vistas por empresa
+          <span class="empresa-badge" *ngIf="!esTransversal && empresaNombre">
+            <i class="pi pi-building me-1"></i>{{ empresaNombre }}
+          </span>
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-action btn-action-outline" (click)="nuevoEsquema()">
+          <i class="pi pi-plus"></i>
+          Nuevo
+        </button>
+        <button
+          class="btn-action btn-action-primary"
+          (click)="guardar()"
+          [disabled]="isSaving || esquemaForm.invalid">
+          <i class="pi pi-save" [class.pi-spin]="isSaving"></i>
+          {{ isSaving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="two-panel-layout">
+
+      <div class="panel-left">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Datos Principales</span>
+        </div>
+
+        <form [formGroup]="esquemaForm" class="panel-form">
+          <div class="param-group" *ngIf="esTransversal">
+            <label class="param-label">Empresa *</label>
+            <p-dropdown
+              formControlName="empresa_id"
+              [options]="empresasOptions"
+              (onChange)="onEmpresaChange()"
+              placeholder="Seleccionar empresa"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingEmpresas"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+            <small class="p-error" *ngIf="esquemaForm.get('empresa_id')?.hasError('required') && esquemaForm.get('empresa_id')?.touched">
+              Debe seleccionar una empresa
+            </small>
+          </div>
+
+          <div class="param-group" *ngIf="!esTransversal">
+            <label class="param-label">Empresa</label>
+            <div class="empresa-readonly">
+              <i class="pi pi-building"></i>
+              <span>{{ empresaNombre }}</span>
+            </div>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">C&oacute;digo del esquema *</label>
+            <div class="codigo-input-group">
+              <input
+                pInputText
+                formControlName="codigo"
+                placeholder="Ej: AA, CO, IN"
+                class="w-100"
+                (keyup.enter)="buscarPorCodigo()"
+                [class.ng-invalid]="esquemaForm.get('codigo')?.invalid && esquemaForm.get('codigo')?.touched">
+              <button
+                type="button"
+                class="btn-search-codigo"
+                (click)="abrirModalEsquemas()"
+                [disabled]="!empresaSeleccionada || isLoadingModal"
+                pTooltip="Ver esquemas de la empresa"
+                tooltipPosition="top">
+                <i class="pi" [class.pi-search]="!isLoadingModal" [class.pi-spin]="isLoadingModal" [class.pi-spinner]="isLoadingModal"></i>
+              </button>
+            </div>
+            <small class="form-hint" *ngIf="!empresaSeleccionada">
+              Seleccione una empresa para habilitar el c&oacute;digo
+            </small>
+            <small class="form-hint" *ngIf="empresaSeleccionada">
+              Presione Enter para buscar por c&oacute;digo en esta empresa
+            </small>
+            <small class="p-error" *ngIf="esquemaForm.get('codigo')?.hasError('required') && esquemaForm.get('codigo')?.touched">
+              El c&oacute;digo es obligatorio
+            </small>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Tipo *</label>
+            <p-dropdown
+              formControlName="tipo"
+              [options]="tipoOptions"
+              placeholder="Seleccionar tipo"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+            <small class="p-error" *ngIf="esquemaForm.get('tipo')?.hasError('required') && esquemaForm.get('tipo')?.touched">
+              Debe seleccionar un tipo
+            </small>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Descripci&oacute;n</label>
+            <input
+              pInputText
+              formControlName="descripcion"
+              placeholder="Ej: AA - Atenci&oacute;n Ambulatoria"
+              class="w-100"
+              maxlength="255">
+          </div>
+        </form>
+      </div>
+
+      <div class="panel-right" [class.panel-disabled]="!puedeGestionarVistas && activeTabIndex === 0">
+        <p-tabView [(activeIndex)]="activeTabIndex" (onChange)="onTabChange($event.index)" styleClass="esquemas-tabview">
+
+          <p-tabPanel header="Vistas">
+            <div class="tab-panel-content">
+          <div class="usuarios-toolbar">
+            <div class="usuario-select-group">
+              <label class="param-label">Vistas Fabric</label>
+              <p-multiSelect
+                [(ngModel)]="selectedFabricViews"
+                [options]="fabricOptionsDisponibles"
+                placeholder="Seleccionar vistas del cat&aacute;logo Fabric..."
+                [showClear]="true"
+                [filter]="true"
+                filterBy="label"
+                [loading]="isLoadingFabric"
+                [disabled]="!puedeGestionarVistas"
+                optionLabel="label"
+                optionValue="value"
+                [maxSelectedLabels]="2"
+                selectedItemsLabel="{0} vistas seleccionadas"
+                styleClass="w-full usuario-multiselect"
+                appendTo="body">
+              </p-multiSelect>
+              <small class="form-hint" *ngIf="!puedeGestionarVistas">
+                Guarde el esquema para habilitar la asignaci&oacute;n de vistas
+              </small>
+              <small class="form-hint" *ngIf="puedeGestionarVistas">
+                Cat&aacute;logo del esquema {{ schemaActual | uppercase }} desde Fabric
+              </small>
+            </div>
+            <button
+              type="button"
+              class="btn-action btn-action-outline btn-agregar"
+              (click)="actualizarVistasDesdeFabric()"
+              [disabled]="!puedeGestionarVistas || isSyncingFabric"
+              pTooltip="Traer todas las vistas de Fabric y guardarlas en bi_vistas"
+              tooltipPosition="top">
+              <i class="pi pi-refresh" [class.pi-spin]="isSyncingFabric"></i>
+              {{ isSyncingFabric ? 'Actualizando...' : 'Actualizar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-action btn-action-primary btn-agregar"
+              (click)="agregarVistas()"
+              [disabled]="!puedeGestionarVistas || !selectedFabricViews.length || isAddingVistas">
+              <i class="pi pi-plus"></i>
+              Agregar
+            </button>
+          </div>
+
+          <p class="vistas-table-hint" *ngIf="puedeGestionarVistas && vistas.length > 0">
+            <i class="pi pi-info-circle"></i>
+            Departamentos vac&iacute;o = visible para todos. Seleccione filas y aplique estado: Activo, Inactivo o Mantenimiento.
+          </p>
+
+          <div class="vistas-bulk-bar" *ngIf="puedeGestionarVistas && vistasSeleccionadasCount > 0">
+            <span class="vistas-bulk-count">
+              <i class="pi pi-check-square"></i>
+              {{ vistasSeleccionadasCount }} vista(s) seleccionada(s)
+            </span>
+            <span class="vistas-bulk-label">Cambiar estado:</span>
+            <button type="button" class="btn-estado btn-estado-activo" (click)="aplicarEstadoMasivo('activo')" [disabled]="isBulkUpdatingEstado">Activo</button>
+            <button type="button" class="btn-estado btn-estado-inactivo" (click)="aplicarEstadoMasivo('inactivo')" [disabled]="isBulkUpdatingEstado">Inactivo</button>
+            <button type="button" class="btn-estado btn-estado-mantenimiento" (click)="aplicarEstadoMasivo('mantenimiento')" [disabled]="isBulkUpdatingEstado">Mantenimiento</button>
+          </div>
+
+          <div class="usuarios-table-wrap esquemas-grid-wrap">
+            <ag-grid-angular
+              class="ag-theme-alpine esquemas-vistas-grid"
+              [style]="{ width: '100%', height: '380px', display: 'block' }"
+              [rowData]="vistas"
+              [columnDefs]="vistasColumnDefs"
+              [defaultColDef]="defaultColDef"
+              [localeText]="localeText"
+              [rowSelection]="rowSelection"
+              [selectionColumnDef]="selectionColumnDef"
+              [animateRows]="true"
+              [pagination]="true"
+              [paginationPageSize]="25"
+              [paginationPageSizeSelector]="[25, 50, 100]"
+              [enableCellTextSelection]="true"
+              [overlayNoRowsTemplate]="vistasNoRowsTemplate"
+              (gridReady)="onVistasGridReady($event)"
+              (selectionChanged)="onVistasSelectionChanged()"
+              (cellValueChanged)="onVistaCellValueChanged($event)">
+            </ag-grid-angular>
+          </div>
+            </div>
+          </p-tabPanel>
+
+          <p-tabPanel header="Delegaci&oacute;n">
+            <div class="tab-panel-content delegacion-panel" [class.panel-disabled-inner]="!puedeGestionarVistas">
+              <div class="delegacion-modo-switch">
+                <button type="button"
+                        class="delegacion-modo-btn"
+                        [class.active]="delegacionModo === 'empresa'"
+                        (click)="setDelegacionModo('empresa')">
+                  <i class="pi pi-building"></i> Por empresa
+                </button>
+                <button type="button"
+                        class="delegacion-modo-btn"
+                        [class.active]="delegacionModo === 'usuario'"
+                        (click)="setDelegacionModo('usuario')">
+                  <i class="pi pi-user"></i> Por usuario
+                </button>
+                <button type="button"
+                        class="delegacion-modo-btn"
+                        [class.active]="delegacionModo === 'esquema'"
+                        (click)="setDelegacionModo('esquema')">
+                  <i class="pi pi-sitemap"></i> Por esquema
+                </button>
+              </div>
+
+              <div class="delegacion-toolbar">
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'empresa'">
+                  <label class="param-label">Empresa externa</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionEmpresaId"
+                    [options]="delegacionEmpresasOptionsFiltradas"
+                    (onChange)="onDelegacionEmpresaChange()"
+                    placeholder="Seleccionar empresa..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'usuario'">
+                  <label class="param-label">Empresa</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionEmpresaId"
+                    [options]="delegacionEmpresasOptions"
+                    (onChange)="onDelegacionEmpresaChange()"
+                    placeholder="Seleccionar empresa..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'usuario'">
+                  <label class="param-label">Usuario</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionUsuarioId"
+                    [options]="delegacionUsuariosOptions"
+                    (onChange)="onDelegacionUsuarioChange()"
+                    placeholder="Seleccionar usuario..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas || !delegacionEmpresaId || isLoadingUsuariosEmpresa"
+                    [loading]="isLoadingUsuariosEmpresa"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <div class="delegacion-empresa-select" *ngIf="delegacionModo === 'esquema'">
+                  <label class="param-label">Esquema destino</label>
+                  <p-dropdown
+                    [(ngModel)]="delegacionEsquemaDestinoId"
+                    [options]="delegacionEsquemasOptions"
+                    (onChange)="onDelegacionEsquemaDestinoChange()"
+                    placeholder="Seleccionar esquema..."
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="label"
+                    [disabled]="!puedeGestionarVistas || !esquemaEmpresaId || isLoadingEsquemasEmpresa"
+                    [loading]="isLoadingEsquemasEmpresa"
+                    optionLabel="label"
+                    optionValue="value"
+                    styleClass="w-full"
+                    appendTo="body">
+                  </p-dropdown>
+                </div>
+
+                <button
+                  *ngIf="delegacionModo === 'empresa'"
+                  type="button"
+                  class="btn-action btn-action-primary"
+                  (click)="guardarDelegacion()"
+                  [disabled]="!puedeGestionarDelegacion || isSavingDelegacion || isLoadingDelegacion">
+                  <i class="pi pi-save" [class.pi-spin]="isSavingDelegacion"></i>
+                  {{ isSavingDelegacion ? 'Guardando...' : 'Guardar' }}
+                </button>
+
+                <button
+                  *ngIf="delegacionModo === 'usuario'"
+                  type="button"
+                  class="btn-action btn-action-primary"
+                  (click)="guardarDelegacionUsuario()"
+                  [disabled]="!puedeGestionarDelegacionUsuario || isSavingDelegacionUsuario || isLoadingDelegacionUsuario">
+                  <i class="pi pi-save" [class.pi-spin]="isSavingDelegacionUsuario"></i>
+                  {{ isSavingDelegacionUsuario ? 'Guardando...' : 'Guardar' }}
+                </button>
+
+                <button
+                  *ngIf="delegacionModo === 'esquema'"
+                  type="button"
+                  class="btn-action btn-action-primary"
+                  (click)="guardarDelegacionEsquema()"
+                  [disabled]="!puedeGestionarDelegacionEsquema || isSavingDelegacionEsquema || isLoadingDelegacionEsquema">
+                  <i class="pi pi-save" [class.pi-spin]="isSavingDelegacionEsquema"></i>
+                  {{ isSavingDelegacionEsquema ? 'Guardando...' : 'Guardar' }}
+                </button>
+              </div>
+
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'empresa'">
+                Delegaci&oacute;n a empresas externas. Defina qu&eacute; vistas del esquema podr&aacute;n ver.
+              </small>
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'usuario'">
+                Elija la empresa y el usuario para asignar vistas. Solo ver&aacute;n las vistas marcadas, aunque no tengan el esquema completo en Azure.
+              </small>
+              <small class="form-hint delegacion-hint" *ngIf="puedeGestionarVistas && delegacionModo === 'esquema'">
+                Quienes tengan el esquema destino podr&aacute;n ver las vistas marcadas de este esquema (misma empresa). Ej: AA ve vistas de DF.
+              </small>
+
+              <!-- Por empresa -->
+              <ng-container *ngIf="delegacionModo === 'empresa'">
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacion && delegacionTieneConfig">
+                <i class="pi pi-info-circle"></i>
+                Esta empresa tiene delegaci&oacute;n activa: solo ve las vistas marcadas.
+              </p>
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacion && !delegacionTieneConfig && delegacionVistas.length > 0">
+                <i class="pi pi-info-circle"></i>
+                Sin vistas marcadas = sin restricci&oacute;n (ven todas las del esquema seg&uacute;n permisos Azure).
+              </p>
+
+              <div class="delegacion-actions" *ngIf="puedeGestionarDelegacion && delegacionVistas.length > 0">
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacion(true)">Marcar todas</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacion(false)">Ninguna</button>
+                <span class="delegacion-count">{{ delegacionSeleccionadas }} / {{ delegacionVistas.length }} seleccionadas</span>
+              </div>
+
+              <div class="usuarios-table-wrap esquemas-grid-wrap" *ngIf="puedeGestionarDelegacion">
+                <ag-grid-angular
+                  class="ag-theme-alpine esquemas-delegacion-grid"
+                  [style]="{ width: '100%', height: '380px', display: 'block' }"
+                  [rowData]="delegacionVistas"
+                  [columnDefs]="delegacionColumnDefs"
+                  [defaultColDef]="defaultColDef"
+                  [localeText]="localeText"
+                  [rowSelection]="rowSelection"
+                  [selectionColumnDef]="selectionColumnDef"
+                  [animateRows]="true"
+                  [pagination]="true"
+                  [paginationPageSize]="25"
+                  [loading]="isLoadingDelegacion"
+                  [overlayNoRowsTemplate]="delegacionNoRowsTemplate"
+                  (gridReady)="onDelegacionGridReady($event)"
+                  (selectionChanged)="onDelegacionSelectionChanged()">
+                </ag-grid-angular>
+              </div>
+              </ng-container>
+
+              <!-- Por usuario -->
+              <ng-container *ngIf="delegacionModo === 'usuario'">
+              <p class="vistas-table-hint" *ngIf="delegacionUsuarioId && delegacionUsuarioTieneConfig">
+                <i class="pi pi-info-circle"></i>
+                Este usuario solo ver&aacute; las vistas marcadas de este esquema.
+              </p>
+              <p class="vistas-table-hint" *ngIf="delegacionUsuarioId && !delegacionUsuarioTieneConfig && delegacionUsuarioVistas.length > 0">
+                <i class="pi pi-info-circle"></i>
+                Sin vistas marcadas = el usuario no tendr&aacute; acceso a este esquema por delegaci&oacute;n.
+              </p>
+              <p class="vistas-table-hint" *ngIf="delegacionEmpresaId && !esDelegacionUsuariosInterna && !delegacionEmpresaTienePool">
+                <i class="pi pi-exclamation-triangle"></i>
+                La empresa seleccionada a&uacute;n no tiene delegaci&oacute;n por empresa. Configure primero el pool de vistas en &laquo;Por empresa&raquo;.
+              </p>
+
+              <div class="delegacion-actions" *ngIf="puedeGestionarDelegacionUsuario && delegacionUsuarioVistas.length > 0">
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionUsuario(true)">Marcar todas</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionUsuario(false)">Ninguna</button>
+                <span class="delegacion-count">{{ delegacionUsuarioSeleccionadas }} / {{ delegacionUsuarioVistas.length }} seleccionadas</span>
+              </div>
+
+              <div class="usuarios-table-wrap esquemas-grid-wrap" *ngIf="puedeGestionarDelegacionUsuario">
+                <ag-grid-angular
+                  class="ag-theme-alpine esquemas-delegacion-grid"
+                  [style]="{ width: '100%', height: '380px', display: 'block' }"
+                  [rowData]="delegacionUsuarioVistas"
+                  [columnDefs]="delegacionColumnDefs"
+                  [defaultColDef]="defaultColDef"
+                  [localeText]="localeText"
+                  [rowSelection]="rowSelection"
+                  [selectionColumnDef]="selectionColumnDef"
+                  [animateRows]="true"
+                  [pagination]="true"
+                  [paginationPageSize]="25"
+                  [loading]="isLoadingDelegacionUsuario"
+                  [overlayNoRowsTemplate]="delegacionUsuarioNoRowsTemplate"
+                  (gridReady)="onDelegacionUsuarioGridReady($event)"
+                  (selectionChanged)="onDelegacionUsuarioSelectionChanged()">
+                </ag-grid-angular>
+              </div>
+
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && !delegacionEmpresaId">
+                <i class="pi pi-building"></i>
+                <p>Seleccione una empresa para listar sus usuarios</p>
+              </div>
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && delegacionEmpresaId && !delegacionUsuarioId">
+                <i class="pi pi-user"></i>
+                <p>Seleccione un usuario de {{ delegacionEmpresaNombre }} para asignar vistas</p>
+              </div>
+              </ng-container>
+
+              <!-- Por esquema -->
+              <ng-container *ngIf="delegacionModo === 'esquema'">
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacionEsquema && delegacionEsquemaTieneConfig">
+                <i class="pi pi-info-circle"></i>
+                Los usuarios con <strong>{{ delegacionEsquemaDestinoNombre }}</strong> ver&aacute;n solo las vistas marcadas de este esquema.
+              </p>
+              <p class="vistas-table-hint" *ngIf="puedeGestionarDelegacionEsquema && !delegacionEsquemaTieneConfig && delegacionEsquemaVistas.length > 0">
+                <i class="pi pi-info-circle"></i>
+                Sin vistas marcadas = el esquema destino no recibe vistas de este esquema por delegaci&oacute;n.
+              </p>
+
+              <div class="delegacion-actions" *ngIf="puedeGestionarDelegacionEsquema && delegacionEsquemaVistas.length > 0">
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionEsquema(true)">Marcar todas</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn-link-inline" (click)="seleccionarTodasDelegacionEsquema(false)">Ninguna</button>
+                <span class="delegacion-count">{{ delegacionEsquemaSeleccionadas }} / {{ delegacionEsquemaVistas.length }} seleccionadas</span>
+              </div>
+
+              <div class="usuarios-table-wrap esquemas-grid-wrap" *ngIf="puedeGestionarDelegacionEsquema">
+                <ag-grid-angular
+                  class="ag-theme-alpine esquemas-delegacion-grid"
+                  [style]="{ width: '100%', height: '380px', display: 'block' }"
+                  [rowData]="delegacionEsquemaVistas"
+                  [columnDefs]="delegacionColumnDefs"
+                  [defaultColDef]="defaultColDef"
+                  [localeText]="localeText"
+                  [rowSelection]="rowSelection"
+                  [selectionColumnDef]="selectionColumnDef"
+                  [animateRows]="true"
+                  [pagination]="true"
+                  [paginationPageSize]="25"
+                  [loading]="isLoadingDelegacionEsquema"
+                  [overlayNoRowsTemplate]="delegacionEsquemaNoRowsTemplate"
+                  (gridReady)="onDelegacionEsquemaGridReady($event)"
+                  (selectionChanged)="onDelegacionEsquemaSelectionChanged()">
+                </ag-grid-angular>
+              </div>
+
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && !esquemaEmpresaId">
+                <i class="pi pi-building"></i>
+                <p>Asigne una empresa al esquema actual para delegar entre esquemas</p>
+              </div>
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && esquemaEmpresaId && !delegacionEsquemaDestinoId">
+                <i class="pi pi-sitemap"></i>
+                <p>Seleccione un esquema destino de la misma empresa</p>
+              </div>
+              </ng-container>
+
+              <div class="empty-select-schema" *ngIf="puedeGestionarVistas && delegacionModo === 'empresa' && !delegacionEmpresaId">
+                <i class="pi pi-building"></i>
+                <p>Seleccione una empresa externa para configurar el acceso a vistas</p>
+              </div>
+            </div>
+          </p-tabPanel>
+
+        </p-tabView>
+      </div>
+    </div>
+  </div>
+
+  <p-dialog
+    header="Esquemas BI"
+    [(visible)]="showModalEsquemas"
+    [modal]="true"
+    [style]="{ width: '70vw', maxWidth: '900px' }"
+    [breakpoints]="{ '960px': '90vw', '640px': '95vw' }"
+    (onHide)="cerrarModalEsquemas()">
+
+    <div class="modal-unidades-content">
+      <div class="modal-empresa-info" *ngIf="empresaNombre">
+        <i class="pi pi-building me-2"></i>
+        <span>Empresa: <strong>{{ empresaNombre }}</strong></span>
+      </div>
+
+      <app-data-table
+        [value]="esquemasModal"
+        [columns]="modalColumns"
+        [loading]="isLoadingModal"
+        [showCount]="false"
+        [globalFilterFields]="['codigo', 'descripcion']"
+        globalPlaceholder="Buscar por c&oacute;digo o descripci&oacute;n..."
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} esquemas"
+        [rows]="8"
+        [rowsPerPageOptions]="[8, 15, 25]"
+        [tableStyle]="{ 'min-width': '100%' }"
+        actionsWidth="120px"
+        emptyMessage="No hay esquemas para esta empresa">
+
+        <ng-template pTemplate="cell-codigo" let-row>
+          <span class="codigo-badge">{{ row.codigo }}</span>
+        </ng-template>
+
+        <ng-template pTemplate="cell-tipo" let-row>
+          <p-tag [value]="getTipoLabel(row.tipo)" [severity]="getTipoSeverity(row.tipo)"></p-tag>
+        </ng-template>
+
+        <ng-template pTemplate="actions" let-row>
+          <p-button
+            icon="pi pi-check"
+            label="Seleccionar"
+            size="small"
+            severity="info"
+            [text]="true"
+            (onClick)="seleccionarDesdeModal(row)">
+          </p-button>
+        </ng-template>
+      </app-data-table>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cerrar" icon="pi pi-times" styleClass="p-button-text" (onClick)="cerrarModalEsquemas()"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

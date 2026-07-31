@@ -1,0 +1,230 @@
+/* ============================================ */
+/* LAYOUT & HEADERS                             */
+/* ============================================ */
+.orders-page {
+    padding: 1rem 0;
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+/* Header & Tabs */
+.page-title {
+    color: #0f172a;
+}
+
+.pills-nav {
+    background-color: #ffffff;
+    padding: 0.5rem;
+    border-radius: 50px;
+    display: inline-flex;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn-pill {
+    border-radius: 50px;
+    padding: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #64748b;
+    border: none;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.btn-pill:hover {
+    color: #0f172a;
+    background-color: #f1f5f9;
+}
+
+.btn-pill.active {
+    background-color: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================ */
+/* MASTER-DETAIL LAYOUT                         */
+/* ============================================ */
+.master-detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.main-panel {
+    min-width: 0; /* Evita desbordamiento en grid */
+}
+
+.side-panel {
+    min-width: 0;
+}
+
+@media (max-width: 1200px) {
+    .master-detail-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Tarjetas suaves */
+.card-soft {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+/* ============================================ */
+/* TABLAS PRIME NG (Custom Grid)                 */
+/* ============================================ */
+:host ::ng-deep .custom-grid-table .p-datatable-header {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+:host ::ng-deep .custom-grid-table .p-datatable-thead > tr > th {
+    background: #ffffff;
+    border: none;
+    border-bottom: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.75rem 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+:host ::ng-deep .custom-grid-table .p-datatable-thead > tr:nth-child(2) > th {
+    padding-top: 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+:host ::ng-deep .custom-grid-table .p-datatable-tbody > tr > td {
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.85rem 1rem;
+    color: #334155;
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+:host ::ng-deep .custom-grid-table .p-datatable-tbody > tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Selección en tabla (Radio button / Highlight) */
+:host ::ng-deep .custom-grid-table .p-datatable-tbody > tr.p-highlight {
+    background-color: #eff6ff !important;
+    color: #1e3a8a;
+}
+:host ::ng-deep .custom-grid-table .p-datatable-tbody > tr.p-highlight > td {
+    border-bottom-color: #bfdbfe;
+}
+
+/* Inputs de búsqueda en cabecera */
+:host ::ng-deep .custom-grid-table .p-inputtext-sm {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    border-color: #cbd5e1;
+    border-radius: 6px;
+}
+:host ::ng-deep .custom-grid-table .p-inputtext-sm:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 0.1rem rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================ */
+/* BADGES Y ESTADOS                              */
+/* ============================================ */
+.badge-status {
+    padding: 0.4em 0.8em;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+}
+.bg-warning.text-dark {
+    background-color: #fef3c7 !important;
+    color: #b45309 !important;
+}
+.bg-info.text-dark {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+.bg-success {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+}
+.bg-danger {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+}
+.bg-secondary {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+}
+
+/* ============================================ */
+/* MODALES                                       */
+/* ============================================ */
+:host ::ng-deep .custom-dialog .p-dialog-header {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1.25rem 1.5rem;
+}
+:host ::ng-deep .custom-dialog .p-dialog-content {
+    padding: 1.5rem;
+}
+:host ::ng-deep .custom-dialog .p-dialog-footer {
+    border-top: 1px solid #e2e8f0;
+    padding: 1rem 1.5rem;
+}
+
+/* Modal Detalles (Oscuro) */
+:host ::ng-deep .dialog-dark-header .p-dialog-header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+    color: #ffffff;
+    border-bottom: 0;
+}
+:host ::ng-deep .dialog-dark-header .p-dialog-header-icons .p-dialog-header-icon {
+    color: #94a3b8 !important;
+}
+:host ::ng-deep .dialog-dark-header .p-dialog-header-icons .p-dialog-header-icon:hover {
+    color: #ffffff !important;
+    background: rgba(255,255,255,0.1) !important;
+}
+
+/* ============================================ */
+/* INFORMACIÓN ORDEN Y GESTOR DE COMPRA          */
+/* ============================================ */
+.order-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    border-color: #e2e8f0 !important;
+}
+.order-info-row {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0;
+}
+.order-info-label {
+    color: #64748b;
+    font-size: 0.82rem;
+    min-width: 100px;
+    font-weight: 500;
+}
+.order-info-value {
+    font-size: 0.88rem;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+/* Icon Animation */
+.spin {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}

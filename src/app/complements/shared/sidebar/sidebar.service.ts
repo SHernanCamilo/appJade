@@ -80,7 +80,7 @@ export class SidebarService {
   }
 
   /**
-   * Carga módulos desde localStorage (útil en refresh)
+   * Carga módulos desde localStorage (útil en refresh mientras llega la API)
    */
   cargarModulosDesdeCache(): boolean {
     const cached = localStorage.getItem('sidebar_modules');
@@ -91,10 +91,19 @@ export class SidebarService {
         return true;
       } catch (e) {
         console.error('Error parseando módulos del cache:', e);
+        localStorage.removeItem('sidebar_modules');
         return false;
       }
     }
     return false;
+  }
+
+  /**
+   * Fuerza recarga del sidebar desde la API (invalida cache local)
+   */
+  limpiarCacheLocal(): void {
+    localStorage.removeItem('sidebar_modules');
+    this.modulosSubject.next([]);
   }
 
   /**
@@ -123,6 +132,41 @@ export class SidebarService {
   tieneAccesoModulo(codigo: string): boolean {
     const modulos = this.modulosSubject.value;
     return this.buscarModuloPorCodigo(modulos, codigo) !== null;
+  }
+
+  /**
+   * Busca un módulo por ruta en la jerarquía
+   */
+  buscarModuloPorRuta(ruta: string): ModuloSidebar | null {
+    return this.buscarModuloPorRutaEnArbol(this.modulosSubject.value, ruta);
+  }
+
+  private buscarModuloPorRutaEnArbol(modulos: ModuloSidebar[], ruta: string): ModuloSidebar | null {
+    const rutaNormalizada = this.normalizarRuta(ruta);
+
+    for (const modulo of modulos) {
+      if (modulo.ruta && this.normalizarRuta(modulo.ruta) === rutaNormalizada) {
+        return modulo;
+      }
+
+      if (modulo.hijos && modulo.hijos.length > 0) {
+        const encontrado = this.buscarModuloPorRutaEnArbol(modulo.hijos, ruta);
+        if (encontrado) {
+          return encontrado;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private normalizarRuta(ruta: string): string {
+    const limpia = ruta.trim().replace(/\/+$/, '');
+    if (!limpia) {
+      return '/';
+    }
+
+    return limpia.startsWith('/') ? limpia : `/${limpia}`;
   }
 
   /**

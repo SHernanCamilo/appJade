@@ -1,0 +1,130 @@
+<div class="performance-dashboard">
+  <div class="perf-header">
+    <h2><i class="pi pi-gauge"></i> Rendimiento API</h2>
+    <span class="last-update" *ngIf="lastUpdate">Actualizado: {{ lastUpdate }}</span>
+  </div>
+
+  <!-- Estado general -->
+  <div class="status-grid" *ngIf="data">
+    <div class="status-card">
+      <div class="status-icon"><i class="pi pi-server"></i></div>
+      <div class="status-info">
+        <span class="status-label">Horizon</span>
+        <p-tag [value]="data.horizon.status" [severity]="getHorizonSeverity()"></p-tag>
+      </div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon"><i class="pi pi-bolt"></i></div>
+      <div class="status-info">
+        <span class="status-label">Jobs pendientes</span>
+        <span class="status-value" [class.text-danger]="data.horizon.total_pending > 10">{{ data.horizon.total_pending }}</span>
+      </div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon"><i class="pi pi-database"></i></div>
+      <div class="status-info">
+        <span class="status-label">Redis RAM</span>
+        <span class="status-value">{{ data.redis.used_memory_human }}</span>
+      </div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon"><i class="pi pi-microchip"></i></div>
+      <div class="status-info">
+        <span class="status-label">Load (1m)</span>
+        <span class="status-value" [class.text-danger]="data.system.load_avg_1m > 4">{{ data.system.load_avg_1m }}</span>
+      </div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon"><i class="pi pi-chart-pie"></i></div>
+      <div class="status-info">
+        <span class="status-label">RAM usada</span>
+        <span class="status-value" [class.text-danger]="data.system.memory_used_pct > 80">{{ data.system.memory_used_pct }}%</span>
+      </div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon"><i class="pi pi-code"></i></div>
+      <div class="status-info">
+        <span class="status-label">PHP</span>
+        <span class="status-value">{{ data.system.php_version }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="charts-row" *ngIf="data">
+    <div class="chart-card">
+      <h3>Colas de trabajo</h3>
+      <div style="height: 200px;">
+        <p-chart type="bar" [data]="queueChartData" [options]="queueChartOptions" height="200px"></p-chart>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Carga del servidor</h3>
+      <div style="height: 200px;">
+        <p-chart type="line" [data]="loadChartData" [options]="queueChartOptions" height="200px"></p-chart>
+      </div>
+    </div>
+    <div class="chart-card chart-small">
+      <h3>Memoria</h3>
+      <div style="height: 200px;">
+        <p-chart type="doughnut" [data]="memoryChartData" height="200px"></p-chart>
+      </div>
+      <div class="memory-detail" *ngIf="data">
+        <span>{{ data.system.memory_free_gb }}GB libre / {{ data.system.memory_total_gb }}GB total</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Colas detalle -->
+  <div class="section" *ngIf="data">
+    <h3><i class="pi pi-list"></i> Estado de colas</h3>
+    <div class="queue-grid">
+      <div class="queue-item" *ngFor="let q of data.queues">
+        <div class="queue-name">{{ q.name }}</div>
+        <div class="queue-pending">{{ q.pending }} jobs</div>
+        <p-tag [value]="q.status" [severity]="getQueueSeverity(q.status)"></p-tag>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobs fallidos -->
+  <div class="section" *ngIf="failedJobs.length > 0">
+    <h3><i class="pi pi-exclamation-triangle" style="color: #ef4444;"></i> Jobs fallidos recientes</h3>
+    <p-table [value]="failedJobs" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="300px">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Job</th>
+          <th>Cola</th>
+          <th>Error</th>
+          <th>Fecha</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-j>
+        <tr>
+          <td><strong>{{ j.job_class }}</strong></td>
+          <td><p-tag [value]="j.queue" severity="info"></p-tag></td>
+          <td class="error-cell" [pTooltip]="j.error" tooltipPosition="top">{{ j.error | slice:0:80 }}...</td>
+          <td>{{ j.failed_at | date:'dd/MM HH:mm' }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- Info sistema -->
+  <div class="section system-info" *ngIf="data">
+    <h3><i class="pi pi-info-circle"></i> Información del sistema</h3>
+    <div class="info-grid">
+      <div><span>Laravel</span><strong>{{ data.system.laravel_version }}</strong></div>
+      <div><span>PHP memory_limit</span><strong>{{ data.system.php_memory_limit }}</strong></div>
+      <div><span>Redis clientes</span><strong>{{ data.redis.connected_clients }}</strong></div>
+      <div><span>Redis keys</span><strong>{{ data.redis.keys }}</strong></div>
+      <div><span>Redis uptime</span><strong>{{ data.redis.uptime_days }} días</strong></div>
+      <div><span>Supervisors</span><strong>{{ data.horizon.supervisors }}</strong></div>
+    </div>
+  </div>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+    <p>Cargando métricas...</p>
+  </div>
+</div>

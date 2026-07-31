@@ -10,6 +10,10 @@ export const environment = {
   // URL_SERVICIOS: 'http://192.168.1.9:8000/api',
   URL_FRONTEND: 'http://localhost:4200',
   URL_GLPI: 'http://aqsolutions.tech',
+  /** Código ISO del país para festivos (Nager.Date). Por defecto Colombia. */
+  FESTIVOS_PAIS: 'CO',
+  /** Región/localización por defecto de la aplicación */
+  REGION_DEFAULT: 'CO',
 };
 
 /*

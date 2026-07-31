@@ -1,8 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { CardModule } from 'primeng/card';
 import { RippleModule } from 'primeng/ripple';
+import { SidebarService } from '../../complements/shared/sidebar/sidebar.service';
+import { ModuleDashboardCard, ModuleDashboardService } from '../../core/services/module-dashboard.service';
 
 @Component({
   selector: 'app-financiera',
@@ -11,18 +14,18 @@ import { RippleModule } from 'primeng/ripple';
   templateUrl: './financiera.component.html',
   styleUrl: './financiera.component.css'
 })
-export class FinancieraComponent {
-  dashboardCards = [
-    {
-      title: 'Anticipos',
-      icon: 'bi-cash-coin',
-      description: 'Gestión de solicitudes y aprobación de anticipos',
-      color: 'primary',
-      items: [
-        { name: 'Solicitudes', route: '/financiera/anticipos/solicitudes', icon: 'bi-file-earmark-text' },
-        { name: 'Parámetros', route: '/financiera/anticipos/parametros', icon: 'bi-sliders' },
-        { name: 'Configuración de Flujos', route: '/financiera/anticipos/configuracion', icon: 'bi-gear' }
-      ]
-    }
-  ];
+export class FinancieraComponent implements OnInit {
+  private readonly sidebarService = inject(SidebarService);
+  private readonly moduleDashboardService = inject(ModuleDashboardService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  dashboardCards: ModuleDashboardCard[] = [];
+
+  ngOnInit(): void {
+    this.sidebarService.modulos$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.dashboardCards = this.moduleDashboardService.buildDashboardCards('/financiera');
+      });
+  }
 }

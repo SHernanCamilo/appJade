@@ -30,6 +30,7 @@ export class talentoHumanoComponent {
       description: 'Gestión de horarios y turnos',
       color: 'secondary',
       items: [
+        { name: 'Cuadro por Empleado', route: '/talentoHumano/turnos/cuadro-empleado', icon: 'bi-calendar3' },
         { name: 'Dashboard', route: '/talentoHumano/turnos/dashboard', icon: 'bi-speedometer2' },
         { name: 'Plantillas', route: '/talentoHumano/turnos/plantillas', icon: 'bi-clock' }
       ]

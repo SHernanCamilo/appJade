@@ -1,0 +1,50 @@
+<div class="card shadow-sm h-100 border-0 rounded-4 d-flex flex-column empleados-panel">
+  <div class="panel-header">
+    <h6 class="m-0 fw-bold"><i class="pi pi-users me-2"></i>Funcionarios</h6>
+    <span class="badge">{{ selectedIds.length }}/{{ empleados.length }}</span>
+  </div>
+
+  <div class="p-2 border-bottom bg-light">
+    <button type="button" class="btn btn-sm w-100 fw-bold"
+      [class.btn-outline-danger]="selectedIds.length === empleados.length && empleados.length > 0"
+      [class.btn-outline-primary]="selectedIds.length !== empleados.length || empleados.length === 0"
+      [disabled]="!empleados.length"
+      (click)="toggleAll.emit()">
+      <i class="pi" [ngClass]="selectedIds.length === empleados.length && empleados.length ? 'pi-times' : 'pi-check-square'"></i>
+      {{ selectedIds.length === empleados.length && empleados.length ? 'Desmarcar Todos' : 'Seleccionar Todos' }}
+    </button>
+  </div>
+
+  <div class="list-group list-group-flush flex-grow-1 overflow-auto p-2">
+    @if (cargando) {
+      @for (s of [1,2,3,4]; track s) {
+        <div class="skeleton-row"></div>
+      }
+    } @else if (sinUnidad) {
+      <div class="empty-state">
+        <i class="pi pi-building"></i>
+        <p>Selecciona una Unidad Funcional arriba</p>
+      </div>
+    } @else if (!empleados.length) {
+      <div class="empty-state">
+        <i class="pi pi-user-minus"></i>
+        <p>No hay empleados en esta unidad</p>
+      </div>
+    } @else {
+      @for (emp of empleados; track emp.value) {
+        <div class="list-group-item list-group-item-action border rounded-3 mb-2 d-flex align-items-center p-2"
+          [class.active-light]="isSelected(emp.value)"
+          (click)="toggle.emit(emp.value)">
+          <p-checkbox [binary]="true" [ngModel]="isSelected(emp.value)" class="me-3"
+            (click)="$event.stopPropagation(); toggle.emit(emp.value)"></p-checkbox>
+          <div class="d-flex flex-column overflow-hidden">
+            <span class="text-truncate fw-bold text-dark emp-name">{{ emp.label }}</span>
+            <span class="text-truncate text-muted emp-cargo">
+              <i class="pi pi-id-card me-1"></i>{{ emp.data?.cargoRelacion?.nombre_cargo || 'Sin cargo' }}
+            </span>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>

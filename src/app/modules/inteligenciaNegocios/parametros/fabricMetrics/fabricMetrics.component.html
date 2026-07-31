@@ -1,0 +1,239 @@
+<p-toast></p-toast>
+
+<div class="metrics-dashboard">
+  <!-- Header global -->
+  <div class="dash-header">
+    <div class="dash-title">
+      <span class="status-dot" [class.connected]="connectionStatus() === 'connected'" [class.disconnected]="connectionStatus() === 'disconnected'"></span>
+      <h2>Monitoreo Graph-Fabric</h2>
+    </div>
+    <div class="dash-meta">
+      <span class="uptime-badge" pTooltip="Tiempo desde ultimo reinicio"><i class="pi pi-clock"></i> {{ uptimeHours() | number:'1.0-0' }}h uptime</span>
+      <span class="update-badge">{{ lastUpdate() }}</span>
+      <button class="refresh-btn" (click)="refresh()" pTooltip="Actualizar ahora" tooltipPosition="left">
+        <i class="pi pi-refresh" [class.pi-spin]="connectionStatus() === 'connecting'"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs: Metricas | Logs -->
+  <p-tabView (onChange)="onTabChange($event)">
+
+    <!-- ═══ TAB: METRICAS ═══ -->
+    <p-tabPanel>
+      <ng-template pTemplate="header"><i class="pi pi-chart-line"></i> Metricas</ng-template>
+
+      @if (isLoading()) {
+        <div class="kpi-row">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="kpi-card"><p-skeleton width="60px" height="32px"></p-skeleton><p-skeleton width="80px" height="12px"></p-skeleton></div>
+          }
+        </div>
+      } @else {
+        <!-- KPI Cards -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-value accent-green">{{ formatNumber(totalQueries()) }}</div>
+            <div class="kpi-label">Queries totales</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" [class.accent-green]="cacheHitPct() > 50" [class.accent-amber]="cacheHitPct() <= 50">{{ cacheHitPct() | number:'1.1-1' }}%</div>
+            <div class="kpi-label">Cache Hit Rate</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" [class.accent-amber]="avgTime() > 5000" [class.accent-red]="avgTime() > 30000">{{ formatMs(avgTime()) }}</div>
+            <div class="kpi-label">Tiempo promedio</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value accent-blue">{{ queriesPerMin() | number:'1.1-1' }}</div>
+            <div class="kpi-label">Queries/min</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value">{{ formatNumber(rowsServed()) }}</div>
+            <div class="kpi-label">Filas servidas</div>
+          </div>
+          <div class="kpi-card" [class.kpi-alert]="errorCount() > 5">
+            <div class="kpi-value" [class.accent-red]="errorCount() > 0">{{ errorCount() }}</div>
+            <div class="kpi-label">Errores</div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+          <div class="chart-panel">
+            <div class="panel-header">
+              <h3>Actividad en tiempo real</h3>
+              <span class="panel-badge live" pTooltip="Auto-refresh cada 5 min">LIVE - 5min</span>
+            </div>
+            <div class="chart-wrap">
+              <p-chart type="line" [data]="lineChartData()" [options]="lineChartOptions" height="220px"></p-chart>
+            </div>
+          </div>
+          <div class="chart-panel cache-panel">
+            <div class="panel-header"><h3>Cache vs Fabric</h3></div>
+            <div class="cache-layout">
+              <div class="doughnut-wrap">
+                <p-chart type="doughnut" [data]="cacheChartData()" [options]="doughnutOptions" height="160px"></p-chart>
+                <div class="doughnut-center">
+                  <span class="doughnut-pct">{{ cacheHitPct() | number:'1.0-0' }}%</span>
+                  <span class="doughnut-label">CACHE</span>
+                </div>
+              </div>
+              <div class="cache-stats">
+                <div class="stat-row"><span class="stat-dot green"></span><span>Cache (Redis)</span><strong>{{ metrics()?.queries?.total_cached | number }}</strong></div>
+                <div class="stat-row"><span class="stat-dot slate"></span><span>Fabric directo</span><strong>{{ (totalQueries() - (metrics()?.queries?.total_cached ?? 0)) | number }}</strong></div>
+                <div class="stat-row"><span class="stat-dot blue"></span><span>Vistas unicas</span><strong>{{ metrics()?.queries?.unique_views }}</strong></div>
+                <div class="stat-row"><span class="stat-dot purple"></span><span>Usuarios activos</span><strong>{{ metrics()?.queries?.unique_users }}</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Views -->
+        <div class="chart-panel wide-panel">
+          <div class="panel-header">
+            <h3>Top vistas mas consultadas</h3>
+            <span class="panel-count">{{ topViews().length }} vistas</span>
+          </div>
+          <div class="chart-wrap">
+            <p-chart type="bar" [data]="topViewsChartData()" [options]="barChartOptions" height="260px"></p-chart>
+          </div>
+        </div>
+
+        <!-- Bottom: Slow queries + Users + Service -->
+        <div class="bottom-grid">
+          <div class="table-panel">
+            <div class="panel-header">
+              <h3><i class="pi pi-exclamation-triangle" style="color:#f59e0b;"></i> Queries lentas (&gt;5s)</h3>
+              <span class="panel-count">{{ slowQueries().length }}</span>
+            </div>
+            @if (slowQueries().length > 0) {
+              <p-table [value]="slowQueries()" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="240px">
+                <ng-template pTemplate="header"><tr><th>Vista</th><th>Usuario</th><th>Tiempo</th><th>Filas</th></tr></ng-template>
+                <ng-template pTemplate="body" let-q>
+                  <tr>
+                    <td class="cell-view">{{ q.schema }}.{{ q.view }}</td>
+                    <td class="cell-user">{{ q.user_email?.split('@')[0] }}</td>
+                    <td><p-tag [value]="formatMs(q.elapsed_ms)" [severity]="getElapsedSeverity(q.elapsed_ms)"></p-tag></td>
+                    <td>{{ formatNumber(q.rows_returned) }}</td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            } @else {
+              <div class="empty-state"><i class="pi pi-check-circle" style="color:#10b981;font-size:1.5rem;"></i><p>Sin queries lentas</p></div>
+            }
+          </div>
+          <div class="table-panel">
+            <div class="panel-header"><h3><i class="pi pi-users"></i> Usuarios activos</h3></div>
+            <div class="user-list">
+              @for (u of topUsers().slice(0, 8); track u.user; let i = $index) {
+                <div class="user-row"><span class="user-rank">{{ i + 1 }}</span><span class="user-email">{{ u.user.split('@')[0] }}</span><span class="user-count">{{ u.count }}</span></div>
+              }
+            </div>
+          </div>
+          <div class="table-panel service-panel">
+            <div class="panel-header"><h3><i class="pi pi-server"></i> Estado del servicio</h3></div>
+            @if (metrics()) {
+              <div class="service-grid">
+                <div class="svc-item"><span>Pool ODBC</span><strong>{{ metrics()?.service?.pool_size }}</strong></div>
+                <div class="svc-item"><span>Threads</span><strong>{{ metrics()?.service?.active_threads }}</strong></div>
+                <div class="svc-item"><span>Timeout</span><strong>{{ metrics()?.service?.command_timeout_s }}s</strong></div>
+                <div class="svc-item"><span>Redis RAM</span><strong>{{ metrics()?.redis?.used_memory_human }}</strong></div>
+                <div class="svc-item"><span>Redis keys</span><strong>{{ metrics()?.redis?.keys | number }}</strong></div>
+                <div class="svc-item"><span>Max query</span><strong>{{ formatMs(metrics()?.queries?.max_elapsed_ms ?? 0) }}</strong></div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </p-tabPanel>
+
+    <!-- ═══ TAB: LOGS DE ERRORES ═══ -->
+    <p-tabPanel>
+      <ng-template pTemplate="header"><i class="pi pi-list"></i> Logs</ng-template>
+
+      <div class="logs-section">
+        <!-- Resumen -->
+        @if (errorSummary()) {
+          <div class="log-summary-row">
+            <div class="log-summary-card"><strong>{{ errorSummary()?.total }}</strong><span>Total errores</span></div>
+            <div class="log-summary-card"><strong>{{ errorSummary()?.today }}</strong><span>Hoy</span></div>
+            <div class="log-summary-card accent-amber"><strong>{{ errorSummary()?.timeouts }}</strong><span>Timeouts hoy</span></div>
+            <div class="log-summary-card accent-red"><strong>{{ errorSummary()?.fabric_errors }}</strong><span>Fabric errors hoy</span></div>
+            <div class="log-summary-card accent-red"><strong>{{ errorSummary()?.auto_maintenance }}</strong><span>En mantenimiento</span></div>
+          </div>
+        }
+
+        <!-- Filtros -->
+        <div class="log-filters">
+          <p-dropdown [(ngModel)]="logFilterType" [options]="errorTypeOptions" optionLabel="label" optionValue="value" placeholder="Tipo" styleClass="filter-dropdown" appendTo="body"></p-dropdown>
+          <input type="text" pInputText [(ngModel)]="logFilterSchema" placeholder="Esquema" class="filter-input" />
+          <input type="text" pInputText [(ngModel)]="logFilterView" placeholder="Vista" class="filter-input" />
+          <p-calendar [(ngModel)]="logDateRange" selectionMode="range" dateFormat="yy-mm-dd" placeholder="Rango de fechas" [showIcon]="true" styleClass="filter-calendar" appendTo="body"></p-calendar>
+          <label class="filter-check"><input type="checkbox" [(ngModel)]="logShowUnresolved" /> Solo sin resolver</label>
+          <button class="btn-filter" (click)="loadErrorLogs()"><i class="pi pi-search"></i> Buscar</button>
+        </div>
+
+        <!-- Vistas con mas errores -->
+        @if (errorsByView().length > 0) {
+          <div class="table-panel" style="margin-bottom: 1rem;">
+            <div class="panel-header">
+              <h3><i class="pi pi-exclamation-circle" style="color:#ef4444;"></i> Vistas con mas errores (7 dias)</h3>
+            </div>
+            <p-table [value]="errorsByView()" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="200px">
+              <ng-template pTemplate="header">
+                <tr><th>Schema</th><th>Vista</th><th>Tipo</th><th>Errores</th><th>Ultimo</th><th>Accion</th></tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-v>
+                <tr>
+                  <td><strong>{{ v.schema_name }}</strong></td>
+                  <td class="cell-view">{{ v.view_name }}</td>
+                  <td><p-tag [value]="v.error_type" [severity]="v.error_type === 'timeout' ? 'warn' : 'danger'"></p-tag></td>
+                  <td><strong>{{ v.error_count }}</strong></td>
+                  <td>{{ v.last_error | date:'dd/MM HH:mm' }}</td>
+                  <td><button class="btn-resolve" (click)="resolveView(v.schema_name, v.view_name)" pTooltip="Resolver y quitar mantenimiento"><i class="pi pi-check"></i> Resolver</button></td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        }
+
+        <!-- Tabla de logs detallados -->
+        <div class="table-panel">
+          <div class="panel-header">
+            <h3><i class="pi pi-file"></i> Detalle de errores</h3>
+            <span class="panel-count">{{ errorLogs().length }} registros</span>
+          </div>
+          <p-table [value]="errorLogs()" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="400px" [loading]="isLoadingLogs()">
+            <ng-template pTemplate="header">
+              <tr><th style="width:140px;">Fecha</th><th>Schema</th><th>Vista</th><th>Tipo</th><th>Mensaje</th><th>Usuario</th><th style="width:60px;">Ms</th><th style="width:80px;">Estado</th></tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-log>
+              <tr [class.row-unresolved]="!log.resolved_at" [class.row-maintenance]="log.auto_maintenance_applied">
+                <td>{{ log.created_at | date:'dd/MM/yy HH:mm' }}</td>
+                <td><strong>{{ log.schema_name }}</strong></td>
+                <td class="cell-view" [pTooltip]="log.view_name">{{ log.view_name }}</td>
+                <td><p-tag [value]="log.error_type" [severity]="log.error_type === 'timeout' ? 'warn' : 'danger'"></p-tag></td>
+                <td class="cell-msg" [pTooltip]="log.error_message">{{ log.error_message | slice:0:60 }}</td>
+                <td class="cell-user">{{ log.user_email?.split('@')[0] ?? '-' }}</td>
+                <td>{{ log.elapsed_ms ? formatMs(log.elapsed_ms) : '-' }}</td>
+                <td>
+                  @if (log.resolved_at) {
+                    <p-tag value="Resuelto" severity="success"></p-tag>
+                  } @else if (log.auto_maintenance_applied) {
+                    <button class="btn-resolve-sm" (click)="resolveError(log)" pTooltip="Resolver"><i class="pi pi-wrench"></i></button>
+                  } @else {
+                    <p-tag value="Activo" severity="info"></p-tag>
+                  }
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="8" class="empty-msg"><i class="pi pi-check-circle" style="color:#10b981;"></i> Sin errores registrados</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </p-tabPanel>
+  </p-tabView>
+</div>

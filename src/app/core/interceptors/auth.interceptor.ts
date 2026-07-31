@@ -24,14 +24,18 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401) {
-        console.warn('⚠️ Token inválido o expirado. Cerrando sesión...');
-        // Limpiar sesión sin depender de AuthService
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('sidebar_modules');
-        router.navigate(['/login'], {
-          queryParams: { returnUrl: router.url, reason: 'session_expired' }
-        });
+        // No redirigir al login si es una ruta pública del tablero:
+        // el componente del tablero maneja su propio 401 (muestra pantalla de código)
+        const isPublicTablero = req.url.includes('/public/tableros/');
+        if (!isPublicTablero) {
+          console.warn('⚠️ Token inválido o expirado. Cerrando sesión...');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('sidebar_modules');
+          router.navigate(['/login'], {
+            queryParams: { returnUrl: router.url, reason: 'session_expired' }
+          });
+        }
       }
       return throwError(() => error);
     })

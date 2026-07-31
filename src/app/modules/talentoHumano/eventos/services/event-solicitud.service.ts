@@ -14,15 +14,28 @@ export interface EventSolicitud {
   unidad_funcional?: string;
   id_unidad_funcional?: number;
   novedad_id?: number;
+  novedad?: { id: number; codigo?: string; descripcion?: string } | string;
   empleado_cubre_id?: number;
+  empleado_cubre?: string | { id: number; nombre: string };
   fecha_nov_ini: string;
   fecha_nov_fin: string;
+  fecha_solicitud?: string;
+  coment_solicitante?: string;
+  coment_aprobador?: string;
+  /** Alias legacy del comentario del solicitante */
   descripcion?: string;
   estado: number | 'proceso' | 'rechazada' | 'aprobada' | 'autorizada' | 'registrado' | 'digitalizado' | 'digitalizada' | 'anulado' | 'anulada';
-  motivo_rechazo?: string;
+  id_motivo_rechazo?: number | null;
+  motivo_rechazo?: MotivoRechazoOption | null;
   paso_actual?: string | null;
   aprobador_pendiente?: string | null;
   wf_instancia_id?: number | null;
+  /** Acción que el usuario realizó sobre el evento (aprobado/rechazado). */
+  mi_accion?: string | null;
+  /** Paso en el que el usuario actuó. */
+  mi_paso?: string | null;
+  mi_fecha_accion?: string | null;
+  mi_comentario?: string | null;
 }
 
 export interface CreateEventSolicitudRequest {
@@ -66,13 +79,28 @@ export interface FlujoPreviewPaso {
 }
 
 export interface FlujoPreview {
-  codigo: string;
-  nombre: string;
+  parametrizada?: boolean;
+  mensaje?: string;
+  codigo?: string;
+  nombre?: string;
+  unidad_funcional_flujo?: { id: number; codigo: string; nombre: string } | null;
+  modo_parametrizacion?: 'uf' | 'grupo' | null;
   pasos: FlujoPreviewPaso[];
 }
 
 export function formatUnidadFuncionalLabel(unidad: Pick<UnidadFuncionalOption, 'codigo' | 'nombre'>): string {
   return `${unidad.codigo} - ${unidad.nombre}`;
+}
+
+export interface MotivoRechazoOption {
+  id: number;
+  codigo: number;
+  descriocion: string;
+  id_modulo: number;
+}
+
+export function formatMotivoRechazoLabel(motivo: Pick<MotivoRechazoOption, 'codigo' | 'descriocion'>): string {
+  return `${motivo.codigo} - ${motivo.descriocion}`;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -246,10 +274,16 @@ export class EventSolicitudService {
     );
   }
 
-  /** Previsualiza el flujo que aplicaría según empresa + unidad funcional + novedad. */
-  getFlujoPreview(params: { empresa_id?: number | null; unidad_funcional_id?: number | null; novedad_id?: number | null }): Observable<FlujoPreview | null> {
+  /** Previsualiza el flujo según la UF donde se realizará el evento. */
+  getFlujoPreview(params: {
+    empresa_id?: number | null;
+    empleado_id?: number | null;
+    unidad_funcional_id?: number | null;
+    novedad_id?: number | null;
+  }): Observable<FlujoPreview | null> {
     let httpParams = new HttpParams();
     if (params.empresa_id) httpParams = httpParams.set('empresa_id', String(params.empresa_id));
+    if (params.empleado_id) httpParams = httpParams.set('empleado_id', String(params.empleado_id));
     if (params.unidad_funcional_id) httpParams = httpParams.set('unidad_funcional_id', String(params.unidad_funcional_id));
     if (params.novedad_id) httpParams = httpParams.set('novedad_id', String(params.novedad_id));
 
@@ -280,9 +314,25 @@ export class EventSolicitudService {
     return this.http.post<any>(`${this.base}/solicitudes/${id}/aprobar`, { comentario });
   }
 
+  /** Eventos que el usuario autenticado ya gestionó (aprobó o rechazó). */
+  getGestionados(search?: string): Observable<{ success: boolean; data: EventSolicitud[] }> {
+    let params = new HttpParams().set('per_page', '500');
+    if (search && search.length >= 2) params = params.set('search', search);
+    return this.http.get<{ success: boolean; data: EventSolicitud[] }>(
+      `${this.base}/solicitudes/gestionados`, { params }
+    );
+  }
+
+  /** Motivos de rechazo parametrizados para el módulo de eventos. */
+  getMotivosRechazo(): Observable<MotivoRechazoOption[]> {
+    return this.http.get<{ success: boolean; data: MotivoRechazoOption[] }>(
+      `${this.base}/motivos-rechazo`
+    ).pipe(map(r => r.data || []));
+  }
+
   /** Rechaza el evento y finaliza el flujo. */
-  rechazarEvento(id: number, motivo: string): Observable<any> {
-    return this.http.post<any>(`${this.base}/solicitudes/${id}/rechazar`, { motivo });
+  rechazarEvento(id: number, payload: { id_motivo_rechazo: number; comentario?: string }): Observable<any> {
+    return this.http.post<any>(`${this.base}/solicitudes/${id}/rechazar`, payload);
   }
 
   /** Historial de aprobaciones del evento. */

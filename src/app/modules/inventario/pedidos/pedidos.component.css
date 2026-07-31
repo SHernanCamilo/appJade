@@ -1,0 +1,389 @@
+/* ============================================ */
+/* LAYOUT & HEADERS                             */
+/* ============================================ */
+.orders-page {
+    padding: 1rem 0;
+}
+
+/* Main Grid Layout */
+.orders-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+/* Tarjetas suaves */
+.card-soft {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+/* ============================================ */
+/* TABLA PRINCIPAL (Listado de Pedidos)          */
+/* ============================================ */
+:host ::ng-deep .p-datatable.p-datatable-gridlines-none .p-datatable-header {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+:host ::ng-deep .p-datatable.p-datatable-gridlines-none .p-datatable-thead > tr > th {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.75rem;
+    padding: 0.75rem 1rem;
+    text-transform: uppercase;
+}
+:host ::ng-deep .p-datatable.p-datatable-gridlines-none .p-datatable-tbody > tr > td {
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.75rem 1rem;
+    color: #334155;
+    font-size: 0.85rem;
+}
+:host ::ng-deep .p-datatable.p-datatable-gridlines-none .p-datatable-tbody > tr:hover {
+    background-color: #f8fafc;
+}
+
+/* ============================================ */
+/* TABLA DETALLE MODAL - Estilo JadeInventory    */
+/* ============================================ */
+:host ::ng-deep .detail-table-custom .p-datatable-header {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+:host ::ng-deep .detail-table-custom .p-datatable-thead > tr:first-child > th {
+    background: #fff8f0;
+    color: #78716c;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.6rem 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border: 1px solid #f5e6d3;
+    white-space: nowrap;
+}
+
+/* Fila de filtros */
+:host ::ng-deep .detail-table-custom .p-datatable-thead > tr:nth-child(2) > th {
+    background: #ffffff;
+    padding: 0.35rem 0.35rem;
+    border: 1px solid #f0e6da;
+    border-top: none;
+}
+
+/* Inputs de filtro dentro de la tabla */
+:host ::ng-deep .detail-table-custom .p-datatable-thead > tr:nth-child(2) > th .p-inputtext {
+    font-size: 0.75rem !important;
+    padding: 0.3rem 0.5rem !important;
+    border-radius: 4px !important;
+    border: 1px solid #e2d6c8 !important;
+    background: #faf8f5 !important;
+    height: 28px !important;
+    color: #78716c;
+}
+
+:host ::ng-deep .detail-table-custom .p-datatable-thead > tr:nth-child(2) > th .p-inputtext:focus {
+    border-color: #d4a76a !important;
+    box-shadow: 0 0 0 2px rgba(212, 167, 106, 0.15) !important;
+}
+
+:host ::ng-deep .detail-table-custom .p-datatable-thead > tr:nth-child(2) > th .p-inputtext:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+:host ::ng-deep .detail-table-custom .p-datatable-tbody > tr > td {
+    font-size: 0.82rem;
+    padding: 0.55rem 0.5rem;
+    border: 1px solid #f5f0ea;
+    color: #44403c;
+    vertical-align: middle;
+}
+
+:host ::ng-deep .detail-table-custom .p-datatable-tbody > tr:hover {
+    background-color: #fffbf5 !important;
+}
+
+:host ::ng-deep .detail-table-custom .p-datatable-tbody > tr.bg-light-yellow {
+    background-color: #fffbeb !important;
+}
+
+/* ============================================ */
+/* CARGA MASIVA (Bulk Upload)                    */
+/* ============================================ */
+.bulk-upload-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    background-color: #f8fafc;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.bulk-upload-zone:hover, .bulk-upload-zone.drag-over {
+    border-color: #10b981;
+    background-color: #ecfdf5;
+}
+
+.bg-light-yellow {
+    background-color: #fffbeb !important;
+}
+
+/* ============================================ */
+/* MODAL - Dark Header (JadeInventory)           */
+/* ============================================ */
+:host ::ng-deep .dialog-dark-header .p-dialog-header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+    color: #ffffff;
+    border-bottom: 0;
+    padding: 1rem 1.25rem;
+    border-radius: 8px 8px 0 0;
+}
+
+:host ::ng-deep .dialog-dark-header .p-dialog-header-icons {
+    gap: 0.25rem;
+}
+
+:host ::ng-deep .dialog-dark-header .p-dialog-header-icon {
+    color: #94a3b8 !important;
+    transition: all 0.2s;
+}
+:host ::ng-deep .dialog-dark-header .p-dialog-header-icon:hover {
+    color: #ffffff !important;
+    background: rgba(255,255,255,0.1) !important;
+}
+
+:host ::ng-deep .dialog-dark-header .p-dialog-content {
+    padding: 1.25rem 1.5rem;
+}
+
+:host ::ng-deep .dialog-dark-header .p-dialog {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================ */
+/* INFORMACIÓN DEL PEDIDO (Header info)          */
+/* ============================================ */
+.order-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin-bottom: 1.5rem;
+}
+
+.order-info-row {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0;
+}
+
+.order-info-label {
+    color: #78716c;
+    font-size: 0.82rem;
+    min-width: 110px;
+    font-weight: 500;
+}
+
+.order-info-value {
+    font-size: 0.88rem;
+    color: #1c1917;
+    font-weight: 600;
+}
+
+/* ============================================ */
+/* TRAZABILIDAD (Timeline)                       */
+/* ============================================ */
+.trazabilidad-section {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 2px solid #f5f0ea;
+}
+
+.trazabilidad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.trazabilidad-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #292524;
+    margin: 0;
+}
+
+.trazabilidad-search {
+    position: relative;
+    width: 40%;
+    min-width: 250px;
+}
+
+.trazabilidad-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #a8a29e;
+    font-size: 0.8rem;
+}
+
+.trazabilidad-search input {
+    width: 100%;
+    padding: 0.4rem 0.75rem 0.4rem 2rem;
+    border: 1px solid #e7e5e4;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    background: #fafaf9;
+    color: #44403c;
+    transition: all 0.2s;
+}
+
+.trazabilidad-search input:focus {
+    outline: none;
+    border-color: #d4a76a;
+    box-shadow: 0 0 0 3px rgba(212, 167, 106, 0.12);
+    background: #fff;
+}
+
+/* Timeline items */
+.timeline {
+    position: relative;
+    padding-left: 28px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: linear-gradient(to bottom, #3b82f6, #93c5fd);
+    border-radius: 2px;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 0.75rem;
+    animation: fadeInUp 0.3s ease forwards;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-dot {
+    position: absolute;
+    left: -22px;
+    top: 12px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #93c5fd;
+    z-index: 1;
+}
+
+.timeline-item:first-child .timeline-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #6ee7b7;
+}
+
+.timeline-card {
+    background: #fafaf9;
+    border: 1px solid #e7e5e4;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s;
+}
+
+.timeline-card:hover {
+    background: #f5f5f4;
+    border-color: #d6d3d1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.timeline-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+
+.timeline-status {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #1d4ed8;
+}
+
+.timeline-date {
+    font-size: 0.75rem;
+    color: #a8a29e;
+}
+
+.timeline-details {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.timeline-detail {
+    font-size: 0.78rem;
+    color: #78716c;
+}
+
+.timeline-detail strong {
+    color: #57534e;
+    font-weight: 500;
+}
+
+.timeline-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #a8a29e;
+    font-size: 0.85rem;
+}
+
+.timeline-empty i {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================ */
+/* RESPONSIVE                                    */
+/* ============================================ */
+@media (max-width: 992px) {
+    .orders-grid {
+        grid-template-columns: 1fr;
+    }
+    .order-info-grid {
+        grid-template-columns: 1fr;
+    }
+    .trazabilidad-search {
+        width: 100%;
+        min-width: auto;
+    }
+}

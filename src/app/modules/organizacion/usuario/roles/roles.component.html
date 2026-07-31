@@ -46,142 +46,110 @@
   </div>
 
   
-  <!-- Tabla de Roles con PrimeNG -->
+  <!-- Tabla de Roles -->
   <div class="content-card">
-    <p-table 
-      [value]="roles" 
-      [paginator]="true" 
-      [rows]="10"
-      [showCurrentPageReport]="true"
-      [rowsPerPageOptions]="[10, 25, 50]"
+    <app-data-table
+      [value]="roles"
+      [columns]="columns"
       [loading]="isLoading"
-      [globalFilterFields]="['nombre', 'codigo', 'descripcion']"
+      title="Lista de Roles"
+      titleIcon="bi bi-shield-check"
+      [globalFilterFields]="['nombre', 'codigo', 'descripcion', 'empresa.nombre']"
+      globalPlaceholder="Buscar por nombre, código o descripción..."
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} roles"
-      [tableStyle]="{'min-width': '50rem'}">
-      
-      <ng-template pTemplate="caption">
-        <div class="d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            <i class="bi bi-shield-check me-2"></i>
-            Lista de Roles
-            <p-tag [value]="roles.length.toString()" styleClass="ml-2"></p-tag>
-          </h5>
-          <span class="p-input-icon-left">
-            <input 
-              pInputText 
-              type="text" 
-              (input)="onGlobalFilter($event)" 
-              placeholder="Buscar..." />
-          </span>
+      emptyMessage="No hay roles registrados"
+      actionsWidth="150px">
+
+      <ng-template pTemplate="cell-nombre" let-row>
+        <div class="rol-info">
+          <div class="d-flex align-items-center gap-2">
+            <i class="pi pi-shield text-primary" *ngIf="row.es_admin"></i>
+            <span class="fw-semibold">{{ row.nombre }}</span>
+          </div>
+          <code class="text-muted small">{{ row.codigo }}</code>
+          <div class="text-muted small mt-1" *ngIf="row.descripcion">{{ row.descripcion }}</div>
         </div>
       </ng-template>
 
-      <ng-template pTemplate="header">
-        <tr>
-          <th pSortableColumn="nombre">
-            Rol <p-sortIcon field="nombre"></p-sortIcon>
-          </th>
-          <th>Tipo</th>
-          <th>Empresa</th>
-          <th>Perfiles</th>
-          <th pSortableColumn="estado">
-            Estado <p-sortIcon field="estado"></p-sortIcon>
-          </th>
-          <th style="width: 150px">Acciones</th>
-        </tr>
+      <ng-template pTemplate="cell-tipo" let-row>
+        <p-tag
+          [value]="getRolType(row)"
+          [severity]="getRolTypeSeverity(row)"
+          [icon]="row.es_admin ? 'pi pi-star-fill' : row.id_empresa ? 'pi pi-building' : 'pi pi-globe'">
+        </p-tag>
       </ng-template>
 
-      <ng-template pTemplate="body" let-rol>
-        <tr>
-          <td>
-            <div class="rol-info">
-              <div class="d-flex align-items-center gap-2">
-                <i class="pi pi-shield text-primary" *ngIf="rol.es_admin"></i>
-                <span class="fw-semibold">{{ rol.nombre }}</span>
-              </div>
-              <code class="text-muted small">{{ rol.codigo }}</code>
-              <div class="text-muted small mt-1" *ngIf="rol.descripcion">{{ rol.descripcion }}</div>
-            </div>
-          </td>
-          <td>
-            <p-tag 
-              [value]="getRolType(rol)" 
-              [severity]="getRolTypeSeverity(rol)"
-              [icon]="rol.es_admin ? 'pi pi-star-fill' : rol.id_empresa ? 'pi pi-building' : 'pi pi-globe'">
-            </p-tag>
-          </td>
-          <td>
-            <p-tag 
-              *ngIf="rol.empresa"
-              [value]="rol.empresa.nombre" 
-              severity="info"
-              icon="pi pi-building">
-            </p-tag>
-            <span class="text-muted" *ngIf="!rol.empresa">
-              <i class="pi pi-globe me-1"></i>Global
-            </span>
-          </td>
-          <td>
-            <p-tag 
-              *ngIf="getPerfilesCount(rol) > 0"
-              [value]="getPerfilesCount(rol) + ' perfiles'" 
-              severity="secondary"
-              icon="pi pi-users">
-            </p-tag>
-            <span class="text-muted" *ngIf="getPerfilesCount(rol) === 0">
-              Sin perfiles
-            </span>
-          </td>
-          <td>
-            <p-tag 
-              [value]="rol.estado ? 'Activo' : 'Inactivo'" 
-              [severity]="rol.estado ? 'success' : 'danger'"
-              [icon]="rol.estado ? 'pi pi-check' : 'pi pi-times'">
-            </p-tag>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <p-button 
-                icon="pi pi-users" 
-                styleClass="p-button-rounded p-button-text p-button-info"
-                (onClick)="openPerfilesDialog(rol)"
-                pTooltip="Asignar perfiles"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                icon="pi pi-pencil" 
-                styleClass="p-button-rounded p-button-text p-button-warn"
-                (onClick)="editRol(rol)"
-                pTooltip="Editar"
-                tooltipPosition="top">
-              </p-button>
-              <p-button 
-                icon="pi pi-trash" 
-                styleClass="p-button-rounded p-button-text p-button-danger"
-                (onClick)="deleteRol(rol)"
-                [disabled]="getUsuariosCount(rol) > 0"
-                pTooltip="Eliminar"
-                tooltipPosition="top">
-              </p-button>
-            </div>
-          </td>
-        </tr>
+      <ng-template pTemplate="cell-empresa.nombre" let-row>
+        <p-tag
+          *ngIf="row.empresa"
+          [value]="row.empresa.nombre"
+          severity="info"
+          icon="pi pi-building">
+        </p-tag>
+        <span class="text-muted" *ngIf="!row.empresa">
+          <i class="pi pi-globe me-1"></i>Global
+        </span>
       </ng-template>
 
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="7" class="text-center py-5">
-            <i class="pi pi-shield" style="font-size: 3rem; color: #94a3b8;"></i>
-            <p class="text-muted mt-3">No hay roles registrados</p>
-            <p-button 
-              label="Crear Primer Rol" 
-              icon="pi pi-plus" 
-              (onClick)="toggleForm()">
-            </p-button>
-          </td>
-        </tr>
+      <ng-template pTemplate="cell-perfiles" let-row>
+        <p-tag
+          *ngIf="getPerfilesCount(row) > 0"
+          [value]="getPerfilesCount(row) + ' perfiles'"
+          severity="secondary"
+          icon="pi pi-users">
+        </p-tag>
+        <span class="text-muted" *ngIf="getPerfilesCount(row) === 0">
+          Sin perfiles
+        </span>
       </ng-template>
-    </p-table>
+
+      <ng-template pTemplate="cell-estado" let-row>
+        <p-tag
+          [value]="row.estado ? 'Activo' : 'Inactivo'"
+          [severity]="row.estado ? 'success' : 'danger'"
+          [icon]="row.estado ? 'pi pi-check' : 'pi pi-times'">
+        </p-tag>
+      </ng-template>
+
+      <ng-template pTemplate="actions" let-row>
+        <div class="d-flex gap-2">
+          <p-button
+            icon="pi pi-users"
+            styleClass="p-button-rounded p-button-text p-button-info"
+            (onClick)="openPerfilesDialog(row)"
+            pTooltip="Asignar perfiles"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            icon="pi pi-pencil"
+            styleClass="p-button-rounded p-button-text p-button-warn"
+            (onClick)="editRol(row)"
+            pTooltip="Editar"
+            tooltipPosition="top">
+          </p-button>
+          <p-button
+            icon="pi pi-trash"
+            styleClass="p-button-rounded p-button-text p-button-danger"
+            (onClick)="deleteRol(row)"
+            [disabled]="getUsuariosCount(row) > 0"
+            pTooltip="Eliminar"
+            tooltipPosition="top">
+          </p-button>
+        </div>
+      </ng-template>
+
+      <ng-template pTemplate="empty">
+        <div class="text-center py-5">
+          <i class="pi pi-shield" style="font-size: 3rem; color: #94a3b8;"></i>
+          <p class="text-muted mt-3">No hay roles registrados</p>
+          <p-button
+            label="Crear Primer Rol"
+            icon="pi pi-plus"
+            (onClick)="toggleForm()">
+          </p-button>
+        </div>
+      </ng-template>
+    </app-data-table>
   </div>
 </div>
 

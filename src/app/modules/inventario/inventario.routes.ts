@@ -8,6 +8,22 @@ export const INVENTARIO_ROUTES: Routes = [
     component: InventarioComponent
   },
   {
+    path: 'pedidos',
+    loadComponent: () => import('./pedidos/pedidos.component').then(m => m.PedidosComponent)
+  },
+  {
+    path: 'ordenes-compra',
+    loadComponent: () => import('./ordenes-compra/ordenes-compra.component').then(m => m.OrdenesCompraComponent)
+  },
+  {
+    path: 'recepciones-tecnicas',
+    loadComponent: () => import('./recepciones-tecnicas/recepciones-tecnicas.component').then(m => m.RecepcionesTecnicasComponent)
+  },
+  {
+    path: 'productos',
+    loadComponent: () => import('./productos/productos.component').then(m => m.ProductosComponent)
+  },
+  {
     path: 'matrizObsolescencia',
     children: [
       {

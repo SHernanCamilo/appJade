@@ -275,80 +275,53 @@
                   <p class="text-muted mt-3">Cargando procesadores...</p>
                 </div>
 
-                <!-- Buscador y Tabla de procesadores -->
+                <!-- Tabla de procesadores -->
                 <div class="card" *ngIf="!isLoadingProcesadores">
-                  <!-- Buscador -->
-                  <div class="p-3 border-bottom">
-                    <div class="p-input-icon-left w-100">
-                      <input 
-                        type="text" 
-                        pInputText 
-                        [(ngModel)]="busquedaProcesador"
-                        (input)="filtrarProcesadores()"
-                        placeholder="Buscar procesador por nombre..."
-                        class="w-100" />
-                    </div>
-                    <small class="text-muted d-block mt-2" *ngIf="busquedaProcesador">
-                      <i class="pi pi-info-circle me-1"></i>
-                      Mostrando {{ procesadoresFiltrados.length }} de {{ procesadores.length }} procesadores
-                    </small>
-                  </div>
-                  
-                  <p-table 
-                    [value]="procesadoresFiltrados" 
-                    [paginator]="true" 
-                    [rows]="10"
-                    [showCurrentPageReport]="true"
+                  <app-data-table
+                    [value]="procesadores"
+                    [columns]="procesadorColumns"
+                    [showCount]="false"
+                    [globalFilterFields]="['nombre']"
+                    globalPlaceholder="Buscar procesador por nombre..."
                     currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} procesadores"
-                    [rowsPerPageOptions]="[10, 25, 50]"
-                    styleClass="p-datatable-sm">
-                    
-                    <ng-template pTemplate="header">
-                      <tr>
-                        <th style="width: 60%">Nombre del Procesador</th>
-                        <th style="width: 20%" class="text-center">Año Lanzamiento</th>
-                        <th style="width: 20%" class="text-center">Acciones</th>
-                      </tr>
+                    emptyMessage="No hay procesadores registrados"
+                    actionsWidth="120px"
+                    [tableStyle]="{ 'min-width': '100%' }">
+
+                    <ng-template pTemplate="cell-anio_lanzamiento" let-row>
+                      <span class="badge bg-info" *ngIf="row.anio_lanzamiento">
+                        {{ row.anio_lanzamiento }}
+                      </span>
+                      <span class="text-muted" *ngIf="!row.anio_lanzamiento">-</span>
                     </ng-template>
 
-                    <ng-template pTemplate="body" let-procesador>
-                      <tr>
-                        <td>{{ procesador.nombre }}</td>
-                        <td class="text-center">
-                          <span class="badge bg-info" *ngIf="procesador.anio_lanzamiento">
-                            {{ procesador.anio_lanzamiento }}
-                          </span>
-                          <span class="text-muted" *ngIf="!procesador.anio_lanzamiento">-</span>
-                        </td>
-                        <td class="text-center">
-                          <p-button 
-                            icon="pi pi-pencil" 
-                            (onClick)="editarProcesador(procesador)"
-                            styleClass="p-button-rounded p-button-text p-button-info p-button-sm me-1"
-                            pTooltip="Editar"
-                            *hasPermission="'inv-matriz-paramatriz-impor-procesador'">
-                          </p-button>
-                          <p-button 
-                            icon="pi pi-trash" 
-                            (onClick)="eliminarProcesador(procesador)"
-                            styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
-                            pTooltip="Eliminar"
-                            *hasPermission="'inv-matriz-paramatriz-impor-procesador'">
-                          </p-button>
-                        </td>
-                      </tr>
+                    <ng-template pTemplate="actions" let-row>
+                      <div class="text-center">
+                        <p-button
+                          icon="pi pi-pencil"
+                          (onClick)="editarProcesador(row)"
+                          styleClass="p-button-rounded p-button-text p-button-info p-button-sm me-1"
+                          pTooltip="Editar"
+                          *hasPermission="'inv-matriz-paramatriz-impor-procesador'">
+                        </p-button>
+                        <p-button
+                          icon="pi pi-trash"
+                          (onClick)="eliminarProcesador(row)"
+                          styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
+                          pTooltip="Eliminar"
+                          *hasPermission="'inv-matriz-paramatriz-impor-procesador'">
+                        </p-button>
+                      </div>
                     </ng-template>
 
-                    <ng-template pTemplate="emptymessage">
-                      <tr>
-                        <td colspan="3" class="text-center py-4">
-                          <i class="bi bi-cpu text-muted" style="font-size: 3rem;"></i>
-                          <p class="text-muted mt-3 mb-1">No hay procesadores registrados</p>
-                          <small class="text-muted">Haz clic en "Importar desde Activos" para cargar los procesadores</small>
-                        </td>
-                      </tr>
+                    <ng-template pTemplate="empty">
+                      <div class="text-center py-4">
+                        <i class="bi bi-cpu text-muted" style="font-size: 3rem;"></i>
+                        <p class="text-muted mt-3 mb-1">No hay procesadores registrados</p>
+                        <small class="text-muted">Haz clic en "Importar desde Activos" para cargar los procesadores</small>
+                      </div>
                     </ng-template>
-                  </p-table>
+                  </app-data-table>
                 </div>
               </div>
 
@@ -407,160 +380,84 @@
                 <div class="col-12">
                   <div class="card">
                     <div class="card-body p-0">
-                      <!-- Header personalizado -->
-                      <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
-                        <div class="d-flex align-items-center">
-                          <i class="bi bi-people me-2 text-muted"></i>
-                          <span class="fw-semibold">Gestión de Agentes GLPI</span>
-                          <span class="badge bg-secondary ms-2">{{ agentes.length }}</span>
-                        </div>
-                        <p-button 
-                          label="Agregar Agente" 
-                          icon="pi pi-plus"
-                          (onClick)="agregarAgente()"
-                          styleClass="p-button-success p-button-sm">
-                        </p-button>
-                      </div>
-
-                      <!-- Skeleton de carga -->
-                      <div *ngIf="isLoadingAgentes" class="p-4">
-                        <div class="text-center py-4">
-                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
-                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
-                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
-                          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
-                          <p class="text-muted mt-3">Cargando agentes...</p>
-                        </div>
-                      </div>
-
-                      <!-- Tabla con estilos globales de PrimeNG -->
-                      <p-table 
-                        *ngIf="!isLoadingAgentes"
-                        #dtAgentes
-                        [value]="agentes" 
-                        [paginator]="true" 
-                        [rows]="10"
-                        [showCurrentPageReport]="true"
+                      <!-- Tabla de agentes -->
+                      <app-data-table
+                        [value]="agentes"
+                        [columns]="agenteColumns"
+                        [loading]="isLoadingAgentes"
+                        title="Gestión de Agentes GLPI"
+                        titleIcon="bi bi-people"
+                        [globalFilterFields]="['tag', 'nomenclatura', 'empresa.nombre', 'sucursal.nombre', 'sede.nombre']"
+                        globalPlaceholder="Buscar agente..."
                         currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} agentes"
-                        [rowsPerPageOptions]="[10, 25, 50]"
-                        styleClass="p-datatable-sm">
-                        
-                        <ng-template pTemplate="header">
-                          <tr>
-                            <th>TAG</th>
-                            <th>NOMENCLATURA</th>
-                            <th>EMPRESA</th>
-                            <th>SUCURSAL</th>
-                            <th>SEDE</th>
-                            <th>FECHA CREACIÓN</th>
-                            <th>ACCIONES</th>
-                          </tr>
-                          <tr>
-                            <th>
-                              <input
-                                pInputText
-                                type="text"
-                                class="w-100 p-inputtext-sm"
-                                placeholder="Filtrar TAG"
-                                (input)="dtAgentes.filter($any($event.target).value, 'tag', 'contains')">
-                            </th>
-                            <th>
-                              <input
-                                pInputText
-                                type="text"
-                                class="w-100 p-inputtext-sm"
-                                placeholder="Filtrar nomenclatura"
-                                (input)="dtAgentes.filter($any($event.target).value, 'nomenclatura', 'contains')">
-                            </th>
-                            <th>
-                              <input
-                                pInputText
-                                type="text"
-                                class="w-100 p-inputtext-sm"
-                                placeholder="Filtrar empresa"
-                                (input)="dtAgentes.filter($any($event.target).value, 'empresa.nombre', 'contains')">
-                            </th>
-                            <th>
-                              <input
-                                pInputText
-                                type="text"
-                                class="w-100 p-inputtext-sm"
-                                placeholder="Filtrar sucursal"
-                                (input)="dtAgentes.filter($any($event.target).value, 'sucursal.nombre', 'contains')">
-                            </th>
-                            <th>
-                              <input
-                                pInputText
-                                type="text"
-                                class="w-100 p-inputtext-sm"
-                                placeholder="Filtrar sede"
-                                (input)="dtAgentes.filter($any($event.target).value, 'sede.nombre', 'contains')">
-                            </th>
-                            <th>
-                              <input
-                                pInputText
-                                type="text"
-                                class="w-100 p-inputtext-sm"
-                                placeholder="Filtrar fecha"
-                                (input)="dtAgentes.filter($any($event.target).value, 'created_at', 'contains')">
-                            </th>
-                            <th></th>
-                          </tr>
+                        emptyMessage="No hay agentes configurados"
+                        actionsWidth="100px"
+                        [tableStyle]="{ 'min-width': '100%' }">
+
+                        <ng-template pTemplate="caption">
+                          <p-button
+                            label="Agregar Agente"
+                            icon="pi pi-plus"
+                            (onClick)="agregarAgente()"
+                            styleClass="p-button-success p-button-sm">
+                          </p-button>
                         </ng-template>
-                        
-                        <ng-template pTemplate="body" let-agente>
-                          <tr>
-                            <td>
-                              <p-avatar 
-                                [label]="agente.tag" 
-                                [style]="{'background-color': getTagColor(agente.tag), 'color': 'white'}"
-                                size="normal"
-                                shape="square">
-                              </p-avatar>
-                            </td>
-                            <td>
-                              <span class="badge bg-info text-white">{{ agente.nomenclatura }}</span>
-                            </td>
-                            <td>
-                              <div>
-                                <div class="fw-semibold text-dark">{{ agente.empresa?.nombre || 'N/A' }}</div>
-                                <small class="text-muted">{{ agente.empresa?.nit || '' }}</small>
-                              </div>
-                            </td>
-                            <td>{{ agente.sucursal?.nombre || 'N/A' }}</td>
-                            <td>{{ agente.sede?.nombre || 'N/A' }}</td>
-                            <td>{{ agente.created_at | date:'dd/MM/yyyy' }}</td>
-                            <td>
-                              <div class="d-flex gap-1">
-                                <p-button 
-                                  *hasPermission="'inv-matriz-parametros-de-activos-editar'"
-                                  icon="pi pi-pencil" 
-                                  (onClick)="editarAgente(agente)"
-                                  styleClass="p-button-rounded p-button-text p-button-info p-button-sm"
-                                  pTooltip="Editar agente">
-                                </p-button>
-                                <p-button 
-                                  *hasPermission="'inv-matriz-parametros-de-activos-eliminar'"
-                                  icon="pi pi-trash" 
-                                  (onClick)="eliminarAgente(agente)"
-                                  styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
-                                  pTooltip="Eliminar agente">
-                                </p-button>
-                              </div>
-                            </td>
-                          </tr>
+
+                        <ng-template pTemplate="cell-tag" let-row>
+                          <p-avatar
+                            [label]="row.tag"
+                            [style]="{'background-color': getTagColor(row.tag), 'color': 'white'}"
+                            size="normal"
+                            shape="square">
+                          </p-avatar>
                         </ng-template>
-                        
-                        <ng-template pTemplate="emptymessage">
-                          <tr>
-                            <td colspan="7" class="text-center py-5">
-                              <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-                              <p class="text-muted mt-3 mb-1">No hay agentes configurados</p>
-                              <small class="text-muted">Haz clic en "Agregar Agente" para comenzar</small>
-                            </td>
-                          </tr>
+
+                        <ng-template pTemplate="cell-nomenclatura" let-row>
+                          <span class="badge bg-info text-white">{{ row.nomenclatura }}</span>
                         </ng-template>
-                      </p-table>
+
+                        <ng-template pTemplate="cell-empresa.nombre" let-row>
+                          <div>
+                            <div class="fw-semibold text-dark">{{ row.empresa?.nombre || 'N/A' }}</div>
+                            <small class="text-muted">{{ row.empresa?.nit || '' }}</small>
+                          </div>
+                        </ng-template>
+
+                        <ng-template pTemplate="cell-sucursal.nombre" let-row>
+                          {{ row.sucursal?.nombre || 'N/A' }}
+                        </ng-template>
+
+                        <ng-template pTemplate="cell-sede.nombre" let-row>
+                          {{ row.sede?.nombre || 'N/A' }}
+                        </ng-template>
+
+                        <ng-template pTemplate="actions" let-row>
+                          <div class="d-flex gap-1">
+                            <p-button
+                              *hasPermission="'inv-matriz-parametros-de-activos-editar'"
+                              icon="pi pi-pencil"
+                              (onClick)="editarAgente(row)"
+                              styleClass="p-button-rounded p-button-text p-button-info p-button-sm"
+                              pTooltip="Editar agente">
+                            </p-button>
+                            <p-button
+                              *hasPermission="'inv-matriz-parametros-de-activos-eliminar'"
+                              icon="pi pi-trash"
+                              (onClick)="eliminarAgente(row)"
+                              styleClass="p-button-rounded p-button-text p-button-danger p-button-sm"
+                              pTooltip="Eliminar agente">
+                            </p-button>
+                          </div>
+                        </ng-template>
+
+                        <ng-template pTemplate="empty">
+                          <div class="text-center py-5">
+                            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-3 mb-1">No hay agentes configurados</p>
+                            <small class="text-muted">Haz clic en "Agregar Agente" para comenzar</small>
+                          </div>
+                        </ng-template>
+                      </app-data-table>
                     </div>
                   </div>
                 </div>

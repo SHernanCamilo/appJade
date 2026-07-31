@@ -81,14 +81,22 @@ export class LoginComponent implements OnInit {
     const { email, password } = this.loginForm.value;
     
     this.auth.login(email, password).subscribe({
-      next: () => {
+      next: (response) => {
         this.isLoading = false;
         this.hasError = false;
-        // Navegar a la URL de retorno o al dashboard
-        this.router.navigateByUrl(this.returnUrl).then(
-          //(success) => console.log('✅ Navegación exitosa:', success),
-          (error) => console.error('❌ Error en navegación:', error)
+
+        // Verificar si el usuario tiene rol "Tablero" → redirigir al tablero
+        const user = response.user;
+        const roles: string[] = user?.roles ?? [];
+        const tieneRolTablero = roles.some(
+          (r: string) => r.toLowerCase() === 'tablero'
         );
+
+        if (tieneRolTablero) {
+          this.router.navigateByUrl('/tableroUrgencias');
+        } else {
+          this.router.navigateByUrl(this.returnUrl);
+        }
       },
       error: (error) => {
         this.isLoading = false;
