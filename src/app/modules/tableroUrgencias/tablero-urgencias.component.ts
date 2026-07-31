@@ -310,6 +310,17 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       map.get(key)!.push(row);
     }
     this.sedes.set([...map.entries()].map(([nombre, unidades]) => ({ nombre, unidades })));
+
+    // Si hay una unidad seleccionada, actualizarla con los datos frescos
+    const current = this.unidadSeleccionada();
+    if (current) {
+      const updated = data.find(
+        u => u.IdSede === current.IdSede && u.IdUnidad === current.IdUnidad
+      );
+      if (updated) {
+        this.unidadSeleccionada.set(updated);
+      }
+    }
   }
 
   private cargarLogoEmpresa(): void {
