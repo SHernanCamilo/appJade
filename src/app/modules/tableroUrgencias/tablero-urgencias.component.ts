@@ -55,7 +55,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(true);
   readonly lastUpdate = signal<Date | null>(null);
   readonly sucursalUsuario = signal<string | null>(null);
-  readonly logoEmpresa = signal<string>('assets/media/logos/jade-one-horizontal-dark.png');
+  readonly logoEmpresa = signal<string>('assets/media/tablero-urgencias/Logo-Medilaser.png');
   readonly connected = signal(true);
 
   // Emparejamiento
@@ -313,27 +313,21 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   private cargarLogoEmpresa(): void {
-    // En modo público no hay sesión: cargar logo de Medilaser directo
-    if (this.mode() !== 'private') {
-      // Medilaser es empresa ID 1 normalmente
-      this.http.get<{ logo_url?: string }>(`${environment.URL_SERVICIOS}/empresas/1/logo-base64`).subscribe({
-        next: (res) => { if (res.logo_url) this.logoEmpresa.set(res.logo_url); },
-        error: () => { /* mantener logo por defecto */ }
-      });
-      return;
-    }
-
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        const empresa = user?.empresas?.[0];
-        if (empresa?.id) {
-          this.http.get<{ logo_url?: string }>(`${environment.URL_SERVICIOS}/empresas/${empresa.id}/logo-base64`).subscribe({
-            next: (res) => { if (res.logo_url) this.logoEmpresa.set(res.logo_url); }
-          });
+    // En modo público el logo ya es el de Medilaser (asset local, sin API)
+    // En modo privado intentamos cargar el de la empresa del usuario
+    if (this.mode() === 'private') {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          const empresa = user?.empresas?.[0];
+          if (empresa?.id) {
+            this.http.get<{ logo_url?: string }>(`${environment.URL_SERVICIOS}/empresas/${empresa.id}/logo-base64`).subscribe({
+              next: (res) => { if (res.logo_url) this.logoEmpresa.set(res.logo_url); }
+            });
+          }
         }
-      }
-    } catch { /* logo por defecto */ }
+      } catch { /* mantener logo por defecto */ }
+    }
   }
 }
