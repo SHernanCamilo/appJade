@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed, inject, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -46,7 +46,6 @@ type TableroMode = 'pairing' | 'active' | 'private';
 export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
-  private readonly zone = inject(NgZone);
 
   // Estado del tablero
   readonly mode = signal<TableroMode>('pairing');
@@ -80,7 +79,6 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     return u ? u.PacientesEsperaTriage + u.PacientesEsperaConsulta : 0;
   });
 
-  private eventSource: EventSource | null = null;
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private slideInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -98,7 +96,6 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.eventSource?.close();
     if (this.refreshInterval) clearInterval(this.refreshInterval);
     if (this.slideInterval) clearInterval(this.slideInterval);
   }
@@ -195,54 +192,46 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // MODO ACTIVO — SSE (TV emparejada)
+  // MODO ACTIVO — Polling cada 30s (más estable que SSE con Apache + PHP-FPM)
   // =========================================================================
 
   private connectSSE(deviceSecret: string | null, legacyToken?: string): void {
+    // Usamos polling al endpoint /data en vez de SSE porque Apache + PHP-FPM
+    // bufferea la respuesta de SSE y el browser nunca recibe los eventos.
+    // El resultado visual es el mismo: datos cada 30s.
     let url: string;
     if (deviceSecret) {
-      url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/stream?d=${deviceSecret}`;
+      url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/data?d=${deviceSecret}`;
     } else if (legacyToken) {
-      url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/stream?token=${legacyToken}`;
+      url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/data?token=${legacyToken}`;
     } else {
       return;
     }
 
-    this.zone.runOutsideAngular(() => {
-      this.eventSource = new EventSource(url);
+    // Cargar datos inmediatamente
+    this.fetchPublicData(url);
 
-      this.eventSource.addEventListener('data', (event: MessageEvent) => {
-        this.zone.run(() => this.handleSseData(event));
-      });
-
-      this.eventSource.addEventListener('reconnect', () => {
-        this.eventSource?.close();
-        setTimeout(() => this.connectSSE(deviceSecret, legacyToken), 2000);
-      });
-
-      this.eventSource.onerror = () => {
-        this.zone.run(() => this.connected.set(false));
-      };
-
-      this.eventSource.onopen = () => {
-        this.zone.run(() => this.connected.set(true));
-      };
-    });
+    // Polling cada 30 segundos
+    this.refreshInterval = setInterval(() => this.fetchPublicData(url), 30_000);
   }
 
-  private handleSseData(event: MessageEvent): void {
-    try {
-      const payload = JSON.parse(event.data);
-
-      if (payload.success && payload.data) {
-        this.agruparPorSede(payload.data);
-        this.lastUpdate.set(new Date());
-        this.connected.set(true);
-        this.isLoading.set(false);
-        if (payload.sede) this.sucursalUsuario.set(payload.sede);
-        this.saveToCache(payload.data);
+  private fetchPublicData(url: string): void {
+    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sede?: string; timestamp?: string }>(url).subscribe({
+      next: (res) => {
+        if (res.success && res.data?.length > 0) {
+          this.agruparPorSede(res.data);
+          this.lastUpdate.set(new Date());
+          this.connected.set(true);
+          this.isLoading.set(false);
+          if (res.sede) this.sucursalUsuario.set(res.sede);
+          this.saveToCache(res.data);
+        }
+      },
+      error: () => {
+        // No mostrar error: mantener el último dato válido
+        this.connected.set(false);
       }
-    } catch { /* ignorar errores de parse */ }
+    });
   }
 
   private saveToCache(data: UnidadUrgencias[]): void {
@@ -324,6 +313,16 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   private cargarLogoEmpresa(): void {
+    // En modo público no hay sesión: cargar logo de Medilaser directo
+    if (this.mode() !== 'private') {
+      // Medilaser es empresa ID 1 normalmente
+      this.http.get<{ logo_url?: string }>(`${environment.URL_SERVICIOS}/empresas/1/logo-base64`).subscribe({
+        next: (res) => { if (res.logo_url) this.logoEmpresa.set(res.logo_url); },
+        error: () => { /* mantener logo por defecto */ }
+      });
+      return;
+    }
+
     try {
       const userStr = localStorage.getItem('user');
       if (userStr) {
