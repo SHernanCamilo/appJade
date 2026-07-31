@@ -15,12 +15,12 @@ import { OrdenCompra, Pedido, PedidoDetalle } from '../../../core/models/inventa
   selector: 'app-ordenes-compra',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    SkeletonModule, 
-    TableModule, 
-    DialogModule, 
-    ButtonModule, 
+    CommonModule,
+    FormsModule,
+    SkeletonModule,
+    TableModule,
+    DialogModule,
+    ButtonModule,
     InputTextModule,
     DropdownModule,
     TooltipModule
@@ -31,12 +31,12 @@ import { OrdenCompra, Pedido, PedidoDetalle } from '../../../core/models/inventa
 export class OrdenesCompraComponent implements OnInit {
   // Estado general
   activeTab = signal<'pedidos' | 'ordenes'>('ordenes');
-  
+
   // Datos de Órdenes de Compra
   ordenes = signal<OrdenCompra[]>([]);
   isLoadingOrdenes = signal<boolean>(false);
   statusFilterOrdenes = signal<string>('');
-  
+
   // Datos de Pedidos Confirmados
   pedidos = signal<Pedido[]>([]);
   isLoadingPedidos = signal<boolean>(false);
@@ -66,7 +66,7 @@ export class OrdenesCompraComponent implements OnInit {
     return pedido ? (pedido.total_articulos || 0) : 0;
   });
 
-  constructor(private inventarioService: InventarioService) {}
+  constructor(private inventarioService: InventarioService) { }
 
   ngOnInit(): void {
     // Cargar ambas listas al inicio para tenerlas listas
@@ -91,7 +91,7 @@ export class OrdenesCompraComponent implements OnInit {
     this.isLoadingOrdenes.set(true);
     const filter = this.statusFilterOrdenes();
     const params = filter ? { status: filter } : {};
-    
+
     this.inventarioService.getOrdenesCompra(params).subscribe({
       next: (res) => {
         this.isLoadingOrdenes.set(false);
@@ -251,11 +251,11 @@ export class OrdenesCompraComponent implements OnInit {
       alert('Debe seleccionar un pedido para continuar.');
       return;
     }
-    
+
     // Aquí se conectaría con un endpoint real como createOrdenCompra()
     // Por el momento simulamos la acción como lo solicitó el usuario para establecer la UI
     this.isCreating.set(true);
-    
+
     // Simulación de delay
     setTimeout(() => {
       this.isCreating.set(false);
@@ -273,20 +273,23 @@ export class OrdenesCompraComponent implements OnInit {
   // ==========================================
   getStatusBadge(status: string): string {
     const st = status?.toLowerCase() || '';
-    if (st === 'pending' || st === 'pendiente') return 'bg-warning text-dark';
-    if (st === 'in_transit' || st === 'en_proceso') return 'bg-info text-dark';
-    if (st === 'received' || st === 'recibida' || st === 'confirmado') return 'bg-success';
-    if (st === 'cancelled' || st === 'cancelada') return 'bg-danger';
+    if (st === 'borrador' || st === 'solicitado' || st === 'pendiente') return 'bg-warning text-dark';
+    if (st === 'confirmado' || st === 'en_proceso' || st === 'en_transito' || st === 'parcial' || st === 'en_sitio') return 'bg-info text-dark';
+    if (st === 'recibida' || st === 'recibido') return 'bg-success';
+    if (st === 'cancelada' || st === 'cancelado' || st === 'rechazado') return 'bg-danger';
     return 'bg-secondary';
   }
-  
+
   getStatusText(status: string): string {
     const st = status?.toLowerCase() || '';
-    if (st === 'pending') return 'Pendiente';
-    if (st === 'in_transit') return 'En tránsito';
-    if (st === 'received') return 'Recibida';
-    if (st === 'cancelled') return 'Cancelada';
-    if (st === 'en_proceso') return 'Confirmado'; // Mostramos en proceso como confirmado según contexto de compras
+    if (st === 'borrador') return 'Borrador';
+    if (st === 'solicitado') return 'Solicitado';
+    if (st === 'confirmado' || st === 'en_proceso') return 'Confirmado';
+    if (st === 'en_sitio') return 'En Sitio';
+    if (st === 'parcial') return 'Parcial';
+    if (st === 'en_transito') return 'En tránsito';
+    if (st === 'recibida' || st === 'recibido') return 'Recibida';
+    if (st === 'cancelada' || st === 'cancelado') return 'Cancelada';
     return status;
   }
 }

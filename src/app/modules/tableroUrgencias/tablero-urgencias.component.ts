@@ -216,7 +216,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   private fetchPublicData(url: string): void {
-    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sede?: string; timestamp?: string }>(url).subscribe({
+    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sede?: string; timestamp?: string; error?: string }>(url).subscribe({
       next: (res) => {
         if (res.success && res.data?.length > 0) {
           this.agruparPorSede(res.data);
@@ -227,8 +227,20 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
           this.saveToCache(res.data);
         }
       },
-      error: () => {
-        // No mostrar error: mantener el último dato válido
+      error: (err) => {
+        if (err.status === 401) {
+          // Dispositivo revocado o eliminado: limpiar secret y volver a pantalla de código
+          localStorage.removeItem(this.DEVICE_SECRET_KEY);
+          localStorage.removeItem(this.DEVICE_NAME_KEY);
+          if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+          }
+          this.mode.set('pairing');
+          this.pairingError.set('El dispositivo fue desactivado. Solicite un nuevo código al administrador.');
+          return;
+        }
+        // Cualquier otro error: no mostrar nada, mantener último dato
         this.connected.set(false);
       }
     });

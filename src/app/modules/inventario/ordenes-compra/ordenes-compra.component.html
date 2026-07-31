@@ -167,10 +167,14 @@
                                 <th>
                                     <select class="form-select form-select-sm p-1" [ngModel]="statusFilterOrdenes()" (change)="onStatusFilterChange($event)">
                                         <option value="">Estado</option>
-                                        <option value="pending">Pendiente</option>
-                                        <option value="in_transit">En tránsito</option>
-                                        <option value="received">Recibida</option>
-                                        <option value="cancelled">Cancelada</option>
+                                        <option value="borrador">Borrador</option>
+                                        <option value="solicitado">Solicitado</option>
+                                        <option value="confirmado">Confirmado</option>
+                                        <option value="en_sitio">En Sitio</option>
+                                        <option value="parcial">Parcial</option>
+                                        <option value="en_transito">En tránsito</option>
+                                        <option value="recibida">Recibida</option>
+                                        <option value="cancelada">Cancelada</option>
                                     </select>
                                 </th>
                                 <th></th>

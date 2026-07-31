@@ -10,9 +10,14 @@
                 <label class="text-muted small mb-0">Estado</label>
                 <select [(ngModel)]="statusFilter" (change)="loadPedidos()" class="form-select form-select-sm" style="width: 180px;">
                     <option value="">Todos</option>
-                    <option value="pendiente">Pendiente</option>
-                    <option value="en_proceso">Orden realizada</option>
-                    <option value="recibido">Recibida</option>
+                    <option value="borrador">Borrador</option>
+                    <option value="solicitado">Solicitado</option>
+                    <option value="aprobado">Aprobado</option>
+                    <option value="en_proceso">En Proceso</option>
+                    <option value="parcial">Parcial</option>
+                    <option value="en_transito">En Tránsito</option>
+                    <option value="recibido">Recibido</option>
+                    <option value="rechazado">Rechazado</option>
                     <option value="cancelado">Cancelado</option>
                 </select>
             </div>
