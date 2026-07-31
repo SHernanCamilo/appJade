@@ -131,7 +131,7 @@
     } @else {
       <span class="pulse-dot offline"></span>
     }
-    Actualización automática cada 30s
+    Actualización automática cada 15s
     @if (lastUpdate()) { <span class="last-time">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span> }
     @if (deviceName()) { <span class="last-time">· {{ deviceName() }}</span> }
   </footer>
