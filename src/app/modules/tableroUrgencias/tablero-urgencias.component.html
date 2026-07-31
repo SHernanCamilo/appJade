@@ -100,7 +100,7 @@
   }
 
   <!-- ═══ Selección de sede ═══ -->
-  @if (!isLoading() && !error() && !unidadSeleccionada()) {
+  @if (!isLoading() && sedes().length > 0 && !unidadSeleccionada()) {
     <div class="content">
       @for (sede of sedes(); track sede.nombre) {
         <div class="sede-card" [class.open]="sedeSeleccionada() === sede">
