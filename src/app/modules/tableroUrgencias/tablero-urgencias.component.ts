@@ -211,8 +211,8 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     // Cargar datos inmediatamente
     this.fetchPublicData(url);
 
-    // Polling cada 15 segundos (vista liviana, 6 filas, no estresa Fabric)
-    this.refreshInterval = setInterval(() => this.fetchPublicData(url), 15_000);
+    // Polling cada 60 segundos (1 min = 1 incremento del temporizador en Fabric)
+    this.refreshInterval = setInterval(() => this.fetchPublicData(url), 60_000);
   }
 
   private fetchPublicData(url: string): void {
