@@ -61,7 +61,7 @@
 
   <!-- ═══ Detalle de unidad ═══ -->
   @if (unidadSeleccionada(); as u) {
-    <div class="content">
+    <div class="content" [attr.data-v]="dataVersion()">
       <div class="sede-bar">
         <button class="btn-volver" (click)="volver()">← Volver</button>
         <span>{{ u.Sede }} — {{ u.Unidad }}</span>

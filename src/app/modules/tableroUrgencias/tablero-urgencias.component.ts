@@ -302,6 +302,9 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
   }
 
+  // Signal que se incrementa cada vez que los datos cambian — usado para re-triggear animaciones
+  readonly dataVersion = signal(0);
+
   private agruparPorSede(data: UnidadUrgencias[]): void {
     const map = new Map<string, UnidadUrgencias[]>();
     for (const row of data) {
@@ -321,6 +324,9 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         this.unidadSeleccionada.set(updated);
       }
     }
+
+    // Incrementar versión para que Angular detecte el cambio y dispare animaciones
+    this.dataVersion.update(v => v + 1);
   }
 
   private cargarLogoEmpresa(): void {
