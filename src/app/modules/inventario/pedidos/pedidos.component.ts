@@ -73,10 +73,13 @@ export class PedidosComponent implements OnInit {
   };
 
   statusOptions: StatusOption[] = [
-    { label: 'Pendiente', value: 'pendiente', severity: 'warn' },
-    { label: 'Orden realizada', value: 'en_proceso', severity: 'info' },
-    { label: 'Recibido', value: 'recibido', severity: 'success' },
+    { label: 'Borrador', value: 'borrador', severity: 'secondary' },
+    { label: 'Solicitado', value: 'solicitado', severity: 'warn' },
     { label: 'Aprobado', value: 'aprobado', severity: 'success' },
+    { label: 'En Proceso', value: 'en_proceso', severity: 'info' },
+    { label: 'Parcial', value: 'parcial', severity: 'info' },
+    { label: 'En Tránsito', value: 'en_transito', severity: 'info' },
+    { label: 'Recibido', value: 'recibido', severity: 'success' },
     { label: 'Rechazado', value: 'rechazado', severity: 'danger' },
     { label: 'Cancelado', value: 'cancelado', severity: 'danger' }
   ];

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+﻿import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -54,7 +54,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
   comprasPendientes = signal<OrdenCompra[]>([]);
   comprasCompletadas = signal<OrdenCompra[]>([]);
 
-  // Búsqueda
+  // BÃºsqueda
   globalFilterFields = ['numero_orden_compra', 'oc_indigo', 'creado_por_nombre'];
 
   // Modal Ver Detalles
@@ -63,7 +63,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
   currentDetails = signal<RecepcionItem[]>([]);
   isLoadingDetails = signal<boolean>(false);
 
-  // Modal Realizar Recepción Técnica
+  // Modal Realizar RecepciÃ³n TÃ©cnica
   showReceptionModal = signal<boolean>(false);
   isSubmittingReception = signal<boolean>(false);
   currentReceptionForm = signal<RecepcionFormData[]>([]);
@@ -99,7 +99,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
           this.currentView() === 'pending' ? this.comprasPendientes.set([]) : this.comprasCompletadas.set([]);
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.isLoading.set(false);
         console.error('Error loading recepciones:', err);
       }
@@ -113,7 +113,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
 
   confirmArrival(id: number | undefined): void {
     if (!id) return;
-    if (confirm('¿Confirmar llegada de la orden al sitio?')) {
+    if (confirm('Â¿Confirmar llegada de la orden al sitio?')) {
       this.inventarioService.confirmarRecepcion(id).subscribe({
         next: (res) => {
           if (res.success) {
@@ -122,12 +122,12 @@ export class RecepcionesTecnicasComponent implements OnInit {
             alert('Error: ' + res.message);
           }
         },
-        error: (err) => console.error(err)
+        error: (err: any) => console.error(err)
       });
     }
   }
 
-  // --- Realizar Recepción Técnica ---
+  // --- Realizar RecepciÃ³n TÃ©cnica ---
   openReceptionModal(orden: OrdenCompra): void {
     if (!orden.compra_id) return;
     
@@ -157,7 +157,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
           this.currentReceptionForm.set(formItems);
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.isLoadingDetails.set(false);
         console.error('Error loading details for reception:', err);
       }
@@ -174,14 +174,14 @@ export class RecepcionesTecnicasComponent implements OnInit {
     const orden = this.currentReception();
     if (!orden || !orden.compra_id) return;
 
-    // Validación básica
+    // ValidaciÃ³n bÃ¡sica
     const formItems = this.currentReceptionForm();
     const hasErrors = formItems.some(item => 
       item.cantidad_recibida > 0 && (!item.numero_lote || !item.fecha_vencimiento || !item.concepto_recepcion)
     );
 
     if (hasErrors) {
-      alert('Por favor complete Lote, Vencimiento y Concepto para todos los ítems que está recibiendo.');
+      alert('Por favor complete Lote, Vencimiento y Concepto para todos los Ã­tems que estÃ¡ recibiendo.');
       return;
     }
 
@@ -192,13 +192,13 @@ export class RecepcionesTecnicasComponent implements OnInit {
       items: formItems.filter(i => i.cantidad_recibida > 0) // Solo enviar los que se reciben
     };
 
-    // Usar cualquier método existente para enviar (ej: store)
+    // Usar cualquier mÃ©todo existente para enviar (ej: store)
     // Asumiendo que inventarioService.createReception maneja el POST /api/inventario/recepciones
-    this.inventarioService.createReception(payload).subscribe({
-      next: (res) => {
+    this.inventarioService.createRecepcion(payload).subscribe({
+      next: (res: any) => {
         if (res.success) {
-          // Si todo salió bien, podríamos confirmar directamente o esperar otro paso.
-          // Aquí directamente cerramos y recargamos.
+          // Si todo saliÃ³ bien, podrÃ­amos confirmar directamente o esperar otro paso.
+          // AquÃ­ directamente cerramos y recargamos.
           this.closeReceptionModal();
           this.loadCompras();
         } else {
@@ -206,10 +206,10 @@ export class RecepcionesTecnicasComponent implements OnInit {
           alert('Error: ' + res.message);
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.isSubmittingReception.set(false);
         console.error(err);
-        alert('Ocurrió un error al guardar la recepción técnica.');
+        alert('OcurriÃ³ un error al guardar la recepciÃ³n tÃ©cnica.');
       }
     });
   }
@@ -229,7 +229,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
           this.currentDetails.set(res.data);
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.isLoadingDetails.set(false);
         console.error('Error viewing details:', err);
       }

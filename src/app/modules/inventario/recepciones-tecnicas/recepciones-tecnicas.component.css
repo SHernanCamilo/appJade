@@ -1,3 +1,82 @@
+/* Estilos adaptados al design system de la aplicación */
+
+.page-layout {
+    padding: 1.5rem;
+    background-color: var(--surface-ground, #f8fafc);
+    min-height: calc(100vh - 70px);
+}
+
+.fade-in {
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-color, #1e293b);
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.page-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-color-secondary, #64748b);
+    margin: 0;
+}
+
+.card-soft {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.card-header.compact {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--surface-border, #e2e8f0);
+    background: rgba(248, 250, 252, 0.5);
+}
+
+.view-tabs {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--surface-ground, #f1f5f9);
+    padding: 0.25rem;
+    border-radius: 8px;
+    border: 1px solid var(--surface-border, #e2e8f0);
+}
+
+.view-tab {
+    padding: 0.5rem 1.25rem;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-color-secondary, #64748b);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.view-tab:hover {
+    color: var(--primary-color, #0ea5e9);
+    background: rgba(14, 165, 233, 0.05);
+}
+
+.view-tab.active {
+    background: #ffffff;
+    color: var(--primary-color, #0ea5e9);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 /* Progress bar nativa ligera para alinearse al design system */
 .progress-bar-container {
     position: relative;
@@ -32,4 +111,24 @@
     font-weight: 700;
     color: #0f172a;
     text-shadow: 0 0 2px rgba(255,255,255,0.8);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Formulario de recepción */
+.product-info-cell {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.editable-table ::ng-deep .p-datatable-tbody > tr > td {
+    padding: 0.5rem;
+}
+
+.editable-table ::ng-deep .p-dropdown .p-dropdown-label {
+    padding: 0.25rem 0.5rem;
 }
