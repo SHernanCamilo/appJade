@@ -13,10 +13,10 @@
     <div class="header-main">
       <div class="header-title-section">
         <h1 class="page-title-modern">
-          <i class="pi pi-calendar-week me-2"></i>
-          Cuadro de Turnos
+          <i class="pi pi-file-export me-2"></i>
+          Reportes de Turnos
         </h1>
-        <p class="page-subtitle-modern">Gestión de horarios y turnos del personal</p>
+        <p class="page-subtitle-modern">Generación de reportes y gestión del cuadro de turnos</p>
       </div>
     </div>
 
@@ -36,14 +36,26 @@
 
   <div class="dashboard-content">
 
-    <!-- ===== Tab: Selector ===== -->
+    <!-- ===== Tab: Selector → REPORTES ===== -->
     <ng-container *ngIf="activeTab === 'selector'">
       <div class="section-card">
         <div class="section-card-header">
-          <h2 class="section-card-title"><i class="pi pi-calendar me-2"></i>Seleccionar Período</h2>
+          <h2 class="section-card-title"><i class="pi pi-file-export me-2"></i>Generar Reporte de Turnos</h2>
         </div>
         <div class="section-card-body">
+
+          <!-- Toggle modo: Personal vs Unidad Funcional -->
+          <div class="report-mode-toggle">
+            <button class="mode-btn" [class.active]="reportMode === 'personal'" (click)="reportMode = 'personal'; reportData = null">
+              <i class="pi pi-user"></i> Por Empleado
+            </button>
+            <button class="mode-btn" [class.active]="reportMode === 'unidad'" (click)="reportMode = 'unidad'; reportData = null">
+              <i class="pi pi-sitemap"></i> Por Unidad Funcional
+            </button>
+          </div>
+
           <div class="selector-grid">
+            <!-- Empresa siempre visible -->
             <div class="selector-group">
               <label class="selector-label">Empresa / Clínica</label>
               <p-dropdown
@@ -57,6 +69,8 @@
                 styleClass="w-100">
               </p-dropdown>
             </div>
+
+            <!-- Unidad funcional siempre visible -->
             <div class="selector-group">
               <label class="selector-label">Unidad Funcional</label>
               <p-dropdown
@@ -71,7 +85,9 @@
                 styleClass="w-100">
               </p-dropdown>
             </div>
-            <div class="selector-group">
+
+            <!-- Empleado: solo en modo personal -->
+            <div class="selector-group" *ngIf="reportMode === 'personal'">
               <label class="selector-label">Empleado</label>
               <p-dropdown
                 [(ngModel)]="selectedEmpleado"
@@ -80,65 +96,84 @@
                 [showClear]="true"
                 [loading]="isLoadingEmpleados"
                 [disabled]="!selectedUnidadFuncional"
-                appendTo="body"
-                styleClass="w-100">
-              </p-dropdown>
-            </div>
-            <div class="selector-group">
-              <label class="selector-label">Grupo de Trabajo</label>
-              <p-dropdown
-                [(ngModel)]="selectedGrupo"
-                [options]="gruposOptions"
-                placeholder="Selecciona un grupo"
-                [showClear]="true"
-                appendTo="body"
-                styleClass="w-100">
-              </p-dropdown>
-            </div>
-            <div class="selector-group">
-              <label class="selector-label">Mes y Año</label>
-              <p-dropdown
-                [(ngModel)]="selectedMes"
-                [options]="mesesOptions"
-                placeholder="Selecciona un mes"
-                [showClear]="true"
                 [filter]="true"
                 appendTo="body"
                 styleClass="w-100">
               </p-dropdown>
             </div>
+
+            <!-- Mes y Año -->
+            <div class="selector-group">
+              <label class="selector-label">Mes y Año</label>
+              <p-calendar
+                [(ngModel)]="selectedMesFecha"
+                view="month"
+                dateFormat="MM yy"
+                [showIcon]="true"
+                [readonlyInput]="true"
+                [inline]="false"
+                placeholder="Selecciona mes/año"
+                styleClass="w-100"
+                panelStyleClass="calendar-mes-panel"
+                (onSelect)="onMesFechaChange()">
+              </p-calendar>
+            </div>
+
+            <!-- Acciones -->
             <div class="selector-actions">
-              <button pButton type="button" label="Ver Cuadro" icon="pi pi-eye" class="p-button-primary" (click)="verCuadro()"></button>
-              <button pButton type="button" label="Crear Nuevo" icon="pi pi-plus" class="p-button-success" (click)="crearNuevoCuadro()"></button>
-              <button pButton type="button" label="Actualizar" icon="pi pi-refresh" class="p-button-info" (click)="refrescarPagina()"></button>
+              <button pButton type="button" label="Generar Reporte" icon="pi pi-search"
+                class="p-button-primary" (click)="generarReporte()"
+                [disabled]="!selectedMesFecha || !selectedUnidadFuncional || (reportMode === 'personal' && !selectedEmpleado)">
+              </button>
+              <button pButton type="button" label="Exportar Excel" icon="pi pi-file-excel"
+                class="p-button-success" (click)="exportarExcel()"
+                [disabled]="!reportData">
+              </button>
             </div>
           </div>
 
-          <!-- Información de Sede (solo lectura) -->
-          <div class="sede-info-box" *ngIf="sedeInfo">
-            <div class="sede-info-header">
-              <i class="pi pi-map-marker"></i>
-              <h3>Información de la Unidad</h3>
+          <!-- GRILLA DE REPORTE -->
+          <div class="report-grilla" *ngIf="reportData">
+            <div class="report-grilla-header">
+              <h3>
+                <i class="pi pi-calendar"></i>
+                {{ reportData.titulo }}
+              </h3>
+              <span class="report-periodo">{{ reportData.periodo }}</span>
             </div>
-            <div class="sede-info-content">
-              <div class="info-row">
-                <label>Unidad Funcional:</label>
-                <span>{{ sedeInfo.nombre }}</span>
-              </div>
-              <div class="info-row">
-                <label>Prefijo:</label>
-                <span class="badge-prefijo">{{ sedeInfo.prefijo }}</span>
-              </div>
-              <div class="info-row">
-                <label>Código:</label>
-                <span>{{ sedeInfo.codigo }}</span>
-              </div>
-              <div class="info-row">
-                <label>Sede:</label>
-                <span>{{ sedeInfo.sede }}</span>
-              </div>
+
+            <div class="report-table-wrap">
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th class="col-empleado">Empleado</th>
+                    <th *ngFor="let d of reportData.dias" class="col-dia" 
+                        [class.festivo]="d.esFestivo" [class.domingo]="d.esDomingo">
+                      <span class="dia-num">{{ d.numero }}</span>
+                      <span class="dia-letra">{{ d.letra }}</span>
+                    </th>
+                    <th class="col-total">Total h</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let fila of reportData.filas">
+                    <td class="col-empleado">{{ fila.nombre }}</td>
+                    <td *ngFor="let celda of fila.celdas" class="col-dia"
+                        [class.turno-celda]="celda.turno && !celda.esDescanso"
+                        [class.descanso-celda]="celda.esDescanso"
+                        [class.festivo]="celda.esFestivo"
+                        [style.background-color]="celda.color || ''"
+                        [pTooltip]="celda.tooltip" tooltipPosition="top">
+                      <span *ngIf="celda.codigo">{{ celda.codigo }}</span>
+                      <span *ngIf="celda.esDescanso">D</span>
+                    </td>
+                    <td class="col-total">{{ fila.totalHoras }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
+
         </div>
       </div>
     </ng-container>
@@ -161,7 +196,7 @@
 
             <ng-template pTemplate="header">
               <tr>
-                <th>Grupo</th>
+                <th>Unidad / Grupo</th>
                 <th>Mes</th>
                 <th>Año</th>
                 <th>Estado</th>
@@ -171,9 +206,9 @@
 
             <ng-template pTemplate="body" let-cuadro>
               <tr>
-                <td>{{ cuadro.grupo_id }}</td>
+                <td>{{ cuadro.unidad_funcional?.nombre || cuadro.grupo?.unidad_funcional?.nombre || cuadro.grupo?.nombre || 'Sin asignar' }}</td>
                 <td>{{ cuadro.mes }}</td>
-                <td>{{ cuadro.year }}</td>
+                <td>{{ cuadro.anio || cuadro.year }}</td>
                 <td>
                   <p-tag 
                     [value]="cuadro.estado" 

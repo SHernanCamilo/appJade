@@ -6,9 +6,11 @@
     <button class="btn-back-simple" routerLink="/talentoHumano/turnos/dashboard">
       <i class="pi pi-arrow-left"></i> Volver
     </button>
+    <div class="header-icon-cuadro">
+      <i class="pi pi-th-large"></i>
+    </div>
     <div class="header-content">
       <h1 class="page-title-simple">
-        <i class="pi pi-calendar-week"></i>
         Cuadro de Turnos
       </h1>
       <p class="page-subtitle-simple">Gestiona y visualiza los turnos del personal</p>
@@ -28,25 +30,56 @@
 
     <!-- Mes y Año -->
     <div class="filtro-mes-anio">
-      <button class="btn-mes-anio" (click)="mostrarSelectorMesAnio()">
+      <button class="btn-mes-prev" (click)="mesAnterior()">
         <i class="pi pi-chevron-left"></i>
-        <span class="mes-anio-texto">{{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</span>
+      </button>
+      <p-calendar
+        [(ngModel)]="mesAnioFecha"
+        view="month"
+        dateFormat="MM yy"
+        [readonlyInput]="true"
+        [showIcon]="false"
+        (onSelect)="onMesAnioCalendarChange()"
+        styleClass="mes-anio-calendar">
+      </p-calendar>
+      <button class="btn-mes-next" (click)="mesSiguiente()">
         <i class="pi pi-chevron-right"></i>
       </button>
     </div>
 
     <!-- Acciones -->
     <div class="filtro-acciones">
+      <button pButton type="button" icon="pi pi-download"
+        class="p-button-rounded p-button-success btn-accion-descarga"
+        pTooltip="Descargar formato Excel" tooltipPosition="top"
+        [disabled]="!selectedUnidad"
+        (click)="descargarFormatoExcel()"></button>
+      <button pButton type="button" icon="pi pi-upload"
+        class="p-button-rounded p-button-warning btn-accion-carga"
+        pTooltip="Carga masiva Excel" tooltipPosition="top"
+        [disabled]="!selectedUnidad || cuadroBloqueado"
+        (click)="showCargaMasivaDialog = true"></button>
       <button pButton type="button" icon="pi pi-clock"
         class="p-button-rounded p-button-info btn-accion-horas"
         pTooltip="Ver resumen de horas" tooltipPosition="top"
-        [disabled]="!selectedEmpleado"
+        [disabled]="!selectedEmpleados.length"
         (click)="abrirResumenModal()"></button>
       <button pButton type="button" icon="pi pi-trash"
         class="p-button-rounded p-button-danger btn-accion-eliminar"
         pTooltip="Eliminar cuadro" tooltipPosition="top"
-        [disabled]="!selectedEmpleado || isLoading"
+        [disabled]="!selectedEmpleados.length || isLoading || cuadroBloqueado"
         (click)="eliminarCuadroCompleto()"></button>
+    </div>
+  </div>
+
+  <!-- OVERLAY: Tabla de unidades funcionales -->
+
+  <!-- BANNER: Cuadro bloqueado -->
+  <div *ngIf="cuadroBloqueado" class="cuadro-bloqueado-banner">
+    <i class="pi pi-lock"></i>
+    <div class="banner-text">
+      <strong>Cuadro cerrado</strong>
+      <span>No se permiten modificaciones para {{ mesOptions[selectedMes - 1].label }} {{ selectedAnio }}</span>
     </div>
   </div>
 
@@ -88,44 +121,21 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- SELECTOR MES/AÑO (Overlay)                             -->
+  <!-- SELECTOR MES/AÑO (eliminado - se usa p-calendar)       -->
   <!-- ═══════════════════════════════════════════════════════ -->
-  <p-overlayPanel #mesAnioPanel [showCloseIcon]="true">
-    <ng-template pTemplate="content">
-      <div class="selector-mes-anio">
-        <div class="selector-header">
-          <button class="btn-year" (click)="toggleModoAnio()">
-            {{ selectedAnio }}
-          </button>
-        </div>
 
-        <!-- Modo Mes -->
-        <div *ngIf="!modoSeleccionarAnio" class="selector-meses">
-          <h4>{{ selectedAnio }}</h4>
-          <div class="meses-grid">
-            <button *ngFor="let mes of mesOptions; let i = index"
-              class="btn-mes"
-              [class.activo]="mes.value === selectedMes"
-              (click)="seleccionarMes(mes.value); mesAnioPanel.hide()">
-              {{ mes.label.substring(0, 3) }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Modo Año -->
-        <div *ngIf="modoSeleccionarAnio" class="selector-anios">
-          <div class="anios-grid">
-            <button *ngFor="let anio of anioOptions"
-              class="btn-anio"
-              [class.activo]="anio.value === selectedAnio"
-              (click)="seleccionarAnio(anio.value); modoSeleccionarAnio = false">
-              {{ anio.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </ng-template>
-  </p-overlayPanel>
+  <!-- Skeleton de carga -->
+  <div *ngIf="isLoading" class="calendario-skeleton">
+    <div class="skeleton-header">
+      <p-skeleton width="12rem" height="1.8rem" borderRadius="8px"></p-skeleton>
+      <p-skeleton width="18rem" height="1rem" borderRadius="6px"></p-skeleton>
+    </div>
+    <div class="skeleton-grid">
+      <p-skeleton *ngFor="let i of [1,2,3,4,5,6,7]" height="2rem" borderRadius="8px"></p-skeleton>
+      <p-skeleton *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35]"
+        height="clamp(72px,8.5vw,110px)" borderRadius="10px"></p-skeleton>
+    </div>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════════ -->
   <!-- CALENDARIO (SIN RESUMEN LATERAL - ANCHO COMPLETO)       -->
@@ -143,7 +153,10 @@
       </div>
 
       <div class="calendario-grid">
-        <div class="dia-cabecera" *ngFor="let d of diasSemana">{{ d }}</div>
+        <div class="dia-cabecera" *ngFor="let d of diasSemana">
+          <span class="dia-cab-full">{{ d }}</span>
+          <span class="dia-cab-short">{{ d.substring(0,3) }}</span>
+        </div>
 
         <div *ngFor="let dia of calendario; trackBy: trackByFecha"
              class="dia-celda"
@@ -151,9 +164,9 @@
              [class.es-hoy]="dia.esHoy"
              [class.es-festivo]="dia.esFestivo && dia.esDelMes"
              [class.seleccionado]="diaSeleccionado?.fecha === dia.fecha"
-             [class.deshabilitado]="!selectedEmpleado"
+             [class.deshabilitado]="!selectedEmpleados.length || cuadroBloqueado"
              (click)="seleccionarDia(dia)"
-             (dblclick)="abrirEdicion(dia)"
+             (dblclick)="!cuadroBloqueado && abrirEdicion(dia)"
              [pTooltip]="dia.nombreFestivo || ''"
              tooltipPosition="top">
 
@@ -163,17 +176,42 @@
             <i class="pi pi-flag-fill"></i>
           </div>
 
-          <div *ngIf="dia.turno && !dia.turno.es_descanso" class="dia-turno"
-               [style.background-color]="dia.turno.plantilla?.color_hex || '#6366f1'">
-            <i class="pi pi-clock"></i>
-            <span>{{ dia.turno.plantilla?.nombre }}</span>
-          </div>
+          <!-- Un solo empleado: chip simple (comportamiento original) -->
+          <ng-container *ngIf="selectedEmpleados.length <= 1">
+            <div *ngIf="dia.turno && !dia.turno.es_descanso" class="dia-turno"
+                 [style.background-color]="dia.turno.plantilla?.color_hex || '#6366f1'"
+                 [pTooltip]="dia.turno.plantilla?.nombre || 'Turno'"
+                 tooltipPosition="top">
+              <i class="pi pi-clock"></i>
+              <span>{{ dia.turno.plantilla?.codigo || dia.turno.plantilla?.nombre }}</span>
+            </div>
+            <div *ngIf="dia.turno?.es_descanso" class="dia-descanso">
+              <i class="pi pi-moon"></i> D
+            </div>
+          </ng-container>
 
-          <div *ngIf="dia.turno?.es_descanso" class="dia-descanso">
-            <i class="pi pi-moon"></i> D
-          </div>
+          <!-- Múltiples empleados: chip por persona -->
+          <ng-container *ngIf="selectedEmpleados.length > 1">
+            <div class="dia-turnos-multi-container">
+              <ng-container *ngFor="let te of dia.turnosEmpleados">
+                <div *ngIf="!te.turno.es_descanso" class="dia-turno dia-turno-multi"
+                     [style.background-color]="te.turno.plantilla?.color_hex || '#6366f1'"
+                     [pTooltip]="te.nombre + ': ' + (te.turno.plantilla?.nombre || 'Turno')"
+                     tooltipPosition="top">
+                  <span class="turno-iniciales">{{ te.nombre.substring(0,2).toUpperCase() }}</span>
+                  <span class="turno-nombre-multi">{{ te.turno.plantilla?.nombre }}</span>
+                </div>
+                <div *ngIf="te.turno.es_descanso" class="dia-descanso dia-descanso-multi"
+                     [pTooltip]="te.nombre + ': Descanso'"
+                     tooltipPosition="top">
+                  <span class="turno-iniciales">{{ te.nombre.substring(0,2).toUpperCase() }}</span>
+                  <i class="pi pi-moon"></i>
+                </div>
+              </ng-container>
+            </div>
+          </ng-container>
 
-          <button *ngIf="dia.esDelMes && selectedEmpleado" class="btn-edit-dia"
+          <button *ngIf="dia.esDelMes && selectedEmpleados.length && !cuadroBloqueado" class="btn-edit-dia"
                   (click)="$event.stopPropagation(); abrirEdicion(dia)">
             <i class="pi pi-pencil"></i>
           </button>
@@ -187,23 +225,56 @@
         <h3>Equipo</h3>
         <span class="equipo-count">{{ empleados.length }} miembros</span>
       </div>
+
+      <!-- Indicador de selección múltiple -->
+      <div *ngIf="selectedEmpleados.length > 0" class="equipo-seleccion-bar">
+        <span class="seleccion-badge">
+          <i class="pi pi-users"></i>
+          {{ selectedEmpleados.length }}/3 seleccionados
+        </span>
+        <button class="btn-limpiar-sel" (click)="limpiarSeleccion()" pTooltip="Deseleccionar todos" tooltipPosition="top">
+          <i class="pi pi-times-circle"></i>
+        </button>
+      </div>
+
       <input type="text" pInputText [(ngModel)]="busquedaEmpleado" 
         placeholder="🔍 Buscar miembros" class="equipo-search">
       <div class="equipo-lista">
         <div *ngFor="let emp of empleadosFiltrados" 
              class="equipo-item"
-             [class.activo]="selectedEmpleado === emp.id"
+             [class.activo]="selectedEmpleados.includes(emp.id)"
+             [class.deshabilitado-sel]="selectedEmpleados.length >= 3 && !selectedEmpleados.includes(emp.id)"
              (click)="seleccionarEmpleado(emp)">
-          <div class="equipo-avatar">{{ getIniciales(emp.nombre) }}</div>
+          <!-- Checkbox de selección -->
+          <div class="equipo-check">
+            <div class="check-box" [class.checked]="selectedEmpleados.includes(emp.id)">
+              <i *ngIf="selectedEmpleados.includes(emp.id)" class="pi pi-check"></i>
+            </div>
+          </div>
+          <div class="equipo-avatar" [class.avatar-activo]="selectedEmpleados.includes(emp.id)">{{ getIniciales(emp.nombre) }}</div>
           <div class="equipo-info">
             <span class="equipo-nombre">{{ emp.nombre }}</span>
             <span class="equipo-cargo">{{ emp.email || '' }}</span>
+          </div>
+          <!-- Indicador de turno cargado -->
+          <div *ngIf="selectedEmpleados.includes(emp.id) && cuadrosEmpleados.get(emp.id)?.cuadro" 
+               class="equipo-turnos-badge"
+               pTooltip="Turnos cargados" tooltipPosition="left">
+            <i class="pi pi-calendar-check"></i>
           </div>
         </div>
         <div *ngIf="empleados.length === 0" class="equipo-vacio">
           <i class="pi pi-users"></i>
           <p>Seleccione una unidad funcional</p>
         </div>
+      </div>
+
+      <!-- Hint multi-selección -->
+      <div *ngIf="empleados.length > 0 && selectedEmpleados.length === 0" class="equipo-hint">
+        <i class="pi pi-info-circle"></i> Selecciona hasta 3 empleados
+      </div>
+      <div *ngIf="selectedEmpleados.length > 1" class="equipo-hint activo">
+        <i class="pi pi-bolt"></i> Guardar asignará el turno a los {{ selectedEmpleados.length }} empleados
       </div>
     </div>
   </div>
@@ -265,6 +336,53 @@
             <span class="total-valor-modal">{{ formatHoras(cuadro.totales.total) }}</span>
           </div>
         </div>
+
+        <!-- Jornada máxima y extras -->
+        <div *ngIf="cuadro.jornada_max" class="jornada-max-section">
+          <div class="jornada-max-bar">
+            <span class="jornada-label">Jornada máx. diaria:</span>
+            <span class="jornada-valor">{{ cuadro.jornada_max!.horas_max_dia }}h</span>
+            <span class="jornada-semanal">| Semanal: {{ cuadro.jornada_max!.horas_max_semana }}h | Mensual: {{ cuadro.jornada_max!.horas_max_mes }}h</span>
+          </div>
+          <div class="jornada-progress">
+            <div class="progress-bar"
+                 [style.width.%]="getProgresoJornada()"
+                 [class.excedido]="cuadro.horas_extras && cuadro.horas_extras.total_extras > 0">
+            </div>
+            <span class="progress-counter">{{ cuadro.totales.total }}h / {{ cuadro.jornada_max!.horas_max_mes }}h</span>
+          </div>
+        </div>
+
+        <!-- Horas extras (solo si hay) -->
+        <div *ngIf="cuadro.horas_extras && cuadro.horas_extras.total_extras > 0" class="extras-section">
+          <h4 class="extras-title"><i class="pi pi-exclamation-triangle"></i> Horas Extras</h4>
+          <div class="totales-grid-modal">
+            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_diurnas > 0">
+              <span class="total-label">HED (25%)</span>
+              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_diurnas) }}</span>
+            </div>
+            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_nocturnas > 0">
+              <span class="total-label">HEN (75%)</span>
+              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_nocturnas) }}</span>
+            </div>
+            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_festivas > 0">
+              <span class="total-label">HEDF (100%)</span>
+              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_festivas) }}</span>
+            </div>
+            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_festivas_nocturnas > 0">
+              <span class="total-label">HENF (150%)</span>
+              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_festivas_nocturnas) }}</span>
+            </div>
+            <div class="total-box-modal extra-total">
+              <span class="total-label">TOTAL EXTRAS</span>
+              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.total_extras) }}</span>
+            </div>
+            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_manuales > 0">
+              <span class="total-label">Registradas</span>
+              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_manuales) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Detalle día si está seleccionado -->
@@ -294,72 +412,412 @@
         class="p-button-text p-button-secondary" (click)="cerrarResumenModal()"></button>
     </ng-template>
   </p-dialog>
-  <p-dialog [(visible)]="showEditDialog" [modal]="true" [style]="{width: '550px'}"
-            header="📅 Editar Turno" [closable]="!isSavingDay"
-            styleClass="dialog-custom">
-    <div class="edit-form">
-      <p class="edit-fecha"><i class="pi pi-calendar me-2"></i> {{ editForm.fecha }}</p>
+  <p-dialog [(visible)]="showEditDialog" [modal]="true" [style]="{width: '780px'}"
+            [closable]="!isSavingDay" [showHeader]="true"
+            [header]="'Editar Turno'"
+            styleClass="dialog-turno-nuevo">
+    <div class="dtn-wrapper">
 
-      <div class="form-row">
-        <p-checkbox [(ngModel)]="editForm.esDescanso" [binary]="true" 
-          label="Es día de descanso" styleClass="checkbox-custom"></p-checkbox>
+      <!-- ── Cuerpo: izquierda + derecha ── -->
+      <div class="dtn-body">
+
+        <!-- Columna izquierda -->
+        <div class="dtn-col-left">
+
+          <!-- FECHA -->
+          <div class="dtn-section-label">Fecha del turno</div>
+          <div class="dtn-fecha-card">
+            <i class="pi pi-calendar"></i>
+            <span>{{ editForm.fecha }}</span>
+          </div>
+
+          <!-- DÍA DE DESCANSO -->
+          <div class="dtn-section-label">Día de descanso</div>
+          <div class="descanso-toggle-row" (click)="editForm.esDescanso = !editForm.esDescanso">
+            <div class="descanso-icon" [class.activo]="editForm.esDescanso">
+              <i class="pi pi-moon"></i>
+            </div>
+            <div class="descanso-texto">
+              <span class="descanso-label">Día de descanso</span>
+              <span class="descanso-sub">Sin turno asignado</span>
+            </div>
+            <div class="descanso-switch" [class.on]="editForm.esDescanso">
+              <div class="switch-thumb"></div>
+            </div>
+          </div>
+
+          <ng-container *ngIf="!editForm.esDescanso">
+
+            <!-- PLANTILLA -->
+            <div class="dtn-section-label">Plantilla / Turno</div>
+            <div class="dtn-dropdown-card">
+              <i class="pi pi-calendar-clock dtn-dd-icon"></i>
+              <p-dropdown
+                [(ngModel)]="editForm.idPlantilla"
+                [options]="plantillaOptions"
+                (onChange)="onPlantillaChange()"
+                placeholder="Selecciona un turno"
+                [showClear]="true"
+                [filter]="true"
+                appendTo="body"
+                styleClass="dtn-dropdown"></p-dropdown>
+            </div>
+
+            <!-- HORARIOS LIBRES -->
+            <ng-container *ngIf="esPlantillaLibre">
+              <div class="seccion-sep"><span>Horario personalizado</span></div>
+
+              <div class="horario-bloque">
+                <div class="horario-header" (click)="toggleHorario1()">
+                  <div class="horario-num">1</div>
+                  <span class="horario-label">Horario principal</span>
+                  <button type="button" class="btn-toggle-sm" [class.activo]="mostrarHorario1">
+                    <i class="pi" [class.pi-chevron-down]="!mostrarHorario1" [class.pi-chevron-up]="mostrarHorario1"></i>
+                  </button>
+                </div>
+                <div *ngIf="mostrarHorario1" class="horario-inputs horario-grid-anim">
+                  <div class="time-field">
+                    <label>Inicio</label>
+                    <div class="time-input-wrap">
+                      <i class="pi pi-clock time-icon"></i>
+                      <input type="time" [(ngModel)]="editForm.horaInicioOverride" class="time-input-custom">
+                    </div>
+                  </div>
+                  <div class="time-field">
+                    <label>Fin</label>
+                    <div class="time-input-wrap">
+                      <i class="pi pi-clock time-icon"></i>
+                      <input type="time" [(ngModel)]="editForm.horaFinOverride" class="time-input-custom">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="horario-bloque">
+                <div class="horario-header" (click)="toggleHorario2()">
+                  <div class="horario-num horario-num-2">2</div>
+                  <span class="horario-label">Jornada partida <span class="opcional">(opcional)</span></span>
+                  <button type="button" class="btn-toggle-sm" [class.activo]="mostrarHorario2">
+                    <i class="pi" [class.pi-chevron-down]="!mostrarHorario2" [class.pi-chevron-up]="mostrarHorario2"></i>
+                  </button>
+                </div>
+                <div *ngIf="mostrarHorario2" class="horario-inputs horario-grid-anim">
+                  <div class="time-field">
+                    <label>Inicio</label>
+                    <div class="time-input-wrap">
+                      <i class="pi pi-clock time-icon"></i>
+                      <input type="time" [(ngModel)]="editForm.horaInicio2Override" class="time-input-custom">
+                    </div>
+                  </div>
+                  <div class="time-field">
+                    <label>Fin</label>
+                    <div class="time-input-wrap">
+                      <i class="pi pi-clock time-icon"></i>
+                      <input type="time" [(ngModel)]="editForm.horaFin2Override" class="time-input-custom">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+
+          </ng-container>
+
+          <!-- ═══════════════════════════════════════════════════ -->
+          <!-- FRECUENCIA (Programación recurrente)              -->
+          <!-- ═══════════════════════════════════════════════════ -->
+          <div class="dtn-section-label">Frecuencia</div>
+          <div class="frecuencia-card">
+
+            <!-- Tipo de frecuencia -->
+            <div class="frecuencia-tipo-row">
+              <label class="frecuencia-label">Tipo de Frecuencia</label>
+              <p-dropdown
+                [(ngModel)]="frecuenciaForm.tipo_frecuencia"
+                [options]="tipoFrecuenciaOptions"
+                (onChange)="onTipoFrecuenciaChange()"
+                placeholder="Seleccione tipo"
+                appendTo="body"
+                styleClass="frecuencia-dropdown"></p-dropdown>
+            </div>
+
+            <!-- Por número de días -->
+            <div *ngIf="frecuenciaForm.tipo_frecuencia === 'por_numero_dias'" class="frecuencia-config">
+              <label class="frecuencia-label">Cada cuántos días</label>
+              <div class="frecuencia-input-row">
+                <input type="number" [(ngModel)]="frecuenciaForm.cada_n_dias"
+                       min="1" max="365" placeholder="Ej: 2"
+                       class="frecuencia-input-number">
+                <span class="frecuencia-hint">días</span>
+              </div>
+            </div>
+
+            <!-- Por días de la semana -->
+            <div *ngIf="frecuenciaForm.tipo_frecuencia === 'por_dias_semana'" class="frecuencia-config">
+              <label class="frecuencia-label">Días de la semana</label>
+              <div class="frecuencia-dias-semana">
+                <label *ngFor="let dia of diasSemanaCheckboxes" class="frecuencia-dia-check">
+                  <input type="checkbox"
+                         [checked]="frecuenciaForm.dias_semana.includes(dia.value)"
+                         (change)="toggleDiaSemana(dia.value)">
+                  <span>{{ dia.label }}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Días del mes -->
+            <div *ngIf="frecuenciaForm.tipo_frecuencia === 'dias_del_mes'" class="frecuencia-config">
+              <label class="frecuencia-label">Días del mes</label>
+              <div class="frecuencia-dias-mes">
+                <button *ngFor="let d of diasMesOpciones" type="button"
+                        class="btn-dia-mes"
+                        [class.activo]="frecuenciaForm.dias_mes.includes(d)"
+                        (click)="toggleDiaMes(d)">
+                  {{ d }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Intervalo de repetición (solo si hay tipo seleccionado diferente de sin_programacion) -->
+            <ng-container *ngIf="frecuenciaForm.tipo_frecuencia && frecuenciaForm.tipo_frecuencia !== 'sin_programacion'">
+
+              <div class="frecuencia-rango">
+                <label class="frecuencia-label">Intervalo de repetición</label>
+                <div class="frecuencia-fechas-row">
+                  <div class="frecuencia-fecha-field">
+                    <label>Desde</label>
+                    <input type="date" [(ngModel)]="frecuenciaForm.fecha_inicio" class="frecuencia-input-date">
+                  </div>
+                  <div class="frecuencia-fecha-field">
+                    <label>Hasta</label>
+                    <input type="date" [(ngModel)]="frecuenciaForm.fecha_fin" class="frecuencia-input-date">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incluir festivos y dominicales -->
+              <div class="frecuencia-opciones">
+                <label class="frecuencia-label">Incluir Festivos y Dominicales</label>
+                <div class="frecuencia-radio-row">
+                  <label class="frecuencia-radio">
+                    <input type="radio" name="incluirFestivos" [value]="false"
+                           [(ngModel)]="frecuenciaForm.incluir_festivos">
+                    <span>No</span>
+                  </label>
+                  <label class="frecuencia-radio">
+                    <input type="radio" name="incluirFestivos" [value]="true"
+                           [(ngModel)]="frecuenciaForm.incluir_festivos">
+                    <span>Sí</span>
+                  </label>
+                </div>
+              </div>
+
+            </ng-container>
+          </div>
+
+          <!-- TIPO DE REGISTRO -->
+          <div class="dtn-section-label">Registro adicional</div>
+          <div class="tipo-registro-card">
+            <div class="tipo-registro-options">
+              <label class="tipo-registro-option" [class.activo]="editForm.tipoRegistro === 'normal'">
+                <input type="radio" [(ngModel)]="editForm.tipoRegistro" value="normal" name="tipoRegistro">
+                <i class="pi pi-clock"></i> Normal
+              </label>
+              <label class="tipo-registro-option" [class.activo]="editForm.tipoRegistro === 'hora_extra'">
+                <input type="radio" [(ngModel)]="editForm.tipoRegistro" value="hora_extra" name="tipoRegistro">
+                <i class="pi pi-bolt"></i> Hora Extra
+              </label>
+              <label class="tipo-registro-option" [class.activo]="editForm.tipoRegistro === 'evento'">
+                <input type="radio" [(ngModel)]="editForm.tipoRegistro" value="evento" name="tipoRegistro">
+                <i class="pi pi-flag"></i> Evento
+              </label>
+            </div>
+
+            <!-- Campos de Hora Extra -->
+            <div *ngIf="editForm.tipoRegistro === 'hora_extra'" class="registro-detalle">
+              <div class="time-row time-row-compact">
+                <div class="time-card time-card-sm">
+                  <div class="time-card-header">
+                    <span class="time-icon time-icon-inicio"><i class="pi pi-play-circle"></i></span>
+                    <span class="time-card-label">Inicio extra</span>
+                    <button type="button" class="ampm-btn" [class.pm]="editForm.horaExtraAmpm === 'PM'" (click)="editForm.horaExtraAmpm = editForm.horaExtraAmpm === 'AM' ? 'PM' : 'AM'">
+                      {{ editForm.horaExtraAmpm }}
+                    </button>
+                  </div>
+                  <div class="time-card-value">
+                    <input type="text" [(ngModel)]="editForm.horaExtraInicioH" maxlength="2" class="time-input-num" placeholder="--">
+                    <span class="time-colon">:</span>
+                    <input type="text" [(ngModel)]="editForm.horaExtraInicioM" maxlength="2" class="time-input-num" placeholder="--">
+                  </div>
+                </div>
+                <span class="time-arrow"><i class="pi pi-arrow-right"></i></span>
+                <div class="time-card time-card-sm">
+                  <div class="time-card-header">
+                    <span class="time-icon time-icon-fin"><i class="pi pi-stop-circle"></i></span>
+                    <span class="time-card-label">Fin extra</span>
+                    <button type="button" class="ampm-btn" [class.pm]="editForm.horaExtraFinAmpm === 'PM'" (click)="editForm.horaExtraFinAmpm = editForm.horaExtraFinAmpm === 'AM' ? 'PM' : 'AM'">
+                      {{ editForm.horaExtraFinAmpm }}
+                    </button>
+                  </div>
+                  <div class="time-card-value">
+                    <input type="text" [(ngModel)]="editForm.horaExtraFinH" maxlength="2" class="time-input-num" placeholder="--">
+                    <span class="time-colon">:</span>
+                    <input type="text" [(ngModel)]="editForm.horaExtraFinM" maxlength="2" class="time-input-num" placeholder="--">
+                  </div>
+                </div>
+              </div>
+              <input type="text" [(ngModel)]="editForm.observacion" placeholder="Motivo (opcional)" class="registro-input registro-motivo">
+            </div>
+
+            <!-- Campos de Evento -->
+            <div *ngIf="editForm.tipoRegistro === 'evento'" class="registro-detalle">
+              <input type="text" [(ngModel)]="editForm.observacion" placeholder="Descripción del evento..." class="registro-input registro-motivo">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Columna derecha: reloj -->
+        <div class="dtn-col-right" *ngIf="!editForm.esDescanso && editForm.idPlantilla">
+
+          <div class="dtn-section-label">Duración del turno</div>
+
+          <!-- Reloj SVG grande -->
+          <div class="dtn-reloj-wrap" *ngIf="relojSvgData">
+            <svg viewBox="0 0 160 160" class="dtn-reloj-svg">
+              <!-- Fondo -->
+              <circle cx="80" cy="80" r="72" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="2.5"/>
+              <!-- Track gris -->
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+              <!-- Marcas de horas -->
+              <ng-container *ngFor="let h of [0,1,2,3,4,5,6,7,8,9,10,11]">
+                <line
+                  [attr.x1]="80 + 62 * Math.cos((h*30-90)*Math.PI/180)"
+                  [attr.y1]="80 + 62 * Math.sin((h*30-90)*Math.PI/180)"
+                  [attr.x2]="80 + 70 * Math.cos((h*30-90)*Math.PI/180)"
+                  [attr.y2]="80 + 70 * Math.sin((h*30-90)*Math.PI/180)"
+                  stroke="#d1d5db" stroke-width="2.5" stroke-linecap="round"/>
+              </ng-container>
+              <!-- Arco de duración -->
+              <path [attr.d]="relojSvgDataLarge"
+                    [attr.stroke]="relojSvgData.color"
+                    stroke-width="12" fill="none"
+                    stroke-linecap="round" opacity="0.92"/>
+              <!-- Texto central -->
+              <text x="80" y="74" text-anchor="middle" font-size="18" font-weight="800"
+                    [attr.fill]="relojSvgData.color">{{ relojSvgData.duracion }}</text>
+              <text x="80" y="90" text-anchor="middle" font-size="10" fill="#9ca3af">horas</text>
+              <text x="80" y="106" text-anchor="middle" font-size="9" fill="#6b7280">
+                {{ relojSvgData.inicio }} - {{ relojSvgData.fin }}
+              </text>
+            </svg>
+          </div>
+
+          <!-- Detalles debajo del reloj -->
+          <div class="dtn-detalle-reloj" *ngIf="relojSvgData">
+            <div class="dtn-detalle-row">
+              <span class="dtn-dot" [style.background]="relojSvgData.color"></span>
+              <span class="dtn-detalle-label">Duración laboral</span>
+              <span class="dtn-detalle-val">{{ relojSvgData.duracion }}</span>
+            </div>
+            <div class="dtn-detalle-row">
+              <span class="dtn-dot" style="background:#e5e7eb"></span>
+              <span class="dtn-detalle-label">Descanso</span>
+              <span class="dtn-detalle-val">00h 00m</span>
+            </div>
+            <!-- Badge tipo jornada -->
+            <div class="dtn-badge-jornada">
+              <i class="pi pi-calendar-check"></i>
+              <div>
+                <span class="badge-titulo">Jornada completa</span>
+                <span class="badge-sub">No incluye períodos de descanso</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado descanso -->
+          <div class="dtn-descanso-info" *ngIf="editForm.esDescanso">
+            <i class="pi pi-moon"></i>
+            <span>Día de descanso programado</span>
+          </div>
+
+        </div>
       </div>
 
-      <ng-container *ngIf="!editForm.esDescanso">
-        <div class="form-row">
-          <label>Plantilla / Turno</label>
-          <p-dropdown
-            [(ngModel)]="editForm.idPlantilla"
-            [options]="plantillaOptions"
-            (onChange)="onPlantillaChange()"
-            placeholder="Selecciona una plantilla"
-            [showClear]="true"
-            [filter]="true"
-            styleClass="w-100"></p-dropdown>
-        </div>
+      <!-- ── Footer ── -->
+      <div class="dtn-footer">
+        <button type="button" class="dtn-btn-eliminar" [disabled]="isSavingDay"
+                (click)="eliminarTurnoDelDia()">
+          <i class="pi pi-trash"></i> Eliminar turno
+        </button>
+        <button type="button" class="dtn-btn-guardar" [disabled]="isSavingDay"
+                (click)="guardarDia()">
+          <i class="pi pi-check"></i>
+          {{ isSavingDay ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
 
-        <h4 class="seccion-titulo">Horario 1</h4>
-        <div class="form-grid-2">
-          <div class="form-row">
-            <label>Hora inicio</label>
-            <input type="time" pInputText [(ngModel)]="editForm.horaInicioOverride" class="w-100">
-          </div>
-          <div class="form-row">
-            <label>Hora fin</label>
-            <input type="time" pInputText [(ngModel)]="editForm.horaFinOverride" class="w-100">
-          </div>
-        </div>
+    </div>
+  </p-dialog>
 
-        <h4 class="seccion-titulo">Horario 2 <span class="opcional">(opcional)</span></h4>
-        <div class="form-grid-2">
-          <div class="form-row">
-            <label>Hora inicio</label>
-            <input type="time" pInputText [(ngModel)]="editForm.horaInicio2Override" class="w-100">
-          </div>
-          <div class="form-row">
-            <label>Hora fin</label>
-            <input type="time" pInputText [(ngModel)]="editForm.horaFin2Override" class="w-100">
-          </div>
-        </div>
-      </ng-container>
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- MODAL: CARGA MASIVA                                     -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <p-dialog [(visible)]="showCargaMasivaDialog" [modal]="true" [style]="{width: '500px'}"
+            [header]="'Carga Masiva de Turnos'" [closable]="!isImporting">
+    <div class="carga-masiva-content">
+      <div class="carga-masiva-info">
+        <i class="pi pi-info-circle"></i>
+        <p>Sube el archivo Excel diligenciado con los turnos. Usa el botón <strong>"Descargar formato"</strong> para obtener la plantilla.</p>
+      </div>
 
-      <div class="form-row">
-        <label>Observación</label>
-        <input type="text" pInputText [(ngModel)]="editForm.observacion" class="w-100"
-          placeholder="Notas o comentarios">
+      <div class="carga-masiva-upload">
+        <label class="carga-masiva-label">Archivo Excel (.xlsx)</label>
+        <input type="file" accept=".xlsx,.xls"
+               (change)="onArchivoSeleccionado($event)"
+               class="carga-masiva-input"
+               #fileInput>
+      </div>
+
+      <div *ngIf="archivoSeleccionado" class="carga-masiva-file-info">
+        <i class="pi pi-file-excel"></i>
+        <span>{{ archivoSeleccionado.name }}</span>
+        <span class="file-size">({{ (archivoSeleccionado.size / 1024).toFixed(1) }} KB)</span>
+        <button type="button" class="btn-eliminar-archivo" (click)="eliminarArchivoSeleccionado()"
+                pTooltip="Quitar archivo" tooltipPosition="top">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+
+      <!-- Resultado -->
+      <div *ngIf="resultadoImportacion" class="carga-masiva-resultado">
+        <div *ngIf="resultadoImportacion.exitosas > 0" class="resultado-ok">
+          <i class="pi pi-check-circle"></i>
+          {{ resultadoImportacion.exitosas }} turnos asignados correctamente
+        </div>
+        <div *ngIf="resultadoImportacion.errores?.length" class="resultado-errores">
+          <h4><i class="pi pi-exclamation-triangle"></i> Errores ({{ resultadoImportacion.errores.length }}):</h4>
+          <ul>
+            <li *ngFor="let err of resultadoImportacion.errores | slice:0:10">
+              Fila {{ err.fila }}: {{ err.mensaje }}
+            </li>
+            <li *ngIf="resultadoImportacion.errores.length > 10">
+              ... y {{ resultadoImportacion.errores.length - 10 }} más
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
     <ng-template pTemplate="footer">
-      <div class="dialog-footer-custom">
-        <button pButton type="button" label="Eliminar turno" icon="pi pi-trash"
-          class="p-button p-button-danger p-button-outlined" [disabled]="isSavingDay" 
-          (click)="eliminarTurnoDelDia()"></button>
-        <div style="flex: 1;"></div>
-        <button pButton type="button" label="Guardar" icon="pi pi-check"
-          class="p-button p-button-success" [loading]="isSavingDay" 
-          (click)="guardarDia()"></button>
-      </div>
+      <button pButton type="button" label="Cancelar" icon="pi pi-times"
+        class="p-button-text p-button-secondary"
+        [disabled]="isImporting"
+        (click)="cerrarCargaMasiva()"></button>
+      <button pButton type="button" label="Importar" icon="pi pi-upload"
+        class="p-button-success"
+        [disabled]="!archivoSeleccionado || isImporting"
+        [loading]="isImporting"
+        (click)="ejecutarImportacion()"></button>
     </ng-template>
   </p-dialog>
 </div>

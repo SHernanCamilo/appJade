@@ -1,0 +1,229 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <!-- Header -->
+  <div class="page-header">
+    <button class="btn-back" routerLink="/talentoHumano/turnos/dashboard">
+      <i class="pi pi-arrow-left"></i> Volver
+    </button>
+    <div class="header-content">
+      <h1><i class="pi pi-cog"></i> Parametrización de Turnos</h1>
+      <p>Configura recargos, franjas horarias y jornada máxima laboral</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECCIÓN: PARÁMETROS DE JORNADA ═══════════ -->
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">
+        <i class="pi pi-clock"></i>
+        <span>Parámetros de Jornada</span>
+      </div>
+      <button pButton type="button" label="Nueva vigencia" icon="pi pi-plus"
+        class="p-button-sm p-button-outlined" (click)="abrirJornadaDialog()"></button>
+    </div>
+
+    <!-- Vigente actual (card destacado) -->
+    <div *ngIf="parametroVigente" class="vigente-card">
+      <div class="vigente-badge">Vigente actual</div>
+      <div class="vigente-grid">
+        <div class="vigente-item">
+          <span class="vigente-label">Jornada máx. diaria</span>
+          <span class="vigente-value">{{ parametroVigente.horas_max_dia }}h</span>
+        </div>
+        <div class="vigente-item">
+          <span class="vigente-label">Jornada máx. semanal</span>
+          <span class="vigente-value">{{ parametroVigente.horas_max_semana }}h</span>
+        </div>
+        <div class="vigente-item">
+          <span class="vigente-label">Jornada máx. mensual</span>
+          <span class="vigente-value">{{ parametroVigente.horas_max_mes || '—' }}h</span>
+        </div>
+        <div class="vigente-item">
+          <span class="vigente-label">Diurna</span>
+          <span class="vigente-value">{{ parametroVigente.jornada_diurna_inicio }} - {{ parametroVigente.jornada_diurna_fin }}</span>
+        </div>
+        <div class="vigente-item">
+          <span class="vigente-label">Nocturna</span>
+          <span class="vigente-value">{{ parametroVigente.jornada_nocturna_inicio }} - {{ parametroVigente.jornada_nocturna_fin }}</span>
+        </div>
+        <div class="vigente-item">
+          <span class="vigente-label">Desde</span>
+          <span class="vigente-value">{{ parametroVigente.vigente_desde }}</span>
+        </div>
+      </div>
+      <div *ngIf="parametroVigente.observacion" class="vigente-obs">
+        <i class="pi pi-info-circle"></i> {{ parametroVigente.observacion }}
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div *ngIf="parametrosJornada.length > 1" class="historial-section">
+      <h4>Historial de vigencias</h4>
+      <div class="historial-list">
+        <div *ngFor="let p of parametrosJornada" class="historial-item"
+             [class.vigente]="!p.vigente_hasta && p.activo">
+          <div class="historial-periodo">
+            {{ p.vigente_desde | date:'dd/MM/yyyy' }}
+            <span *ngIf="p.vigente_hasta"> → {{ p.vigente_hasta | date:'dd/MM/yyyy' }}</span>
+            <span *ngIf="!p.vigente_hasta" class="tag-vigente">actual</span>
+          </div>
+          <div class="historial-data">
+            {{ p.horas_max_semana }}h/sem | {{ p.jornada_nocturna_inicio }}-{{ p.jornada_nocturna_fin }}
+          </div>
+          <button class="btn-edit-sm" (click)="abrirJornadaDialog(p)" pTooltip="Editar">
+            <i class="pi pi-pencil"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECCIÓN: TIPOS DE RECARGO ═══════════ -->
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">
+        <i class="pi pi-percentage"></i>
+        <span>Tipos de Recargo</span>
+      </div>
+      <button pButton type="button" label="Nuevo recargo" icon="pi pi-plus"
+        class="p-button-sm p-button-outlined" (click)="abrirRecargoDialog()"></button>
+    </div>
+
+    <div class="recargos-grid">
+      <div *ngFor="let tipo of tiposRecargo" class="recargo-card" [class.inactivo]="!tipo.activo">
+        <div class="recargo-header">
+          <span class="recargo-codigo">{{ tipo.codigo }}</span>
+          <span class="recargo-porcentaje">{{ tipo.porcentaje }}%</span>
+        </div>
+        <div class="recargo-nombre">{{ tipo.nombre }}</div>
+        <div class="recargo-tags">
+          <span *ngIf="tipo.es_hora_extra" class="tag tag-extra">Extra</span>
+          <span *ngIf="tipo.aplica_dominical_festivo" class="tag tag-festivo">Dom/Fest</span>
+          <span *ngIf="tipo.hora_inicio" class="tag tag-horario">{{ tipo.hora_inicio!.substring(0,5) }}-{{ tipo.hora_fin!.substring(0,5) }}</span>
+        </div>
+        <div class="recargo-acciones">
+          <button class="btn-edit-sm" (click)="abrirRecargoDialog(tipo)"><i class="pi pi-pencil"></i></button>
+          <button *ngIf="tipo.activo" class="btn-del-sm" (click)="desactivarRecargo(tipo)"><i class="pi pi-ban"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ DIALOG: TIPO RECARGO ═══════════ -->
+  <p-dialog [(visible)]="showRecargoDialog" [modal]="true" [style]="{width: '480px'}"
+            [header]="editandoRecargo ? 'Editar Recargo' : 'Nuevo Recargo'">
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="form-field">
+          <label>Código *</label>
+          <input type="text" [(ngModel)]="recargoForm.codigo" placeholder="Ej: RN" maxlength="10"
+                 style="text-transform:uppercase" class="form-input">
+        </div>
+        <div class="form-field">
+          <label>Porcentaje *</label>
+          <div class="input-with-suffix">
+            <input type="number" [(ngModel)]="recargoForm.porcentaje" min="0" max="500" class="form-input">
+            <span class="input-suffix">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Nombre *</label>
+        <input type="text" [(ngModel)]="recargoForm.nombre" placeholder="Ej: Recargo Nocturno" class="form-input">
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Hora inicio</label>
+          <input type="time" [(ngModel)]="recargoForm.hora_inicio" class="form-input">
+        </div>
+        <div class="form-field">
+          <label>Hora fin</label>
+          <input type="time" [(ngModel)]="recargoForm.hora_fin" class="form-input">
+        </div>
+      </div>
+      <div class="form-checks">
+        <label class="check-label">
+          <input type="checkbox" [(ngModel)]="recargoForm.es_hora_extra"> Es hora extra
+        </label>
+        <label class="check-label">
+          <input type="checkbox" [(ngModel)]="recargoForm.aplica_dominical_festivo"> Aplica dominical/festivo
+        </label>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showRecargoDialog=false"></button>
+      <button pButton [label]="editandoRecargo ? 'Actualizar' : 'Crear'" icon="pi pi-check"
+              [loading]="isSaving" (click)="guardarRecargo()"></button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ═══════════ DIALOG: PARÁMETRO JORNADA ═══════════ -->
+  <p-dialog [(visible)]="showJornadaDialog" [modal]="true" [style]="{width: '550px'}"
+            [header]="editandoJornada ? 'Editar Parámetro' : 'Nueva Vigencia de Jornada'">
+    <div class="form-grid">
+      <div class="form-row form-row-3">
+        <div class="form-field">
+          <label>Máx. día *</label>
+          <div class="input-with-suffix">
+            <input type="number" [(ngModel)]="jornadaForm.horas_max_dia" min="1" max="24" class="form-input">
+            <span class="input-suffix">h</span>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Máx. semana *</label>
+          <div class="input-with-suffix">
+            <input type="number" [(ngModel)]="jornadaForm.horas_max_semana" min="1" max="168" class="form-input">
+            <span class="input-suffix">h</span>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Máx. mes</label>
+          <div class="input-with-suffix">
+            <input type="number" [(ngModel)]="jornadaForm.horas_max_mes" class="form-input">
+            <span class="input-suffix">h</span>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Diurna inicio</label>
+          <input type="time" [(ngModel)]="jornadaForm.jornada_diurna_inicio" class="form-input">
+        </div>
+        <div class="form-field">
+          <label>Diurna fin</label>
+          <input type="time" [(ngModel)]="jornadaForm.jornada_diurna_fin" class="form-input">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Nocturna inicio</label>
+          <input type="time" [(ngModel)]="jornadaForm.jornada_nocturna_inicio" class="form-input">
+        </div>
+        <div class="form-field">
+          <label>Nocturna fin</label>
+          <input type="time" [(ngModel)]="jornadaForm.jornada_nocturna_fin" class="form-input">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Vigente desde *</label>
+          <input type="date" [(ngModel)]="jornadaForm.vigente_desde" class="form-input">
+        </div>
+        <div class="form-field">
+          <label>Vigente hasta</label>
+          <input type="date" [(ngModel)]="jornadaForm.vigente_hasta" class="form-input">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Observación</label>
+        <input type="text" [(ngModel)]="jornadaForm.observacion" placeholder="Ej: Ley 2101/2021" class="form-input">
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showJornadaDialog=false"></button>
+      <button pButton [label]="editandoJornada ? 'Actualizar' : 'Crear'" icon="pi pi-check"
+              [loading]="isSaving" (click)="guardarJornada()"></button>
+    </ng-template>
+  </p-dialog>
+</div>

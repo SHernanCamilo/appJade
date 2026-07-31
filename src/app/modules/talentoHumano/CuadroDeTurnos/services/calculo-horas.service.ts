@@ -65,6 +65,19 @@ export interface CuadroMesEmpleado {
   totales: TotalesHoras;
   por_dia: { [fecha: string]: DesgloseDia };
   festivos: Festivo[];
+  jornada_max?: {
+    horas_max_dia: number;
+    horas_max_semana: number;
+    horas_max_mes: number;
+  };
+  horas_extras?: {
+    extras_diurnas: number;
+    extras_nocturnas: number;
+    extras_festivas: number;
+    extras_festivas_nocturnas: number;
+    extras_manuales: number;
+    total_extras: number;
+  };
 }
 
 @Injectable({ providedIn: 'root' })

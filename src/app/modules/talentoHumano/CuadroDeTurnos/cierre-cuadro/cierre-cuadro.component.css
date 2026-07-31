@@ -1,0 +1,61 @@
+.page-container { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+.page-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
+.btn-back { background: none; border: none; color: #6b7280; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem; }
+.btn-back:hover { color: #10b981; }
+.header-content h1 { margin: 0; font-size: 1.4rem; font-weight: 800; color: #1f2937; display: flex; align-items: center; gap: 0.5rem; }
+.header-content h1 i { color: #ef4444; }
+.header-content p { margin: 0.2rem 0 0; color: #6b7280; font-size: 0.85rem; }
+
+.section-card { background: #fff; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #f0f0f0; }
+
+/* Config */
+.config-card h3 { margin: 0 0 0.75rem; font-size: 0.95rem; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 0.4rem; }
+.config-card h3 i { color: #6366f1; }
+.config-grid { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+.config-field { display: flex; flex-direction: column; gap: 0.2rem; }
+.config-field label { font-size: 0.72rem; font-weight: 600; color: #6b7280; text-transform: uppercase; }
+.config-input { padding: 0.45rem 0.7rem; border: 1.5px solid #e5e7eb; border-radius: 6px; font-size: 0.85rem; outline: none; }
+.config-input:focus { border-color: #6366f1; }
+.config-btn { justify-content: flex-end; }
+.input-anio { width: 80px; }
+
+/* Filtros */
+.filtros-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+.filtro-periodo { display: flex; gap: 0.5rem; align-items: center; }
+.filtro-busqueda { display: flex; align-items: center; gap: 0.3rem; flex: 1; min-width: 180px; }
+.filtro-busqueda i { color: #9ca3af; }
+.filtro-busqueda .config-input { width: 100%; }
+.filtro-stats { display: flex; gap: 0.75rem; }
+.stat { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.6rem; border-radius: 5px; }
+.stat.abierta { background: #ecfdf5; color: #065f46; }
+.stat.bloqueada { background: #fef2f2; color: #991b1b; }
+
+/* Tabla */
+.tabla-unidades { overflow-x: auto; }
+.tabla-unidades table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.tabla-unidades th { text-align: left; padding: 0.6rem 0.75rem; font-weight: 700; color: #374151; border-bottom: 2px solid #e5e7eb; font-size: 0.75rem; text-transform: uppercase; }
+.tabla-unidades td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f3f4f6; }
+.tabla-unidades tr:hover { background: #f9fafb; }
+.fila-bloqueada { background: #fef2f2 !important; }
+.fila-bloqueada:hover { background: #fee2e2 !important; }
+.col-check { width: 40px; text-align: center; }
+.lock-icon { color: #ef4444; font-size: 0.85rem; }
+.codigo-badge { background: #eef2ff; color: #4338ca; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.72rem; }
+.estado-tag { font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.25rem; }
+.estado-tag.cerrado { background: #fee2e2; color: #991b1b; }
+.estado-tag.abierto { background: #ecfdf5; color: #065f46; }
+.empty-row { text-align: center; color: #9ca3af; padding: 2rem !important; }
+
+/* Desbloqueo dialog */
+.desbloqueo-content p { margin: 0 0 1rem; font-size: 0.9rem; color: #374151; }
+.form-field { display: flex; flex-direction: column; gap: 0.3rem; }
+.form-field label { font-size: 0.75rem; font-weight: 600; color: #374151; }
+
+/* Info automático */
+.auto-info { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.auto-icon { width: 44px; height: 44px; background: #fef3c7; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.auto-icon i { color: #d97706; font-size: 1.3rem; }
+.auto-text h4 { margin: 0 0 0.3rem; font-size: 0.95rem; font-weight: 700; color: #1f2937; }
+.auto-text p { margin: 0 0 0.3rem; font-size: 0.82rem; color: #4b5563; }
+.auto-hint { color: #9ca3af !important; font-style: italic; }
+.auto-acciones { padding-top: 0.5rem; border-top: 1px solid #f3f4f6; }

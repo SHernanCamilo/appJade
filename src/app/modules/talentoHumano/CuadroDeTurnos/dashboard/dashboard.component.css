@@ -142,6 +142,7 @@
 
 .section-card-body {
   padding: 2rem;
+  overflow: visible;
 }
 
 /* ============================================================================
@@ -476,4 +477,221 @@
   font-weight: 600;
   font-size: 0.85rem;
   width: fit-content;
+}
+
+/* ═══════════════════════════════════════════════════════
+   REPORTES
+   ═══════════════════════════════════════════════════════ */
+
+/* Toggle de modo */
+.report-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  background: #f3f4f6;
+  padding: 4px;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  color: #4338ca;
+}
+
+.mode-btn.active {
+  background: #fff;
+  color: #4338ca;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.15);
+}
+
+/* Grilla de reporte */
+.report-grilla {
+  margin-top: 1.5rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.report-grilla-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #f8f9fa, #eef2ff);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.report-grilla-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.report-periodo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6366f1;
+  background: #eef2ff;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+}
+
+.report-table-wrap {
+  overflow-x: auto;
+  padding: 0.5rem;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 1px;
+  font-size: 0.78rem;
+}
+
+.report-table th {
+  background: #f9fafb;
+  padding: 0.5rem 0.3rem;
+  text-align: center;
+  font-weight: 700;
+  color: #374151;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.report-table th.col-empleado {
+  text-align: left;
+  min-width: 180px;
+  position: sticky;
+  left: 0;
+  background: #f9fafb;
+  z-index: 1;
+}
+
+.report-table th.col-dia {
+  min-width: 32px;
+  width: 32px;
+}
+
+.report-table th.col-dia.festivo,
+.report-table th.col-dia.domingo {
+  color: #dc2626;
+}
+
+.report-table th.col-total {
+  min-width: 70px;
+  background: #eef2ff;
+}
+
+.report-table td {
+  padding: 0.4rem 0.25rem;
+  text-align: center;
+  border-bottom: 1px solid #f3f4f6;
+  font-weight: 600;
+}
+
+.report-table td.col-empleado {
+  text-align: left;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.report-table td.turno-celda {
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #4338ca;
+}
+
+.report-table td.descanso-celda {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.report-table td.festivo {
+  background: #fef2f2 !important;
+}
+
+.report-table td.col-total {
+  font-weight: 700;
+  color: #1f2937;
+  background: #f5f3ff;
+}
+
+.report-table tbody tr:hover td {
+  background: #f9fafb;
+}
+
+.report-table tbody tr:hover td.col-empleado {
+  background: #f3f4f6;
+}
+
+/* Fix: calendar popup con appendTo body - asegurar que el contenedor no corte */
+:host ::ng-deep .p-datepicker {
+  z-index: 10001 !important;
+}
+
+.selector-group {
+  position: relative;
+  overflow: visible;
+}
+
+.section-card {
+  overflow: visible !important;
+}
+
+.section-card-body {
+  overflow: visible !important;
+}
+
+/* Reporte grilla - letra del día */
+.col-dia {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.col-dia .dia-num {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.col-dia .dia-letra {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.col-dia.domingo .dia-num,
+.col-dia.festivo .dia-num {
+  color: #ef4444;
 }

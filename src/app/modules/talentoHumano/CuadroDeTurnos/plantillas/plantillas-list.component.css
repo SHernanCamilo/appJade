@@ -425,3 +425,650 @@
     flex-direction: column-reverse;
   }
 }
+
+/* ───── Toggle de estado en tabla ───── */
+.estado-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-track {
+  width: 38px;
+  height: 20px;
+  background: #d1d5db;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.25s ease;
+}
+
+.toggle-track.on {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.25s ease;
+}
+
+.toggle-track.on .toggle-thumb {
+  transform: translateX(18px);
+}
+
+.toggle-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #dc2626;
+  transition: color 0.2s;
+}
+
+.toggle-label.activo {
+  color: #16a34a;
+}
+
+.estado-toggle:hover .toggle-track:not(.on) {
+  background: #9ca3af;
+}
+
+.estado-toggle:hover .toggle-track.on {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+}
+
+/* ════════════════════════════════════════════════════════
+   FORMULARIO DE PLANTILLA — NUEVO DISEÑO
+   ════════════════════════════════════════════════════════ */
+
+:deep(.dialog-plantilla-form) {
+  .p-dialog {
+    border-radius: 14px !important;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.18) !important;
+    max-height: 90vh !important;
+  }
+  .p-dialog-header {
+    background: linear-gradient(135deg, #1e293b, #334155) !important;
+    color: #fff !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 14px 14px 0 0 !important;
+  }
+  .p-dialog-header .p-dialog-title {
+    font-size: 1.1rem !important;
+    font-weight: 800 !important;
+    color: #fff !important;
+  }
+  .p-dialog-header .p-dialog-header-icon {
+    color: rgba(255,255,255,0.7) !important;
+    &:hover { color: #fff !important; background: rgba(255,255,255,0.1) !important; }
+  }
+  .p-dialog-content {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+}
+
+.pf-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+/* Subtítulo debajo del header */
+.pf-subtitle {
+  margin: 0;
+  padding: 0.5rem 1.5rem 0.25rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+/* Body */
+.pf-body {
+  padding: 0.5rem 1.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: visible;
+}
+
+/* Secciones */
+.pf-section {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.pf-section + .pf-section {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.pf-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.pf-section-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.pf-icon-blue {
+  background: #eef2ff;
+  color: #6366f1;
+}
+
+.pf-icon-teal {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+/* Filas */
+.pf-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.pf-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Campos */
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.35rem;
+}
+
+.pf-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0.2rem;
+}
+
+.pf-input {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.pf-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.pf-input.invalid {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
+}
+
+.pf-textarea {
+  width: 100%;
+  padding: 0.4rem 0.7rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #1f2937;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-height: 50px;
+}
+
+.pf-textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.pf-hint {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 3px;
+}
+
+/* Time input con ícono */
+.pf-time-wrap {
+  position: relative;
+}
+
+.pf-time {
+  padding-right: 2.2rem;
+}
+
+.pf-time-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+/* Dropdown estilizado */
+:deep(.pf-dropdown) {
+  width: 100% !important;
+  border-radius: 8px !important;
+  border: 1.5px solid #e5e7eb !important;
+}
+
+:deep(.pf-dropdown:hover),
+:deep(.pf-dropdown.p-focus) {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+}
+
+/* Toggle inline (en la fila de horarios) */
+.pf-toggle-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  padding-top: 0.3rem;
+}
+
+/* Footer */
+.pf-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.pf-btn-cancel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  color: #dc2626;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.pf-btn-cancel:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.pf-btn-submit {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+}
+
+.pf-btn-submit:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(37,99,235,0.4);
+  transform: translateY(-1px);
+}
+
+.pf-btn-submit:disabled,
+.pf-btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle field separado */
+.pf-toggle-field {
+  margin-top: 0.5rem;
+}
+
+.pf-toggle-inline .toggle-label {
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* Jornada partida */
+.pf-range-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.3rem;
+}
+
+.pf-range-label-secondary {
+  margin-top: 1rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.pf-range-hint {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin: 0 0 0.4rem;
+  font-style: italic;
+}
+
+.hora-partida {
+  color: #8b5cf6;
+  font-weight: 500;
+}
+
+/* Input Mask para horas */
+:host ::ng-deep .pf-input-mask .p-inputtext {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: 0.05em;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+:host ::ng-deep .pf-input-mask .p-inputtext:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
+:host ::ng-deep .pf-input-mask.ng-invalid .p-inputtext {
+  border-color: #ef4444;
+}
+
+/* Custom Time Picker Cards */
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.time-card {
+  flex: 1;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.time-card:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.08);
+}
+
+.time-card-secondary {
+  background: #f9fafb;
+}
+
+.time-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.time-card-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6b7280;
+  flex: 1;
+}
+
+.time-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+}
+
+.time-icon-inicio { background: #eef2ff; color: #6366f1; }
+.time-icon-fin { background: #fef2f2; color: #ef4444; }
+.time-icon-inicio2 { background: #eef2ff; color: #6366f1; }
+.time-icon-fin2 { background: #fef2f2; color: #ef4444; }
+
+.time-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ampm-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #6366f1;
+  transition: all 0.15s;
+}
+
+.ampm-badge.pm {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.time-card-value {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.time-input-num {
+  width: 32px;
+  border: none;
+  background: transparent;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #1f2937;
+  text-align: center;
+  padding: 0;
+  outline: none;
+  font-family: inherit;
+  -moz-appearance: textfield;
+}
+
+.time-input-num::-webkit-outer-spin-button,
+.time-input-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.time-input-num::placeholder {
+  color: #d1d5db;
+}
+
+.time-input-num:focus {
+  background: #f0fdf4;
+  border-radius: 4px;
+}
+
+.time-colon {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #9ca3af;
+}
+
+.time-arrow {
+  color: #d1d5db;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Reloj redondo - ngx-material-timepicker */
+.time-clock-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pf-input-time {
+  flex: 1;
+  text-align: center !important;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  letter-spacing: 0.05em;
+  padding-right: 2.5rem !important;
+}
+
+.pf-input-time:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1) !important;
+}
+
+.btn-clock {
+  position: absolute;
+  right: 0.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #10b981;
+  font-size: 1rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.btn-clock:hover {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* AM/PM button inline with time value */
+.ampm-btn {
+  margin-left: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  border: 1.5px solid #e5e7eb;
+  background: #eef2ff;
+  color: #6366f1;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.ampm-btn:hover {
+  background: #c7d2fe;
+}
+
+.ampm-btn.pm {
+  background: #fef2f2;
+  color: #ef4444;
+  border-color: #fecaca;
+}
+
+.ampm-btn.pm:hover {
+  background: #fecaca;
+}
+
+/* Layout 2 columnas para el formulario */
+.pf-body-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  padding: 0.5rem 1.5rem 0.75rem;
+}
+
+/* Columna derecha: reloj */
+.pf-clock-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1rem;
+  min-width: 180px;
+}
+
+.pf-clock-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.pf-clock-wrap {
+  width: 160px;
+  height: 160px;
+}
+
+.pf-clock-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.pf-clock-detail {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.pf-clock-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #374151;
+}
+
+.pf-clock-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pf-clock-val {
+  margin-left: auto;
+  font-weight: 700;
+}

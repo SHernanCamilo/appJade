@@ -923,3 +923,28 @@ app-personificar-banner {
 .empleados-dropdown-panel .p-dropdown-item:last-child {
   border-bottom: none !important;
 }
+
+/* ngx-material-timepicker: forzar z-index por encima de modales PrimeNG */
+.timepicker-overlay {
+  z-index: 99999 !important;
+}
+.timepicker-backdrop-overlay {
+  z-index: 99998 !important;
+}
+/* Fix: asegurar que el backdrop se limpie entre aperturas */
+.timepicker-overlay.ng-animating {
+  display: block !important;
+}
+/* Fix: forzar z-index en todos los elementos del timepicker */
+ngx-material-timepicker-container {
+  z-index: 99999 !important;
+}
+.cdk-overlay-container {
+  z-index: 99999 !important;
+}
+.cdk-overlay-backdrop {
+  z-index: 99998 !important;
+}
+.cdk-overlay-pane {
+  z-index: 99999 !important;
+}

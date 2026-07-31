@@ -1,0 +1,136 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <button class="btn-back" routerLink="/talentoHumano/turnos/dashboard"><i class="pi pi-arrow-left"></i> Volver</button>
+    <div class="header-content">
+      <h1><i class="pi pi-lock"></i> Cierre de Cuadro de Turnos</h1>
+      <p>Bloquea y desbloquea cuadros de turnos por unidad funcional</p>
+    </div>
+  </div>
+
+  <!-- Configuración -->
+  <div class="section-card config-card">
+    <h3><i class="pi pi-cog"></i> Configuración de Cierre</h3>
+    <div class="config-grid">
+      <div class="config-field">
+        <label>Tipo de bloqueo</label>
+        <p-dropdown [options]="tipoBloqueoOptions" [(ngModel)]="parametro.tipo_bloqueo" appendTo="body" (onChange)="onTipoBloqueoChange()"></p-dropdown>
+      </div>
+      <div class="config-field">
+        <label>Tipo de nómina</label>
+        <p-dropdown [options]="tipoNominaOptions" [(ngModel)]="parametro.tipo_nomina" appendTo="body"></p-dropdown>
+      </div>
+      <div class="config-field">
+        <label>Día de cierre</label>
+        <input type="number" [(ngModel)]="parametro.dia_cierre" min="1" max="31" class="config-input">
+      </div>
+      <div class="config-field">
+        <label>Hora de cierre</label>
+        <input type="time" [(ngModel)]="parametro.hora_cierre" class="config-input">
+      </div>
+      <div class="config-field config-btn">
+        <button pButton label="Guardar" icon="pi pi-check" class="p-button-sm" (click)="guardarParametro()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros de período -->
+  <div class="section-card" *ngIf="parametro.tipo_bloqueo === 'manual'">
+    <div class="filtros-row">
+      <div class="filtro-periodo">
+        <p-dropdown [options]="mesOptions" [(ngModel)]="selectedMes" (onChange)="onPeriodoChange()" appendTo="body"></p-dropdown>
+        <input type="number" [(ngModel)]="selectedAnio" min="2020" max="2100" (change)="onPeriodoChange()" class="config-input input-anio">
+      </div>
+      <div class="filtro-busqueda">
+        <i class="pi pi-search"></i>
+        <input type="text" [(ngModel)]="busqueda" (input)="filtrar()" placeholder="Buscar unidad..." class="config-input">
+      </div>
+      <div class="filtro-stats">
+        <span class="stat abierta"><i class="pi pi-lock-open"></i> {{ totalAbiertas }} abiertas</span>
+        <span class="stat bloqueada"><i class="pi pi-lock"></i> {{ totalBloqueadas }} cerradas</span>
+      </div>
+      <button pButton label="Bloquear seleccionadas" icon="pi pi-lock"
+        class="p-button-danger p-button-sm"
+        [disabled]="!seleccionadas.size"
+        (click)="bloquearSeleccionadas()"></button>
+    </div>
+
+    <!-- Tabla de unidades -->
+    <div class="tabla-unidades">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" (change)="seleccionarTodas()" [checked]="seleccionadas.size > 0"></th>
+            <th>Código</th>
+            <th>Unidad Funcional</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of unidadesFiltradas" [class.fila-bloqueada]="u.bloqueado">
+            <td class="col-check">
+              <input *ngIf="!u.bloqueado" type="checkbox"
+                     [checked]="seleccionadas.has(u.id)"
+                     (change)="toggleSeleccion(u.id)">
+              <i *ngIf="u.bloqueado" class="pi pi-lock lock-icon"></i>
+            </td>
+            <td><span class="codigo-badge">{{ u.codigo }}</span></td>
+            <td>{{ u.nombre }}</td>
+            <td>
+              <span *ngIf="u.bloqueado" class="estado-tag cerrado">
+                <i class="pi pi-lock"></i> Cerrado
+              </span>
+              <span *ngIf="!u.bloqueado" class="estado-tag abierto">
+                <i class="pi pi-lock-open"></i> Abierto
+              </span>
+            </td>
+            <td>
+              <button *ngIf="u.bloqueado" pButton icon="pi pi-lock-open"
+                class="p-button-sm p-button-text p-button-success"
+                pTooltip="Desbloquear" tooltipPosition="top"
+                (click)="abrirDesbloqueo(u)"></button>
+            </td>
+          </tr>
+          <tr *ngIf="!unidadesFiltradas.length && !isLoading">
+            <td colspan="5" class="empty-row">No hay unidades funcionales</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Info automático -->
+  <div class="section-card" *ngIf="parametro.tipo_bloqueo === 'automatico' && parametro.dia_cierre > 0">
+    <div class="auto-info">
+      <div class="auto-icon"><i class="pi pi-clock"></i></div>
+      <div class="auto-text">
+        <h4>Cierre automático configurado</h4>
+        <p>El cuadro de turnos se cerrará automáticamente el día <strong>{{ parametro.dia_cierre }}</strong> de cada mes a las <strong>{{ parametro.hora_cierre }}</strong>.</p>
+        <p class="auto-hint">Después de esa fecha/hora, no se podrán modificar los turnos del mes en curso.</p>
+      </div>
+    </div>
+    <div class="auto-acciones">
+      <button pButton label="Ejecutar cierre ahora" icon="pi pi-bolt"
+        class="p-button-sm p-button-warning"
+        (click)="ejecutarCierreManual()"></button>
+    </div>
+  </div>
+
+  <!-- Dialog desbloqueo -->
+  <p-dialog [(visible)]="showDesbloqueoDialog" [modal]="true" [style]="{width:'400px'}" header="Desbloquear Unidad">
+    <div *ngIf="unidadDesbloquear" class="desbloqueo-content">
+      <p>¿Desbloquear <strong>{{ unidadDesbloquear.nombre }}</strong> para {{ mesOptions[selectedMes-1].label }} {{ selectedAnio }}?</p>
+      <div class="form-field">
+        <label>Motivo *</label>
+        <input type="text" [(ngModel)]="motivoDesbloqueo" placeholder="Ej: Corrección de turno" class="config-input" style="width:100%">
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showDesbloqueoDialog=false"></button>
+      <button pButton label="Desbloquear" icon="pi pi-lock-open" class="p-button-success"
+              [disabled]="!motivoDesbloqueo" (click)="confirmarDesbloqueo()"></button>
+    </ng-template>
+  </p-dialog>
+</div>

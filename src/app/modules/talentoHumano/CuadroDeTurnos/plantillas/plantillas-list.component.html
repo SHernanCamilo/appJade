@@ -81,8 +81,7 @@
               <th pSortableColumn="codigo">Código <p-sortIcon field="codigo"></p-sortIcon></th>
               <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre"></p-sortIcon></th>
               <th>Empresa</th>
-              <th>Hora Inicio</th>
-              <th>Hora Fin</th>
+              <th>Horario</th>
               <th>Estado</th>
               <th style="text-align: center; width: 120px;">Acciones</th>
             </tr>
@@ -97,13 +96,22 @@
               <td>
                 <span class="empresa-text">{{ getNombreEmpresa(plantilla) }}</span>
               </td>
-              <td><span class="hora-text">{{ plantilla.hora_inicio }}</span></td>
-              <td><span class="hora-text">{{ plantilla.hora_fin }}</span></td>
               <td>
-                <p-tag 
-                  [value]="plantilla.estado ? 'Activo' : 'Inactivo'" 
-                  [severity]="plantilla.estado ? 'success' : 'danger'">
-                </p-tag>
+                <span class="hora-text">{{ formatHora12(plantilla.hora_inicio) }} - {{ formatHora12(plantilla.hora_fin) }}</span>
+                <span *ngIf="plantilla.hora_inicio_2 && plantilla.hora_fin_2" class="hora-text hora-partida">
+                  | {{ formatHora12(plantilla.hora_inicio_2) }} - {{ formatHora12(plantilla.hora_fin_2) }}
+                </span>
+              </td>
+              <td>
+                <div class="estado-toggle" (click)="toggleEstadoPlantilla(plantilla)"
+                     [pTooltip]="plantilla.estado ? 'Click para desactivar' : 'Click para activar'" tooltipPosition="top">
+                  <div class="toggle-track" [class.on]="plantilla.estado">
+                    <div class="toggle-thumb"></div>
+                  </div>
+                  <span class="toggle-label" [class.activo]="plantilla.estado">
+                    {{ plantilla.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </div>
               </td>
               <td style="text-align: center;">
                 <button 
@@ -144,132 +152,225 @@
     </div>
   </div>
 
-  <!-- Formulario Dialog -->
+  <!-- Formulario Dialog — Diseño mejorado -->
   <p-dialog 
     [(visible)]="showFormDialog" 
-    [header]="editMode ? 'Editar Plantilla' : 'Nueva Plantilla'" 
     [modal]="true" 
-    [style]="{ width: '520px' }"
-    [maximizable]="true"
-    [draggable]="false">
+    [style]="{ width: '850px' }"
+    [closable]="true"
+    [maximizable]="false"
+    [draggable]="false"
+    [header]="editMode ? 'Editar Plantilla' : 'Nueva Plantilla'"
+    styleClass="dialog-plantilla-form">
 
-    <form (ngSubmit)="onSubmit()" #form="ngForm">
+    <div class="pf-wrapper">
+      <!-- Body con 2 columnas -->
+      <div class="pf-body-grid">
+        <!-- Columna izquierda: formulario -->
+        <form (ngSubmit)="onSubmit()" #form="ngForm" class="pf-body">
 
-      <!-- Código y Empresa en una fila -->
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Código *</label>
-          <input 
-            type="text" 
-            [(ngModel)]="formData.codigo" 
-            name="codigo"
-            placeholder="Ej: TM, TN, TP"
-            class="form-control"
-            maxlength="20"
-            style="text-transform: uppercase;"
-            [class.is-invalid]="submitted && !formData.codigo">
-          <small class="form-hint">Máx. 20 caracteres</small>
+        <!-- Sección: Información general -->
+        <div class="pf-section">
+          <div class="pf-section-title">
+            <div class="pf-section-icon pf-icon-blue"><i class="pi pi-file-edit"></i></div>
+            <span>Información general</span>
+          </div>
+
+          <div class="pf-row pf-row-3">
+            <div class="pf-field">
+              <label>Código *</label>
+              <input type="text" [(ngModel)]="formData.codigo" name="codigo"
+                placeholder="Ej: TM" maxlength="20" style="text-transform: uppercase;"
+                class="pf-input" [class.invalid]="submitted && !formData.codigo">
+            </div>
+            <div class="pf-field">
+              <label>Nombre *</label>
+              <input type="text" [(ngModel)]="formData.nombre" name="nombre"
+                placeholder="Ej: Turno Mañana" class="pf-input"
+                [class.invalid]="submitted && !formData.nombre">
+            </div>
+            <div class="pf-field">
+              <label>Empresa *</label>
+              <p-dropdown
+                *ngIf="isSuperAdmin || userEmpresas.length > 1"
+                [options]="userEmpresas"
+                [(ngModel)]="formData.id_empresa"
+                name="id_empresa"
+                optionLabel="nombre"
+                optionValue="id"
+                placeholder="Seleccione..."
+                appendTo="body"
+                styleClass="pf-dropdown"
+                [class]="submitted && !formData.id_empresa ? 'ng-invalid ng-dirty' : ''">
+              </p-dropdown>
+              <input *ngIf="!isSuperAdmin && userEmpresas.length === 1"
+                type="text" [value]="userEmpresas[0].nombre" class="pf-input" disabled>
+            </div>
+          </div>
+
+          <div class="pf-field">
+            <label>Descripción</label>
+            <input type="text" [(ngModel)]="formData.descripcion" name="descripcion"
+              placeholder="Descripción opcional..." class="pf-input">
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Empresa *</label>
-          <p-dropdown
-            *ngIf="isSuperAdmin || userEmpresas.length > 1"
-            [options]="userEmpresas"
-            [(ngModel)]="formData.id_empresa"
-            name="id_empresa"
-            optionLabel="nombre"
-            optionValue="id"
-            placeholder="Seleccione..."
-            [style]="{'width': '100%'}"
-            [class]="submitted && !formData.id_empresa ? 'ng-invalid ng-dirty' : ''">
-          </p-dropdown>
-          <input 
-            *ngIf="!isSuperAdmin && userEmpresas.length === 1"
-            type="text" 
-            [value]="userEmpresas[0].nombre"
-            class="form-control"
-            disabled>
+        <!-- Sección: Configuración del horario -->
+        <div class="pf-section">
+          <div class="pf-section-title">
+            <div class="pf-section-icon pf-icon-teal"><i class="pi pi-clock"></i></div>
+            <span>Configuración del horario</span>
+          </div>
+
+          <!-- Rango 1: Horario principal -->
+          <!-- Horario principal -->
+          <label class="pf-range-label">Horario principal *</label>
+          <div class="time-row">
+            <div class="time-card">
+              <div class="time-card-header">
+                <span class="time-icon time-icon-inicio"><i class="pi pi-play-circle"></i></span>
+                <span class="time-card-label">Hora inicio</span>
+              </div>
+              <div class="time-card-value">
+                <input type="text" [(ngModel)]="formData.hora_inicio_h" name="hora_inicio_h"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_inicio_h')" (input)="onTimeInput()">
+                <span class="time-colon">:</span>
+                <input type="text" [(ngModel)]="formData.hora_inicio_m" name="hora_inicio_m"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_inicio_m')" (input)="onTimeInput()">
+                <button type="button" class="ampm-btn" [class.pm]="formData.hora_inicio_ampm === 'PM'" (click)="toggleAmPm('inicio')">
+                  {{ formData.hora_inicio_ampm }}
+                </button>
+              </div>
+            </div>
+
+            <span class="time-arrow"><i class="pi pi-arrow-right"></i></span>
+
+            <div class="time-card">
+              <div class="time-card-header">
+                <span class="time-icon time-icon-fin"><i class="pi pi-stop-circle"></i></span>
+                <span class="time-card-label">Hora fin</span>
+              </div>
+              <div class="time-card-value">
+                <input type="text" [(ngModel)]="formData.hora_fin_h" name="hora_fin_h"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_fin_h')" (input)="onTimeInput()">
+                <span class="time-colon">:</span>
+                <input type="text" [(ngModel)]="formData.hora_fin_m" name="hora_fin_m"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_fin_m')" (input)="onTimeInput()">
+                <button type="button" class="ampm-btn" [class.pm]="formData.hora_fin_ampm === 'PM'" (click)="toggleAmPm('fin')">
+                  {{ formData.hora_fin_ampm }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rango 2: Jornada partida (opcional) -->
+          <label class="pf-range-label pf-range-label-secondary">Horario adicional (opcional)</label>
+          <div class="time-row">
+            <div class="time-card time-card-secondary">
+              <div class="time-card-header">
+                <span class="time-icon time-icon-inicio2"><i class="pi pi-play-circle"></i></span>
+                <span class="time-card-label">Hora inicio 2</span>
+              </div>
+              <div class="time-card-value">
+                <input type="text" [(ngModel)]="formData.hora_inicio_2_h" name="hora_inicio_2_h"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_inicio_2_h')" (input)="onTimeInput()">
+                <span class="time-colon">:</span>
+                <input type="text" [(ngModel)]="formData.hora_inicio_2_m" name="hora_inicio_2_m"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_inicio_2_m')" (input)="onTimeInput()">
+                <button type="button" class="ampm-btn" [class.pm]="formData.hora_inicio_2_ampm === 'PM'" (click)="toggleAmPm('inicio2')">
+                  {{ formData.hora_inicio_2_ampm }}
+                </button>
+              </div>
+            </div>
+
+            <span class="time-arrow"><i class="pi pi-arrow-right"></i></span>
+
+            <div class="time-card time-card-secondary">
+              <div class="time-card-header">
+                <span class="time-icon time-icon-fin2"><i class="pi pi-stop-circle"></i></span>
+                <span class="time-card-label">Hora fin 2</span>
+              </div>
+              <div class="time-card-value">
+                <input type="text" [(ngModel)]="formData.hora_fin_2_h" name="hora_fin_2_h"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_fin_2_h')" (input)="onTimeInput()">
+                <span class="time-colon">:</span>
+                <input type="text" [(ngModel)]="formData.hora_fin_2_m" name="hora_fin_2_m"
+                  maxlength="2" class="time-input-num" placeholder="--"
+                  (blur)="padTime('hora_fin_2_m')" (input)="onTimeInput()">
+                <button type="button" class="ampm-btn" [class.pm]="formData.hora_fin_2_ampm === 'PM'" (click)="toggleAmPm('fin2')">
+                  {{ formData.hora_fin_2_ampm }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pf-field pf-toggle-field">
+            <div class="pf-toggle-inline" (click)="formData.activo = !formData.activo">
+              <div class="toggle-track" [class.on]="formData.activo">
+                <div class="toggle-thumb"></div>
+              </div>
+              <span class="toggle-label" [class.activo]="formData.activo">
+                {{ formData.activo ? 'Activa' : 'Inactiva' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </form>
+
+        <!-- Columna derecha: reloj de duración -->
+        <div class="pf-clock-col" *ngIf="formData.hora_inicio">
+          <div class="pf-clock-label">Duración del turno</div>
+          <div class="pf-clock-wrap">
+            <svg viewBox="0 0 160 160" class="pf-clock-svg">
+              <circle cx="80" cy="80" r="72" fill="#f8f9fa" stroke="#e5e7eb" stroke-width="2.5"/>
+              <circle cx="80" cy="80" r="60" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+              <ng-container *ngFor="let h of [0,1,2,3,4,5,6,7,8,9,10,11]">
+                <line
+                  [attr.x1]="80 + 62 * Math.cos((h*30-90)*Math.PI/180)"
+                  [attr.y1]="80 + 62 * Math.sin((h*30-90)*Math.PI/180)"
+                  [attr.x2]="80 + 70 * Math.cos((h*30-90)*Math.PI/180)"
+                  [attr.y2]="80 + 70 * Math.sin((h*30-90)*Math.PI/180)"
+                  stroke="#d1d5db" stroke-width="2.5" stroke-linecap="round"/>
+              </ng-container>
+              <path *ngIf="getRelojArco()" [attr.d]="getRelojArco()"
+                    stroke="#f59e0b" stroke-width="12" fill="none"
+                    stroke-linecap="round" opacity="0.92"/>
+              <path *ngIf="getRelojArco2()" [attr.d]="getRelojArco2()"
+                    stroke="#f59e0b" stroke-width="12" fill="none"
+                    stroke-linecap="round" opacity="0.92"/>
+              <text x="80" y="74" text-anchor="middle" font-size="18" font-weight="800" fill="#f59e0b">{{ getDuracionTexto() }}</text>
+              <text x="80" y="90" text-anchor="middle" font-size="10" fill="#9ca3af">horas</text>
+              <text x="80" y="106" text-anchor="middle" font-size="9" fill="#6b7280">{{ getHorarioTexto() }}</text>
+            </svg>
+          </div>
+          <div class="pf-clock-detail">
+            <div class="pf-clock-row">
+              <span class="pf-clock-dot" style="background:#f59e0b"></span>
+              <span>Duración laboral</span>
+              <span class="pf-clock-val">{{ getDuracionTexto() }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Nombre -->
-      <div class="form-group">
-        <label class="form-label">Nombre *</label>
-        <input 
-          type="text" 
-          [(ngModel)]="formData.nombre" 
-          name="nombre"
-          placeholder="Ej: Turno Mañana"
-          class="form-control"
-          [class.is-invalid]="submitted && !formData.nombre">
-      </div>
-
-      <!-- Descripción -->
-      <div class="form-group">
-        <label class="form-label">Descripción</label>
-        <textarea 
-          [(ngModel)]="formData.descripcion" 
-          name="descripcion"
-          placeholder="Descripción opcional del turno..."
-          class="form-control"
-          rows="2">
-        </textarea>
-      </div>
-
-      <!-- Horas -->
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Hora Inicio *</label>
-          <input 
-            type="time" 
-            [(ngModel)]="formData.hora_inicio" 
-            name="hora_inicio"
-            class="form-control"
-            [class.is-invalid]="submitted && !formData.hora_inicio">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Hora Fin *</label>
-          <input 
-            type="time" 
-            [(ngModel)]="formData.hora_fin" 
-            name="hora_fin"
-            class="form-control"
-            [class.is-invalid]="submitted && !formData.hora_fin">
-        </div>
-      </div>
-
-      <!-- Estado -->
-      <div class="form-group">
-        <label class="form-checkbox">
-          <input 
-            type="checkbox" 
-            [(ngModel)]="formData.activo" 
-            name="activo">
-          <span>Activo</span>
-        </label>
-      </div>
-
-      <div class="form-actions">
-        <button 
-          pButton 
-          type="button" 
-          label="Cancelar" 
-          icon="pi pi-times" 
-          class="p-button-text"
-          (click)="showFormDialog = false">
+      <!-- Footer -->
+      <div class="pf-footer">
+        <button type="button" class="pf-btn-cancel" (click)="showFormDialog = false" [disabled]="isSubmitting">
+          <i class="pi pi-times"></i> Cancelar
         </button>
-        <button 
-          pButton 
-          type="submit" 
-          [label]="editMode ? 'Actualizar' : 'Crear'" 
-          icon="pi pi-check" 
-          class="p-button-primary"
-          [loading]="isSubmitting">
+        <button type="button" class="pf-btn-submit" (click)="onSubmit()" [disabled]="isSubmitting">
+          <i class="pi pi-check"></i> {{ editMode ? 'Actualizar' : 'Crear' }}
         </button>
       </div>
-    </form>
+    </div>
 
   </p-dialog>
 

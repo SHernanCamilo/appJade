@@ -47,4 +47,30 @@ export class EmpleadoService {
       map(response => response.data ?? [])
     );
   }
+
+  /**
+   * Busca en la tabla users (gestión de usuarios) para "Usuarios encargados".
+   */
+  buscarUsuarios(
+    empresaId: number,
+    search: string,
+    page: number = 1,
+    limit: number = 100
+  ): Observable<Empleado[]> {
+    let params = new HttpParams()
+      .set('empresa_id', empresaId.toString())
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    if (search && search.trim().length >= 2) {
+      params = params.set('search', search.trim());
+    }
+
+    return this.http.get<{ success: boolean; data: Empleado[] }>(
+      `${this.apiUrl}/opciones-usuarios`,
+      { params }
+    ).pipe(
+      map(response => response.data ?? [])
+    );
+  }
 }

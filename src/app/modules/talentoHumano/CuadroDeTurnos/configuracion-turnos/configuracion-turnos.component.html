@@ -1,0 +1,36 @@
+<div class="page-container">
+
+  <!-- Header unificado -->
+  <div class="page-header">
+    <button class="btn-back" routerLink="/talentoHumano/turnos/dashboard">
+      <i class="pi pi-arrow-left"></i> Volver
+    </button>
+    <div class="header-icon">
+      <i class="pi pi-cog"></i>
+    </div>
+    <div class="header-content">
+      <h1>Configuración de Turnos</h1>
+      <p>Parámetros de jornada, recargos y cierre del cuadro</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <p-tabView styleClass="config-tabs">
+    <p-tabPanel [cache]="true">
+      <ng-template pTemplate="header">
+        <i class="pi pi-clock tab-icon"></i>
+        <span>Jornada y Recargos</span>
+      </ng-template>
+      <app-parametrizacion></app-parametrizacion>
+    </p-tabPanel>
+
+    <p-tabPanel>
+      <ng-template pTemplate="header">
+        <i class="pi pi-lock tab-icon"></i>
+        <span>Cierre de Cuadro</span>
+      </ng-template>
+      <app-cierre-cuadro></app-cierre-cuadro>
+    </p-tabPanel>
+  </p-tabView>
+
+</div>

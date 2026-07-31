@@ -72,7 +72,16 @@ export const TALENTOHUMANO_ROUTES: Routes = [
         loadComponent: () => import('./CuadroDeTurnos/unidades-funcionales/unidades-funcionales-list.component')
           .then(m => m.UnidadesFuncionalesListComponent),
         data: { title: 'Unidades Funcionales' }
-      }
+      },
+      //modulo de configuración unificado (jornada + recargos + cierre)
+      {
+        path: 'configuracion',
+        loadComponent: () => import('./CuadroDeTurnos/configuracion-turnos/configuracion-turnos.component')
+          .then(m => m.ConfiguracionTurnosComponent),
+        data: { title: 'Configuración de Turnos' }
+      },
+      { path: 'parametrizacion', redirectTo: 'configuracion', pathMatch: 'full' },
+      { path: 'cierre-cuadro', redirectTo: 'configuracion', pathMatch: 'full' }
     ]
   }
 ];
