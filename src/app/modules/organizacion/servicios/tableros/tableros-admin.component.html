@@ -1,0 +1,144 @@
+<p-toast></p-toast>
+
+<div class="tableros-admin">
+  <div class="header-row">
+    <div>
+      <h2><i class="pi pi-desktop"></i> Tableros Públicos</h2>
+      <p class="subtitle">Administre las pantallas informativas de salas de espera</p>
+    </div>
+    <p-button label="Nuevo Tablero" icon="pi pi-plus" (onClick)="openCreate()"></p-button>
+  </div>
+
+  <!-- ═══ Tabla de dispositivos ═══ -->
+  <p-table
+    [value]="devices()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="10"
+    styleClass="p-datatable-sm p-datatable-striped"
+    [rowHover]="true"
+    responsiveLayout="scroll">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Estado</th>
+        <th>Nombre</th>
+        <th>Sede</th>
+        <th>Vista</th>
+        <th>Última conexión</th>
+        <th>IP</th>
+        <th>Conexiones</th>
+        <th>Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-device>
+      <tr>
+        <td>
+          <p-tag [severity]="getStatusSeverity(device)" [value]="getStatusLabel(device)"></p-tag>
+        </td>
+        <td><strong>{{ device.name }}</strong></td>
+        <td>{{ device.sede_filter || 'Todas' }}</td>
+        <td><small>{{ device.view_name }}</small></td>
+        <td>
+          <span [pTooltip]="device.last_seen_at || 'Nunca'">
+            {{ timeSince(device.last_seen_at) }}
+          </span>
+        </td>
+        <td><code>{{ device.last_ip || '-' }}</code></td>
+        <td>{{ device.connection_count }}</td>
+        <td class="actions-cell">
+          @if (!device.paired) {
+            <p-button
+              icon="pi pi-refresh"
+              [text]="true"
+              severity="info"
+              pTooltip="Generar nuevo código"
+              (onClick)="regenerateCode(device)">
+            </p-button>
+          }
+          <p-button
+            [icon]="device.active ? 'pi pi-ban' : 'pi pi-check'"
+            [text]="true"
+            [severity]="device.active ? 'warn' : 'success'"
+            [pTooltip]="device.active ? 'Revocar' : 'Activar'"
+            (onClick)="toggleActive(device)">
+          </p-button>
+          <p-button
+            icon="pi pi-trash"
+            [text]="true"
+            severity="danger"
+            pTooltip="Eliminar"
+            (onClick)="deleteDevice(device)">
+          </p-button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="8" class="empty-msg">
+          <i class="pi pi-info-circle"></i>
+          No hay tableros configurados. Cree uno para empezar.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+
+<!-- ═══ Diálogo: Crear tablero ═══ -->
+<p-dialog header="Nuevo Tablero" [(visible)]="showCreateDialog" [modal]="true" [style]="{ width: '500px' }">
+  <div class="form-grid">
+    <div class="field">
+      <label>Nombre *</label>
+      <input pInputText [(ngModel)]="newName" placeholder="Ej: TV Urgencias Neiva P1" class="w-full" />
+    </div>
+
+    <div class="field">
+      <label>Sede</label>
+      <p-dropdown
+        [(ngModel)]="newSede"
+        [options]="sedeOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccionar sede..."
+        styleClass="w-full">
+      </p-dropdown>
+    </div>
+
+    <div class="field">
+      <label>Vista de Fabric</label>
+      <p-dropdown
+        [(ngModel)]="newViewName"
+        [options]="viewOptions"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="w-full">
+      </p-dropdown>
+    </div>
+
+    <div class="field">
+      <label>Máx. pantallas simultáneas</label>
+      <p-inputNumber [(ngModel)]="newMaxConnections" [min]="1" [max]="10" [showButtons]="true"></p-inputNumber>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" [text]="true" (onClick)="showCreateDialog = false"></p-button>
+    <p-button label="Crear Tablero" icon="pi pi-check" (onClick)="submitCreate()" [loading]="creating" [disabled]="!newName"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ═══ Diálogo: Código de emparejamiento ═══ -->
+<p-dialog header="Código de Activación" [(visible)]="showCodeDialog" [modal]="true" [style]="{ width: '450px' }">
+  <div class="code-display">
+    <p class="code-label">Código para la TV:</p>
+    <div class="code-value">{{ currentCode }}</div>
+    <p class="code-expires">Válido por 5 minutos</p>
+    <p class="code-instructions">{{ currentInstructions }}</p>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Entendido" (onClick)="showCodeDialog = false"></p-button>
+  </ng-template>
+</p-dialog>

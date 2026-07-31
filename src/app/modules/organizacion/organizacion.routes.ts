@@ -109,6 +109,12 @@ export const ORGANIZACION_ROUTES: Routes = [
         loadComponent: () => import('./servicios/rendimiento/rendimiento.component').then(m => m.RendimientoComponent),
         canActivate: [moduleGuard],
         data: { moduleCode: 'ORG-SERV-RENDIMIENTO' }
+      },
+      {
+        path: 'tableros',
+        loadComponent: () => import('./servicios/tableros/tableros-admin.component').then(m => m.TablerosAdminComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'ORG-SERV-TABLEROS' }
       }
     ]
   }
