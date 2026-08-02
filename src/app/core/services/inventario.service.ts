@@ -95,4 +95,14 @@ export class InventarioService {
     let params = new HttpParams().set('query', query);
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/buscar`, { params });
   }
+
+  validateInvima(code: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/validar/${encodeURIComponent(code)}`);
+  }
+
+  searchMvd(ium: string): Observable<ApiResponse<any>> {
+    let params = new HttpParams().set('ium', ium);
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/mvd`, { params });
+  }
+
 }

@@ -20,6 +20,10 @@ export const INVENTARIO_ROUTES: Routes = [
     loadComponent: () => import('./recepciones-tecnicas/recepciones-tecnicas.component').then(m => m.RecepcionesTecnicasComponent)
   },
   {
+    path: 'recepciones-tecnicas/excel/:compraId',
+    loadComponent: () => import('./recepciones-tecnicas/recepcion-excel/recepcion-excel.component').then(m => m.RecepcionExcelComponent)
+  },
+  {
     path: 'productos',
     loadComponent: () => import('./productos/productos.component').then(m => m.ProductosComponent)
   },
