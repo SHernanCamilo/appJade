@@ -1,6 +1,7 @@
 ﻿import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
@@ -76,7 +77,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
     { label: 'Rechazado', value: 'rechazado' }
   ];
 
-  constructor(private inventarioService: InventarioService) {}
+  constructor(private inventarioService: InventarioService, private router: Router) {}
 
   ngOnInit(): void {
     this.loadCompras();
@@ -125,6 +126,12 @@ export class RecepcionesTecnicasComponent implements OnInit {
         error: (err: any) => console.error(err)
       });
     }
+  }
+
+  // --- Abrir Vista Excel ---
+  openReceptionExcel(orden: OrdenCompra): void {
+    if (!orden.compra_id) return;
+    this.router.navigate(['/inventario/recepciones-tecnicas/excel', orden.compra_id]);
   }
 
   // --- Realizar RecepciÃ³n TÃ©cnica ---

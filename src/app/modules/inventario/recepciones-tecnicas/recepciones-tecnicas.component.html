@@ -69,7 +69,9 @@
                                 <ng-container *ngIf="currentView() === 'pending'">
                                     <p-button *ngIf="p.estado === 'confirmado'" icon="bi bi-truck" styleClass="p-button-sm p-button-info p-button-rounded p-button-text" (onClick)="confirmArrival(p.compra_id)" pTooltip="Registrar Llegada" tooltipPosition="left"></p-button>
                                     
-                                    <p-button *ngIf="p.estado === 'en_sitio' || p.estado === 'parcial'" icon="bi bi-clipboard-check" styleClass="p-button-sm p-button-primary p-button-rounded p-button-text" (onClick)="openReceptionModal(p)" pTooltip="Recepcionar Ítems" tooltipPosition="left"></p-button>
+                                    <p-button *ngIf="p.estado === 'en_sitio' || p.estado === 'parcial'" icon="bi bi-clipboard-check" styleClass="p-button-sm p-button-primary p-button-rounded p-button-text" (onClick)="openReceptionModal(p)" pTooltip="Recepcionar (Modal)" tooltipPosition="left"></p-button>
+                                    
+                                    <p-button *ngIf="p.estado === 'en_sitio' || p.estado === 'parcial'" icon="bi bi-table" styleClass="p-button-sm p-button-success p-button-rounded p-button-text" (onClick)="openReceptionExcel(p)" pTooltip="Vista Excel (Completa)" tooltipPosition="left"></p-button>
                                 </ng-container>
 
                                 <ng-container *ngIf="currentView() === 'completed'">
