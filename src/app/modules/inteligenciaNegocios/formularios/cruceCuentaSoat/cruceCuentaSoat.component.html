@@ -178,11 +178,15 @@
     (onHide)="cerrarExportDialog()">
 
     <div class="export-dialog-body">
-      <p class="export-dialog-hint">
+      <p class="export-dialog-hint" *ngIf="exportModo === 'seleccion'">
+        Se exportarán <strong>{{ exportRowsCache.length || filasSeleccionadasCount }}</strong> factura(s)
+        seleccionada(s) de la CC <strong>{{ ultimaConsulta }}</strong>.
+      </p>
+      <p class="export-dialog-hint" *ngIf="exportModo !== 'seleccion'">
         Elija el tipo de constancia para la CC <strong>{{ ultimaConsulta }}</strong>.
       </p>
 
-      <div class="export-modo-options" role="radiogroup" aria-label="Tipo de exportación">
+      <div class="export-modo-options" role="radiogroup" aria-label="Tipo de exportación" *ngIf="exportModo !== 'seleccion'">
         <label class="export-modo-option" [class.is-active]="exportModo === 'completa'">
           <input
             type="radio"
@@ -223,6 +227,21 @@
         </select>
         <small class="export-poliza-meta" *ngIf="!isLoadingExportData">
           {{ polizasDisponibles.length }} póliza(s) encontrada(s)
+        </small>
+      </div>
+
+      <div class="export-otras-ips-field">
+        <label for="input-otras-ips">¿Presentó atenciones facturadas en otras IPS?</label>
+        <input
+          id="input-otras-ips"
+          type="text"
+          inputmode="decimal"
+          [(ngModel)]="valorOtrasIps"
+          placeholder="Valor opcional (ej. 1500000)"
+          [disabled]="isLoadingExportData || isExporting"
+          autocomplete="off">
+        <small class="export-poliza-meta">
+          Si no aplica, déjelo vacío. Si indica un valor, se sumará al total facturado.
         </small>
       </div>
 

@@ -3,7 +3,6 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import {
   formatearFechaCorta,
-  formatearFechaLarga,
   formatearMonedaCop,
   numeroALetrasPesos
 } from '../helpers/numero-a-letras.helper';
@@ -12,7 +11,7 @@ import {
 
 const MEDILASER_LOGO =
   'https://ticketprocess.medilaser.com.co/assets/images/Logo-Medilaser-grande.png';
-const MEDILASER_EMPRESA = 'Clínica Medilaser S.A.S';
+const MEDILASER_EMPRESA = 'Clínica Medilaser SAS';
 
 export interface ConstanciaSoatExportOptions {
   identificacion: string;
@@ -26,7 +25,8 @@ export interface ConstanciaSoatExportOptions {
   /** Preferido: data URL ya resuelta desde backend (evita CORS). */
   logoBase64?: string | null;
   ciudadEmision?: string;
-  observaciones?: string;
+  /** Valor de atenciones facturadas en otras IPS (opcional). */
+  valorOtrasIps?: number | null;
 }
 
 interface FilaConstancia {
@@ -36,7 +36,6 @@ interface FilaConstancia {
   suc: string;
   fechaFact: string;
   valorFact: number;
-  grupoAtencion: string;
   entidad: string;
 }
 
@@ -47,7 +46,6 @@ const COL_ALIASES: Record<keyof FilaConstancia | 'nombrePaciente' | 'identificac
   suc: ['Suc', 'Sucursal', 'CodSucursal', 'CodigoSucursal', 'Sede', 'CodSede'],
   fechaFact: ['FechaFactura', 'Fecha_Factura', 'FechaFact', 'Fecha_Fact'],
   valorFact: ['VrFactura', 'ValorFactura', 'Valor_Factura', 'Vr_Factura', 'ValorFact'],
-  grupoAtencion: ['GrupoAtencion', 'Grupo_Atencion', 'GrupoAten', 'GrupoAtencionNombre', 'NombreGrupoAtencion'],
   entidad: ['Entidad', 'NombreEntidad', 'EntidadNombre'],
   nombrePaciente: ['NombrePaciente', 'Nombre_Paciente', 'Nombre', 'Paciente', 'NombreCompleto'],
   identificacion: ['Identificacion', 'Identificación', 'Documento', 'DocumentoPaciente', 'CC']
@@ -86,15 +84,22 @@ export class ConstanciaSoatExportService {
       this.pick(options.rows[0], COL_ALIASES.nombrePaciente) || 'PACIENTE'
     ).trim().toUpperCase();
     const identificacion = options.identificacion.trim();
-    const total = filas.reduce((acc, f) => acc + (Number.isFinite(f.valorFact) ? f.valorFact : 0), 0);
+    const totalLocal = filas.reduce((acc, f) => acc + (Number.isFinite(f.valorFact) ? f.valorFact : 0), 0);
+    const valorOtrasIps = Math.max(0, Number(options.valorOtrasIps) || 0);
+    const totalFacturado = totalLocal + valorOtrasIps;
 
     const empresaNombre = MEDILASER_EMPRESA;
-    const clinica = `La ${empresaNombre}`;
-    const observaciones =
-      options.observaciones ??
-      'ANEXAR ESTE ESTADO DE CUENTA PARA UNA NUEVA SOLICITUD';
+    const clinica = empresaNombre;
     const firmante = (options.firmanteNombre || '').trim().toUpperCase() || 'USUARIO';
     const cargo = (options.firmanteCargo || '').trim() || 'Sin cargo';
+
+    const ahora = new Date();
+    const dia = ahora.getDate();
+    const mes = ahora.toLocaleDateString('es-CO', { month: 'long' });
+    const anio = ahora.getFullYear();
+    const hora = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const textoExpedicion =
+      `La presente constancia se expide a los ${dia} días del mes de ${mes} de ${anio} a las ${hora}`;
 
     const logoDataUrl = await this.resolveLogoDataUrl(options.logoBase64 || options.logoUrl);
 
@@ -108,13 +113,12 @@ export class ConstanciaSoatExportService {
 
     const tableBody = [
       [
-        { text: 'Nro Poliza', style: 'tableHeader', alignment: 'center' },
-        { text: 'Nro Fact', style: 'tableHeader', alignment: 'center' },
+        { text: 'Numero Poliza', style: 'tableHeader', alignment: 'center' },
+        { text: 'Numero Factura', style: 'tableHeader', alignment: 'center' },
         { text: 'Ingreso', style: 'tableHeader', alignment: 'center' },
         { text: 'Sucursal', style: 'tableHeader', alignment: 'center' },
-        { text: 'Fecha Fact', style: 'tableHeader', alignment: 'center' },
-        { text: 'Valor Fact', style: 'tableHeader', alignment: 'center' },
-        { text: 'GrupoAtencion', style: 'tableHeader', alignment: 'center' },
+        { text: 'Fecha Factura', style: 'tableHeader', alignment: 'center' },
+        { text: 'Valor Factura', style: 'tableHeader', alignment: 'center' },
         { text: 'Entidad', style: 'tableHeader', alignment: 'center' }
       ],
       ...filas.map((fila, index) => {
@@ -126,7 +130,6 @@ export class ConstanciaSoatExportService {
           cellFija(fila.suc, fillColor),
           cellFija(fila.fechaFact, fillColor),
           cellFija(formatearMonedaCop(fila.valorFact, false), fillColor, 'right'),
-          { text: fila.grupoAtencion, style: 'tableCell', alignment: 'left', fillColor },
           { text: fila.entidad, style: 'tableCell', alignment: 'left', fillColor }
         ];
       })
@@ -163,7 +166,8 @@ export class ConstanciaSoatExportService {
     const docDefinition: any = {
       pageSize: 'LETTER',
       pageOrientation: 'portrait',
-      pageMargins: [40, 40, 40, 40],
+      // Margen inferior para firma (última página) y número de hoja
+      pageMargins: [40, 40, 40, 120],
 
       images: logoDataUrl ? { empresaLogo: logoDataUrl } : {},
 
@@ -171,30 +175,16 @@ export class ConstanciaSoatExportService {
         ...headerContent,
         {
           text:
-            `${clinica}, hace constar que el Señor (a) ${nombrePaciente}, ` +
-            `identificado (a) con número ${identificacion} presenta unos valores facturados en nuestra base de datos así:`,
+            `${clinica}, hace constar que el usuario (a) ${nombrePaciente}, ` +
+            `identificado (a) con el No. ${identificacion} presenta las siguientes atenciones facturadas en nuestra base de datos así:`,
           style: 'body',
-          margin: [0, 0, 0, 14]
-        },
-        {
-          columns: [
-            { text: 'Un total de:', style: 'label', width: 90 },
-            { text: formatearMonedaCop(total, false), style: 'totalValue', width: '*' }
-          ],
-          margin: [0, 0, 0, 4]
-        },
-        {
-          columns: [
-            { text: 'Valor en letras:', style: 'label', width: 90 },
-            { text: numeroALetrasPesos(total), style: 'totalLetras', width: '*' }
-          ],
           margin: [0, 0, 0, 14]
         },
         {
           table: {
             headerRows: 1,
-            // LETTER útil ~532pt: Nro Poliza primero; columnas cortas más anchas para evitar cortes
-            widths: [68, 58, 50, 48, 52, 58, '*', '*'],
+            // LETTER útil ~532pt: Numero Poliza primero; Entidad toma el resto
+            widths: [72, 70, 52, 50, 62, 62, '*'],
             body: tableBody
           },
           layout: {
@@ -206,31 +196,78 @@ export class ConstanciaSoatExportService {
           margin: [0, 0, 0, 14]
         },
         {
-          text: `OBSERVACIONES: ${observaciones}`,
-          style: 'observaciones',
-          margin: [0, 0, 0, 12]
-        },
-        {
-          text: 'Se expide a solicitud de quien se certifica en este documento,',
-          style: 'body',
-          margin: [0, 0, 0, 4]
-        },
-        {
-          text: formatearFechaLarga(new Date()),
-          style: 'fechaEmision',
-          margin: [0, 0, 0, 48]
-        },
-        {
-          stack: [
-            { text: '________________________________', style: 'firmaLinea', margin: [0, 0, 0, 8] },
-            { text: firmante, style: 'firmaNombre' },
-            { text: cargo, style: 'firmaCargo' },
-            { text: empresaNombre, style: 'firmaEmpresa' }
+          columns: [
+            { text: 'Para un total de:', style: 'resumenPie', width: 110 },
+            { text: formatearMonedaCop(totalLocal, false), style: 'resumenPie', width: '*' }
           ],
-          alignment: 'center',
-          width: 260
+          margin: [0, 0, 0, valorOtrasIps > 0 ? 8 : 4]
+        },
+        ...(valorOtrasIps > 0
+          ? [
+              {
+                text:
+                  `Adicionalmente, presentó atenciones facturadas en otras IPS por valor de: ${formatearMonedaCop(valorOtrasIps, false)}`,
+                style: 'resumenPie',
+                margin: [0, 0, 0, 8]
+              },
+              {
+                columns: [
+                  { text: 'Total Facturado:', style: 'resumenPie', width: 110 },
+                  { text: formatearMonedaCop(totalFacturado, false), style: 'resumenPie', width: '*' }
+                ],
+                margin: [0, 0, 0, 4]
+              }
+            ]
+          : []),
+        {
+          columns: [
+            { text: 'Valor en letras:', style: 'resumenPie', width: 110 },
+            { text: numeroALetrasPesos(totalFacturado), style: 'resumenPie', width: '*' }
+          ],
+          margin: [0, 0, 0, 14]
+        },
+        {
+          text: textoExpedicion,
+          style: 'resumenPie',
+          margin: [0, 0, 0, 0]
         }
       ],
+
+      footer: (currentPage: number, pageCount: number) => {
+        const esUltima = currentPage === pageCount;
+        const stack: any[] = [];
+
+        if (esUltima) {
+          stack.push({
+            stack: [
+              { text: '________________________________', style: 'firmaLinea', margin: [0, 0, 0, 6] },
+              { text: firmante, style: 'firmaNombre' },
+              { text: cargo, style: 'firmaCargo' },
+              { text: empresaNombre, style: 'firmaEmpresa' }
+            ],
+            alignment: 'center'
+          });
+        }
+
+        if (pageCount > 1) {
+          stack.push({
+            text: `Página ${currentPage} de ${pageCount}`,
+            alignment: 'center',
+            fontSize: 8,
+            color: '#595959',
+            margin: [0, esUltima ? 10 : 4, 0, 0]
+          });
+        }
+
+        if (!stack.length) {
+          return { text: '' };
+        }
+
+        return {
+          margin: [40, esUltima ? 16 : 20, 40, 20],
+          stack
+        };
+      },
 
       styles: {
         title: {
@@ -243,6 +280,10 @@ export class ConstanciaSoatExportService {
           fontSize: 10,
           alignment: 'justify',
           color: '#222222'
+        },
+        resumenPie: {
+          fontSize: 10,
+          color: '#000000'
         },
         label: {
           fontSize: 10,
@@ -267,16 +308,6 @@ export class ConstanciaSoatExportService {
         },
         tableCell: {
           fontSize: 8,
-          color: '#222222'
-        },
-        observaciones: {
-          fontSize: 9,
-          italics: true,
-          color: '#333333'
-        },
-        fechaEmision: {
-          fontSize: 10,
-          bold: true,
           color: '#222222'
         },
         firmaLinea: {
@@ -374,7 +405,6 @@ export class ConstanciaSoatExportService {
       suc: String(this.pick(row, COL_ALIASES.suc) ?? ''),
       fechaFact: formatearFechaCorta(this.pick(row, COL_ALIASES.fechaFact)),
       valorFact: this.toNumber(this.pick(row, COL_ALIASES.valorFact)),
-      grupoAtencion: this.limpiarCodigoPrefijo(String(this.pick(row, COL_ALIASES.grupoAtencion) ?? '')),
       entidad: this.limpiarCodigoPrefijo(String(this.pick(row, COL_ALIASES.entidad) ?? ''))
     };
   }

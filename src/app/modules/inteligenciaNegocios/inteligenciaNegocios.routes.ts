@@ -193,5 +193,16 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       moduleCode: 'BI-FORM-PFARMA',
       pageSubtitle: 'Consulta de perfil farmacoterapéutico por cédula'
     }
+  },
+  {
+    path: 'tableros/Egresos',
+    loadComponent: () =>
+      import('./tableros/egresos/egresos.component').then(m => m.EgresosTableroComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-TABLERO-EGRESOS',
+      pageTitle: 'Tablero de Egresos',
+      pageSubtitle: 'Cuenta de ingresos por sucursal y unidad funcional (dc.VW_HC_Egresos_Conteo)'
+    }
   }
 ];

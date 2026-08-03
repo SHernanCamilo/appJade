@@ -1,0 +1,448 @@
+.egresos-tablero.page-container {
+  background: #f5f7fa;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.egresos-tablero .dashboard-content {
+  padding: 0 2rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.egresos-tablero .page-header-modern {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.egresos-tablero .header-top {
+  margin-bottom: 1rem;
+}
+
+.egresos-tablero .btn-back-modern {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.egresos-tablero .btn-back-modern:hover {
+  color: #1f2937;
+}
+
+.egresos-tablero .page-title-modern {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem;
+  display: flex;
+  align-items: center;
+}
+
+.egresos-tablero .page-subtitle-modern {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.egresos-tablero .vista-chip {
+  display: inline-block;
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.egresos-tablero .toolbar-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.egresos-tablero .toolbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.egresos-tablero .toolbar-left label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.egresos-tablero .toolbar-left select {
+  height: 40px;
+  min-width: 120px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.egresos-tablero .toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.egresos-tablero .btn-toolbar {
+  height: 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  padding: 0 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.egresos-tablero .btn-toolbar:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.egresos-tablero .btn-toolbar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.egresos-tablero .btn-toolbar-primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.egresos-tablero .btn-toolbar-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.egresos-tablero .btn-toolbar.is-active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.egresos-tablero .unidades-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.egresos-tablero .unidades-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.egresos-tablero .unidades-panel-header strong {
+  display: block;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.egresos-tablero .unidades-panel-header small {
+  display: block;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.egresos-tablero .unidades-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.egresos-tablero .btn-link {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.egresos-tablero .btn-link:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.egresos-tablero .unidades-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  background: #fff;
+}
+
+.egresos-tablero .unidades-search i {
+  color: #9ca3af;
+}
+
+.egresos-tablero .unidades-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  height: 40px;
+  font-size: 0.9rem;
+  background: transparent;
+}
+
+.egresos-tablero .unidades-list {
+  max-height: 220px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.35rem;
+}
+
+.egresos-tablero .unidad-check {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #111827;
+}
+
+.egresos-tablero .unidad-check:hover {
+  background: #f3f4f6;
+}
+
+.egresos-tablero .unidad-check.is-off {
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
+.egresos-tablero .unidad-check-total {
+  color: #4b5563;
+  font-variant-numeric: tabular-nums;
+}
+
+.egresos-tablero .unidad-check.is-off .unidad-check-total {
+  color: #9ca3af;
+}
+
+.egresos-tablero .unidades-empty {
+  padding: 0.85rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.egresos-tablero .unidad-row-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  margin: 0;
+  font-weight: 400;
+}
+
+.egresos-tablero .unidad-row-check input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.egresos-tablero .row-unidad.is-off {
+  opacity: 0.45;
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.egresos-tablero .row-unidad.is-off .sticky-col {
+  background: #f9fafb;
+}
+
+.egresos-tablero .meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.egresos-tablero .meta-row i {
+  margin-right: 0.3rem;
+}
+
+.egresos-tablero .aviso-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.egresos-tablero .pivot-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 240px;
+}
+
+.egresos-tablero .pivot-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 280px);
+}
+
+.egresos-tablero .pivot-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  color: #111827;
+}
+
+.egresos-tablero .pivot-table th,
+.egresos-tablero .pivot-table td {
+  border: 1px solid #d1d5db;
+  padding: 0.4rem 0.55rem;
+  white-space: nowrap;
+}
+
+.egresos-tablero .pivot-table thead th {
+  background: #f3f4f6;
+  font-weight: 700;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.egresos-tablero .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  min-width: 280px;
+  max-width: 420px;
+  text-align: left !important;
+}
+
+.egresos-tablero thead .sticky-col {
+  z-index: 3;
+  background: #f3f4f6;
+}
+
+.egresos-tablero .col-mes,
+.egresos-tablero .col-total {
+  text-align: right;
+  min-width: 64px;
+}
+
+.egresos-tablero .row-sucursal {
+  cursor: pointer;
+  background: #fff;
+}
+
+.egresos-tablero .row-sucursal:hover {
+  background: #f8fafc;
+}
+
+.egresos-tablero .row-sucursal .sticky-col {
+  background: inherit;
+}
+
+.egresos-tablero .btn-toggle {
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  padding: 0;
+  margin-right: 0.35rem;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.egresos-tablero .row-unidad {
+  background: #f3f4f6;
+}
+
+.egresos-tablero .unidad-label {
+  padding-left: 1.75rem !important;
+  background: #f3f4f6;
+}
+
+.egresos-tablero .row-total-sucursal {
+  background: #fff;
+}
+
+.egresos-tablero .row-total-sucursal .sticky-col {
+  background: #fff;
+}
+
+.egresos-tablero .row-grand-total {
+  background: #e5e7eb;
+  font-weight: 700;
+}
+
+.egresos-tablero .row-grand-total .sticky-col {
+  background: #e5e7eb;
+}
+
+.egresos-tablero .empty-state {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.egresos-tablero .empty-state i {
+  font-size: 1.75rem;
+}
+
+@media (max-width: 768px) {
+  .egresos-tablero .dashboard-content,
+  .egresos-tablero .page-header-modern {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .egresos-tablero .pivot-scroll {
+    max-height: calc(100vh - 360px);
+  }
+
+  .egresos-tablero .sticky-col {
+    min-width: 200px;
+  }
+}

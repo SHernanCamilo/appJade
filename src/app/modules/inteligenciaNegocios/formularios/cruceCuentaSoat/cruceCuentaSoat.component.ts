@@ -19,7 +19,7 @@ import { AuthService } from '../../../auth/auth.service';
 import { EmpresaService } from '../../../organizacion/empresa/services/empresa.service';
 import { ConstanciaSoatExportService } from './services/constancia-soat-export.service';
 
-type ExportModo = 'completa' | 'poliza';
+type ExportModo = 'completa' | 'poliza' | 'seleccion';
 
 @Component({
   selector: 'app-cruce-cuenta-soat',
@@ -70,7 +70,9 @@ export class CruceCuentaSoatComponent implements OnDestroy {
   polizaSeleccionada = '';
   polizasDisponibles: string[] = [];
   isLoadingExportData = false;
-  private exportRowsCache: Record<string, unknown>[] = [];
+  /** Valor opcional de atenciones en otras IPS (texto del input). */
+  valorOtrasIps = '';
+  exportRowsCache: Record<string, unknown>[] = [];
 
   /** Filas marcadas en la grilla para exportar solo esas facturas. */
   filasSeleccionadasCount = 0;
@@ -159,6 +161,13 @@ export class CruceCuentaSoatComponent implements OnDestroy {
     return true;
   }
 
+  /** Valor numérico de otras IPS (0 si vacío o inválido). */
+  get valorOtrasIpsNumero(): number {
+    const raw = this.valorOtrasIps.trim().replace(/\./g, '').replace(',', '.');
+    const n = Number(raw.replace(/[^\d.]/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
   onCcInput(value: string): void {
     this.numeroCc = value.replace(/\D/g, '');
   }
@@ -221,13 +230,13 @@ export class CruceCuentaSoatComponent implements OnDestroy {
   }
 
   /**
-   * Si hay facturas seleccionadas en la grilla → PDF directo con esas filas.
-   * Si no hay selección → abre el diálogo Completa / Póliza (comportamiento actual).
+   * Si hay facturas seleccionadas en la grilla → diálogo con esas filas + otras IPS.
+   * Si no hay selección → abre el diálogo Completa / Póliza.
    */
   onClickExportarPdf(): void {
     const seleccionadas = this.getFilasSeleccionadas();
     if (seleccionadas.length > 0) {
-      void this.exportarFilasSeleccionadas(seleccionadas);
+      this.abrirExportDialogSeleccion(seleccionadas);
       return;
     }
     this.abrirExportDialog();
@@ -249,6 +258,7 @@ export class CruceCuentaSoatComponent implements OnDestroy {
     this.polizaSeleccionada = '';
     this.polizasDisponibles = [];
     this.exportRowsCache = [];
+    this.valorOtrasIps = '';
     this.showExportDialog = true;
 
     // Si la grilla ya tiene todos los registros, no vuelve a consultar la API
@@ -260,12 +270,24 @@ export class CruceCuentaSoatComponent implements OnDestroy {
     this.cargarDatosExport();
   }
 
+  /** Exportar solo filas seleccionadas: mismo diálogo, pregunta otras IPS. */
+  private abrirExportDialogSeleccion(rows: Record<string, unknown>[]): void {
+    this.exportModo = 'seleccion';
+    this.polizaSeleccionada = '';
+    this.polizasDisponibles = [];
+    this.valorOtrasIps = '';
+    this.exportRowsCache = rows;
+    this.isLoadingExportData = false;
+    this.showExportDialog = true;
+  }
+
   cerrarExportDialog(): void {
     this.showExportDialog = false;
     this.exportModo = 'completa';
     this.polizaSeleccionada = '';
     this.polizasDisponibles = [];
     this.exportRowsCache = [];
+    this.valorOtrasIps = '';
     this.isLoadingExportData = false;
     this.exportSub?.unsubscribe();
   }
@@ -297,16 +319,14 @@ export class CruceCuentaSoatComponent implements OnDestroy {
       }
     }
 
-    await this.generarPdf(rows, this.exportModo === 'poliza'
-      ? `Constancia de la póliza ${this.polizaSeleccionada} (CC ${this.ultimaConsulta}).`
-      : `Constancia completa de la CC ${this.ultimaConsulta}.`);
-  }
+    const detalle =
+      this.exportModo === 'poliza'
+        ? `Constancia de la póliza ${this.polizaSeleccionada} (CC ${this.ultimaConsulta}).`
+        : this.exportModo === 'seleccion'
+          ? `Constancia con ${rows.length} factura(s) seleccionada(s) (CC ${this.ultimaConsulta}).`
+          : `Constancia completa de la CC ${this.ultimaConsulta}.`;
 
-  private async exportarFilasSeleccionadas(rows: Record<string, unknown>[]): Promise<void> {
-    await this.generarPdf(
-      rows,
-      `Constancia con ${rows.length} factura(s) seleccionada(s) (CC ${this.ultimaConsulta}).`
-    );
+    await this.generarPdf(rows, detalle);
   }
 
   private async generarPdf(rows: Record<string, unknown>[], detalleOk: string): Promise<void> {
@@ -317,6 +337,7 @@ export class CruceCuentaSoatComponent implements OnDestroy {
     this.isExporting = true;
     try {
       const firmante = await this.obtenerDatosFirmante();
+      const valorOtrasIps = this.valorOtrasIpsNumero || null;
 
       await this.constanciaExport.exportar({
         identificacion: this.ultimaConsulta,
@@ -326,7 +347,8 @@ export class CruceCuentaSoatComponent implements OnDestroy {
         empresaNombre: firmante.empresaNombre,
         logoUrl: firmante.logoUrl,
         logoBase64: firmante.logoBase64,
-        ciudadEmision: firmante.ciudadEmision
+        ciudadEmision: firmante.ciudadEmision,
+        valorOtrasIps
       });
 
       this.messageService.add({

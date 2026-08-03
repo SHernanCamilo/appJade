@@ -1,0 +1,207 @@
+<p-toast></p-toast>
+
+<div class="page-container egresos-tablero">
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" type="button" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-chart-bar me-2"></i>
+          Tablero de Egresos
+        </h1>
+        <p class="page-subtitle-modern">
+          Cuenta de ingresos por sucursal y unidad funcional —
+          <span class="vista-chip">dc.VW_HC_Egresos_Conteo</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="toolbar-card">
+      <div class="toolbar-left">
+        <label for="anio-egresos">Año</label>
+        <select
+          id="anio-egresos"
+          [(ngModel)]="anioSeleccionado"
+          (ngModelChange)="onAnioChange()"
+          [disabled]="isLoading || isLoadingColumns">
+          <option *ngFor="let y of anioOptions" [ngValue]="y">{{ y }}</option>
+        </select>
+      </div>
+
+      <div class="toolbar-actions">
+        <button
+          type="button"
+          class="btn-toolbar"
+          (click)="expandirTodo()"
+          [disabled]="!sucursales.length"
+          pTooltip="Expandir todas las sucursales">
+          <i class="pi pi-plus"></i>
+          Expandir
+        </button>
+        <button
+          type="button"
+          class="btn-toolbar"
+          (click)="colapsarTodo()"
+          [disabled]="!sucursales.length"
+          pTooltip="Colapsar todas las sucursales">
+          <i class="pi pi-minus"></i>
+          Colapsar
+        </button>
+        <button
+          type="button"
+          class="btn-toolbar"
+          (click)="toggleUnidadesPanel()"
+          [disabled]="!unidadesDisponibles.length"
+          [class.is-active]="showUnidadesPanel"
+          pTooltip="Incluir o excluir unidades funcionales del conteo">
+          <i class="pi pi-filter"></i>
+          Unidades ({{ unidadesActivasCount }}/{{ unidadesDisponibles.length }})
+        </button>
+        <button
+          type="button"
+          class="btn-toolbar btn-toolbar-primary"
+          (click)="recargar()"
+          [disabled]="isLoading || isLoadingColumns">
+          <i class="pi" [class.pi-spin]="isLoading" [class.pi-spinner]="isLoading" [class.pi-refresh]="!isLoading"></i>
+          {{ isLoading ? 'Cargando...' : 'Actualizar' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="unidades-panel" *ngIf="showUnidadesPanel && unidadesDisponibles.length">
+      <div class="unidades-panel-header">
+        <div>
+          <strong>Unidades funcionales</strong>
+          <small>Desmarque las que no quiera incluir en el conteo (ej. dejar solo hospitalización).</small>
+        </div>
+        <div class="unidades-panel-actions">
+          <button type="button" class="btn-link" (click)="activarTodasUnidades()">Todas</button>
+          <button type="button" class="btn-link" (click)="desactivarTodasUnidades()">Ninguna</button>
+          <button
+            type="button"
+            class="btn-link"
+            (click)="activarSoloVisibles()"
+            [disabled]="!filtroUnidad.trim()">
+            Solo filtradas
+          </button>
+        </div>
+      </div>
+
+      <div class="unidades-search">
+        <i class="pi pi-search"></i>
+        <input
+          type="text"
+          [(ngModel)]="filtroUnidad"
+          (ngModelChange)="onFiltroUnidadChange()"
+          placeholder="Buscar unidad (ej. hospitalizacion, urgencias...)">
+      </div>
+
+      <div class="unidades-list">
+        <label
+          class="unidad-check"
+          *ngFor="let u of unidadesVisibles; trackBy: trackUnidadFiltro"
+          [class.is-off]="!u.activa">
+          <input
+            type="checkbox"
+            [checked]="u.activa"
+            (change)="onCheckboxUnidad(u.nombre, $any($event.target).checked, $event)">
+          <span class="unidad-check-name">{{ u.nombre }}</span>
+          <span class="unidad-check-total">{{ u.totalTexto }}</span>
+        </label>
+        <div class="unidades-empty" *ngIf="!unidadesVisibles.length">
+          No hay unidades con ese filtro.
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-row" *ngIf="!isLoading && !errorMessage && sucursales.length">
+      <span><i class="pi pi-building"></i> {{ sucursales.length }} sucursales</span>
+      <span><i class="pi pi-hashtag"></i> {{ grandTotalTexto || '0' }} egresos</span>
+      <span *ngIf="unidadesDisponibles.length">
+        <i class="pi pi-filter"></i>
+        {{ unidadesActivasCount }}/{{ unidadesDisponibles.length }} unidades
+      </span>
+      <span *ngIf="elapsedTexto"><i class="pi pi-clock"></i> {{ elapsedTexto }}</span>
+    </div>
+
+    <div class="aviso-error" *ngIf="errorMessage">
+      <i class="pi pi-exclamation-triangle"></i>
+      {{ errorMessage }}
+    </div>
+
+    <div class="pivot-card" *ngIf="!errorMessage">
+      <div class="pivot-scroll" *ngIf="!isLoading && !isLoadingColumns && sucursales.length">
+        <table class="pivot-table">
+          <thead>
+            <tr>
+              <th class="col-etiqueta sticky-col">Ingresos</th>
+              <th *ngFor="let m of monthCols; trackBy: trackMes" class="col-mes">{{ m.label }}</th>
+              <th class="col-total">Total general</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let s of sucursales; trackBy: trackSucursal">
+              <tr class="row-sucursal" (click)="toggleSucursal(s)">
+                <td class="col-etiqueta sticky-col">
+                  <button type="button" class="btn-toggle" [attr.aria-expanded]="s.expanded">
+                    <i class="pi" [class.pi-minus]="s.expanded" [class.pi-plus]="!s.expanded"></i>
+                  </button>
+                  <strong>{{ s.sucursal }}</strong>
+                </td>
+                <td *ngFor="let c of s.cells" class="col-mes">{{ c }}</td>
+                <td class="col-total"><strong>{{ s.totalTexto }}</strong></td>
+              </tr>
+
+              <ng-container *ngIf="s.expanded">
+                <tr
+                  *ngFor="let u of s.unidades; trackBy: trackUnidad"
+                  class="row-unidad"
+                  [class.is-off]="!u.activa">
+                  <td class="col-etiqueta sticky-col unidad-label">
+                    <label class="unidad-row-check" (click)="$event.stopPropagation()">
+                      <input
+                        type="checkbox"
+                        [checked]="u.activa"
+                        (change)="onCheckboxUnidad(u.unidad, $any($event.target).checked, $event)">
+                      <span>{{ u.unidad }}</span>
+                    </label>
+                  </td>
+                  <td *ngFor="let c of u.cells" class="col-mes">{{ c }}</td>
+                  <td class="col-total">{{ u.totalTexto }}</td>
+                </tr>
+
+                <tr class="row-total-sucursal">
+                  <td class="col-etiqueta sticky-col"><strong>Total {{ s.sucursal }}</strong></td>
+                  <td *ngFor="let c of s.cells" class="col-mes"><strong>{{ c }}</strong></td>
+                  <td class="col-total"><strong>{{ s.totalTexto }}</strong></td>
+                </tr>
+              </ng-container>
+            </ng-container>
+          </tbody>
+          <tfoot>
+            <tr class="row-grand-total">
+              <td class="col-etiqueta sticky-col"><strong>Total general</strong></td>
+              <td *ngFor="let c of grandCells" class="col-mes"><strong>{{ c }}</strong></td>
+              <td class="col-total"><strong>{{ grandTotalTexto }}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="!isLoading && !isLoadingColumns && !sucursales.length && !errorMessage">
+        <i class="pi pi-inbox"></i>
+        No hay egresos para el año seleccionado.
+      </div>
+    </div>
+
+    <app-grid-loader *ngIf="isLoading || isLoadingColumns"></app-grid-loader>
+  </div>
+</div>

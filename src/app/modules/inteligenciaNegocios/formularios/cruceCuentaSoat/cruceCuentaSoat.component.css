@@ -405,6 +405,40 @@
   color: #6b7280;
 }
 
+.export-otras-ips-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.export-otras-ips-field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.export-otras-ips-field input {
+  height: 42px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  font-size: 0.95rem;
+  color: #111827;
+  background: #fff;
+  outline: none;
+}
+
+.export-otras-ips-field input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.export-otras-ips-field input:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 .export-loading {
   display: inline-flex;
   align-items: center;
