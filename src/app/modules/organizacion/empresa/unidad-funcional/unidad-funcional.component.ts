@@ -95,7 +95,25 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
 
   // Modal de selección de unidades (usado en el template)
   modalSearchTerm = '';
-  unidadesModalFiltradas: UnidadFuncional[] = [];
+
+  /** Lista del modal filtrada por el buscador local */
+  get unidadesModalFiltradas(): UnidadFuncional[] {
+    const term = (this.modalSearchTerm || '').trim().toLowerCase();
+    if (!term) {
+      return this.unidadesModal;
+    }
+
+    return this.unidadesModal.filter(u => {
+      const codigo = (u.codigo || '').toLowerCase();
+      const nombre = (u.nombre || '').toLowerCase();
+      const sucursal = (u.sucursal?.nombre || '').toLowerCase();
+      const sede = (u.sede?.nombre || '').toLowerCase();
+      return codigo.includes(term)
+        || nombre.includes(term)
+        || sucursal.includes(term)
+        || sede.includes(term);
+    });
+  }
 
   activeAsignacionTab = 0;
 
@@ -367,6 +385,7 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
     const empresaId = this.unidadForm.get('id_empresa')?.value;
     this.showModalUnidades = true;
     this.isLoadingModal = true;
+    this.modalSearchTerm = '';
     this.unidadesModal = [];
 
     this.unidadFuncionalService.getUnidadesFuncionales(empresaId).subscribe({
@@ -385,6 +404,7 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
   cerrarModalUnidades(): void {
     this.showModalUnidades = false;
     this.unidadesModal = [];
+    this.modalSearchTerm = '';
   }
 
   private loadEmpresasDisponibles(): void {
