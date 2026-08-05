@@ -8,24 +8,39 @@ export const INVENTARIO_ROUTES: Routes = [
     component: InventarioComponent
   },
   {
-    path: 'pedidos',
-    loadComponent: () => import('./pedidos/pedidos.component').then(m => m.PedidosComponent)
-  },
-  {
-    path: 'ordenes-compra',
-    loadComponent: () => import('./ordenes-compra/ordenes-compra.component').then(m => m.OrdenesCompraComponent)
-  },
-  {
-    path: 'recepciones-tecnicas',
-    loadComponent: () => import('./recepciones-tecnicas/recepciones-tecnicas.component').then(m => m.RecepcionesTecnicasComponent)
-  },
-  {
-    path: 'recepciones-tecnicas/excel/:compraId',
-    loadComponent: () => import('./recepciones-tecnicas/recepcion-excel/recepcion-excel.component').then(m => m.RecepcionExcelComponent)
-  },
-  {
-    path: 'productos',
-    loadComponent: () => import('./productos/productos.component').then(m => m.ProductosComponent)
+    path: 'farmacia',
+    children: [
+      {
+        path: 'pedidos',
+        loadComponent: () => import('./pedidos/pedidos.component').then(m => m.PedidosComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-PEDIDOS' }
+      },
+      {
+        path: 'ordenCompra',
+        loadComponent: () => import('./ordenes-compra/ordenes-compra.component').then(m => m.OrdenesCompraComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-ORDENES' }
+      },
+      {
+        path: 'recepcionTecnica',
+        loadComponent: () => import('./recepciones-tecnicas/recepciones-tecnicas.component').then(m => m.RecepcionesTecnicasComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-RECEPCIONES' }
+      },
+      {
+        path: 'recepcionTecnica/excel/:compraId',
+        loadComponent: () => import('./recepciones-tecnicas/recepcion-excel/recepcion-excel.component').then(m => m.RecepcionExcelComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-RECEPCIONES' }
+      },
+      {
+        path: 'productos',
+        loadComponent: () => import('./productos/productos.component').then(m => m.ProductosComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-PRODUCTOS' }
+      }
+    ]
   },
   {
     path: 'matrizObsolescencia',
@@ -33,7 +48,7 @@ export const INVENTARIO_ROUTES: Routes = [
       {
         path: 'dashboardMaObsolescencia',
         loadComponent: () => import('./matrizObsolescencia/dashboardMaObsolescencia/dashboardMaObsolescencia.component').then(m => m.DashboardMaObsolescenciaComponent),
-        canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
+        canActivate: [moduleGuard],
         data: { moduleCode: 'INV-MATRIX-DAHSBOARD' }
       },
       {
@@ -62,7 +77,7 @@ export const INVENTARIO_ROUTES: Routes = [
       {
         path: 'dashboardFracttal',
         loadComponent: () => import('./interfazFracttal/dashboardFracttal/dashboardFracttal.component').then(m => m.DashboardFracttalComponent),
-        canActivate: [moduleGuard],  // ⚠️ Desactivado temporalmente
+        canActivate: [moduleGuard],
         data: { moduleCode: 'INV-FRACTTAL-GLPI' }
       }
     ]
