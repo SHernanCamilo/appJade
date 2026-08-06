@@ -503,31 +503,21 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
     this.limpiarUsuariosDisponibles();
     this.empresaIdActual = empresaId;
 
-    // Tab Usuarios: busca en config_person_tercero (empleados)
     this.empleadoService.buscarPersonas(empresaId, '', 1, this.PAGE_SIZE).subscribe({
       next: (personas) => {
+        // Carga inicial: ambos tabs reciben el mismo listado (empleados/terceros)
         this.hayMasUsuarios = personas.length === this.PAGE_SIZE;
+        this.hayMasJefes = personas.length === this.PAGE_SIZE;
         this.personasCache = [...personas];
         const opts = personas.map(p => ({ label: this.formatPersonaLabel(p), value: p.id }));
         this.usuariosOptions = [...opts];
+        this.jefesOptions = [...opts];
         this.isLoadingUsuarios = false;
       },
       error: () => {
         this.limpiarUsuariosDisponibles();
         this.isLoadingUsuarios = false;
         this.showError('Error al cargar las personas de la empresa');
-      }
-    });
-
-    // Tab Usuarios encargados: busca en users (gestión de usuarios)
-    this.empleadoService.buscarUsuarios(empresaId, '', 1, this.PAGE_SIZE).subscribe({
-      next: (usuarios) => {
-        this.hayMasJefes = usuarios.length === this.PAGE_SIZE;
-        const opts = usuarios.map(p => ({ label: this.formatPersonaLabel(p), value: p.id }));
-        this.jefesOptions = [...opts];
-      },
-      error: () => {
-        this.jefesOptions = [];
       }
     });
   }
@@ -825,14 +815,13 @@ export class UnidadFuncionalComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      // Buscar en jefesOptions (viene de tabla users)
-      const jefeOpt = this.jefesOptions.find((p: any) => p.value === id);
-      if (!jefeOpt) continue;
+      const jefe = this.personasCache.find(p => p.id === id);
+      if (!jefe) continue;
 
       nuevos.push({
-        id_user: id,
-        codigo: String(id).padStart(3, '0'),
-        nombre: jefeOpt.label?.replace(/^\d+\s*-\s*/, '') || `Usuario ${id}`
+        id_user: jefe.id,
+        codigo: jefe.numero_identificacion || String(jefe.id).padStart(3, '0'),
+        nombre: jefe.nombre
       });
     }
 
