@@ -1,0 +1,93 @@
+<p-toast position="top-right" />
+
+<section class="ft-cups">
+  <header class="ft-cups__header">
+    <h1>Consulta de tarifarios médicos</h1>
+    <p>CUPS, homologaciones ISS/SOAT/Institucional y trazabilidad</p>
+  </header>
+
+  <p-tabView>
+    <!-- CUPS vigente -->
+    <p-tabPanel header="CUPS 2641">
+      <div class="ft-cups__filtros">
+        <input pInputText [(ngModel)]="cupsBuscar" placeholder="Código o descripción…" (keyup.enter)="buscarCups()" style="width: 20rem" />
+        <p-select [options]="cupsGrupos()" optionLabel="desc_grup" optionValue="grupo" [(ngModel)]="cupsGrupoSel" placeholder="Grupo" [showClear]="true" [filter]="true" appendTo="body" />
+        <p-button label="Buscar" icon="pi pi-search" (onClick)="buscarCups()" />
+      </div>
+      <p-table [value]="cupsResultados()" [lazy]="true" [loading]="cupsCargando()" [paginator]="true" [rows]="25" [totalRecords]="cupsMeta()?.total ?? 0" (onLazyLoad)="buscarCups($event)" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr><th style="width: 8rem">Código</th><th>Descripción</th><th style="width: 8rem">Grupo</th><th style="width: 8rem">Subgrupo</th><th style="width: 5rem">PBS</th></tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-c>
+          <tr><td>{{ c.subcategoria }}</td><td>{{ c.desc_subcat }}</td><td>{{ c.grupo }}</td><td>{{ c.subgrupo }}</td><td class="ft-td-center">{{ c.pbs }}</td></tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage"><tr><td colspan="5" class="ft-cups__vacio">Sin resultados.</td></tr></ng-template>
+      </p-table>
+    </p-tabPanel>
+
+    <!-- Homólogos / Tarifarios -->
+    <p-tabPanel header="Homólogos (ISS/SOAT/Institucional)">
+      <div class="ft-cups__filtros">
+        <p-select [options]="manuales" optionLabel="label" optionValue="value" [(ngModel)]="homManual" />
+        <input pInputText [(ngModel)]="homBuscar" placeholder="Código o descripción…" (keyup.enter)="buscarHomologos()" style="width: 20rem" />
+        <p-button label="Buscar" icon="pi pi-search" (onClick)="buscarHomologos()" />
+      </div>
+      <p-table [value]="homResultados()" [lazy]="true" [loading]="homCargando()" [paginator]="true" [rows]="25" [totalRecords]="homMeta()?.total ?? 0" (onLazyLoad)="buscarHomologos($event)" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr><th>CUPS</th><th>Descripción</th><th>Código manual</th><th>Desc. manual</th><th style="width: 8rem">Valor</th></tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-h>
+          <tr><td>{{ h.code_cups }}</td><td>{{ h.desc_cups }}</td><td>{{ h.code_manual }}</td><td>{{ h.desc_manual }}</td><td class="ft-td-right">{{ h.valor | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td></tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage"><tr><td colspan="5" class="ft-cups__vacio">Sin resultados.</td></tr></ng-template>
+      </p-table>
+    </p-tabPanel>
+
+    <!-- SOAT -->
+    <p-tabPanel header="SOAT 2023">
+      <div class="ft-cups__filtros">
+        <input pInputText [(ngModel)]="soatBuscar" placeholder="Código o descripción…" (keyup.enter)="buscarSoat()" style="width: 20rem" />
+        <p-button label="Buscar" icon="pi pi-search" (onClick)="buscarSoat()" />
+      </div>
+      <p-table [value]="soatResultados()" [lazy]="true" [loading]="soatCargando()" [paginator]="true" [rows]="25" [totalRecords]="soatMeta()?.total ?? 0" (onLazyLoad)="buscarSoat($event)" styleClass="p-datatable-sm p-datatable-striped">
+        <ng-template pTemplate="header">
+          <tr><th style="width: 7rem">Código</th><th>Descripción</th><th style="width: 5rem">Grupo</th><th style="width: 9rem">Vlr. cirujano</th><th style="width: 9rem">Vlr. anestesia</th><th style="width: 9rem">Valor</th></tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-s>
+          <tr><td>{{ s.cod }}</td><td>{{ s.descripcion }}</td><td class="ft-td-center">{{ s.grupo }}</td><td class="ft-td-right">{{ s.vlr_cirujano | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td><td class="ft-td-right">{{ s.vlr_anestesia | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td><td class="ft-td-right">{{ s.valor | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td></tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage"><tr><td colspan="6" class="ft-cups__vacio">Sin resultados.</td></tr></ng-template>
+      </p-table>
+    </p-tabPanel>
+
+    <!-- Trazabilidad -->
+    <p-tabPanel header="Trazabilidad por CUPS">
+      <div class="ft-cups__filtros">
+        <input pInputText [(ngModel)]="trazaCups" placeholder="Ingrese el código CUPS" (keyup.enter)="buscarTrazabilidad()" style="width: 14rem" />
+        <p-button label="Buscar fichas" icon="pi pi-search" (onClick)="buscarTrazabilidad()" />
+      </div>
+      @if (trazaCargando()) {
+        <p-skeleton height="10rem" borderRadius="0.5rem" />
+      } @else if (trazaResultados().length > 0) {
+        <p-table [value]="trazaResultados()" styleClass="p-datatable-sm p-datatable-striped">
+          <ng-template pTemplate="header">
+            <tr><th>CUPS</th><th>Sucursal</th><th>Forma pago</th><th>Valor</th><th>Vigencia</th><th>Estado</th><th>Consecutivo</th></tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-f>
+            <tr>
+              <td>{{ f.cups }} - {{ f.cups_descripcion }}</td>
+              <td>{{ f.sucursal_legacy ?? f.sucursal_nombre }}</td>
+              <td>{{ f.forma_pago }}</td>
+              <td class="ft-td-right">{{ f.valor | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td>
+              <td>{{ f.fecha_ini | date: 'dd/MM/yy' }} — {{ f.fecha_fin | date: 'dd/MM/yy' }}</td>
+              <td><span class="ft-cups__vigencia" [class]="'ft-cups--' + f.vigencia_estado.toLowerCase()">{{ f.vigencia_estado }} ({{ f.dias_restantes }}d)</span></td>
+              <td>{{ f.consecutivo }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      } @else if (trazaCups()) {
+        <p class="ft-cups__vacio">No se encontraron fichas vigentes con el código {{ trazaCups() }}.</p>
+      }
+    </p-tabPanel>
+  </p-tabView>
+</section>

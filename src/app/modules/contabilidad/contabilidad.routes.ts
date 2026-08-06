@@ -14,5 +14,10 @@ export const CONTABILIDAD_ROUTES: Routes = [
           .then(m => m.DashboardPersonasComponent)
       }
     ]
+  },
+  {
+    path: 'fichas-tecnicas',
+    loadChildren: () => import('./fichasTecnicas/fichas-tecnicas.routes')
+      .then(m => m.FICHAS_TECNICAS_ROUTES)
   }
 ];

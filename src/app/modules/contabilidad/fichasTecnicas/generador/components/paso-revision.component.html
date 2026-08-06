@@ -1,0 +1,110 @@
+<section class="ft-paso3">
+  <h2>Revisión y confirmación</h2>
+  <p class="ft-paso3__subtitulo">
+    Verifique los datos antes de enviar la ficha a validación. Una vez enviada, solo podrá
+    ser modificada si es rechazada.
+  </p>
+
+  <!-- Resumen de la cabecera -->
+  <p-panel header="Datos del contrato" [toggleable]="true">
+    <div class="ft-resumen">
+      <div class="ft-resumen__campo">
+        <label>Agremiación</label>
+        <span>{{ agremiacion }}</span>
+      </div>
+      <div class="ft-resumen__campo">
+        <label>Especialidad</label>
+        <span>{{ especialidad }}</span>
+      </div>
+      <div class="ft-resumen__campo">
+        <label>Objeto del contrato</label>
+        <span>{{ objeto }}</span>
+      </div>
+      <div class="ft-resumen__campo">
+        <label>Valor estimado</label>
+        <span>{{ cabecera().vlr_contrato | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</span>
+      </div>
+      <div class="ft-resumen__campo">
+        <label>Vigencia</label>
+        <span>{{ cabecera().fecha_ini | date: 'dd/MM/yyyy' }} — {{ cabecera().fecha_fin | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      <div class="ft-resumen__campo">
+        <label>Profesionales</label>
+        <span>
+          <p-tag [value]="cabecera().profesionales.length + ' asignado(s)'" severity="info" />
+        </span>
+      </div>
+      @if (cabecera().obs_os) {
+        <div class="ft-resumen__campo ft-resumen__campo--ancho">
+          <label>Motivo actualización</label>
+          <span>{{ cabecera().obs_os }}</span>
+        </div>
+      }
+    </div>
+  </p-panel>
+
+  <!-- Tabla de servicios -->
+  <p-panel header="Servicios contratados ({{ detalles().length }})" [toggleable]="true">
+    <p-table [value]="detalles()" styleClass="p-datatable-sm p-datatable-striped">
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem">#</th>
+          <th>CUPS</th>
+          <th>Homólogo</th>
+          <th>Forma de pago</th>
+          <th style="width: 5rem">%</th>
+          <th style="width: 10rem">Valor</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-d let-i="rowIndex">
+        <tr>
+          <td>{{ i + 1 }}</td>
+          <td>{{ d.cups ?? '—' }}</td>
+          <td>{{ d.homologo ?? '—' }}</td>
+          <td>{{ d.forma_pago ?? '—' }}</td>
+          <td class="ft-td-center">{{ d.variacion ?? '—' }}</td>
+          <td class="ft-td-right">{{ d.valor | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="footer">
+        <tr>
+          <td colspan="5" class="ft-td-right"><strong>TOTAL</strong></td>
+          <td class="ft-td-right"><strong>{{ totalServicios | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</strong></td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-panel>
+
+  <!-- Observaciones generales -->
+  <p-panel header="Observaciones (opcional)" [toggleable]="true" [collapsed]="true">
+    <textarea
+      pTextarea
+      [(ngModel)]="observacion"
+      [autoResize]="true"
+      rows="3"
+      maxlength="500"
+      placeholder="Ingrese notas adicionales que desee registrar con la ficha…"
+      class="ft-paso3__textarea"
+    ></textarea>
+    <small class="ft-paso3__counter">{{ observacion().length }}/500</small>
+  </p-panel>
+
+  <p-divider />
+
+  <footer class="ft-paso3__acciones">
+    <p-button
+      label="Volver a servicios"
+      icon="pi pi-arrow-left"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="volver.emit()"
+    />
+    <p-button
+      label="Enviar a validación"
+      icon="pi pi-send"
+      iconPos="right"
+      [loading]="guardando()"
+      (onClick)="enviar()"
+    />
+  </footer>
+</section>

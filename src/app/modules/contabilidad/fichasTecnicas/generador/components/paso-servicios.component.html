@@ -1,0 +1,226 @@
+<p-toast position="top-right" />
+
+<section class="ft-paso2">
+  <header class="ft-paso2__header">
+    <div>
+      <h2>Servicios y procedimientos</h2>
+      <p>Agregue los ítems del contrato con su código CUPS y tarifa homologada.</p>
+    </div>
+    <p-button
+      label="Agregar servicio"
+      icon="pi pi-plus"
+      severity="success"
+      [outlined]="true"
+      (onClick)="agregarFila()"
+    />
+  </header>
+
+  <p-table
+    [value]="filas()"
+    [scrollable]="true"
+    scrollHeight="28rem"
+    dataKey="_id"
+    styleClass="p-datatable-sm ft-tabla-servicios"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 3rem">#</th>
+        <th style="width: 22rem">CUPS</th>
+        <th style="width: 11rem">Tipo servicio</th>
+        <th style="width: 15rem">Homólogo</th>
+        <th style="width: 9rem">Forma pago</th>
+        <th style="width: 5rem">%</th>
+        <th style="width: 10rem">Valor</th>
+        <th style="width: 12rem">Observación</th>
+        <th style="width: 7rem">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-fila let-i="rowIndex">
+      <tr>
+        <!-- # -->
+        <td class="ft-td-center">{{ i + 1 }}</td>
+
+        <!-- CUPS (autocompletado) -->
+        <td>
+          <p-autocomplete
+            [(ngModel)]="fila._cups_label"
+            [suggestions]="sugerenciasCups()"
+            (completeMethod)="buscarCups($event)"
+            (onSelect)="seleccionarCups(fila, $event.value)"
+            field="subcategoria"
+            [forceSelection]="false"
+            [minLength]="2"
+            placeholder="Buscar CUPS…"
+            [style]="{ width: '100%' }"
+            [inputStyle]="{ width: '100%', fontSize: '0.82rem' }"
+          >
+            <ng-template let-item pTemplate="item">
+              <div class="ft-cups-item">
+                <strong>{{ item.subcategoria }}</strong>
+                <span>{{ item.desc_subcat }}</span>
+              </div>
+            </ng-template>
+          </p-autocomplete>
+        </td>
+
+        <!-- Tipo servicio -->
+        <td>
+          <p-select
+            [(ngModel)]="fila.id_tipo_servicio"
+            [options]="tiposServicio()"
+            optionLabel="descripcion"
+            optionValue="id"
+            placeholder="Tipo"
+            [showClear]="true"
+            appendTo="body"
+            (onChange)="onTipoServicioCambia(fila)"
+            [style]="{ width: '100%', fontSize: '0.82rem' }"
+          />
+        </td>
+
+        <!-- Homólogo (select de opciones cargadas al elegir CUPS) -->
+        <td>
+          @if (sugerenciasHomologos().length > 0 && fila.cups) {
+            <p-select
+              [(ngModel)]="fila.homologo"
+              [options]="sugerenciasHomologos()"
+              optionLabel="desc_manual"
+              optionValue="code_manual"
+              placeholder="Seleccione"
+              [showClear]="true"
+              appendTo="body"
+              (onChange)="seleccionarHomologo(fila, $event.value)"
+              [style]="{ width: '100%', fontSize: '0.82rem' }"
+            >
+              <ng-template let-h pTemplate="item">
+                <div class="ft-cups-item">
+                  <strong>{{ h.code_manual }}</strong>
+                  <span>{{ h.desc_manual }} ({{ h.tipo_manual }})</span>
+                </div>
+              </ng-template>
+            </p-select>
+          } @else {
+            <input
+              pInputText
+              [(ngModel)]="fila.homologo"
+              placeholder="Código"
+              style="width: 100%; font-size: 0.82rem"
+            />
+          }
+        </td>
+
+        <!-- Forma de pago -->
+        <td>
+          <p-select
+            [(ngModel)]="fila.forma_pago"
+            [options]="formasPago()"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="—"
+            [showClear]="true"
+            appendTo="body"
+            [style]="{ width: '100%', fontSize: '0.82rem' }"
+          />
+        </td>
+
+        <!-- Variación (%) -->
+        <td>
+          <input
+            pInputText
+            [(ngModel)]="fila.variacion"
+            placeholder="%"
+            maxlength="6"
+            style="width: 100%; font-size: 0.82rem; text-align: center"
+          />
+        </td>
+
+        <!-- Valor -->
+        <td>
+          <p-inputnumber
+            [(ngModel)]="fila.valor"
+            mode="currency"
+            currency="COP"
+            locale="es-CO"
+            [minFractionDigits]="0"
+            [min]="0"
+            [inputStyle]="{ width: '100%', fontSize: '0.82rem' }"
+          />
+        </td>
+
+        <!-- Observación -->
+        <td>
+          @if (observaciones().length > 0) {
+            <p-select
+              [(ngModel)]="fila.id_obs_item"
+              [options]="observaciones()"
+              optionLabel="descripcion"
+              optionValue="id"
+              placeholder="—"
+              [showClear]="true"
+              appendTo="body"
+              (onChange)="seleccionarObservacion(fila, $event.value)"
+              [style]="{ width: '100%', fontSize: '0.78rem' }"
+            />
+          } @else {
+            <span class="ft-td-placeholder">—</span>
+          }
+        </td>
+
+        <!-- Acciones -->
+        <td class="ft-td-center">
+          <p-button
+            icon="pi pi-copy"
+            [rounded]="true"
+            [text]="true"
+            severity="secondary"
+            pTooltip="Duplicar"
+            (onClick)="duplicarFila(fila)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            [rounded]="true"
+            [text]="true"
+            severity="danger"
+            pTooltip="Eliminar"
+            (onClick)="eliminarFila(fila)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="9" class="ft-tabla-servicios__vacio">
+          <i class="pi pi-list"></i>
+          <p>No hay servicios agregados. Use el botón <strong>"Agregar servicio"</strong> para comenzar.</p>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="footer">
+      <tr class="ft-tabla-servicios__total">
+        <td colspan="6" style="text-align: right; font-weight: 700">TOTAL ({{ filas().length }} ítems)</td>
+        <td style="font-weight: 700; text-align: right">{{ valorTotal() | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td>
+        <td colspan="2"></td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <footer class="ft-paso2__acciones">
+    <p-button
+      label="Volver"
+      icon="pi pi-arrow-left"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="volver.emit()"
+    />
+    <p-button
+      label="Continuar a revisión"
+      icon="pi pi-arrow-right"
+      iconPos="right"
+      [loading]="guardando()"
+      (onClick)="enviar()"
+    />
+  </footer>
+</section>

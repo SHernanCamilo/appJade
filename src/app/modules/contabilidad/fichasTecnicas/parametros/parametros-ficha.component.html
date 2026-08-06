@@ -1,0 +1,110 @@
+<p-toast position="top-right" />
+
+<section class="ft-params">
+  <header class="ft-params__header">
+    <h1>Parámetros — Fichas Técnicas</h1>
+    <p>Administración de catálogos maestros del módulo</p>
+  </header>
+
+  <p-tabView [(activeIndex)]="tabActiva" (activeIndexChange)="onCambioTab($event)">
+    @for (tab of tabs; track tab.catalogo) {
+      <p-tabPanel [header]="tab.titulo">
+        <div class="ft-params__toolbar">
+          <input
+            pInputText
+            [(ngModel)]="buscar"
+            (keyup.enter)="onBuscar()"
+            placeholder="Buscar…"
+            style="width: 18rem"
+          />
+          <p-button label="Nuevo" icon="pi pi-plus" severity="success" [outlined]="true" (onClick)="nuevoRegistro()" />
+        </div>
+
+        <p-table
+          [value]="registros()"
+          [lazy]="true"
+          [loading]="cargando()"
+          [paginator]="true"
+          [rows]="meta()?.per_page ?? 25"
+          [totalRecords]="meta()?.total ?? 0"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          (onLazyLoad)="onLazyLoad($event)"
+          dataKey="id"
+          styleClass="p-datatable-sm p-datatable-striped"
+        >
+          <ng-template pTemplate="header">
+            <tr>
+              @for (col of tab.columnas; track col.campo) {
+                <th [style.width]="col.width ?? 'auto'">{{ col.header }}</th>
+              }
+              <th style="width: 6rem" class="ft-td-center">Estado</th>
+              <th style="width: 5rem" class="ft-td-center">Editar</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-registro>
+            <tr>
+              @for (col of tab.columnas; track col.campo) {
+                <td>{{ registro[col.campo] ?? '—' }}</td>
+              }
+              <td class="ft-td-center">
+                <p-inputSwitch
+                  [ngModel]="registro.estado"
+                  (ngModelChange)="toggleEstado(registro)"
+                />
+              </td>
+              <td class="ft-td-center">
+                <p-button
+                  icon="pi pi-pencil"
+                  [rounded]="true"
+                  [text]="true"
+                  (onClick)="editarRegistro(registro)"
+                />
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td [attr.colspan]="tab.columnas.length + 2" class="ft-params__vacio">
+                Sin registros en este catálogo.
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-tabPanel>
+    }
+  </p-tabView>
+</section>
+
+<!-- Dialog de edición/creación genérico -->
+<p-dialog
+  [(visible)]="mostrarDialog"
+  [modal]="true"
+  [style]="{ width: '32rem' }"
+  [header]="(esEdicion() ? 'Editar' : 'Nuevo') + ' — ' + tabs[tabActiva()].titulo"
+>
+  <div class="ft-params__form">
+    @for (col of tabs[tabActiva()].columnas; track col.campo) {
+      <div class="ft-campo">
+        <label>{{ col.header }}</label>
+        <input
+          pInputText
+          [(ngModel)]="registroActual()[col.campo]"
+          [placeholder]="col.header"
+          style="width: 100%"
+        />
+      </div>
+    }
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [text]="true" (onClick)="mostrarDialog.set(false)" />
+    <p-button
+      [label]="esEdicion() ? 'Actualizar' : 'Guardar'"
+      icon="pi pi-check"
+      [loading]="guardando()"
+      (onClick)="guardar()"
+    />
+  </ng-template>
+</p-dialog>

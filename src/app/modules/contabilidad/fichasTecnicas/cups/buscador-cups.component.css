@@ -1,0 +1,14 @@
+.ft-cups { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; }
+.ft-cups__header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; }
+.ft-cups__header p { margin: 0.2rem 0 0; font-size: 0.85rem; color: #6c757d; }
+.ft-cups__filtros { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.ft-td-center { text-align: center; }
+.ft-td-right { text-align: right; }
+.ft-cups__vacio { text-align: center; padding: 2rem; color: #6c757d; }
+
+.ft-cups__vigencia { font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; }
+.ft-cups--vigente { background: #d1e7dd; color: #0f5132; }
+.ft-cups--proxima { background: #fff3cd; color: #664d03; }
+.ft-cups--alerta { background: #ffe5d0; color: #984c0c; }
+.ft-cups--critica { background: #f8d7da; color: #842029; }
+.ft-cups--vencida { background: #e2d9f3; color: #432874; }

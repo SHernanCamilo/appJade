@@ -1,0 +1,33 @@
+.ft-detalle { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; }
+.ft-detalle__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.ft-detalle__header h1 { margin: 0; font-size: 1.3rem; font-weight: 600; }
+.ft-detalle__header p { margin: 0.2rem 0 0; font-size: 0.85rem; color: #6c757d; }
+.ft-detalle__acciones { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.ft-detalle__grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem 1.5rem;
+}
+.ft-detalle__grid > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.ft-detalle__grid label { font-size: 0.72rem; font-weight: 600; color: #6c757d; text-transform: uppercase; }
+.ft-detalle__grid span { font-size: 0.9rem; color: #212529; }
+.ft-detalle__grid--ancho { grid-column: 1 / -1; }
+
+.ft-td-center { text-align: center; }
+.ft-td-right { text-align: right; }
+
+.ft-detalle__vacio { text-align: center; color: #6c757d; padding: 2rem 1rem; }
+
+.ft-comentario { padding: 0.75rem 0; border-bottom: 1px solid #e9ecef; }
+.ft-comentario__meta { display: flex; align-items: baseline; gap: 0.5rem; }
+.ft-comentario__meta small { color: #6c757d; font-size: 0.75rem; }
+.ft-comentario p { margin: 0.3rem 0 0; font-size: 0.9rem; }
+
+:host ::ng-deep .ft-timeline .p-timeline-event-content { padding-bottom: 1rem; }
+.ft-timeline__item strong { display: block; font-size: 0.9rem; }
+.ft-timeline__item small { color: #6c757d; font-size: 0.75rem; }
+.ft-timeline__item p { margin: 0.3rem 0 0; font-size: 0.85rem; }
+.ft-timeline__meta { display: block; margin-top: 0.3rem; }
+
+.ft-detalle__padre { padding: 0.5rem 0; font-size: 0.9rem; }
+
+@media (max-width: 900px) { .ft-detalle__grid { grid-template-columns: minmax(0, 1fr); } }

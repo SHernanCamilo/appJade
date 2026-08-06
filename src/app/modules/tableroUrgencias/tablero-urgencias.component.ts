@@ -4,6 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../environments/environment';
+import {
+  loadCredentials, saveCredentials, getOrCreateDeviceId,
+  clearCredentials, requestPersistence
+} from './device-persistence.service';
 
 interface UnidadUrgencias {
   IdSede: string;
@@ -82,12 +86,14 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private slideInterval: ReturnType<typeof setInterval> | null = null;
 
-  private readonly DEVICE_SECRET_KEY = 'tablero_device_secret';
-  private readonly DEVICE_NAME_KEY = 'tablero_device_name';
   private readonly CACHE_KEY = 'tablero_urgencias_cache';
 
   ngOnInit(): void {
-    this.determineMode();
+    // Solicitar almacenamiento persistente (Chrome kiosk lo concede automáticamente)
+    requestPersistence();
+
+    // Iniciar la detección de modo con persistencia multi-capa
+    this.initializeDevice();
 
     // Carrusel siempre activo
     this.slideInterval = setInterval(() => {
@@ -101,22 +107,36 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   // =========================================================================
-  // DETERMINAR MODO
+  // DETERMINAR MODO — Persistencia multi-capa
   // =========================================================================
 
-  private determineMode(): void {
-    // Si ya tiene device_secret guardado → modo activo (reconecta solo)
-    const savedSecret = localStorage.getItem(this.DEVICE_SECRET_KEY);
-    if (savedSecret) {
-      this.deviceName.set(localStorage.getItem(this.DEVICE_NAME_KEY) ?? '');
+  /**
+   * Inicializa el dispositivo intentando recuperar credenciales de 3 capas:
+   *   1. localStorage (rápido)
+   *   2. IndexedDB (sobrevive a limpieza de cache)
+   *   3. Cookie de 10 años (último recurso)
+   *
+   * Si encuentra el secret en cualquier capa, resincroniza las demás y
+   * pasa a modo activo. Así la TV nunca pierde la conexión.
+   */
+  private async initializeDevice(): Promise<void> {
+    // Generar/recuperar el deviceId (UUID físico único de esta TV)
+    const deviceId = await getOrCreateDeviceId();
+
+    // Intentar recuperar credenciales de las 3 capas
+    const creds = await loadCredentials();
+
+    if (creds?.deviceSecret) {
+      // Tiene secret → modo activo directo
+      this.deviceName.set(creds.deviceName || '');
       this.mode.set('active');
       this.loadFromCache();
-      this.connectSSE(savedSecret);
+      this.connectSSE(creds.deviceSecret);
       this.cargarLogoEmpresa();
       return;
     }
 
-    // Si hay token legacy en URL → modo activo con token
+    // Sin secret en ninguna capa → intentar reconexión por deviceId
     const legacyToken = this.route.snapshot.queryParamMap.get('t');
     if (legacyToken && legacyToken.length >= 10) {
       this.mode.set('active');
@@ -126,7 +146,51 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Si el usuario está logueado → modo privado (polling con JWT)
+    // Intentar reconexión automática: enviar deviceId al backend
+    this.attemptReconnect(deviceId);
+  }
+
+  /**
+   * Intenta reconectar la TV por su deviceId (UUID).
+   * El backend busca un dispositivo activo emparejado con ese deviceId.
+   */
+  private attemptReconnect(deviceId: string): void {
+    if (!deviceId) {
+      this.continueWithoutSecret();
+      return;
+    }
+
+    const url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/reconnect`;
+
+    this.http.post<{
+      success: boolean;
+      device_secret?: string;
+      name?: string;
+      sede?: string;
+    }>(url, { device_id: deviceId }).subscribe({
+      next: async (res) => {
+        if (res.success && res.device_secret) {
+          // Reconectado: guardar en las 3 capas
+          await saveCredentials({
+            deviceSecret: res.device_secret,
+            deviceName: res.name ?? '',
+            deviceId: deviceId,
+          });
+          this.deviceName.set(res.name ?? '');
+          this.mode.set('active');
+          this.loadFromCache();
+          this.connectSSE(res.device_secret);
+          this.cargarLogoEmpresa();
+        } else {
+          this.continueWithoutSecret();
+        }
+      },
+      error: () => this.continueWithoutSecret()
+    });
+  }
+
+  /** Flujo si no hay device_secret ni se pudo reconectar. */
+  private continueWithoutSecret(): void {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -139,7 +203,6 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       } catch { /* no es JSON válido */ }
     }
 
-    // Sin secret ni login → pantalla de emparejamiento
     this.mode.set('pairing');
     this.isLoading.set(false);
   }
@@ -167,14 +230,18 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       sede?: string;
       message?: string;
       error?: string;
-    }>(url, { code }).subscribe({
-      next: (res) => {
+    }>(url, { code, device_id: localStorage.getItem('tablero_device_id') ?? '' }).subscribe({
+      next: async (res) => {
         this.pairingLoading.set(false);
 
         if (res.success && res.device_secret) {
-          // Emparejado: guardar secret y pasar a modo activo
-          localStorage.setItem(this.DEVICE_SECRET_KEY, res.device_secret);
-          localStorage.setItem(this.DEVICE_NAME_KEY, res.name ?? '');
+          // Emparejado: guardar en las 3 capas (localStorage + IndexedDB + cookie)
+          const deviceId = await getOrCreateDeviceId();
+          await saveCredentials({
+            deviceSecret: res.device_secret,
+            deviceName: res.name ?? '',
+            deviceId: deviceId,
+          });
           this.deviceName.set(res.name ?? '');
           this.mode.set('active');
           this.connectSSE(res.device_secret);
@@ -196,9 +263,9 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   // =========================================================================
 
   private connectSSE(deviceSecret: string | null, legacyToken?: string): void {
-    // Usamos polling al endpoint /data en vez de SSE porque Apache + PHP-FPM
-    // bufferea la respuesta de SSE y el browser nunca recibe los eventos.
-    // El resultado visual es el mismo: datos cada 30s.
+    // Polling al endpoint /data cada 15 segundos.
+    // Apache + PHP-FPM bufferea SSE, así que mantenemos polling pero a 15s
+    // para que los cambios de la view se reflejen rápido.
     let url: string;
     if (deviceSecret) {
       url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/data?d=${deviceSecret}`;
@@ -211,8 +278,8 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     // Cargar datos inmediatamente
     this.fetchPublicData(url);
 
-    // Polling cada 60 segundos (1 min = 1 incremento del temporizador en Fabric)
-    this.refreshInterval = setInterval(() => this.fetchPublicData(url), 60_000);
+    // Polling cada 15 segundos — cambios en la view se reflejan en <15s
+    this.refreshInterval = setInterval(() => this.fetchPublicData(url), 15_000);
   }
 
   private fetchPublicData(url: string): void {
@@ -229,9 +296,8 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         if (err.status === 401) {
-          // Dispositivo revocado o eliminado: limpiar secret y volver a pantalla de código
-          localStorage.removeItem(this.DEVICE_SECRET_KEY);
-          localStorage.removeItem(this.DEVICE_NAME_KEY);
+          // Dispositivo revocado: limpiar TODAS las capas y volver a pantalla de código
+          clearCredentials();
           if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
             this.refreshInterval = null;
@@ -272,7 +338,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   private initPrivateMode(): void {
     this.cargarDatos();
     this.cargarLogoEmpresa();
-    this.refreshInterval = setInterval(() => this.cargarDatos(), 30_000);
+    this.refreshInterval = setInterval(() => this.cargarDatos(), 15_000);
   }
 
   cargarDatos(): void {

@@ -1,0 +1,26 @@
+<p-toast position="top-right" />
+
+<section class="ft-bandeja">
+  <header class="ft-bandeja__header">
+    <div>
+      <h1>{{ info().titulo }}</h1>
+      <p>{{ info().descripcion }}</p>
+    </div>
+
+    @if (meta()?.total !== undefined) {
+      <span class="ft-bandeja__conteo">{{ meta()?.total | number }} fichas</span>
+    }
+  </header>
+
+  <app-filtros-bandeja (cambio)="onFiltros($event)" />
+
+  <app-tabla-fichas
+    [fichas]="fichas()"
+    [meta]="meta()"
+    [cargando]="cargando()"
+    [puedeValidar]="info().permiteValidar"
+    [mensajeVacio]="info().vacio"
+    (accion)="onAccion($event)"
+    (cargarPagina)="onLazyLoad($event)"
+  />
+</section>

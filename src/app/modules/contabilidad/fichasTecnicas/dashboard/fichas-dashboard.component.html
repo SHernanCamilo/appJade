@@ -1,0 +1,48 @@
+<p-toast position="top-right" />
+
+<section class="ft-dash">
+  <header class="ft-dash__header">
+    <div>
+      <h1>Fichas Técnicas Médicas</h1>
+      <p>Contratación de servicios médicos con agremiaciones y profesionales de la salud</p>
+    </div>
+
+    <div class="ft-dash__acciones">
+      <p-button
+        label="Actualizar"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [outlined]="true"
+        [loading]="cargando()"
+        (onClick)="cargar()"
+      />
+      <p-button label="Nueva ficha" icon="pi pi-plus" (onClick)="nuevaFicha()" />
+    </div>
+  </header>
+
+  <app-kpi-cards
+    [indicadores]="datos()?.indicadores ?? null"
+    [cargando]="cargando()"
+    (bandejaSeleccionada)="abrirBandeja($event)"
+  />
+
+  <div class="ft-dash__grid">
+    <app-alertas-vencimiento
+      [fichas]="datos()?.proximas_vencer ?? []"
+      [cargando]="cargando()"
+      (fichaSeleccionada)="abrirFicha($event)"
+    />
+
+    <app-grafico-distribucion
+      titulo="Por especialidad"
+      [datos]="datos()?.por_especialidad ?? []"
+      [cargando]="cargando()"
+    />
+
+    <app-grafico-distribucion
+      titulo="Top agremiaciones"
+      [datos]="datos()?.por_agremiacion ?? []"
+      [cargando]="cargando()"
+    />
+  </div>
+</section>

@@ -1,0 +1,178 @@
+@if (!opciones()) {
+  <div class="ft-paso__skeleton">
+    @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+      <p-skeleton height="3.2rem" borderRadius="0.5rem" />
+    }
+  </div>
+} @else {
+  <form [formGroup]="formulario" (ngSubmit)="enviar()" class="ft-paso">
+    @if (esActualizacion) {
+      <p-message severity="warn" styleClass="ft-paso__aviso">
+        Está creando una <strong>actualización</strong> de la ficha
+        {{ ficha()?.padre?.consecutivo ?? '—' }}. Describa el motivo del cambio.
+      </p-message>
+    }
+
+    <div class="ft-paso__grid">
+      <div class="ft-campo ft-campo--ancho">
+        <label for="agremiacion">Agremiación <span aria-hidden="true">*</span></label>
+        <p-select
+          inputId="agremiacion"
+          formControlName="id_agremiacion"
+          [options]="opciones()!.agremiaciones"
+          optionLabel="nombre"
+          optionValue="id"
+          placeholder="Seleccione la agremiación contratada"
+          [filter]="true"
+          filterBy="nombre,nit"
+          [showClear]="true"
+          appendTo="body"
+          emptyFilterMessage="Sin resultados"
+        />
+        @if (control('id_agremiacion')) {
+          <small class="ft-campo__error">Seleccione una agremiación.</small>
+        }
+      </div>
+
+      <div class="ft-campo ft-campo--ancho">
+        <label for="objeto">Objeto del contrato <span aria-hidden="true">*</span></label>
+        <p-select
+          inputId="objeto"
+          formControlName="id_objeto_contrato"
+          [options]="opciones()!.objetos_contrato"
+          optionLabel="descripcion"
+          optionValue="id"
+          placeholder="Seleccione el objeto de contratación"
+          appendTo="body"
+        />
+        @if (control('id_objeto_contrato')) {
+          <small class="ft-campo__error">Seleccione el objeto del contrato.</small>
+        }
+      </div>
+
+      <div class="ft-campo">
+        <label for="especialidad">Especialidad contratada <span aria-hidden="true">*</span></label>
+        <p-select
+          inputId="especialidad"
+          formControlName="id_especialidad"
+          [options]="opciones()!.especialidades"
+          optionLabel="descripcion"
+          optionValue="id"
+          placeholder="Seleccione la especialidad"
+          [filter]="true"
+          filterBy="descripcion"
+          appendTo="body"
+        />
+        @if (control('id_especialidad')) {
+          <small class="ft-campo__error">Seleccione una especialidad.</small>
+        }
+      </div>
+
+      <div class="ft-campo">
+        <label for="valor">Valor estimado del contrato <span aria-hidden="true">*</span></label>
+        <p-inputnumber
+          inputId="valor"
+          formControlName="vlr_contrato"
+          mode="currency"
+          currency="COP"
+          locale="es-CO"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="2"
+          [min]="0"
+          placeholder="$ 0"
+        />
+        @if (control('vlr_contrato')) {
+          <small class="ft-campo__error">Ingrese un valor mayor que cero.</small>
+        }
+      </div>
+
+      <div class="ft-campo">
+        <label for="vigencia">Vigencia del contrato <span aria-hidden="true">*</span></label>
+        <p-datepicker
+          inputId="vigencia"
+          formControlName="vigencia"
+          selectionMode="range"
+          [readonlyInput]="true"
+          dateFormat="dd/mm/yy"
+          placeholder="Fecha inicio — Fecha fin"
+          [showButtonBar]="true"
+          appendTo="body"
+        />
+        @if (control('vigencia')) {
+          <small class="ft-campo__error">Seleccione el rango de vigencia.</small>
+        }
+        <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
+      </div>
+
+      <div class="ft-campo ft-campo--ancho">
+        <label for="profesionales">
+          Profesionales asignados <span aria-hidden="true">*</span>
+          @if (cargandoProfesionales()) {
+            <i class="pi pi-spin pi-spinner ft-campo__spinner"></i>
+          }
+        </label>
+        <p-multiselect
+          inputId="profesionales"
+          formControlName="profesionales"
+          [options]="profesionales()"
+          optionLabel="profesional_nombre"
+          optionValue="id_profesional"
+          [filter]="true"
+          filterBy="profesional_nombre,documento"
+          [showToggleAll]="true"
+          display="chip"
+          appendTo="body"
+          [placeholder]="
+            formulario.controls.id_especialidad.value
+              ? 'Seleccione uno o más profesionales'
+              : 'Elija primero una especialidad'
+          "
+          [disabled]="!formulario.controls.id_especialidad.value"
+          emptyMessage="La especialidad no tiene profesionales asignados"
+        >
+          <ng-template let-p pTemplate="item">
+            <div class="ft-prof">
+              <span class="ft-prof__nombre">{{ p.profesional_nombre }}</span>
+              <small class="ft-prof__meta">
+                CC {{ p.documento }}
+                @if (p.tarjeta_profesional) {
+                  · TP {{ p.tarjeta_profesional }}
+                }
+              </small>
+            </div>
+          </ng-template>
+        </p-multiselect>
+        @if (control('profesionales')) {
+          <small class="ft-campo__error">Asigne al menos un profesional.</small>
+        }
+        <small class="ft-campo__ayuda">
+          Al guardar se verifica que ninguno tenga otra ficha vigente en este periodo.
+        </small>
+      </div>
+
+      @if (esActualizacion) {
+        <div class="ft-campo ft-campo--ancho">
+          <label for="obsOs">Motivo del cambio <span aria-hidden="true">*</span></label>
+          <input
+            id="obsOs"
+            type="text"
+            pInputText
+            formControlName="obs_os"
+            maxlength="500"
+            placeholder="Ej: Ajuste de tarifas 2026"
+          />
+        </div>
+      }
+    </div>
+
+    <footer class="ft-paso__acciones">
+      <p-button
+        type="submit"
+        label="Continuar a servicios"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        [loading]="guardando()"
+      />
+    </footer>
+  </form>
+}
