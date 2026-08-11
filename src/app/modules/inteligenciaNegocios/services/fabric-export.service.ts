@@ -54,7 +54,6 @@ export class FabricExportService {
   readonly exportProgress$ = this.exportProgressSubject.asObservable();
 
   /** Referencia activa para poder cancelar */
-  private activeEventSource: EventSource | null = null;
   private activePollInterval: ReturnType<typeof setInterval> | null = null;
   private activeJobId: string | null = null;
 
@@ -88,10 +87,6 @@ export class FabricExportService {
    * - No detiene el job en el server (se completará solo en background)
    */
   cancelExport(): void {
-    if (this.activeEventSource) {
-      this.activeEventSource.close();
-      this.activeEventSource = null;
-    }
     if (this.activePollInterval) {
       clearInterval(this.activePollInterval);
       this.activePollInterval = null;
@@ -144,97 +139,15 @@ export class FabricExportService {
   }
 
   private pollExportStatus(jobId: string, label: string, baseUrl: string): void {
-    // Intentar SSE primero, fallback a polling si no soportado
-    if (typeof EventSource !== 'undefined') {
-      this.streamExportSSE(jobId, label, baseUrl);
-    } else {
-      this.pollExportStatusLegacy(jobId, label, baseUrl);
-    }
+    // Polling cada 3s — NO usar SSE porque bloquea un worker PHP-FPM
+    // durante toda la duración del export (hasta 10 min por conexión).
+    // Con polling cada request dura ~5ms y libera el worker inmediatamente.
+    this.pollExportStatusLegacy(jobId, label, baseUrl);
   }
 
   /**
-   * SSE: conexión persistente al endpoint de streaming.
-   * Reduce de 20+ requests a 1 sola conexión por export.
-   */
-  private streamExportSSE(jobId: string, label: string, baseUrl: string): void {
-    const sseUrl = `${environment.URL_SERVICIOS}/fabric/viewer/export/stream/${jobId}`;
-    const eventSource = new EventSource(sseUrl);
-    this.activeEventSource = eventSource;
-    this.activeJobId = jobId;
-
-    eventSource.onmessage = (event: MessageEvent) => {
-      let data: ExportProgress & { file_size_human?: string };
-      try {
-        data = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-
-      if (data.status === 'processing' || data.status === 'pending') {
-        this.exportProgressSubject.next({
-          status: data.status,
-          progress: data.progress ?? 0,
-          rows: data.rows ?? 0,
-          message: data.message ?? 'Procesando...'
-        });
-        return;
-      }
-
-      if (data.status === 'completed') {
-        eventSource.close();
-        this.exportProgressSubject.next({
-          status: 'completed',
-          progress: 100,
-          rows: data.rows ?? 0,
-          message: 'Descarga lista',
-          filename: data.filename,
-          fileSize: data.file_size_human ?? data.fileSize
-        });
-
-        // Descargar archivo
-        this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob' }).subscribe({
-          next: (blob) => {
-            this.triggerDownload(blob, data.filename ?? `${label}.xlsx`);
-            setTimeout(() => this.exportProgressSubject.next(null), 3000);
-            this.decrementPending();
-            this.messageService.add({
-              key: TOAST_KEY, severity: 'success', summary: 'Excel descargado',
-              detail: `${(data.rows ?? 0).toLocaleString('es-CO')} filas · ${data.file_size_human ?? ''}`, life: 6000
-            });
-          },
-          error: () => {
-            // Fallback: abrir con token en query param (window.open no envía headers)
-            const token = localStorage.getItem('token') ?? '';
-            window.open(`${baseUrl}/download/${jobId}?token=${encodeURIComponent(token)}`, '_blank');
-            setTimeout(() => this.exportProgressSubject.next(null), 3000);
-            this.decrementPending();
-          }
-        });
-        return;
-      }
-
-      if (data.status === 'failed') {
-        eventSource.close();
-        this.exportProgressSubject.next(null);
-        this.decrementPending();
-        this.messageService.add({
-          key: TOAST_KEY, severity: 'error', summary: 'Exportación fallida',
-          detail: data.message ?? 'Error generando el Excel', life: 8000
-        });
-      }
-    };
-
-    eventSource.onerror = () => {
-      // SSE se reconecta automáticamente, pero si se cierra definitivamente, fallback
-      if (eventSource.readyState === EventSource.CLOSED) {
-        this.pollExportStatusLegacy(jobId, label, baseUrl);
-      }
-      // Si readyState === CONNECTING, SSE está reconectando automáticamente (no hacer nada)
-    };
-  }
-
-  /**
-   * Fallback: polling clásico cada 2s (para navegadores sin SSE o si falla).
+   * Polling ligero cada 3s — cada request dura ~5ms (lee de Redis y responde).
+   * NO bloquea workers PHP-FPM (a diferencia del SSE que los ocupaba 10 min).
    */
   private pollExportStatusLegacy(jobId: string, label: string, baseUrl: string): void {
     this.activeJobId = jobId;
@@ -302,7 +215,7 @@ export class FabricExportService {
           this.decrementPending();
         }
       });
-    }, 2000); // Poll cada 2 segundos
+    }, 3000); // Poll cada 3 segundos (ligero: ~5ms por request)
     this.activePollInterval = poll;
   }
 
