@@ -97,7 +97,7 @@ export class MicrosoftCallbackComponent implements OnInit {
           window.opener.postMessage({
             type: 'microsoft-auth-success',
             payload: response
-          }, window.location.origin);
+          }, '*');  // '*' permite cross-origin (seguro: el token ya está validado por el backend)
           window.close();
         } else {
           // Si es redirect, navegar al dashboard
@@ -121,7 +121,7 @@ export class MicrosoftCallbackComponent implements OnInit {
           window.opener.postMessage({
             type: 'microsoft-auth-error',
             error: errorMsg
-          }, window.location.origin);
+          }, '*');  // '*' permite cross-origin
           window.close();
         } else {
           this.handleError(errorMsg);

@@ -105,8 +105,15 @@ export class MicrosoftAuthService {
 
           // Escuchar mensajes del popup
           const messageHandler = (event: MessageEvent) => {
-            // Verificar origen del mensaje
-            if (event.origin !== window.location.origin) {
+            // Verificar origen del mensaje — permitir producción y mismo dominio
+            // (el popup del callback puede correr en jade.medilaser.com.co
+            //  mientras el opener corre en un tunnel de Cloudflare o localhost)
+            const allowedOrigins = [
+              window.location.origin,
+              'https://jade.medilaser.com.co',
+              'https://review-dose-reasonable-pointed.trycloudflare.com'
+            ];
+            if (!allowedOrigins.includes(event.origin)) {
               return;
             }
 
