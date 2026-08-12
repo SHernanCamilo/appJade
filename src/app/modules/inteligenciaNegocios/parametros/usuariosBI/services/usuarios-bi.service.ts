@@ -154,7 +154,7 @@ export class UsuariosBiService {
 
   constructor(private http: HttpClient) {}
 
-  getPermisos(userId: number, empresaId?: number | null, sync = false): Observable<BiUsuarioPermisos> {
+  getPermisos(userId: number, empresaId?: number | null, sync = false): Observable<BiUsuarioPermisosResponse> {
     let params = new HttpParams();
     if (empresaId != null) {
       params = params.set('empresa_id', empresaId.toString());
@@ -163,9 +163,7 @@ export class UsuariosBiService {
       params = params.set('sync', '1');
     }
 
-    return this.http.get<BiUsuarioPermisosResponse>(`${this.apiUrl}/${userId}/permisos`, { params }).pipe(
-      map(response => response.data)
-    );
+    return this.http.get<BiUsuarioPermisosResponse>(`${this.apiUrl}/${userId}/permisos`, { params });
   }
 
   getAuditoria(filtros: BiAuditoriaFiltros): Observable<{ items: BiAuditoriaItem[]; total: number }> {

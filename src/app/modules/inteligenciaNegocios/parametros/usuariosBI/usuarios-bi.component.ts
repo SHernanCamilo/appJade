@@ -293,13 +293,29 @@ export class UsuariosBiComponent implements OnInit {
 
     this.isLoadingPermisos = true;
     this.usuariosBiService.getPermisos(this.usuarioId, this.empresaId, syncAzure).subscribe({
-      next: (data) => {
+      next: (response) => {
+        const data = response.data;
         this.permisos = data;
         this.mapGridRows(data);
         this.isLoadingPermisos = false;
-        this.showSuccess(syncAzure
-          ? 'Grupos sincronizados desde Azure y permisos cargados'
-          : 'Permisos BI cargados');
+
+        if (!syncAzure) {
+          this.showSuccess('Permisos BI cargados');
+          return;
+        }
+
+        const azureSync = response.azure_sync;
+        if (azureSync?.synced) {
+          this.showSuccess('Grupos sincronizados desde Azure y permisos cargados');
+          return;
+        }
+
+        // Sync falló o se abortó: los permisos previos se conservan en BD.
+        this.showWarn(
+          azureSync?.error
+            ? `No se pudo sincronizar Azure; se conservaron los permisos previos. ${azureSync.error}`
+            : 'No se pudo sincronizar Azure; se conservaron los permisos previos'
+        );
       },
       error: (err) => {
         this.isLoadingPermisos = false;
