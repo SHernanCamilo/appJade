@@ -81,5 +81,33 @@ export const INVENTARIO_ROUTES: Routes = [
         data: { moduleCode: 'INV-FRACTTAL-GLPI' }
       }
     ]
+  },
+  {
+    path: 'activosFijos',
+    children: [
+      {
+        path: 'tomaInventario',
+        loadComponent: () =>
+          import('./activosFijos/tomaInventario/tomaInventario.component').then(m => m.TomaInventarioComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ACTIVOS-TOMA',
+          pageTitle: 'Toma de Inventario — Activos Fijos',
+          pageSubtitle: 'Consulta del maestro de activos y registro de novedades'
+        }
+      },
+      {
+        path: 'trazabilidad',
+        loadComponent: () =>
+          import('./activosFijos/trazabilidadActivo/trazabilidadActivo.component').then(m => m.TrazabilidadActivoComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ACTIVOS-TRAZ',
+          pageTitle: 'Trazabilidad de Activos Fijos',
+          pageSubtitle: 'Historial de tomas de inventario y cambios reportados'
+        }
+      },
+      { path: '', redirectTo: 'tomaInventario', pathMatch: 'full' }
+    ]
   }
 ];

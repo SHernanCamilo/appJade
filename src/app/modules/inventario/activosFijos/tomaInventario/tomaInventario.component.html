@@ -1,0 +1,300 @@
+<p-toast position="top-right"></p-toast>
+
+<div class="toma-inventario">
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- ENCABEZADO                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <header class="ti-header">
+    <div>
+      <h2 class="ti-titulo">
+        <i class="pi pi-box"></i>
+        Toma de Inventario — Activos Fijos
+      </h2>
+      <p class="ti-subtitulo">
+        Consulta el maestro de activos y registra las novedades encontradas en sitio
+      </p>
+    </div>
+
+    <a routerLink="/inventario/activosFijos/trazabilidad" class="ti-btn ti-btn--ghost">
+      <i class="pi pi-history"></i>
+      Ver trazabilidad
+    </a>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- BÚSQUEDA                                                           -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="ti-card ti-busqueda">
+    <div class="ti-busqueda__campo">
+      <label for="campoBusqueda">Buscar por</label>
+      <select id="campoBusqueda" [(ngModel)]="campoBusqueda" class="ti-input">
+        <option *ngFor="let campo of camposBusqueda" [value]="campo.valor">
+          {{ campo.etiqueta }}
+        </option>
+      </select>
+    </div>
+
+    <div class="ti-busqueda__campo ti-busqueda__campo--ancho">
+      <label for="valorBusqueda">{{ etiquetaCampoActual | titlecase }}</label>
+      <input
+        id="valorBusqueda"
+        type="text"
+        [(ngModel)]="valorBusqueda"
+        (keyup.enter)="consultar()"
+        [placeholder]="'Ingrese la ' + etiquetaCampoActual"
+        class="ti-input"
+        autocomplete="off" />
+    </div>
+
+    <div class="ti-busqueda__acciones">
+      <button
+        type="button"
+        class="ti-btn ti-btn--primary"
+        [disabled]="!puedeBuscar"
+        (click)="consultar()">
+        <i class="pi" [ngClass]="buscando ? 'pi-spin pi-spinner' : 'pi-search'"></i>
+        {{ buscando ? 'Consultando...' : 'Consultar' }}
+      </button>
+
+      <button
+        type="button"
+        class="ti-btn ti-btn--secondary"
+        *ngIf="activo || resultados.length"
+        (click)="regresar()">
+        <i class="pi pi-refresh"></i>
+        Nueva búsqueda
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- RESULTADOS MÚLTIPLES                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="ti-card" *ngIf="resultados.length > 0">
+    <h3 class="ti-card__titulo">
+      {{ resultados.length }} activos encontrados — seleccione uno
+    </h3>
+
+    <p-table [value]="resultados" styleClass="ti-tabla" [scrollable]="true" scrollHeight="320px">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Placa</th>
+          <th>Artículo</th>
+          <th>Serie</th>
+          <th>Responsable</th>
+          <th>Sucursal</th>
+          <th style="width: 8rem"></th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td><strong>{{ valor(item.placa) }}</strong></td>
+          <td>{{ valor(item.articulo) }}</td>
+          <td>{{ valor(item.serie) }}</td>
+          <td>{{ valor(item.responsable) }}</td>
+          <td>{{ valor(item.sucursal) }}</td>
+          <td>
+            <button type="button" class="ti-btn ti-btn--sm ti-btn--primary" (click)="seleccionar(item)">
+              Seleccionar
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- FORMULARIO: ACTIVO + NOVEDADES                                     -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="ti-card" *ngIf="activo">
+
+    <div class="ti-card__encabezado">
+      <h3 class="ti-card__titulo">
+        Información del activo
+        <span class="ti-placa">{{ valor(activo.placa) }}</span>
+      </h3>
+
+      <button
+        type="button"
+        class="ti-btn ti-btn--danger"
+        [disabled]="!puedeRegistrar"
+        (click)="registrar()"
+        [pTooltip]="puedeRegistrar ? 'Guardar la novedad' : 'Llene al menos un campo de novedad u observación'"
+        tooltipPosition="left">
+        <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+        {{ guardando ? 'Guardando...' : 'Registrar novedad' }}
+        <span class="ti-badge" *ngIf="novedadesLlenas > 0">{{ novedadesLlenas }}</span>
+      </button>
+    </div>
+
+    <p class="ti-ayuda">
+      <i class="pi pi-info-circle"></i>
+      La columna izquierda es lo que hay en Indigo (solo lectura).
+      Llene a la derecha únicamente los campos donde encuentre diferencia.
+    </p>
+
+    <div class="ti-grid">
+
+      <!-- ── Columna 1 ─────────────────────────────────────────────── -->
+      <div class="ti-columna">
+
+        <div class="ti-fila">
+          <label>Placa</label>
+          <input type="text" [value]="valor(activo.placa)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_placa" placeholder="Novedad placa" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Estado</label>
+          <input type="text" [value]="valor(activo.estado)" class="ti-input ti-input--readonly" readonly />
+          <select [(ngModel)]="formulario.novedad_estado" class="ti-input">
+            <option value="">-- Seleccione --</option>
+            <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+
+        <div class="ti-fila">
+          <label>Artículo</label>
+          <input type="text" [value]="valor(activo.articulo)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_articulo" placeholder="Novedad artículo" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Marca</label>
+          <input type="text" [value]="valor(activo.marca)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_marca" placeholder="Novedad marca" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Modelo</label>
+          <input type="text" [value]="valor(activo.modelo)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_modelo" placeholder="Novedad modelo" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Serie</label>
+          <input type="text" [value]="valor(activo.serie)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_serie" placeholder="Novedad serie" class="ti-input" />
+        </div>
+
+        <div class="ti-fila ti-fila--observacion">
+          <label>Observación en Indigo</label>
+          <textarea [value]="valor(activo.observacion)" class="ti-input ti-input--readonly" rows="3" readonly></textarea>
+        </div>
+
+      </div>
+
+      <!-- ── Columna 2 ─────────────────────────────────────────────── -->
+      <div class="ti-columna">
+
+        <div class="ti-fila">
+          <label>Responsable</label>
+          <input type="text" [value]="valor(activo.responsable)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_responsable" placeholder="Novedad responsable" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Localización</label>
+          <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_localizacion" placeholder="Novedad localización" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Tipo de inventario</label>
+          <input type="text" [value]="valor(activo.tipo_inventario)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_tipo_inventario" placeholder="Novedad tipo inventario" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Sucursal</label>
+          <input type="text" [value]="valor(activo.sucursal)" class="ti-input ti-input--readonly" readonly />
+          <input type="text" [(ngModel)]="formulario.novedad_sucursal" placeholder="Novedad sucursal" class="ti-input" />
+        </div>
+
+        <div class="ti-fila">
+          <label>Estado físico</label>
+          <input type="text" [value]="valor(activo.estado_fisico)" class="ti-input ti-input--readonly" readonly />
+          <select [(ngModel)]="formulario.novedad_estado_fisico" class="ti-input ti-input--destacado">
+            <option value="">-- Novedad estado físico --</option>
+            <option *ngFor="let e of estadosFisicos" [value]="e">{{ e }}</option>
+          </select>
+        </div>
+
+        <div class="ti-fila ti-fila--observacion">
+          <label>Observación de la novedad</label>
+          <textarea
+            [(ngModel)]="formulario.observacion"
+            placeholder="Describa lo encontrado durante la toma de inventario"
+            class="ti-input"
+            rows="3"
+            maxlength="2000"></textarea>
+          <small class="ti-contador">{{ formulario.observacion.length }} / 2000</small>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- HISTORIAL DEL ACTIVO                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="ti-card" *ngIf="activo">
+    <h3 class="ti-card__titulo">
+      <i class="pi pi-history"></i>
+      Historial de tomas de este activo
+      <span class="ti-contador-registros" *ngIf="historial.length">
+        {{ historial.length }} registro(s)
+      </span>
+    </h3>
+
+    <div class="ti-vacio" *ngIf="cargandoHistorial">
+      <i class="pi pi-spin pi-spinner"></i>
+      Cargando historial...
+    </div>
+
+    <div class="ti-vacio" *ngIf="!cargandoHistorial && historial.length === 0">
+      <i class="pi pi-inbox"></i>
+      Este activo no tiene tomas de inventario registradas.
+    </div>
+
+    <div class="ti-timeline" *ngIf="!cargandoHistorial && historial.length > 0">
+      <article class="ti-timeline__item" *ngFor="let registro of historial">
+
+        <div class="ti-timeline__marca">
+          <p-tag
+            *ngIf="registro.estado_fisico"
+            [value]="registro.estado_fisico"
+            [severity]="severidadEstadoFisico(registro.estado_fisico)"></p-tag>
+        </div>
+
+        <div class="ti-timeline__cuerpo">
+          <header class="ti-timeline__header">
+            <strong>{{ registro.registrado_por.nombre }}</strong>
+            <span class="ti-timeline__fecha">{{ registro.created_at_human }}</span>
+          </header>
+
+          <ul class="ti-cambios" *ngIf="registro.cambios.length > 0">
+            <li *ngFor="let cambio of registro.cambios">
+              <span class="ti-cambios__campo">{{ cambio.etiqueta }}:</span>
+              <span class="ti-cambios__antes">{{ cambio.anterior || '(vacío)' }}</span>
+              <i class="pi pi-arrow-right"></i>
+              <span class="ti-cambios__despues">{{ cambio.nuevo }}</span>
+            </li>
+          </ul>
+
+          <p class="ti-timeline__observacion" *ngIf="registro.observacion">
+            <i class="pi pi-comment"></i>
+            {{ registro.observacion }}
+          </p>
+
+          <p class="ti-timeline__sin-cambios" *ngIf="registro.cambios.length === 0 && !registro.observacion">
+            Toma registrada sin novedades.
+          </p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+</div>

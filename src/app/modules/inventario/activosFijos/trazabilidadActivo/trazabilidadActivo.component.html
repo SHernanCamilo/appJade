@@ -1,0 +1,212 @@
+<p-toast position="top-right"></p-toast>
+
+<div class="tz">
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- ENCABEZADO                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <header class="tz-header">
+    <div>
+      <h2 class="tz-titulo">
+        <i class="pi pi-history"></i>
+        Trazabilidad de Activos Fijos
+      </h2>
+      <p class="tz-subtitulo">
+        Historial de todas las tomas de inventario con el detalle de cada cambio
+      </p>
+    </div>
+
+    <a routerLink="/inventario/activosFijos/tomaInventario" class="tz-btn tz-btn--primary">
+      <i class="pi pi-plus"></i>
+      Nueva toma
+    </a>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- RESUMEN                                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="tz-resumen" *ngIf="resumen">
+    <div class="tz-kpi">
+      <span class="tz-kpi__valor">{{ resumen.total_tomas | number }}</span>
+      <span class="tz-kpi__label">Tomas registradas</span>
+    </div>
+    <div class="tz-kpi">
+      <span class="tz-kpi__valor">{{ resumen.activos_distintos | number }}</span>
+      <span class="tz-kpi__label">Activos inventariados</span>
+    </div>
+    <div class="tz-kpi tz-kpi--hoy">
+      <span class="tz-kpi__valor">{{ resumen.tomas_hoy | number }}</span>
+      <span class="tz-kpi__label">Tomas hoy</span>
+    </div>
+    <div class="tz-kpi tz-kpi--bueno">
+      <span class="tz-kpi__valor">{{ resumen.en_buen_estado | number }}</span>
+      <span class="tz-kpi__label">En buen estado</span>
+    </div>
+    <div class="tz-kpi tz-kpi--reparacion">
+      <span class="tz-kpi__valor">{{ resumen.para_reparacion | number }}</span>
+      <span class="tz-kpi__label">Para reparación</span>
+    </div>
+    <div class="tz-kpi tz-kpi--baja">
+      <span class="tz-kpi__valor">{{ resumen.para_baja | number }}</span>
+      <span class="tz-kpi__label">Para dar de baja</span>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- FILTROS                                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="tz-card tz-filtros">
+    <div class="tz-filtro">
+      <label for="fPlaca">Placa</label>
+      <input id="fPlaca" type="text" [(ngModel)]="filtros.placa"
+             (keyup.enter)="aplicarFiltros()" placeholder="Buscar placa" class="tz-input" />
+    </div>
+
+    <div class="tz-filtro">
+      <label for="fEstado">Estado físico</label>
+      <select id="fEstado" [(ngModel)]="filtros.estado_fisico" class="tz-input">
+        <option value="">Todos</option>
+        <option *ngFor="let e of estadosFisicos" [value]="e">{{ e }}</option>
+      </select>
+    </div>
+
+    <div class="tz-filtro">
+      <label for="fDesde">Desde</label>
+      <input id="fDesde" type="date" [(ngModel)]="filtros.desde" class="tz-input" />
+    </div>
+
+    <div class="tz-filtro">
+      <label for="fHasta">Hasta</label>
+      <input id="fHasta" type="date" [(ngModel)]="filtros.hasta" class="tz-input" />
+    </div>
+
+    <div class="tz-filtros__acciones">
+      <button type="button" class="tz-btn tz-btn--primary" (click)="aplicarFiltros()">
+        <i class="pi pi-filter"></i>
+        Filtrar
+      </button>
+      <button type="button" class="tz-btn tz-btn--secondary"
+              *ngIf="hayFiltrosActivos" (click)="limpiarFiltros()">
+        <i class="pi pi-times"></i>
+        Limpiar
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- TABLA                                                              -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="tz-card">
+    <p-table
+      [value]="registros"
+      [loading]="cargando"
+      [paginator]="true"
+      [rows]="filasPorPagina"
+      [totalRecords]="totalRegistros"
+      [lazy]="true"
+      [first]="primeraFila"
+      (onPage)="onPageChange($event)"
+      [rowsPerPageOptions]="[25, 50, 100]"
+      styleClass="tz-tabla"
+      currentPageReportTemplate="{first} - {last} de {totalRecords} registros"
+      [showCurrentPageReport]="true">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem"></th>
+          <th>Placa</th>
+          <th>Artículo</th>
+          <th>Estado físico</th>
+          <th style="width: 6rem">Cambios</th>
+          <th>Registrado por</th>
+          <th style="width: 10rem">Fecha</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-registro>
+        <tr [class.tz-fila--expandida]="expandidas[registro.id]">
+          <td>
+            <button
+              type="button"
+              class="tz-expandir"
+              (click)="alternar(registro.id)"
+              [pTooltip]="expandidas[registro.id] ? 'Ocultar detalle' : 'Ver detalle'"
+              tooltipPosition="right">
+              <i class="pi" [ngClass]="expandidas[registro.id] ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+            </button>
+          </td>
+          <td><strong class="tz-placa">{{ valor(registro.placa) }}</strong></td>
+          <td>{{ valor(registro.articulo_nombre) }}</td>
+          <td>
+            <p-tag
+              *ngIf="registro.estado_fisico"
+              [value]="registro.estado_fisico"
+              [severity]="severidadEstadoFisico(registro.estado_fisico)"></p-tag>
+            <span *ngIf="!registro.estado_fisico" class="tz-sin-dato">—</span>
+          </td>
+          <td>
+            <span class="tz-conteo" [class.tz-conteo--cero]="registro.total_cambios === 0">
+              {{ registro.total_cambios }}
+            </span>
+          </td>
+          <td>{{ registro.registrado_por.nombre }}</td>
+          <td class="tz-fecha">{{ registro.created_at_human }}</td>
+        </tr>
+
+        <!-- Detalle expandible -->
+        <tr *ngIf="expandidas[registro.id]" class="tz-detalle">
+          <td colspan="7">
+            <div class="tz-detalle__cuerpo">
+
+              <div class="tz-detalle__bloque" *ngIf="registro.cambios.length > 0">
+                <h4>Cambios reportados</h4>
+                <ul class="tz-cambios">
+                  <li *ngFor="let cambio of registro.cambios">
+                    <span class="tz-cambios__campo">{{ cambio.etiqueta }}:</span>
+                    <span class="tz-cambios__antes">{{ cambio.anterior || '(vacío)' }}</span>
+                    <i class="pi pi-arrow-right"></i>
+                    <span class="tz-cambios__despues">{{ cambio.nuevo }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="tz-detalle__bloque" *ngIf="registro.observacion">
+                <h4>Observación</h4>
+                <p class="tz-observacion">{{ registro.observacion }}</p>
+              </div>
+
+              <div class="tz-detalle__bloque">
+                <h4>Datos del activo</h4>
+                <dl class="tz-datos">
+                  <dt>Serie</dt><dd>{{ valor(registro.serie) }}</dd>
+                  <dt>Código artículo</dt><dd>{{ valor(registro.articulo_codigo) }}</dd>
+                  <dt>Sucursal origen</dt><dd>{{ valor(registro.sucursal_origen) }}</dd>
+                  <dt>Correo del inventariador</dt><dd>{{ valor(registro.registrado_por.email) }}</dd>
+                </dl>
+              </div>
+
+              <p class="tz-detalle__vacio" *ngIf="registro.cambios.length === 0 && !registro.observacion">
+                Esta toma se registró sin novedades: el activo coincidía con el maestro.
+              </p>
+
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="7">
+            <div class="tz-vacio">
+              <i class="pi pi-inbox"></i>
+              <span *ngIf="!hayFiltrosActivos">Aún no hay tomas de inventario registradas.</span>
+              <span *ngIf="hayFiltrosActivos">Ningún registro coincide con los filtros aplicados.</span>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+    </p-table>
+  </section>
+
+</div>
