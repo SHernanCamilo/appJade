@@ -1,7 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
 
 import { ToastModule } from 'primeng/toast';
 import { TableModule } from 'primeng/table';
@@ -22,7 +21,7 @@ import {
 @Component({
   selector: 'app-trazabilidad-activo',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ToastModule, TableModule, TagModule, TooltipModule],
+  imports: [CommonModule, FormsModule, ToastModule, TableModule, TagModule, TooltipModule],
   providers: [MessageService],
   templateUrl: './trazabilidadActivo.component.html',
   styleUrl: './trazabilidadActivo.component.css'
@@ -52,6 +51,15 @@ export class TrazabilidadActivoComponent implements OnInit {
   expandidas: Record<number, boolean> = {};
 
   ngOnInit(): void {
+    this.cargarResumen();
+    this.cargar();
+  }
+
+  /**
+   * Refresca listado e indicadores. Lo llama el shell al activar esta pestaña
+   * para que las novedades recién registradas aparezcan de inmediato.
+   */
+  recargar(): void {
     this.cargarResumen();
     this.cargar();
   }

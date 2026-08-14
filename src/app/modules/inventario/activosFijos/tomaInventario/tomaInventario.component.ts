@@ -1,7 +1,6 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 
 import { ToastModule } from 'primeng/toast';
@@ -59,7 +58,7 @@ const FORMULARIO_VACIO: FormularioNovedad = {
 @Component({
   selector: 'app-toma-inventario-activos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ToastModule, TooltipModule, TableModule, TagModule],
+  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, TableModule, TagModule],
   providers: [MessageService],
   templateUrl: './tomaInventario.component.html',
   styleUrl: './tomaInventario.component.css'
@@ -67,6 +66,9 @@ const FORMULARIO_VACIO: FormularioNovedad = {
 export class TomaInventarioComponent implements OnInit {
   private readonly service = inject(ActivosFijosService);
   private readonly messages = inject(MessageService);
+
+  /** Avisa al shell que se guardó una novedad, para refrescar la trazabilidad. */
+  @Output() novedadRegistrada = new EventEmitter<void>();
 
   // ── Búsqueda ──────────────────────────────────────────────────────────
   campoBusqueda: CampoBusqueda = 'placa';
@@ -224,6 +226,8 @@ export class TomaInventarioComponent implements OnInit {
         if (this.activo?.placa) {
           this.cargarHistorial(this.activo.placa);
         }
+
+        this.novedadRegistrada.emit();
       },
       error: (error: HttpErrorResponse) => {
         this.guardando = false;
