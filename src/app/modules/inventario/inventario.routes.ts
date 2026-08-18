@@ -83,18 +83,23 @@ export const INVENTARIO_ROUTES: Routes = [
     ]
   },
   {
-    // Un solo módulo con pestañas: Registrar toma + Trazabilidad
+    // Activo Fijos (padre) con su hijo Control Activo
     path: 'activosFijos',
-    loadComponent: () =>
-      import('./activosFijos/activosFijos.component').then(m => m.ActivosFijosComponent),
-    canActivate: [moduleGuard],
-    data: {
-      moduleCode: 'INV-ACTIVOS',
-      pageTitle: 'Activos Fijos',
-      pageSubtitle: 'Toma de inventario y trazabilidad de novedades'
-    }
+    children: [
+      {
+        path: 'controlActivo',
+        loadComponent: () =>
+          import('./activosFijos/controlActivo/controlActivo.component').then(m => m.ControlActivoComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ACTIVOS-CTRL',
+          pageTitle: 'Control de Activos Fijos',
+          pageSubtitle: 'Registro de novedades y trazabilidad'
+        }
+      }
+    ]
   },
   // Compatibilidad con los enlaces previos
-  { path: 'activosFijos/tomaInventario', redirectTo: 'activosFijos', pathMatch: 'full' },
-  { path: 'activosFijos/trazabilidad', redirectTo: 'activosFijos', pathMatch: 'full' }
+  { path: 'activosFijos/tomaInventario', redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' },
+  { path: 'activosFijos/trazabilidad', redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' }
 ];
