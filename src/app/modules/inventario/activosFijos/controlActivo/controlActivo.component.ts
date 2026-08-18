@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -7,6 +7,7 @@ import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { TabViewModule } from 'primeng/tabview';
 import { MessageService } from 'primeng/api';
 
 import {
@@ -14,6 +15,7 @@ import {
   ActivosFijosService,
   CampoBusqueda,
   NovedadActivoPayload,
+  ResumenTrazabilidad,
   TrazabilidadActivo
 } from '../services/activos-fijos.service';
 
@@ -48,29 +50,52 @@ const FORMULARIO_VACIO: FormularioNovedad = {
   observacion: ''
 };
 
+/** Índices de las pestañas. */
+const TAB_REGISTRAR = 0;
+const TAB_TRAZABILIDAD = 1;
+
 /**
- * Toma de inventario de activos fijos.
+ * Control de Activos Fijos — módulo único con dos pestañas.
  *
- * Izquierda: datos del activo tal como están en Indigo (solo lectura).
- * Derecha: campos de novedad que el inventariador llena si encuentra diferencia.
- * Abajo: historial de tomas previas del mismo activo.
+ *   Registro     → busca el activo en el maestro de Indigo (vista de Fabric),
+ *                  muestra sus datos en solo lectura y permite reportar las
+ *                  diferencias encontradas en sitio. Incluye el historial del
+ *                  activo que se está inventariando.
+ *
+ *   Trazabilidad → listado de todas las tomas registradas, con indicadores y
+ *                  filtros por placa, estado físico y rango de fechas.
+ *
+ * Se unificaron en un solo componente para que el inventariador registre y
+ * verifique sin cambiar de página: al guardar una novedad se salta a la
+ * pestaña de trazabilidad ya recargada.
  */
 @Component({
-  selector: 'app-toma-inventario-activos',
+  selector: 'app-control-activo',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastModule, TooltipModule, TableModule, TagModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ToastModule,
+    TooltipModule,
+    TableModule,
+    TagModule,
+    TabViewModule
+  ],
   providers: [MessageService],
-  templateUrl: './tomaInventario.component.html',
-  styleUrl: './tomaInventario.component.css'
+  templateUrl: './controlActivo.component.html',
+  styleUrl: './controlActivo.component.css'
 })
-export class TomaInventarioComponent implements OnInit {
+export class ControlActivoComponent implements OnInit {
   private readonly service = inject(ActivosFijosService);
   private readonly messages = inject(MessageService);
 
-  /** Avisa al shell que se guardó una novedad, para refrescar la trazabilidad. */
-  @Output() novedadRegistrada = new EventEmitter<void>();
+  /** 0 = Registrar toma, 1 = Trazabilidad */
+  tabActiva = TAB_REGISTRAR;
 
-  // ── Búsqueda ──────────────────────────────────────────────────────────
+  // =========================================================================
+  // PESTAÑA 1 — REGISTRAR TOMA
+  // =========================================================================
+
   campoBusqueda: CampoBusqueda = 'placa';
   valorBusqueda = '';
   buscando = false;
@@ -85,28 +110,69 @@ export class TomaInventarioComponent implements OnInit {
   /** Resultados cuando la búsqueda devuelve más de un activo. */
   resultados: ActivoFijo[] = [];
 
-  // ── Activo seleccionado ───────────────────────────────────────────────
   activo: ActivoFijo | null = null;
   historial: TrazabilidadActivo[] = [];
   cargandoHistorial = false;
 
-  // ── Formulario de novedad ─────────────────────────────────────────────
   formulario: FormularioNovedad = { ...FORMULARIO_VACIO };
   guardando = false;
 
   estados: string[] = [];
   estadosFisicos: string[] = [];
 
+  // =========================================================================
+  // PESTAÑA 2 — TRAZABILIDAD
+  // =========================================================================
+
+  registros: TrazabilidadActivo[] = [];
+  resumen: ResumenTrazabilidad | null = null;
+
+  cargandoTraza = false;
+  totalRegistros = 0;
+  filasPorPagina = 25;
+  primeraFila = 0;
+
+  filtros = { placa: '', estado_fisico: '', desde: '', hasta: '' };
+
+  /** Filas expandidas en la tabla de trazabilidad. */
+  expandidas: Record<number, boolean> = {};
+
   ngOnInit(): void {
     this.cargarOpciones();
+    this.cargarTrazabilidad();
+    this.cargarResumen();
   }
 
   // =========================================================================
-  // BÚSQUEDA
+  // PESTAÑAS
+  // =========================================================================
+
+  onTabChange(evento: { index: number }): void {
+    this.tabActiva = evento.index;
+
+    // Al entrar a trazabilidad se recarga para reflejar lo recién guardado
+    if (evento.index === TAB_TRAZABILIDAD) {
+      this.cargarTrazabilidad();
+      this.cargarResumen();
+    }
+  }
+
+  irATrazabilidad(): void {
+    this.tabActiva = TAB_TRAZABILIDAD;
+    this.cargarTrazabilidad();
+    this.cargarResumen();
+  }
+
+  // =========================================================================
+  // BÚSQUEDA EN EL MAESTRO
   // =========================================================================
 
   get puedeBuscar(): boolean {
     return this.valorBusqueda.trim().length >= 2 && !this.buscando;
+  }
+
+  get etiquetaCampoActual(): string {
+    return this.camposBusqueda.find(c => c.valor === this.campoBusqueda)?.etiqueta.toLowerCase() ?? 'valor';
   }
 
   consultar(): void {
@@ -134,7 +200,7 @@ export class TomaInventarioComponent implements OnInit {
           return;
         }
 
-        // Un solo resultado: abrir directo. Varios: mostrar lista para elegir.
+        // Un solo resultado: abrir directo. Varios: dejar elegir.
         if (encontrados.length === 1) {
           this.seleccionar(encontrados[0]);
         } else {
@@ -165,7 +231,7 @@ export class TomaInventarioComponent implements OnInit {
     this.formulario = { ...FORMULARIO_VACIO };
 
     if (activo.placa) {
-      this.cargarHistorial(activo.placa);
+      this.cargarHistorialActivo(activo.placa);
     }
   }
 
@@ -181,7 +247,7 @@ export class TomaInventarioComponent implements OnInit {
   // REGISTRO DE NOVEDAD
   // =========================================================================
 
-  /** Cuenta cuántos campos de novedad tienen valor (para habilitar el botón). */
+  /** Cuántos campos de novedad tienen valor (sin contar la observación). */
   get novedadesLlenas(): number {
     return Object.entries(this.formulario)
       .filter(([clave]) => clave !== 'observacion')
@@ -204,7 +270,7 @@ export class TomaInventarioComponent implements OnInit {
 
     const payload: NovedadActivoPayload = { placa: this.activo.placa };
 
-    // Solo se envían los campos con valor: null significa "sin novedad"
+    // Solo se envían los campos con valor: ausente significa "sin novedad"
     (Object.keys(this.formulario) as Array<keyof FormularioNovedad>).forEach(clave => {
       const valor = this.formulario[clave].trim();
       if (valor !== '') {
@@ -212,22 +278,24 @@ export class TomaInventarioComponent implements OnInit {
       }
     });
 
+    const placaGuardada = this.activo.placa;
+
     this.service.registrarNovedad(payload).subscribe({
       next: respuesta => {
         this.guardando = false;
         this.messages.add({
           severity: 'success',
           summary: 'Novedad registrada',
-          detail: `Se guardaron ${respuesta.data.total_cambios} cambio(s) para la placa ${this.activo?.placa}.`,
+          detail: `Se guardaron ${respuesta.data.total_cambios} cambio(s) para la placa ${placaGuardada}.`,
           life: 6000
         });
 
         this.formulario = { ...FORMULARIO_VACIO };
-        if (this.activo?.placa) {
-          this.cargarHistorial(this.activo.placa);
-        }
+        this.cargarHistorialActivo(placaGuardada);
 
-        this.novedadRegistrada.emit();
+        // Refrescar la otra pestaña para que el registro ya aparezca allí
+        this.cargarTrazabilidad();
+        this.cargarResumen();
       },
       error: (error: HttpErrorResponse) => {
         this.guardando = false;
@@ -242,10 +310,10 @@ export class TomaInventarioComponent implements OnInit {
   }
 
   // =========================================================================
-  // HISTORIAL
+  // HISTORIAL DEL ACTIVO SELECCIONADO
   // =========================================================================
 
-  private cargarHistorial(placa: string): void {
+  private cargarHistorialActivo(placa: string): void {
     this.cargandoHistorial = true;
 
     this.service.historial(placa).subscribe({
@@ -267,7 +335,7 @@ export class TomaInventarioComponent implements OnInit {
         this.estadosFisicos = respuesta.data?.estados_fisicos ?? [];
       },
       error: () => {
-        // Fallback: si el endpoint falla, el formulario sigue usable con los valores conocidos
+        // Fallback: el formulario sigue usable con los valores conocidos
         this.estados = ['Activo', 'Inactivo'];
         this.estadosFisicos = ['En buen estado', 'Para Reparacion', 'Dar de baja'];
       }
@@ -275,12 +343,82 @@ export class TomaInventarioComponent implements OnInit {
   }
 
   // =========================================================================
-  // HELPERS DE VISTA
+  // TRAZABILIDAD GENERAL
   // =========================================================================
 
-  get etiquetaCampoActual(): string {
-    return this.camposBusqueda.find(c => c.valor === this.campoBusqueda)?.etiqueta.toLowerCase() ?? 'valor';
+  cargarTrazabilidad(): void {
+    this.cargandoTraza = true;
+
+    const pagina = Math.floor(this.primeraFila / this.filasPorPagina) + 1;
+
+    this.service.trazabilidad({
+      ...this.filtros,
+      per_page: this.filasPorPagina,
+      page: pagina
+    }).subscribe({
+      next: respuesta => {
+        this.cargandoTraza = false;
+        this.registros = respuesta.data ?? [];
+        this.totalRegistros = respuesta.meta?.total ?? 0;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargandoTraza = false;
+        this.registros = [];
+        this.messages.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.error?.message ?? 'No se pudo cargar la trazabilidad.',
+          life: 6000
+        });
+      }
+    });
   }
+
+  private cargarResumen(): void {
+    this.service.resumen().subscribe({
+      next: respuesta => (this.resumen = respuesta.data),
+      error: () => (this.resumen = null)
+    });
+  }
+
+  onPageChange(evento: { first: number; rows: number }): void {
+    this.primeraFila = evento.first;
+    this.filasPorPagina = evento.rows;
+    this.cargarTrazabilidad();
+  }
+
+  aplicarFiltros(): void {
+    this.primeraFila = 0;
+    this.cargarTrazabilidad();
+  }
+
+  limpiarFiltros(): void {
+    this.filtros = { placa: '', estado_fisico: '', desde: '', hasta: '' };
+    this.primeraFila = 0;
+    this.cargarTrazabilidad();
+  }
+
+  get hayFiltrosActivos(): boolean {
+    return Object.values(this.filtros).some(v => v !== '');
+  }
+
+  alternar(id: number): void {
+    this.expandidas[id] = !this.expandidas[id];
+  }
+
+  /** Abre la trazabilidad filtrada por la placa que se está inventariando. */
+  verTrazabilidadDeActivo(): void {
+    if (!this.activo?.placa) {
+      return;
+    }
+    this.filtros = { placa: this.activo.placa, estado_fisico: '', desde: '', hasta: '' };
+    this.primeraFila = 0;
+    this.irATrazabilidad();
+  }
+
+  // =========================================================================
+  // HELPERS DE VISTA
+  // =========================================================================
 
   severidadEstadoFisico(estado: string | null): 'success' | 'warn' | 'danger' | 'info' {
     switch (estado) {

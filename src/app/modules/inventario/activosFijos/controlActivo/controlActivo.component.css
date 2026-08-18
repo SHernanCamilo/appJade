@@ -437,3 +437,243 @@ textarea.ti-input {
     grid-template-columns: 1fr;
   }
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   PESTAÑAS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:host ::ng-deep .ti-tabs .p-tabview-panels {
+  padding: 1.25rem 0 0;
+  background: transparent;
+  border: none;
+}
+
+:host ::ng-deep .ti-tabs .p-tabview-nav {
+  background: transparent;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+:host ::ng-deep .ti-tabs .p-tabview-nav li .p-tabview-nav-link {
+  padding: 0.75rem 1.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: transparent;
+  border-width: 0 0 2px 0;
+}
+
+:host ::ng-deep .ti-tabs .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  color: #1d4ed8;
+  border-color: #2563eb;
+}
+
+/* La última tarjeta de cada pestaña no necesita margen inferior */
+:host ::ng-deep .ti-tabs .p-tabview-panel > section:last-child {
+  margin-bottom: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TRAZABILIDAD — INDICADORES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.ti-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #94a3b8;
+  border-radius: 8px;
+}
+
+.ti-kpi__valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1b3a5c;
+  line-height: 1.1;
+}
+
+.ti-kpi__label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ti-kpi--hoy        { border-left-color: #3b82f6; }
+.ti-kpi--bueno      { border-left-color: #16a34a; }
+.ti-kpi--reparacion { border-left-color: #f59e0b; }
+.ti-kpi--baja       { border-left-color: #dc2626; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TRAZABILIDAD — FILTROS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-filtros {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.ti-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 170px;
+}
+
+.ti-filtro label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.ti-filtros__acciones {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TRAZABILIDAD — TABLA
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-placa-tabla {
+  font-family: 'Consolas', monospace;
+  color: #1d4ed8;
+}
+
+.ti-fecha {
+  font-size: 0.82rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.ti-sin-dato {
+  color: #9ca3af;
+}
+
+.ti-conteo {
+  display: inline-block;
+  min-width: 1.6rem;
+  padding: 0.15rem 0.45rem;
+  background: #eff6ff;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  text-align: center;
+}
+
+.ti-conteo--cero {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.ti-expandir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ti-expandir:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.ti-fila--expandida {
+  background: #f9fafb;
+}
+
+/* ── Detalle expandible ──────────────────────────────────────────────── */
+
+.ti-detalle > td {
+  background: #f9fafb;
+  padding: 0 !important;
+}
+
+.ti-detalle__cuerpo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 1.1rem 1.25rem 1.1rem 3.5rem;
+  border-left: 3px solid #3b82f6;
+}
+
+.ti-detalle__bloque h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ti-detalle__vacio {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.ti-observacion {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #4b5563;
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+/* ── Lista de datos ──────────────────────────────────────────────────── */
+
+.ti-datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.85rem;
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.ti-datos dt {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.ti-datos dd {
+  margin: 0;
+  color: #111827;
+}
+
+/* ── Responsive trazabilidad ─────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .ti-filtros__acciones {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .ti-detalle__cuerpo {
+    grid-template-columns: 1fr;
+    padding-left: 1.25rem;
+  }
+}
