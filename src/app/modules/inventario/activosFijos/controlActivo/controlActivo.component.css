@@ -795,3 +795,66 @@ textarea.ti-input {
   align-items: center;
   gap: 0.3rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PRIMENG DROPDOWN & AUTOCOMPLETE — Override para integrarse al diseño
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:host ::ng-deep .ti-dropdown-prime,
+:host ::ng-deep .ti-autocomplete-prime {
+  width: 100%;
+}
+
+:host ::ng-deep .ti-dropdown-prime .p-dropdown,
+:host ::ng-deep .ti-autocomplete-prime .p-autocomplete-input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  min-height: 36px;
+}
+
+:host ::ng-deep .ti-dropdown-prime .p-dropdown:hover,
+:host ::ng-deep .ti-autocomplete-prime .p-autocomplete-input:hover {
+  border-color: #9ca3af;
+}
+
+:host ::ng-deep .ti-dropdown-prime .p-dropdown.p-focus,
+:host ::ng-deep .ti-autocomplete-prime .p-autocomplete-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+:host ::ng-deep .ti-dropdown-prime .p-dropdown-label {
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+:host ::ng-deep .ti-dropdown-prime .p-dropdown-filter {
+  font-size: 0.85rem;
+  padding: 0.45rem 0.6rem;
+}
+
+:host ::ng-deep .ti-dropdown-prime--filtro .p-dropdown {
+  min-width: 200px;
+}
+
+:host ::ng-deep .p-autocomplete-panel,
+:host ::ng-deep .p-dropdown-panel {
+  font-size: 0.85rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+:host ::ng-deep .p-autocomplete-item,
+:host ::ng-deep .p-dropdown-item {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+:host ::ng-deep .p-autocomplete-item:hover,
+:host ::ng-deep .p-dropdown-item:hover {
+  background: #eff6ff;
+}

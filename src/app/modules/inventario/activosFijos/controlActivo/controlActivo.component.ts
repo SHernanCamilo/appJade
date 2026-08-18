@@ -8,6 +8,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TabViewModule } from 'primeng/tabview';
+import { DropdownModule } from 'primeng/dropdown';
+import { AutoCompleteModule } from 'primeng/autocomplete';
 import { MessageService } from 'primeng/api';
 
 import {
@@ -111,7 +113,9 @@ const TAB_TRAZABILIDAD = 1;
     TooltipModule,
     TableModule,
     TagModule,
-    TabViewModule
+    TabViewModule,
+    DropdownModule,
+    AutoCompleteModule
   ],
   providers: [MessageService],
   templateUrl: './controlActivo.component.html',
@@ -154,12 +158,15 @@ export class ControlActivoComponent implements OnInit {
 
   /** Unidades funcionales cargadas del backend. */
   unidadesFuncionales: string[] = [];
+  unidadesFuncionalesOpciones: { label: string; value: string }[] = [];
 
   /** Centros de costo desde Fabric (cp.VW_Payroll_UnidadFuncionales_CC) */
   centrosCosto: { code: string; unidad_funcional: string }[] = [];
+  centrosCostoOpciones: { label: string; value: string }[] = [];
 
   /** Empleados activos para el select de responsable */
   empleados: { documento: string; nombre: string }[] = [];
+  empleadosSugerencias: string[] = [];
   buscandoEmpleados = false;
 
   /** Controla si se muestra el formulario de activo externo. */
@@ -407,9 +414,14 @@ export class ControlActivoComponent implements OnInit {
     this.service.unidadesFuncionales().subscribe({
       next: respuesta => {
         this.unidadesFuncionales = (respuesta.data ?? []).map(uf => uf.valor);
+        this.unidadesFuncionalesOpciones = this.unidadesFuncionales.map(uf => ({
+          label: uf,
+          value: uf
+        }));
       },
       error: () => {
         this.unidadesFuncionales = [];
+        this.unidadesFuncionalesOpciones = [];
       }
     });
   }
@@ -418,26 +430,32 @@ export class ControlActivoComponent implements OnInit {
     this.service.centrosCosto().subscribe({
       next: respuesta => {
         this.centrosCosto = respuesta.data ?? [];
+        this.centrosCostoOpciones = this.centrosCosto.map(cc => ({
+          label: `${cc.code} - ${cc.unidad_funcional}`,
+          value: `${cc.code} - ${cc.unidad_funcional}`
+        }));
       },
       error: () => {
         this.centrosCosto = [];
+        this.centrosCostoOpciones = [];
       }
     });
   }
 
-  buscarEmpleados(busqueda: string): void {
+  buscarEmpleados(evento: { query: string }): void {
+    const busqueda = evento.query ?? '';
     if (busqueda.trim().length < 3) {
+      this.empleadosSugerencias = [];
       return;
     }
-    this.buscandoEmpleados = true;
     this.service.empleados(busqueda, 30).subscribe({
       next: respuesta => {
-        this.buscandoEmpleados = false;
-        this.empleados = respuesta.data ?? [];
+        this.empleadosSugerencias = (respuesta.data ?? []).map(emp =>
+          `${emp.documento} - ${emp.nombre}`
+        );
       },
       error: () => {
-        this.buscandoEmpleados = false;
-        this.empleados = [];
+        this.empleadosSugerencias = [];
       }
     });
   }

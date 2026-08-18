@@ -156,10 +156,17 @@
 
             <div class="ti-fila">
               <label>Unidad funcional</label>
-              <select [(ngModel)]="formularioExterno.unidad_funcional" class="ti-input">
-                <option value="">-- Seleccione --</option>
-                <option *ngFor="let uf of unidadesFuncionales" [value]="uf">{{ uf }}</option>
-              </select>
+              <p-dropdown
+                [(ngModel)]="formularioExterno.unidad_funcional"
+                [options]="centrosCostoOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar unidad funcional..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
             </div>
           </div>
 
@@ -167,30 +174,32 @@
           <div class="ti-columna">
             <div class="ti-fila">
               <label>Responsable</label>
-              <div class="ti-autocomplete">
-                <input type="text" [(ngModel)]="formularioExterno.responsable"
-                  placeholder="Buscar empleado (3+ letras)"
-                  (input)="buscarEmpleados(formularioExterno.responsable)"
-                  class="ti-input" autocomplete="off" list="listaEmpleados" />
-                <datalist id="listaEmpleados">
-                  <option *ngFor="let emp of empleados" [value]="emp.documento + ' - ' + emp.nombre">
-                    {{ emp.nombre }}
-                  </option>
-                </datalist>
-                <small *ngIf="buscandoEmpleados" class="ti-cargando-inline">
-                  <i class="pi pi-spin pi-spinner"></i> Buscando...
-                </small>
-              </div>
+              <p-autoComplete
+                [(ngModel)]="formularioExterno.responsable"
+                [suggestions]="empleadosSugerencias"
+                (completeMethod)="buscarEmpleados($event)"
+                
+                [dropdown]="false"
+                placeholder="Buscar empleado..."
+                [minLength]="3"
+                [forceSelection]="false"
+                styleClass="ti-autocomplete-prime">
+              </p-autoComplete>
             </div>
 
             <div class="ti-fila">
               <label>Localización</label>
-              <select [(ngModel)]="formularioExterno.localizacion" class="ti-input">
-                <option value="">-- Seleccione centro de costo --</option>
-                <option *ngFor="let cc of centrosCosto" [value]="cc.code + ' - ' + cc.unidad_funcional">
-                  {{ cc.code }} - {{ cc.unidad_funcional }}
-                </option>
-              </select>
+              <p-dropdown
+                [(ngModel)]="formularioExterno.localizacion"
+                [options]="centrosCostoOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar centro de costo..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
             </div>
 
             <div class="ti-fila">
@@ -351,28 +360,33 @@
             <div class="ti-fila">
               <label>Responsable</label>
               <input type="text" [value]="valor(activo.responsable)" class="ti-input ti-input--readonly" readonly />
-              <div class="ti-autocomplete">
-                <input type="text" [(ngModel)]="formulario.novedad_responsable"
-                  placeholder="Buscar empleado (3+ letras)"
-                  (input)="buscarEmpleados(formulario.novedad_responsable)"
-                  class="ti-input" autocomplete="off" list="listaEmpleadosNov" />
-                <datalist id="listaEmpleadosNov">
-                  <option *ngFor="let emp of empleados" [value]="emp.documento + ' - ' + emp.nombre">
-                    {{ emp.nombre }}
-                  </option>
-                </datalist>
-              </div>
+              <p-autoComplete
+                [(ngModel)]="formulario.novedad_responsable"
+                [suggestions]="empleadosSugerencias"
+                (completeMethod)="buscarEmpleados($event)"
+                
+                [dropdown]="false"
+                placeholder="Buscar empleado..."
+                [minLength]="3"
+                [forceSelection]="false"
+                styleClass="ti-autocomplete-prime">
+              </p-autoComplete>
             </div>
 
             <div class="ti-fila">
               <label>Localización</label>
               <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
-              <select [(ngModel)]="formulario.novedad_localizacion" class="ti-input">
-                <option value="">-- Seleccione --</option>
-                <option *ngFor="let cc of centrosCosto" [value]="cc.code + ' - ' + cc.unidad_funcional">
-                  {{ cc.code }} - {{ cc.unidad_funcional }}
-                </option>
-              </select>
+              <p-dropdown
+                [(ngModel)]="formulario.novedad_localizacion"
+                [options]="centrosCostoOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar centro de costo..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
             </div>
 
             <div class="ti-fila">
@@ -390,10 +404,17 @@
             <div class="ti-fila">
               <label>Unidad funcional</label>
               <span class="ti-input ti-input--readonly">—</span>
-              <select [(ngModel)]="formulario.novedad_unidad_funcional" class="ti-input">
-                <option value="">-- Seleccione --</option>
-                <option *ngFor="let uf of unidadesFuncionales" [value]="uf">{{ uf }}</option>
-              </select>
+              <p-dropdown
+                [(ngModel)]="formulario.novedad_unidad_funcional"
+                [options]="unidadesFuncionalesOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar unidad funcional..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
             </div>
 
             <div class="ti-fila">
@@ -535,10 +556,17 @@
 
         <div class="ti-filtro">
           <label for="fUnidad">Unidad funcional</label>
-          <select id="fUnidad" [(ngModel)]="filtros.unidad_funcional" class="ti-input">
-            <option value="">Todas</option>
-            <option *ngFor="let uf of unidadesFuncionales" [value]="uf">{{ uf }}</option>
-          </select>
+          <p-dropdown
+            [(ngModel)]="filtros.unidad_funcional"
+            [options]="centrosCostoOpciones"
+            optionLabel="label"
+            optionValue="value"
+            [filter]="true"
+            filterBy="label"
+            [showClear]="true"
+            placeholder="Todas"
+            styleClass="ti-dropdown-prime ti-dropdown-prime--filtro">
+          </p-dropdown>
         </div>
 
         <div class="ti-filtro">
