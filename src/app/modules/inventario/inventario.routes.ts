@@ -87,6 +87,11 @@ export const INVENTARIO_ROUTES: Routes = [
     path: 'activosFijos',
     children: [
       {
+        path: '',
+        redirectTo: 'controlActivo',
+        pathMatch: 'full'
+      },
+      {
         path: 'controlActivo',
         loadComponent: () =>
           import('./activosFijos/controlActivo/controlActivo.component').then(m => m.ControlActivoComponent),
