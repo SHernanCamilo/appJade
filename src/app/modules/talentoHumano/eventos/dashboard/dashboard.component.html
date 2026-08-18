@@ -102,10 +102,6 @@
               {{ row.empleado?.nombre || row.empleado || '—' }}
             </ng-template>
 
-            <ng-template pTemplate="cell-aprobador" let-row>
-              {{ row.aprobador_pendiente || row.aprobador?.nombre || row.aprobador || '—' }}
-            </ng-template>
-
             <ng-template pTemplate="cell-unidad_funcional" let-row>
               {{ row.unidad_funcional || '—' }}
             </ng-template>
@@ -342,7 +338,7 @@
               [ngModelOptions]="{standalone: true}"
               (onFilter)="onBuscarEmpleado($event)"
               (onShow)="onPanelEmpleadoAbierto()"
-              (onChange)="actualizarPreviewFlujo()">
+              (onChange)="onCambioEmpleado()">
               <ng-template pTemplate="footer">
                 <div *ngIf="hayMasEmpleados" class="dropdown-footer-load-more">
                   <button
@@ -373,7 +369,7 @@
               [ngModelOptions]="{standalone: true}"
               (onFilter)="onBuscarEmpleado($event)"
               (onShow)="onPanelEmpleadoAbierto()"
-              (onChange)="actualizarPreviewFlujo()">
+              (onChange)="onCambioEmpleado()">
               <ng-template pTemplate="footer">
                 <div *ngIf="hayMasEmpleados" class="dropdown-footer-load-more">
                   <button
@@ -513,18 +509,18 @@
                   <strong>{{ flujoPreview!.unidad_funcional_flujo!.codigo }} - {{ flujoPreview!.unidad_funcional_flujo!.nombre }}</strong>
                   <span *ngIf="flujoPreview!.modo_parametrizacion === 'grupo'" class="ms-1">(vía grupo WF)</span>
                 </span>
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                  <span class="badge bg-light text-dark border">Solicitar</span>
-                  <ng-container *ngFor="let paso of flujoPreview!.pasos">
-                    <i class="pi pi-arrow-right text-muted"></i>
-                    <span class="badge bg-info-subtle text-dark border">{{ paso.nombre_paso }}</span>
-                  </ng-container>
-                </div>
-                <div class="flujo-intervinientes small">
-                  <div *ngFor="let paso of flujoPreview!.pasos" class="mb-1">
-                    <strong>{{ paso.nombre_paso }}:</strong>
-                    <span class="text-muted ms-1">{{ paso.intervinientes_texto || 'Sin intervinientes configurados' }}</span>
+                <div class="flujo-pasos-row">
+                  <div class="flujo-paso flujo-paso-inicio">
+                    <span class="flujo-paso-nombre">Solicitar</span>
+                    <span class="flujo-paso-quien">Solicitante</span>
                   </div>
+                  <ng-container *ngFor="let paso of flujoPreview!.pasos">
+                    <i class="pi pi-arrow-right flujo-paso-flecha"></i>
+                    <div class="flujo-paso">
+                      <span class="flujo-paso-nombre">{{ paso.nombre_paso }}</span>
+                      <span class="flujo-paso-quien">{{ paso.intervinientes_texto || 'Sin responsable' }}</span>
+                    </div>
+                  </ng-container>
                 </div>
               </div>
 
@@ -591,7 +587,11 @@
         </div>
         <div *ngIf="fechaInicialInvalida" class="nov-warning mt-2">
           <i class="pi pi-exclamation-triangle me-2"></i>
-          ¡Precaución! La fecha final no debe ser menor que la inicial.
+          La fecha de fin debe ser al menos 30 minutos posterior a la de inicio.
+        </div>
+        <div *ngFor="let msg of mensajesSolapamiento" class="nov-warning mt-2">
+          <i class="pi pi-exclamation-triangle me-2"></i>
+          <span><strong>Rango no disponible.</strong> {{ msg }}</span>
         </div>
       </div>
 
@@ -625,7 +625,7 @@
           severity="success"
           (onClick)="onSubmit()" 
           [loading]="isSubmitting"
-          [disabled]="fechaInicialInvalida || sinNovedadesEmpresa">
+          [disabled]="fechaInicialInvalida || sinNovedadesEmpresa || mensajesSolapamiento.length > 0">
         </p-button>
       </div>
     </ng-template>

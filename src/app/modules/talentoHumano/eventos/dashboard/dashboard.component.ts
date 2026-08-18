@@ -109,6 +109,8 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   currentId?: number;
   submitted = false;
   fechaInicialInvalida = false;
+  private hidratandoEdicion = false;
+  mensajesSolapamiento: string[] = [];
 
   formData: {
     empresa_id: number | null;
@@ -208,7 +210,6 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.solicitudColumns = [
       { field: 'consecutivo', header: 'Consecutivo', sortable: true },
       { field: 'empleado', header: 'Empleado', sortable: true },
-      { field: 'aprobador', header: 'Aprobador' },
       { field: 'unidad_funcional', header: 'U. Funcional', sortable: true },
       { field: 'fecha_nov_ini', header: 'Inicio', sortable: true },
       { field: 'fecha_nov_fin', header: 'Fin', sortable: true },
@@ -1011,6 +1012,8 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   }
 
   onEmpresaChange(empresaId: number | null): void {
+    if (this.hidratandoEdicion) return;
+
     this.formData.empleado_id       = null;
     this.formData.empleado_ids      = [];
     this.formData.aprobador_id      = null;
@@ -1092,6 +1095,10 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         
         console.log('Componente - Novedades finales (primeras 3):', this.novedadOptions.slice(0, 3));
         console.log('Componente - Novedad id:5 final:', this.novedadOptions.find((n: any) => n.value === 5));
+
+        if (this.editMode && this.formData.novedad_id) {
+          this.onNovedadChange({ value: this.formData.novedad_id });
+        }
       },
       error: () => { 
         console.log('Error cargando novedades');
@@ -1148,6 +1155,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.currentId = undefined;
     this.submitted = false;
     this.fechaInicialInvalida = false;
+    this.mensajesSolapamiento = [];
     this.mostrarEmpleadoCubre = false;
     this.flujoPreview = null;
     this.formData = this.emptyForm();
@@ -1170,22 +1178,106 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.currentId = novedad.id;
     this.submitted = false;
     this.fechaInicialInvalida = false;
+    this.mensajesSolapamiento = [];
+    this.flujoPreview = null;
+    this.sinNovedadesEmpresa = false;
+    this.hidratandoEdicion = true;
+
+    const empleadoId = this.resolverEmpleadoId(novedad);
+    const novedadId = this.resolverNovedadCatalogoId(novedad);
+    const unidadId = this.toId(novedad.id_unidad_funcional);
+    const empresaId = this.resolverEmpresaId(novedad);
+    const empleadoCubreId = this.toId(novedad.empleado_cubre_id ?? novedad.id_user_cubre);
+
     this.formData = {
-      empresa_id:        null,
-      empleado_id:       novedad.empleado_id,
-      empleado_ids:      [],
-      aprobador_id:      novedad.aprobador_id ?? null,
-      unidad_funcional_id: novedad.id_unidad_funcional ?? null,
-      novedad_id:        novedad.novedad_id ?? null,
-      empleado_cubre_id: novedad.empleado_cubre_id ?? null,
-      fecha_inicial:     new Date(novedad.fecha_nov_ini),
-      fecha_final:       new Date(novedad.fecha_nov_fin),
-      descripcion:       novedad.coment_solicitante ?? novedad.descripcion ?? ''
+      empresa_id:          empresaId,
+      empleado_id:         empleadoId,
+      empleado_ids:        [],
+      aprobador_id:        this.toId(novedad.aprobador_id ?? novedad.id_user_aprobador),
+      unidad_funcional_id: unidadId,
+      novedad_id:          novedadId,
+      empleado_cubre_id:   empleadoCubreId,
+      fecha_inicial:       new Date(novedad.fecha_nov_ini),
+      fecha_final:         new Date(novedad.fecha_nov_fin),
+      descripcion:         novedad.coment_solicitante ?? novedad.descripcion ?? ''
     };
-    // Evaluar si la novedad guardada requiere cubrir
-    const opt = this.novedadOptions.find((n: any) => Number(n.value) === Number(novedad.novedad_id));
-    this.mostrarEmpleadoCubre = !!(opt && (opt.cubre === true || opt.cubre == 1 || opt.cubre === 1));
+
+    this.sembrarOpcionesEdicion(novedad);
+
+    if (empresaId) {
+      this.loadEmpleados(empresaId);
+      this.loadUnidadesFuncionales(empresaId);
+      this.loadNovedadesCatalogo(empresaId);
+    }
+
+    this.actualizarPreviewFlujo();
+    this.validarSolapamiento();
     this.showFormDialog = true;
+    setTimeout(() => { this.hidratandoEdicion = false; });
+  }
+
+  private toId(valor: unknown): number | null {
+    if (valor === null || valor === undefined || valor === '') return null;
+    const id = Number(valor);
+    return Number.isFinite(id) ? id : null;
+  }
+
+  private resolverEmpleadoId(novedad: EventSolicitud): number | null {
+    const desdeRelacion = typeof novedad.empleado === 'object' ? novedad.empleado?.id : null;
+    return this.toId(novedad.empleado_id ?? novedad.id_user_nov ?? desdeRelacion);
+  }
+
+  private resolverNovedadCatalogoId(novedad: EventSolicitud): number | null {
+    const desdeRelacion = typeof novedad.novedad === 'object' ? novedad.novedad?.id : null;
+    return this.toId(novedad.novedad_id ?? novedad.id_motivo_evento ?? desdeRelacion);
+  }
+
+  private resolverEmpresaId(novedad: EventSolicitud): number | null {
+    const desdeEmpleado = typeof novedad.empleado === 'object' ? novedad.empleado?.id_empresa : null;
+    return this.toId(novedad.empresa_id ?? desdeEmpleado ?? this.empresaSeleccionada);
+  }
+
+  private sembrarOpcionesEdicion(novedad: EventSolicitud): void {
+    const empleadoId = this.formData.empleado_id;
+    if (empleadoId && !this.empleadoOptions.some(o => o.value === empleadoId)) {
+      const emp = novedad.empleado;
+      const label = typeof emp === 'object'
+        ? formatEmpleadoLabel({ nombre: emp?.nombre || `Empleado #${empleadoId}`, numero_identificacion: emp?.numero_identificacion })
+        : (emp || `Empleado #${empleadoId}`);
+      this.empleadoOptions = [{ label, value: empleadoId }, ...this.empleadoOptions];
+    }
+
+    const unidadId = this.formData.unidad_funcional_id;
+    if (unidadId && !this.unidadFuncionalOptions.some(o => o.value === unidadId)) {
+      const nombre = novedad.unidad_funcional || `Unidad #${unidadId}`;
+      const codigo = novedad.unidad_funcional_codigo;
+      const label = codigo ? formatUnidadFuncionalLabel({ codigo, nombre }) : String(nombre);
+      this.unidadFuncionalOptions = [{ label, value: unidadId }, ...this.unidadFuncionalOptions];
+    }
+
+    const novedadId = this.formData.novedad_id;
+    if (novedadId && !this.novedadOptions.some((n: any) => Number(n.value) === Number(novedadId))) {
+      const nov = novedad.novedad;
+      let label = `Novedad #${novedadId}`;
+      if (nov && typeof nov === 'object') {
+        label = nov.codigo && nov.descripcion ? `${nov.codigo} - ${nov.descripcion}` : (nov.descripcion || label);
+      } else if (typeof nov === 'string' && nov.trim()) {
+        label = nov;
+      }
+      this.novedadOptions = [{ label, value: novedadId, cubre: false }, ...this.novedadOptions];
+    }
+
+    const cubreId = this.formData.empleado_cubre_id;
+    if (cubreId && !this.empleadoCubreOptions.some(o => o.value === cubreId)) {
+      const cubre = novedad.empleado_cubre;
+      const label = typeof cubre === 'object'
+        ? formatEmpleadoLabel({ nombre: cubre?.nombre || `Empleado #${cubreId}`, numero_identificacion: cubre?.numero_identificacion })
+        : (cubre || `Empleado #${cubreId}`);
+      this.empleadoCubreOptions = [{ label, value: cubreId }, ...this.empleadoCubreOptions];
+    }
+
+    const opt = this.novedadOptions.find((n: any) => Number(n.value) === Number(novedadId));
+    this.mostrarEmpleadoCubre = !!(opt && (opt.cubre === true || opt.cubre == 1 || opt.cubre === '1'));
   }
 
   validarFechas(): void {
@@ -1194,10 +1286,42 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
     if (!ini || !fin || isNaN(ini.getTime()) || isNaN(fin.getTime())) {
       this.fechaInicialInvalida = false;
+      this.mensajesSolapamiento = [];
       return;
     }
 
-    this.fechaInicialInvalida = fin < ini;
+    const duracionMs = fin.getTime() - ini.getTime();
+    this.fechaInicialInvalida = duracionMs < 30 * 60 * 1000;
+    this.validarSolapamiento();
+  }
+
+  onCambioEmpleado(): void {
+    this.actualizarPreviewFlujo();
+    this.validarSolapamiento();
+  }
+
+  private validarSolapamiento(): void {
+    this.mensajesSolapamiento = [];
+    const ini = this.formData.fecha_inicial;
+    const fin = this.formData.fecha_final;
+
+    if (!ini || !fin || this.fechaInicialInvalida || isNaN(ini.getTime()) || isNaN(fin.getTime())) {
+      return;
+    }
+    if (!this.tieneEmpleadosSeleccionados()) return;
+
+    const idsAValidar = this.editMode
+      ? (this.formData.empleado_id != null ? [this.formData.empleado_id] : [])
+      : this.formData.empleado_ids;
+
+    for (const empId of idsAValidar) {
+      const conflicto = this.buscarSolapamiento(empId, ini, fin);
+      if (conflicto) {
+        this.mensajesSolapamiento.push(
+          `${this.nombreEmpleadoPorId(empId)} ya tiene el evento ${conflicto.consecutivo} (${this.formatearFecha(conflicto.fecha_nov_ini)} – ${this.formatearFecha(conflicto.fecha_nov_fin)}) que se cruza con el rango seleccionado.`
+        );
+      }
+    }
   }
 
   /** Convierte una fecha de la BD ("YYYY-MM-DD HH:mm:ss") o ISO a timestamp local. */
@@ -1342,7 +1466,27 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.validarFechas();
     
     // Validaciones básicas
-    if (!this.tieneEmpleadosSeleccionados() || !this.formData.fecha_inicial || !this.formData.fecha_final || this.fechaInicialInvalida) return;
+    if (!this.tieneEmpleadosSeleccionados() || !this.formData.fecha_inicial || !this.formData.fecha_final) return;
+
+    if (this.fechaInicialInvalida) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Fechas inválidas',
+        detail: 'La fecha de fin debe ser al menos 30 minutos posterior a la de inicio.'
+      });
+      return;
+    }
+
+    this.validarSolapamiento();
+    if (this.mensajesSolapamiento.length > 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Rango no disponible',
+        detail: this.mensajesSolapamiento[0],
+        life: 6000
+      });
+      return;
+    }
     
     // Unidad funcional obligatoria: lugar donde se realiza el evento y de donde toma el flujo.
     if (!this.formData.unidad_funcional_id) return;
@@ -1370,25 +1514,6 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         detail: this.flujoPreview?.mensaje || 'Unidad Funcional No parametrizada para eventos'
       });
       return;
-    }
-
-    // Validación rápida (cliente): el empleado no puede tener eventos que se
-    // crucen con el rango de fechas/horas seleccionado.
-    const idsAValidar = this.editMode
-      ? (this.formData.empleado_id != null ? [this.formData.empleado_id] : [])
-      : this.formData.empleado_ids;
-
-    for (const empId of idsAValidar) {
-      const conflicto = this.buscarSolapamiento(empId, this.formData.fecha_inicial!, this.formData.fecha_final!);
-      if (conflicto) {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Rango no disponible',
-          detail: `${this.nombreEmpleadoPorId(empId)} ya tiene el evento ${conflicto.consecutivo} (${this.formatearFecha(conflicto.fecha_nov_ini)} – ${this.formatearFecha(conflicto.fecha_nov_fin)}) que se cruza con el rango seleccionado.`,
-          life: 6000
-        });
-        return;
-      }
     }
 
     this.isSubmitting = true;

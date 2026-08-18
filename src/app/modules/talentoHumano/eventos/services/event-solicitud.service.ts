@@ -8,15 +8,17 @@ export interface EventSolicitud {
   id: number;
   consecutivo: string;
   empleado_id: number;
-  empleado: string | { id: number; nombre: string };
+  empleado: string | { id: number; nombre: string; numero_identificacion?: string | null; id_empresa?: number };
   aprobador_id?: number;
   aprobador?: string | { id: number; nombre: string };
   unidad_funcional?: string;
+  unidad_funcional_codigo?: string;
   id_unidad_funcional?: number;
+  empresa_id?: number;
   novedad_id?: number;
   novedad?: { id: number; codigo?: string; descripcion?: string } | string;
   empleado_cubre_id?: number;
-  empleado_cubre?: string | { id: number; nombre: string };
+  empleado_cubre?: string | { id: number; nombre: string; numero_identificacion?: string | null };
   fecha_nov_ini: string;
   fecha_nov_fin: string;
   fecha_solicitud?: string;
@@ -36,6 +38,11 @@ export interface EventSolicitud {
   mi_paso?: string | null;
   mi_fecha_accion?: string | null;
   mi_comentario?: string | null;
+  /** Columnas nativas del backend (fallback al editar). */
+  id_user_nov?: number;
+  id_motivo_evento?: number;
+  id_user_cubre?: number;
+  id_user_aprobador?: number;
 }
 
 export interface CreateEventSolicitudRequest {
