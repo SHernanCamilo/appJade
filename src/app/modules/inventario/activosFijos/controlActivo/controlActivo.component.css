@@ -773,3 +773,25 @@ textarea.ti-input {
   accent-color: #2563eb;
   cursor: pointer;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   AUTOCOMPLETE INLINE (empleados)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.ti-cargando-inline {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}

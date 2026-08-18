@@ -155,6 +155,13 @@ export class ControlActivoComponent implements OnInit {
   /** Unidades funcionales cargadas del backend. */
   unidadesFuncionales: string[] = [];
 
+  /** Centros de costo desde Fabric (cp.VW_Payroll_UnidadFuncionales_CC) */
+  centrosCosto: { code: string; unidad_funcional: string }[] = [];
+
+  /** Empleados activos para el select de responsable */
+  empleados: { documento: string; nombre: string }[] = [];
+  buscandoEmpleados = false;
+
   /** Controla si se muestra el formulario de activo externo. */
   mostrarFormExterno = false;
   formularioExterno: FormularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
@@ -186,6 +193,7 @@ export class ControlActivoComponent implements OnInit {
   ngOnInit(): void {
     this.cargarOpciones();
     this.cargarUnidadesFuncionales();
+    this.cargarCentrosCosto();
     this.cargarTrazabilidad();
     this.cargarResumen();
   }
@@ -402,6 +410,34 @@ export class ControlActivoComponent implements OnInit {
       },
       error: () => {
         this.unidadesFuncionales = [];
+      }
+    });
+  }
+
+  private cargarCentrosCosto(): void {
+    this.service.centrosCosto().subscribe({
+      next: respuesta => {
+        this.centrosCosto = respuesta.data ?? [];
+      },
+      error: () => {
+        this.centrosCosto = [];
+      }
+    });
+  }
+
+  buscarEmpleados(busqueda: string): void {
+    if (busqueda.trim().length < 3) {
+      return;
+    }
+    this.buscandoEmpleados = true;
+    this.service.empleados(busqueda, 30).subscribe({
+      next: respuesta => {
+        this.buscandoEmpleados = false;
+        this.empleados = respuesta.data ?? [];
+      },
+      error: () => {
+        this.buscandoEmpleados = false;
+        this.empleados = [];
       }
     });
   }

@@ -167,12 +167,30 @@
           <div class="ti-columna">
             <div class="ti-fila">
               <label>Responsable</label>
-              <input type="text" [(ngModel)]="formularioExterno.responsable" placeholder="Responsable del activo" class="ti-input" />
+              <div class="ti-autocomplete">
+                <input type="text" [(ngModel)]="formularioExterno.responsable"
+                  placeholder="Buscar empleado (3+ letras)"
+                  (input)="buscarEmpleados(formularioExterno.responsable)"
+                  class="ti-input" autocomplete="off" list="listaEmpleados" />
+                <datalist id="listaEmpleados">
+                  <option *ngFor="let emp of empleados" [value]="emp.documento + ' - ' + emp.nombre">
+                    {{ emp.nombre }}
+                  </option>
+                </datalist>
+                <small *ngIf="buscandoEmpleados" class="ti-cargando-inline">
+                  <i class="pi pi-spin pi-spinner"></i> Buscando...
+                </small>
+              </div>
             </div>
 
             <div class="ti-fila">
               <label>Localización</label>
-              <input type="text" [(ngModel)]="formularioExterno.localizacion" placeholder="Ubicación física" class="ti-input" />
+              <select [(ngModel)]="formularioExterno.localizacion" class="ti-input">
+                <option value="">-- Seleccione centro de costo --</option>
+                <option *ngFor="let cc of centrosCosto" [value]="cc.code + ' - ' + cc.unidad_funcional">
+                  {{ cc.code }} - {{ cc.unidad_funcional }}
+                </option>
+              </select>
             </div>
 
             <div class="ti-fila">
@@ -333,13 +351,28 @@
             <div class="ti-fila">
               <label>Responsable</label>
               <input type="text" [value]="valor(activo.responsable)" class="ti-input ti-input--readonly" readonly />
-              <input type="text" [(ngModel)]="formulario.novedad_responsable" placeholder="Novedad responsable" class="ti-input" />
+              <div class="ti-autocomplete">
+                <input type="text" [(ngModel)]="formulario.novedad_responsable"
+                  placeholder="Buscar empleado (3+ letras)"
+                  (input)="buscarEmpleados(formulario.novedad_responsable)"
+                  class="ti-input" autocomplete="off" list="listaEmpleadosNov" />
+                <datalist id="listaEmpleadosNov">
+                  <option *ngFor="let emp of empleados" [value]="emp.documento + ' - ' + emp.nombre">
+                    {{ emp.nombre }}
+                  </option>
+                </datalist>
+              </div>
             </div>
 
             <div class="ti-fila">
               <label>Localización</label>
               <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
-              <input type="text" [(ngModel)]="formulario.novedad_localizacion" placeholder="Novedad localización" class="ti-input" />
+              <select [(ngModel)]="formulario.novedad_localizacion" class="ti-input">
+                <option value="">-- Seleccione --</option>
+                <option *ngFor="let cc of centrosCosto" [value]="cc.code + ' - ' + cc.unidad_funcional">
+                  {{ cc.code }} - {{ cc.unidad_funcional }}
+                </option>
+              </select>
             </div>
 
             <div class="ti-fila">

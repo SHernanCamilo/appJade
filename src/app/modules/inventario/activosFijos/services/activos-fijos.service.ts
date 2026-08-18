@@ -232,4 +232,20 @@ export class ActivosFijosService {
   unidadesFuncionales(): Observable<ApiResponse<{ valor: string; origen: string }[]>> {
     return this.http.get<ApiResponse<{ valor: string; origen: string }[]>>(`${this.baseUrl}/unidades-funcionales`);
   }
+
+  // ── Empleados (Fabric: No.VW_Payroll_EmpleadosActivos) ──────────────────
+
+  empleados(busqueda: string = '', limit = 50): Observable<ApiResponse<{ documento: string; nombre: string }[]>> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (busqueda.trim()) {
+      params['busqueda'] = busqueda.trim();
+    }
+    return this.http.get<ApiResponse<{ documento: string; nombre: string }[]>>(`${this.baseUrl}/empleados`, { params });
+  }
+
+  // ── Centros de Costo / Unidades Funcionales (Fabric) ────────────────────
+
+  centrosCosto(): Observable<ApiResponse<{ code: string; unidad_funcional: string }[]>> {
+    return this.http.get<ApiResponse<{ code: string; unidad_funcional: string }[]>>(`${this.baseUrl}/centros-costo`);
+  }
 }
