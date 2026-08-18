@@ -15,6 +15,7 @@ import {
   ActivosFijosService,
   CampoBusqueda,
   NovedadActivoPayload,
+  NovedadExternaPayload,
   ResumenTrazabilidad,
   TrazabilidadActivo
 } from '../services/activos-fijos.service';
@@ -32,7 +33,23 @@ interface FormularioNovedad {
   novedad_tipo_inventario: string;
   novedad_sucursal: string;
   novedad_estado_fisico: string;
+  novedad_unidad_funcional: string;
   observacion: string;
+}
+
+/** Formulario para registrar activo externo (no está en el maestro). */
+interface FormularioExterno {
+  placa: string;
+  serie: string;
+  articulo_nombre: string;
+  marca: string;
+  modelo: string;
+  responsable: string;
+  localizacion: string;
+  sucursal: string;
+  estado_fisico: string;
+  observacion: string;
+  unidad_funcional: string;
 }
 
 const FORMULARIO_VACIO: FormularioNovedad = {
@@ -47,7 +64,22 @@ const FORMULARIO_VACIO: FormularioNovedad = {
   novedad_tipo_inventario: '',
   novedad_sucursal: '',
   novedad_estado_fisico: '',
+  novedad_unidad_funcional: '',
   observacion: ''
+};
+
+const FORMULARIO_EXTERNO_VACIO: FormularioExterno = {
+  placa: '',
+  serie: '',
+  articulo_nombre: '',
+  marca: '',
+  modelo: '',
+  responsable: '',
+  localizacion: '',
+  sucursal: '',
+  estado_fisico: '',
+  observacion: '',
+  unidad_funcional: ''
 };
 
 /** Índices de las pestañas. */
@@ -120,6 +152,17 @@ export class ControlActivoComponent implements OnInit {
   estados: string[] = [];
   estadosFisicos: string[] = [];
 
+  /** Unidades funcionales cargadas del backend. */
+  unidadesFuncionales: string[] = [];
+
+  /** Controla si se muestra el formulario de activo externo. */
+  mostrarFormExterno = false;
+  formularioExterno: FormularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
+  guardandoExterno = false;
+
+  /** Indica si la última búsqueda no encontró resultados. */
+  sinResultados = false;
+
   // =========================================================================
   // PESTAÑA 2 — TRAZABILIDAD
   // =========================================================================
@@ -132,13 +175,17 @@ export class ControlActivoComponent implements OnInit {
   filasPorPagina = 25;
   primeraFila = 0;
 
-  filtros = { placa: '', estado_fisico: '', desde: '', hasta: '' };
+  filtros = { placa: '', estado_fisico: '', desde: '', hasta: '', unidad_funcional: '', es_externo: false };
+
+  /** Exportando Excel. */
+  exportando = false;
 
   /** Filas expandidas en la tabla de trazabilidad. */
   expandidas: Record<number, boolean> = {};
 
   ngOnInit(): void {
     this.cargarOpciones();
+    this.cargarUnidadesFuncionales();
     this.cargarTrazabilidad();
     this.cargarResumen();
   }
@@ -184,6 +231,8 @@ export class ControlActivoComponent implements OnInit {
     this.resultados = [];
     this.activo = null;
     this.historial = [];
+    this.sinResultados = false;
+    this.mostrarFormExterno = false;
 
     this.service.buscar(this.campoBusqueda, this.valorBusqueda.trim()).subscribe({
       next: respuesta => {
@@ -191,6 +240,7 @@ export class ControlActivoComponent implements OnInit {
         const encontrados = respuesta.data ?? [];
 
         if (encontrados.length === 0) {
+          this.sinResultados = true;
           this.messages.add({
             severity: 'warn',
             summary: 'Sin resultados',
@@ -241,6 +291,9 @@ export class ControlActivoComponent implements OnInit {
     this.historial = [];
     this.valorBusqueda = '';
     this.formulario = { ...FORMULARIO_VACIO };
+    this.sinResultados = false;
+    this.mostrarFormExterno = false;
+    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
   }
 
   // =========================================================================
@@ -342,6 +395,125 @@ export class ControlActivoComponent implements OnInit {
     });
   }
 
+  private cargarUnidadesFuncionales(): void {
+    this.service.unidadesFuncionales().subscribe({
+      next: respuesta => {
+        this.unidadesFuncionales = (respuesta.data ?? []).map(uf => uf.valor);
+      },
+      error: () => {
+        this.unidadesFuncionales = [];
+      }
+    });
+  }
+
+  // =========================================================================
+  // REGISTRO DE ACTIVO EXTERNO (NO ESTÁ EN EL MAESTRO)
+  // =========================================================================
+
+  abrirFormExterno(): void {
+    this.mostrarFormExterno = true;
+    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
+    // Pre-llenar la placa con lo que buscó el usuario si el campo era 'placa'
+    if (this.campoBusqueda === 'placa' && this.valorBusqueda.trim()) {
+      this.formularioExterno.placa = this.valorBusqueda.trim();
+    }
+  }
+
+  cerrarFormExterno(): void {
+    this.mostrarFormExterno = false;
+    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
+  }
+
+  get puedeRegistrarExterno(): boolean {
+    return this.formularioExterno.placa.trim().length >= 2 && !this.guardandoExterno;
+  }
+
+  registrarExterno(): void {
+    if (!this.puedeRegistrarExterno) {
+      return;
+    }
+
+    this.guardandoExterno = true;
+
+    const payload: NovedadExternaPayload = { placa: this.formularioExterno.placa.trim() };
+
+    // Solo se envían los campos con valor
+    (Object.keys(this.formularioExterno) as Array<keyof FormularioExterno>).forEach(clave => {
+      if (clave === 'placa') return;
+      const valor = this.formularioExterno[clave].trim();
+      if (valor !== '') {
+        (payload as unknown as Record<string, unknown>)[clave] = valor;
+      }
+    });
+
+    this.service.registrarNovedadExterna(payload).subscribe({
+      next: respuesta => {
+        this.guardandoExterno = false;
+        this.messages.add({
+          severity: 'success',
+          summary: 'Activo externo registrado',
+          detail: `Se registró el activo con placa ${respuesta.data.placa} fuera del maestro.`,
+          life: 6000
+        });
+        this.cerrarFormExterno();
+        this.sinResultados = false;
+        this.cargarTrazabilidad();
+        this.cargarResumen();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.guardandoExterno = false;
+        this.messages.add({
+          severity: 'error',
+          summary: 'No se pudo registrar',
+          detail: error.error?.message ?? 'Error registrando el activo externo.',
+          life: 7000
+        });
+      }
+    });
+  }
+
+  // =========================================================================
+  // EXPORTAR EXCEL
+  // =========================================================================
+
+  exportarExcel(): void {
+    this.exportando = true;
+
+    this.service.exportarExcel({
+      placa: this.filtros.placa || undefined,
+      estado_fisico: this.filtros.estado_fisico || undefined,
+      desde: this.filtros.desde || undefined,
+      hasta: this.filtros.hasta || undefined,
+      unidad_funcional: this.filtros.unidad_funcional || undefined,
+      es_externo: this.filtros.es_externo || undefined
+    }).subscribe({
+      next: (blob: Blob) => {
+        this.exportando = false;
+        const url = window.URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = `activos_fijos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        enlace.click();
+        window.URL.revokeObjectURL(url);
+        this.messages.add({
+          severity: 'success',
+          summary: 'Exportación completada',
+          detail: 'El archivo Excel se descargó correctamente.',
+          life: 4000
+        });
+      },
+      error: (error: HttpErrorResponse) => {
+        this.exportando = false;
+        this.messages.add({
+          severity: 'error',
+          summary: 'Error exportando',
+          detail: error.error?.message ?? 'No se pudo generar el archivo Excel.',
+          life: 7000
+        });
+      }
+    });
+  }
+
   // =========================================================================
   // TRAZABILIDAD GENERAL
   // =========================================================================
@@ -352,7 +524,12 @@ export class ControlActivoComponent implements OnInit {
     const pagina = Math.floor(this.primeraFila / this.filasPorPagina) + 1;
 
     this.service.trazabilidad({
-      ...this.filtros,
+      placa: this.filtros.placa || undefined,
+      estado_fisico: this.filtros.estado_fisico || undefined,
+      desde: this.filtros.desde || undefined,
+      hasta: this.filtros.hasta || undefined,
+      unidad_funcional: this.filtros.unidad_funcional || undefined,
+      es_externo: this.filtros.es_externo || undefined,
       per_page: this.filasPorPagina,
       page: pagina
     }).subscribe({
@@ -393,13 +570,18 @@ export class ControlActivoComponent implements OnInit {
   }
 
   limpiarFiltros(): void {
-    this.filtros = { placa: '', estado_fisico: '', desde: '', hasta: '' };
+    this.filtros = { placa: '', estado_fisico: '', desde: '', hasta: '', unidad_funcional: '', es_externo: false };
     this.primeraFila = 0;
     this.cargarTrazabilidad();
   }
 
   get hayFiltrosActivos(): boolean {
-    return Object.values(this.filtros).some(v => v !== '');
+    return this.filtros.placa !== '' ||
+      this.filtros.estado_fisico !== '' ||
+      this.filtros.desde !== '' ||
+      this.filtros.hasta !== '' ||
+      this.filtros.unidad_funcional !== '' ||
+      this.filtros.es_externo;
   }
 
   alternar(id: number): void {
@@ -411,7 +593,7 @@ export class ControlActivoComponent implements OnInit {
     if (!this.activo?.placa) {
       return;
     }
-    this.filtros = { placa: this.activo.placa, estado_fisico: '', desde: '', hasta: '' };
+    this.filtros = { placa: this.activo.placa, estado_fisico: '', desde: '', hasta: '', unidad_funcional: '', es_externo: false };
     this.primeraFila = 0;
     this.irATrazabilidad();
   }

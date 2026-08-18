@@ -677,3 +677,99 @@ textarea.ti-input {
     padding-left: 1.25rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ACTIVO EXTERNO — FORMULARIO
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-card--externo {
+  border-color: #f59e0b;
+  border-left: 4px solid #f59e0b;
+  background: #fffdf7;
+}
+
+.ti-card--aviso {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.ti-card__titulo--warning {
+  color: #92400e;
+}
+
+.ti-ayuda--warning {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+  color: #92400e;
+}
+
+.ti-btn--warning {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.ti-btn--warning:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.ti-acciones-centradas {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 0 0.5rem;
+}
+
+.ti-requerido {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EXPORTAR EXCEL — BOTÓN
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-btn--excel {
+  background: #16a34a;
+  color: #fff;
+}
+
+.ti-btn--excel:hover:not(:disabled) {
+  background: #15803d;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   KPI EXTERNO
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-kpi--externo {
+  border-left-color: #f59e0b;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FILTRO CHECKBOX
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ti-filtro--check {
+  display: flex;
+  align-items: center;
+  min-width: auto;
+  padding-bottom: 0.35rem;
+}
+
+.ti-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ti-check-label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
