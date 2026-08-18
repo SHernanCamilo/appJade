@@ -1,0 +1,332 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-top">
+      <button class="btn-back" type="button" routerLink="/mesaServicio">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-check-square me-2"></i>
+          Validador GLPI
+        </h1>
+        <p class="page-subtitle">
+          Elige una entidad del árbol y una plantilla para comparar categorías y reglas
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <aside class="panel-entidades">
+      <div class="panel-title">
+        <i class="pi pi-sitemap"></i>
+        Entidades GLPI
+        <span class="badge-count" *ngIf="!isLoadingEntidades">{{ entidadesTree.length }}</span>
+      </div>
+      <p class="panel-hint">Selecciona la entidad que quieres validar.</p>
+
+      <p-skeleton *ngIf="isLoadingEntidades" height="18rem"></p-skeleton>
+      <p-tree
+        *ngIf="!isLoadingEntidades"
+        [value]="entidadesTree"
+        selectionMode="single"
+        [(selection)]="entidadSeleccionada"
+        [filter]="true"
+        filterPlaceholder="Buscar entidad..."
+        [emptyMessage]="'No hay entidades para mostrar'"
+        (selectionChange)="onCambioEntidad()">
+      </p-tree>
+    </aside>
+
+    <section class="panel-comparacion">
+      <div class="toolbar">
+        <div class="field plantilla-field">
+          <label>Plantilla</label>
+          <p-dropdown
+            [options]="plantillas"
+            [(ngModel)]="plantillaId"
+            (ngModelChange)="onCambioPlantilla()"
+            optionLabel="nombre"
+            optionValue="id"
+            placeholder="Selecciona una plantilla"
+            [filter]="true"
+            filterBy="codigo,nombre"
+            [showClear]="true"
+            appendTo="body"
+            [style]="{ width: '100%' }">
+            <ng-template let-item pTemplate="item">
+              <span class="opt-codigo">{{ item.codigo }}</span>
+              <span>{{ item.nombre }}</span>
+            </ng-template>
+            <ng-template let-item pTemplate="selectedItem">
+              <span *ngIf="item">{{ item.codigo }} — {{ item.nombre }}</span>
+            </ng-template>
+          </p-dropdown>
+        </div>
+        <button
+          pButton
+          type="button"
+          label="Comparar"
+          icon="pi pi-sync"
+          class="p-button-primary btn-comparar"
+          [disabled]="!puedeComparar"
+          [loading]="isComparando"
+          (click)="comparar()">
+        </button>
+      </div>
+
+      <div class="seleccion" *ngIf="entidadActual">
+        <i class="pi pi-building"></i>
+        <div>
+          <strong>{{ entidadActual.nombre }}</strong>
+          <small>{{ entidadActual.ruta }}</small>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="!resultado && !isComparando">
+        <i class="pi pi-clone"></i>
+        <p>Selecciona una entidad y una plantilla, luego pulsa Comparar.</p>
+        <small>Se contrastan categorías ITIL y reglas de ticket de esa entidad.</small>
+      </div>
+
+      <p-skeleton *ngIf="isComparando" height="14rem"></p-skeleton>
+
+      <ng-container *ngIf="resultado && !isComparando">
+        <div class="resumen">
+          <button type="button" class="kpi ok" [class.active]="filtroEstado === 'ok'" (click)="aplicarFiltro('ok')">
+            <span class="kpi-num">{{ resultado.resumen.ok }}</span>
+            <span>Coinciden</span>
+          </button>
+          <button type="button" class="kpi falta" [class.active]="filtroEstado === 'falta_glpi'" (click)="aplicarFiltro('falta_glpi')">
+            <span class="kpi-num">{{ resultado.resumen.faltan }}</span>
+            <span>Faltan en GLPI</span>
+          </button>
+          <button type="button" class="kpi extra" [class.active]="filtroEstado === 'extra_glpi'" (click)="aplicarFiltro('extra_glpi')">
+            <span class="kpi-num">{{ resultado.resumen.extra }}</span>
+            <span>Extra en GLPI</span>
+          </button>
+          <button type="button" class="kpi diff" [class.active]="filtroEstado === 'diferente'" (click)="aplicarFiltro('diferente')">
+            <span class="kpi-num">{{ resultado.resumen.diferencias }}</span>
+            <span>Diferentes</span>
+          </button>
+        </div>
+
+        <p-tabView>
+          <p-tabPanel header="Categorías">
+            <div class="filtros-cats">
+              <span class="p-input-icon-left filtro-texto">
+                <i class="pi pi-search"></i>
+                <input
+                  pInputText
+                  type="text"
+                  [(ngModel)]="busquedaCategoria"
+                  placeholder="Buscar categoría por nombre o ruta…">
+              </span>
+              <p-dropdown
+                class="filtro-estado"
+                [options]="opcionesEstado"
+                [(ngModel)]="filtroEstado"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Todos los estados"
+                [showClear]="true"
+                appendTo="body">
+              </p-dropdown>
+              <span class="filtro-count">
+                {{ categoriasFiltradas.length }} / {{ resultado.categorias.length }}
+              </span>
+            </div>
+            <p-table [value]="categoriasFiltradas" [rowHover]="true" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="420px">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Ruta</th>
+                  <th style="width: 140px;">Estado</th>
+                  <th>Detalle</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-fila>
+                <tr>
+                  <td>
+                    <div class="ruta-cell">
+                      <i class="pi" [ngClass]="fila.es_hoja ? 'pi-file' : 'pi-folder'"></i>
+                      {{ fila.ruta }}
+                    </div>
+                  </td>
+                  <td>
+                    <p-tag [value]="etiquetaEstado(fila.estado)" [severity]="severidadEstado(fila.estado)"></p-tag>
+                  </td>
+                  <td class="detalle-cell">{{ fila.detalle }}</td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="3">No hay categorías para este filtro.</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </p-tabPanel>
+
+          <p-tabPanel header="Reglas">
+            <p class="hint-block">
+              Se listan las reglas de ticket de la entidad. Elige el ANS de la plantilla (Baja, Media, Alta…) con el que quieres comparar cada una.
+            </p>
+            <p class="ans-pendientes" *ngIf="etiquetasAnsSinAsignar">
+              ANS de la plantilla sin regla asignada:
+              <strong>{{ etiquetasAnsSinAsignar }}</strong>
+            </p>
+
+            <div class="empty-state" *ngIf="reglasFiltradas.length === 0">
+              <p>No hay reglas en esta entidad para este filtro.</p>
+            </div>
+
+            <article class="regla-card" *ngFor="let regla of reglasFiltradas">
+              <header class="regla-card-head">
+                <div>
+                  <h3>{{ regla.nombre }}</h3>
+                  <small>{{ regla.detalle }}</small>
+                </div>
+                <div class="regla-asigna">
+                  <label>ANS de la plantilla</label>
+                  <p-dropdown
+                    [options]="opcionesAns(regla)"
+                    [(ngModel)]="regla.ans_key"
+                    optionLabel="label"
+                    optionValue="key"
+                    optionDisabled="disabled"
+                    placeholder="Elegir ANS…"
+                    [showClear]="true"
+                    appendTo="body"
+                    [disabled]="asignandoReglaId === regla.glpi_id"
+                    (onChange)="asignarAns(regla)"
+                    [style]="{ width: '220px' }">
+                  </p-dropdown>
+                  <p-tag [value]="etiquetaEstado(regla.estado)" [severity]="severidadEstado(regla.estado)"></p-tag>
+                </div>
+              </header>
+
+              <section class="regla-seccion" *ngIf="regla.seccion_regla?.length">
+                <h4><i class="pi pi-bookmark"></i> Regla</h4>
+                <p-table [value]="regla.seccion_regla" [rowHover]="true" styleClass="p-datatable-sm">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th>Campo</th>
+                      <th>Esperado</th>
+                      <th>GLPI</th>
+                      <th style="width: 140px;">Estado</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-fila>
+                    <tr>
+                      <td>{{ fila.campo }}</td>
+                      <td>{{ fila.esperado }}</td>
+                      <td>{{ fila.glpi }}</td>
+                      <td>
+                        <p-tag [value]="etiquetaEstado(fila.estado)" [severity]="severidadEstado(fila.estado)"></p-tag>
+                      </td>
+                      <td class="detalle-cell">{{ fila.detalle }}</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </section>
+
+              <section class="regla-seccion" *ngIf="regla.criterios?.length">
+                <h4><i class="pi pi-list"></i> Criterios</h4>
+                <p class="seccion-hint" *ngIf="!regla.ans_key">Elige un ANS de la plantilla para comparar sus categorías con los criterios de esta regla.</p>
+                <p class="seccion-hint" *ngIf="regla.ans_key">Compara las categorías asociadas al ANS «{{ valor(regla.plantilla, 'nombre') || regla.nombre }}» en la plantilla con las categorías de los criterios de la regla.</p>
+                <p-table [value]="regla.criterios" [rowHover]="true" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="280px">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th>Campo</th>
+                      <th>Esperado</th>
+                      <th>GLPI</th>
+                      <th style="width: 140px;">Estado</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-fila>
+                    <tr>
+                      <td>{{ fila.campo }}</td>
+                      <td>{{ fila.esperado }}</td>
+                      <td>{{ fila.glpi }}</td>
+                      <td>
+                        <p-tag [value]="etiquetaEstado(fila.estado)" [severity]="severidadEstado(fila.estado)"></p-tag>
+                      </td>
+                      <td class="detalle-cell">{{ fila.detalle }}</td>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="5">Sin criterios para esta prioridad.</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </section>
+
+              <section class="regla-seccion" *ngIf="regla.acciones?.length">
+                <h4><i class="pi pi-bolt"></i> Acciones</h4>
+                <p class="seccion-hint" *ngIf="regla.estado === 'extra_glpi'">Acciones definidas en GLPI (grupo técnico, SLA y prioridad).</p>
+                <p class="seccion-hint" *ngIf="regla.estado !== 'extra_glpi'">Deben existir las 3 acciones: grupo técnico, SLA de solución y prioridad.</p>
+                <p-table [value]="regla.acciones" [rowHover]="true" styleClass="p-datatable-sm">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th>Campo</th>
+                      <th>Esperado</th>
+                      <th>GLPI</th>
+                      <th style="width: 140px;">Estado</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-fila>
+                    <tr>
+                      <td>{{ fila.campo }}</td>
+                      <td>{{ fila.esperado }}</td>
+                      <td>{{ fila.glpi }}</td>
+                      <td>
+                        <p-tag [value]="etiquetaEstado(fila.estado)" [severity]="severidadEstado(fila.estado)"></p-tag>
+                      </td>
+                      <td class="detalle-cell">{{ fila.detalle }}</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </section>
+
+              <section class="regla-seccion" *ngIf="regla.ans?.length">
+                <h4><i class="pi pi-clock"></i> ANS</h4>
+                <p class="seccion-hint" *ngIf="regla.estado === 'extra_glpi'">Tiempo de solución leído del SLA asignado en GLPI.</p>
+                <p class="seccion-hint" *ngIf="regla.estado !== 'extra_glpi'">Se compara el tiempo de solución de la plantilla con el ANS asignado en la regla.</p>
+                <p-table [value]="regla.ans || []" [rowHover]="true" styleClass="p-datatable-sm">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th>Campo</th>
+                      <th>Esperado</th>
+                      <th>GLPI</th>
+                      <th style="width: 140px;">Estado</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-fila>
+                    <tr>
+                      <td>{{ fila.campo }}</td>
+                      <td>{{ fila.esperado }}</td>
+                      <td>{{ fila.glpi }}</td>
+                      <td>
+                        <p-tag [value]="etiquetaEstado(fila.estado)" [severity]="severidadEstado(fila.estado)"></p-tag>
+                      </td>
+                      <td class="detalle-cell">{{ fila.detalle }}</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </section>
+            </article>
+          </p-tabPanel>
+        </p-tabView>
+      </ng-container>
+    </section>
+  </div>
+</div>

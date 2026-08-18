@@ -1,0 +1,64 @@
+<div class="nodo" *ngIf="visible" [class.nodo-raiz]="nivel === 1" [class.nodo-colapsado]="!estaExpandido && !esHoja" [formGroup]="nodo">
+  <div class="nodo-row" [class.nodo-match]="coincide">
+    <button
+      *ngIf="!esHoja"
+      type="button"
+      class="nodo-toggle"
+      [pTooltip]="estaExpandido ? 'Contraer rama' : 'Expandir rama'"
+      tooltipPosition="top"
+      (click)="toggleRama()">
+      <i class="pi" [ngClass]="estaExpandido ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+    </button>
+    <span *ngIf="esHoja" class="nodo-toggle nodo-toggle-spacer"></span>
+    <i class="pi" [ngClass]="esHoja ? 'pi-file' : 'pi-folder'" [class.icono-hoja]="esHoja"></i>
+    <span class="nodo-nivel" [class.nodo-nivel-hoja]="esHoja" [pTooltip]="tooltipCantidad" tooltipPosition="top">{{ etiquetaCantidad }}</span>
+    <div class="nodo-nombre">
+      <input pInputText formControlName="nombre" [placeholder]="placeholder">
+      <small class="p-error" *ngIf="campoInvalido('nombre')">Obligatorio</small>
+    </div>
+    <div class="nodo-prioridad" *ngIf="esHoja">
+      <p-dropdown
+        formControlName="ans_nombre"
+        [options]="opcionesAns"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="ANS de la plantilla"
+        appendTo="body"
+        [style]="{ width: '100%' }"
+        [pTooltip]="opcionesAns.length ? 'ANS creado en esta plantilla' : 'Primero crea un ANS arriba'"
+        tooltipPosition="top"
+        (onChange)="onAnsChange()">
+      </p-dropdown>
+      <small class="p-error" *ngIf="campoInvalido('ans_nombre')">Asocia un ANS</small>
+    </div>
+    <button
+      *ngIf="puedeAgregarHija"
+      pButton
+      type="button"
+      [label]="nivel === nivelMaximo - 1 ? 'Agregar hija' : 'Agregar subcategoría'"
+      icon="pi pi-plus"
+      class="p-button-sm p-button-text"
+      [pTooltip]="nivel === nivelMaximo - 1 ? 'Nivel 4: subcategoría hija (último nivel)' : 'Esta categoría también puede ser padre'"
+      (click)="agregarHija()">
+    </button>
+    <button
+      pButton
+      type="button"
+      icon="pi pi-trash"
+      class="p-button-rounded p-button-text p-button-danger p-button-sm"
+      pTooltip="Quitar"
+      (click)="eliminar.emit()">
+    </button>
+  </div>
+
+  <div class="nodo-hijas" formArrayName="hijas" *ngIf="hijas.length > 0 && estaExpandido">
+    <app-glpi-categoria-nodo
+      *ngFor="let hija of hijas.controls; let j = index"
+      [nodo]="$any(hija)"
+      [nivel]="nivel + 1"
+      [indice]="j + 1"
+      [submitted]="submitted"
+      (eliminar)="quitarHija(j)">
+    </app-glpi-categoria-nodo>
+  </div>
+</div>

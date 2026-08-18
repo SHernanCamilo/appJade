@@ -1,0 +1,145 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header">
+    <div class="header-top">
+      <button class="btn-back" routerLink="/mesaServicio">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title">
+          <i class="pi pi-file-edit me-2"></i>
+          Plantillas GLPI
+        </h1>
+        <p class="page-subtitle">Define categorías, prioridades y tiempos ANS por departamento</p>
+      </div>
+      <button
+        *ngIf="puedeCrear"
+        pButton
+        type="button"
+        label="Nueva plantilla"
+        icon="pi pi-plus"
+        class="p-button-primary btn-new"
+        (click)="nuevaPlantilla()">
+      </button>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div class="list-card">
+      <div class="list-card-header">
+        <div class="list-card-title">
+          <i class="pi pi-list me-2"></i>
+          Lista de plantillas
+          <span class="badge-count">{{ plantillasFiltradas.length }}</span>
+        </div>
+        <div class="filter-search">
+          <i class="pi pi-search search-icon"></i>
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (input)="aplicarFiltros()"
+            placeholder="Buscar por código o nombre..."
+            class="search-input">
+        </div>
+      </div>
+
+      <div class="table-container" *ngIf="!isLoading">
+        <p-table
+          [value]="plantillasFiltradas"
+          [paginator]="true"
+          [rows]="10"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} plantillas"
+          [rowHover]="true"
+          styleClass="p-datatable-sm">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th pSortableColumn="codigo">Código <p-sortIcon field="codigo"></p-sortIcon></th>
+              <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre"></p-sortIcon></th>
+              <th>Categorías</th>
+              <th>Estado</th>
+              <th style="text-align: center; width: 120px;">Acciones</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-plantilla>
+            <tr>
+              <td><span class="codigo-badge">{{ plantilla.codigo }}</span></td>
+              <td class="nombre-cell">{{ plantilla.nombre }}</td>
+              <td>{{ plantilla.categorias_count ?? plantilla.categorias?.length ?? 0 }}</td>
+              <td>
+                <div
+                  class="estado-toggle"
+                  (click)="toggleEstado(plantilla)"
+                  [pTooltip]="plantilla.estado ? 'Clic para desactivar' : 'Clic para activar'"
+                  tooltipPosition="top">
+                  <div class="toggle-track" [class.on]="plantilla.estado">
+                    <div class="toggle-thumb"></div>
+                  </div>
+                  <span class="toggle-label" [class.activo]="plantilla.estado">
+                    {{ plantilla.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </div>
+              </td>
+              <td style="text-align: center;">
+                <button
+                  *ngIf="puedeEditar"
+                  pButton
+                  type="button"
+                  icon="pi pi-pencil"
+                  class="p-button-rounded p-button-text p-button-sm"
+                  pTooltip="Editar"
+                  tooltipPosition="top"
+                  (click)="editarPlantilla(plantilla)">
+                </button>
+                <button
+                  *ngIf="puedeEliminar"
+                  pButton
+                  type="button"
+                  icon="pi pi-trash"
+                  class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                  pTooltip="Eliminar"
+                  tooltipPosition="top"
+                  (click)="eliminarPlantilla(plantilla)">
+                </button>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="5">
+                <div class="empty-state">
+                  <i class="pi pi-inbox"></i>
+                  <p>No hay plantillas registradas</p>
+                  <small>Crea una nueva plantilla para comenzar</small>
+                  <button
+                    *ngIf="puedeCrear"
+                    pButton
+                    type="button"
+                    label="Nueva plantilla"
+                    icon="pi pi-plus"
+                    class="p-button-primary btn-new"
+                    (click)="nuevaPlantilla()">
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <div class="table-container" *ngIf="isLoading">
+        <p-skeleton height="3rem" styleClass="mb-2"></p-skeleton>
+        <p-skeleton height="3rem" styleClass="mb-2"></p-skeleton>
+        <p-skeleton height="3rem"></p-skeleton>
+      </div>
+    </div>
+  </div>
+</div>

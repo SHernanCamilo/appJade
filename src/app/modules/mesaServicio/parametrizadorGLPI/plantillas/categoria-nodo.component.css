@@ -1,0 +1,139 @@
+.nodo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.nodo-raiz {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+
+.nodo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: white;
+  border: 1px solid #e8ecf0;
+  border-radius: 8px;
+  padding: 0.45rem 0.5rem;
+}
+
+.nodo-row.nodo-match {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.nodo-raiz > .nodo-row {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.nodo-raiz > .nodo-row.nodo-match {
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 0.45rem 0.5rem;
+}
+
+.nodo-row > .pi {
+  color: #4f63d2;
+  margin-top: 0.65rem;
+}
+
+.nodo-row > .icono-hoja {
+  color: #64748b;
+}
+
+.nodo-toggle {
+  flex: 0 0 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.5rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.nodo-toggle:hover {
+  background: #eef2ff;
+  color: #4f63d2;
+}
+
+.nodo-toggle .pi {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.nodo-toggle-spacer {
+  cursor: default;
+  pointer-events: none;
+}
+
+.nodo-nivel {
+  min-width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4f63d2;
+  background: #eef2ff;
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  margin-top: 0.45rem;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.nodo-nivel-hoja {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.nodo-nombre {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.nodo-prioridad {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.nodo-hijas {
+  margin-left: 1.35rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid #dbe4ff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+@media (max-width: 900px) {
+  .nodo-row {
+    flex-wrap: wrap;
+  }
+
+  .nodo-prioridad {
+    width: 100%;
+  }
+
+  .nodo-hijas {
+    margin-left: 0.5rem;
+  }
+}

@@ -1,0 +1,41 @@
+<div class="mesa-servicio-container">
+  <div class="page-header">
+    <h1 class="page-title">
+      <i class="bi bi-headset me-2"></i>
+      Mesa de Servicio
+    </h1>
+    <p class="page-subtitle">
+      Parametrización de plantillas ANS y validación de reglas de tickets en GLPI
+    </p>
+  </div>
+
+  <div class="empty-state" *ngIf="dashboardCards.length === 0">
+    <i class="bi bi-shield-lock"></i>
+    <p>No tienes acceso a ningún módulo de Mesa de Servicio.</p>
+  </div>
+
+  <div class="dashboard-grid" *ngIf="dashboardCards.length > 0">
+    <p-card *ngFor="let card of dashboardCards" [styleClass]="'dashboard-card card-' + card.color">
+      <ng-template pTemplate="header">
+        <div class="card-header-custom">
+          <i [class]="card.icon"></i>
+          <div class="header-text">
+            <h3>{{ card.title }}</h3>
+            <p *ngIf="card.description">{{ card.description }}</p>
+          </div>
+        </div>
+      </ng-template>
+
+      <div class="menu-list">
+        <a *ngFor="let item of card.items"
+           [routerLink]="item.route"
+           class="menu-item"
+           pRipple>
+          <i [class]="item.icon"></i>
+          <span>{{ item.name }}</span>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </div>
+    </p-card>
+  </div>
+</div>

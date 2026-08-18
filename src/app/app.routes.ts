@@ -64,6 +64,10 @@ export const routes: Routes = [
         path: 'inteligenciaNegocios',
         loadChildren: () => import('./modules/inteligenciaNegocios/inteligenciaNegocios.routes').then(m => m.INTELIGENCIA_NEGOCIOS_ROUTES)
       },
+      {
+        path: 'mesaServicio',
+        loadChildren: () => import('./modules/mesaServicio/mesaServicio.routes').then(m => m.MESA_SERVICIO_ROUTES)
+      },
       //{ path: 'ordenes', component: OrdenesComponent },
       //{ path: 'horas-extras', component: HorasExtrasComponent },
       // agrega más vistas aquí

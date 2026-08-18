@@ -1,0 +1,188 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-top">
+      <button class="btn-back" type="button" (click)="cancelar()">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-file-edit me-2"></i>
+          {{ isEdit ? 'Editar plantilla GLPI' : 'Nueva plantilla GLPI' }}
+        </h1>
+        <p class="page-subtitle">Tiempos ANS por prioridad y árbol de categorías</p>
+      </div>
+      <div class="header-actions">
+        <button pButton type="button" label="Cancelar" class="p-button-outlined p-button-secondary" (click)="cancelar()" [disabled]="isSaving"></button>
+        <button pButton type="button" [label]="isSaving ? 'Guardando…' : 'Guardar'" icon="pi pi-save" class="p-button-primary" (click)="guardar()" [disabled]="isSaving || isLoading"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area" *ngIf="isLoading">
+    <p-skeleton height="8rem" styleClass="mb-3"></p-skeleton>
+    <p-skeleton height="12rem" styleClass="mb-3"></p-skeleton>
+    <p-skeleton height="12rem"></p-skeleton>
+  </div>
+
+  <form class="content-area" [formGroup]="form" *ngIf="!isLoading" (ngSubmit)="guardar()">
+    <section class="card-block">
+      <div class="section-title">
+        <i class="pi pi-info-circle"></i>
+        Información general
+      </div>
+
+      <div class="grid-form">
+        <div class="field">
+          <label>Código *</label>
+          <input pInputText formControlName="codigo" maxlength="40" placeholder="Ej: AEROMAS-TIC" style="text-transform: uppercase">
+          <small class="p-error" *ngIf="campoInvalido(form.get('codigo'))">El código es obligatorio</small>
+        </div>
+        <div class="field">
+          <label>Nombre *</label>
+          <input pInputText formControlName="nombre" maxlength="150" placeholder="Ej: Plantilla Mesa TIC Aeromas">
+          <small class="p-error" *ngIf="campoInvalido(form.get('nombre'))">El nombre es obligatorio</small>
+        </div>
+        <div class="field field-switch">
+          <label>Activa</label>
+          <p-inputSwitch formControlName="estado"></p-inputSwitch>
+        </div>
+        <div class="field field-full">
+          <label>Descripción</label>
+          <textarea formControlName="descripcion" rows="2" class="text-area" placeholder="Notas de la plantilla"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="card-block" formArrayName="ans">
+      <div class="section-title section-title-row">
+        <span>
+          <i class="pi pi-clock"></i>
+          Tiempos ANS por prioridad
+        </span>
+        <button
+          pButton
+          type="button"
+          label="Adicionar ANS"
+          icon="pi pi-plus"
+          class="p-button-sm p-button-outlined"
+          (click)="agregarAns()"
+          [disabled]="ans.length >= maxAns">
+        </button>
+      </div>
+      <p class="hint-block">
+        Por defecto hay 4 ANS (baja, media, alta y muy alta). Puedes agregar más si el departamento lo requiere (máx. {{ maxAns }}).
+      </p>
+      <div class="table-wrap">
+        <table class="ans-table">
+          <thead>
+            <tr>
+              <th>Prioridad</th>
+              <th>Tiempo asignación</th>
+              <th>Unidad</th>
+              <th>Tiempo solución</th>
+              <th>Unidad</th>
+              <th>SLA solución</th>
+              <th>Nombre regla</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of ans.controls; let i = index" [formGroupName]="i">
+              <td>
+                <p-dropdown formControlName="prioridad" [options]="prioridades" optionLabel="label" optionValue="value" appendTo="body" [style]="{ width: '100%' }" (onChange)="onPrioridadAnsChange(i)"></p-dropdown>
+              </td>
+              <td>
+                <p-inputNumber formControlName="tiempo_asignacion" [min]="1" [useGrouping]="false" placeholder="Ej: 4" [style]="{ width: '100%' }"></p-inputNumber>
+              </td>
+              <td>
+                <p-dropdown formControlName="unidad_asignacion" [options]="unidades" optionLabel="label" optionValue="value" appendTo="body" [style]="{ width: '100%' }"></p-dropdown>
+              </td>
+              <td>
+                <p-inputNumber formControlName="tiempo_solucion" [min]="1" [useGrouping]="false" placeholder="Ej: 16" [style]="{ width: '100%' }"></p-inputNumber>
+              </td>
+              <td>
+                <p-dropdown formControlName="unidad_solucion" [options]="unidades" optionLabel="label" optionValue="value" appendTo="body" [style]="{ width: '100%' }"></p-dropdown>
+              </td>
+              <td>
+                <input pInputText formControlName="nombre_sla_solucion" placeholder="BAJA TIC">
+              </td>
+              <td>
+                <input pInputText formControlName="nombre_regla" placeholder="BAJA TIC">
+              </td>
+              <td class="actions-cell">
+                <button
+                  *ngIf="ans.length > 1"
+                  pButton
+                  type="button"
+                  icon="pi pi-trash"
+                  class="p-button-rounded p-button-text p-button-danger p-button-sm"
+                  pTooltip="Quitar ANS"
+                  (click)="quitarAns(i)">
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card-block">
+      <div class="section-title section-title-row">
+        <span>
+          <i class="pi pi-sitemap"></i>
+          Categorías
+        </span>
+        <button pButton type="button" label="Agregar categoría padre" icon="pi pi-plus" class="p-button-sm p-button-outlined" (click)="agregarPadre()"></button>
+      </div>
+
+      <p class="hint-block">
+        Hasta 4 niveles, como en GLPI: 3 categorías padre y la cuarta es la subcategoría hija.
+        En cada categoría hoja asocia uno de los ANS que creaste arriba (por nombre de regla).
+      </p>
+
+      <div class="buscador-cats" *ngIf="categoriasPadre.length > 0">
+        <span class="p-input-icon-left p-input-icon-right buscador-cats-input">
+          <i class="pi pi-search"></i>
+          <input
+            pInputText
+            type="text"
+            [(ngModel)]="busquedaCategoria"
+            [ngModelOptions]="{standalone: true}"
+            placeholder="Buscar categoría…">
+          <i
+            class="pi pi-times buscador-clear"
+            *ngIf="busquedaCategoria"
+            (click)="busquedaCategoria = ''">
+          </i>
+        </span>
+        <span class="buscador-cats-count" *ngIf="busquedaCategoria.trim()">
+          {{ coincidenciasCategoria }} coincidencia{{ coincidenciasCategoria === 1 ? '' : 's' }}
+        </span>
+      </div>
+
+      <div class="empty-cats" *ngIf="categoriasPadre.length === 0">
+        Aún no hay categorías. Agrega una categoría padre para comenzar.
+      </div>
+
+      <div class="empty-cats" *ngIf="categoriasPadre.length > 0 && busquedaCategoria.trim() && coincidenciasCategoria === 0">
+        No hay categorías que coincidan con «{{ busquedaCategoria.trim() }}».
+      </div>
+
+      <div class="cat-tree" *ngIf="categoriasPadre.length > 0">
+        <app-glpi-categoria-nodo
+          *ngFor="let padre of categoriasPadre.controls; let i = index"
+          [nodo]="$any(padre)"
+          [nivel]="1"
+          [indice]="i + 1"
+          [submitted]="submitted"
+          (eliminar)="quitarPadre(i)">
+        </app-glpi-categoria-nodo>
+      </div>
+    </section>
+  </form>
+</div>
