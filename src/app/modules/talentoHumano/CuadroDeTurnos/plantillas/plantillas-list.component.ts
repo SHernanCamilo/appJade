@@ -87,15 +87,16 @@ export class PlantillasListComponent implements OnInit {
   }
 
   /**
-   * Usa el servicio cacheado de contexto de usuario.
+   * Carga empresas habilitadas para Cuadro de Turnos (filtrado por CUADRO_TURNOS_EMPRESAS en backend).
    */
   private loadUserContext(): void {
-    this.userContextService.getContext().subscribe({
-      next: (ctx) => {
-        this.isSuperAdmin = ctx.isSuperAdmin;
-        this.userEmpresas = ctx.empresas.map(e => ({ id: e.id, nombre: e.nombre }));
+    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/cuadro-turno-permisos/empresas`).subscribe({
+      next: (response) => {
+        const empresas = response.data || [];
+        this.userEmpresas = empresas.map((e: any) => ({ id: e.id, nombre: e.nombre }));
+        this.isSuperAdmin = this.userEmpresas.length > 1;
         this.empresasLoaded = true;
-        if (!this.isSuperAdmin && this.userEmpresas.length === 1) {
+        if (this.userEmpresas.length === 1) {
           this.selectedEmpresaFilter = this.userEmpresas[0].id;
         }
         this.loadPlantillas();

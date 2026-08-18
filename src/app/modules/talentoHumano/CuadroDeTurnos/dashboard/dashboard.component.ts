@@ -99,54 +99,22 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
   }
 
   /**
-   * Cargar empresas — misma lógica que cuadro-mes-empleado
-   * Super admin/transversal: trae todas con /empresas-activas
-   * Usuario normal: trae las suyas con /contexto/empresas-disponibles
+   * Cargar empresas habilitadas para Cuadro de Turnos (filtrado por CUADRO_TURNOS_EMPRESAS en backend).
    */
   loadEmpresas(): void {
     this.isLoadingEmpresas = true;
 
-    // 1. Primero obtener unidades del usuario para saber su rol
-    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/unidades-funcionales/del-usuario`).subscribe({
+    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/cuadro-turno-permisos/empresas`).subscribe({
       next: (response) => {
-        const accessLevel = response.access_level;
-        const esTransversal = (accessLevel === 'super_admin' || accessLevel === 'transversal');
-
-        if (esTransversal) {
-          // Super admin: traer TODAS las empresas activas
-          this.http.get<any>(`${environment.URL_SERVICIOS}/empresas-activas`).subscribe({
-            next: (r) => {
-              this.empresas = r.data || [];
-              this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
-              this.isLoadingEmpresas = false;
-              if (this.empresas.length === 1) {
-                this.selectedEmpresa = this.empresas[0].id;
-                this.onEmpresaChange();
-              }
-            },
-            error: () => { this.isLoadingEmpresas = false; }
-          });
-        } else {
-          // Usuario normal: traer sus empresas asignadas
-          this.http.get<any>(`${environment.URL_SERVICIOS}/contexto/empresas-disponibles`).subscribe({
-            next: (empResponse) => {
-              const empresasUsuario = empResponse.data || empResponse || [];
-              this.empresas = Array.isArray(empresasUsuario) ? empresasUsuario : [];
-              this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
-              this.isLoadingEmpresas = false;
-              if (this.empresas.length === 1) {
-                this.selectedEmpresa = this.empresas[0].id;
-                this.onEmpresaChange();
-              }
-            },
-            error: () => { this.isLoadingEmpresas = false; }
-          });
+        this.empresas = response.data || [];
+        this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
+        this.isLoadingEmpresas = false;
+        if (this.empresas.length === 1) {
+          this.selectedEmpresa = this.empresas[0].id;
+          this.onEmpresaChange();
         }
       },
-      error: () => {
-        this.isLoadingEmpresas = false;
-        this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'No se pudieron cargar los datos iniciales' });
-      }
+      error: () => { this.isLoadingEmpresas = false; }
     });
   }
 

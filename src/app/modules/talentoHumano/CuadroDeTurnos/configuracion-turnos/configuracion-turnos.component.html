@@ -19,7 +19,7 @@
     <p-tabPanel [cache]="true">
       <ng-template pTemplate="header">
         <i class="pi pi-clock tab-icon"></i>
-        <span>Jornada y Recargos</span>
+        <span>Parámetros de Jornada</span>
       </ng-template>
       <app-parametrizacion></app-parametrizacion>
     </p-tabPanel>
@@ -30,6 +30,14 @@
         <span>Cierre de Cuadro</span>
       </ng-template>
       <app-cierre-cuadro></app-cierre-cuadro>
+    </p-tabPanel>
+
+    <p-tabPanel>
+      <ng-template pTemplate="header">
+        <i class="pi pi-list tab-icon"></i>
+        <span>Conceptos Cuadro</span>
+      </ng-template>
+      <app-conceptos-cuadro></app-conceptos-cuadro>
     </p-tabPanel>
   </p-tabView>
 
