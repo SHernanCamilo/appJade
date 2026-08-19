@@ -98,7 +98,7 @@ export class RecepcionExcelComponent implements OnInit {
   ngOnInit(): void {
     this.compraId = Number(this.route.snapshot.paramMap.get('compraId') || 0);
     if (!this.compraId) {
-      this.router.navigate(['/inventario/recepciones-tecnicas']);
+      this.router.navigate(['/inventario/farmacia/recepcionTecnica']);
       return;
     }
     this.loadData();
@@ -250,7 +250,7 @@ export class RecepcionExcelComponent implements OnInit {
         this.isSaving.set(false);
         if (res.success) {
           this.msg.add({ severity: 'success', summary: 'Guardado', detail: res.message || 'Recepción guardada.' });
-          setTimeout(() => this.router.navigate(['/inventario/recepciones-tecnicas']), 1500);
+          setTimeout(() => this.router.navigate(['/inventario/farmacia/recepcionTecnica']), 1500);
         } else {
           this.msg.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo guardar.' });
         }

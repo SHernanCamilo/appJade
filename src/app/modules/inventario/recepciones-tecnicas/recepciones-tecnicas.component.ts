@@ -131,7 +131,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
   // --- Abrir Vista Excel ---
   openReceptionExcel(orden: OrdenCompra): void {
     if (!orden.compra_id) return;
-    this.router.navigate(['/inventario/recepciones-tecnicas/excel', orden.compra_id]);
+    this.router.navigate(['/inventario/farmacia/recepcionTecnica/excel', orden.compra_id]);
   }
 
   // --- Realizar RecepciÃ³n TÃ©cnica ---
