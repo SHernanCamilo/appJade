@@ -554,6 +554,13 @@
   color: #424242;
 }
 
+/* ── Celdas bloqueadas (datos de la OC — no editables) ── */
+:host ::ng-deep ag-grid-angular.xl-grid .xl-locked {
+  background-color: #f9f9f9 !important;
+  color: #424242;
+  cursor: default;
+}
+
 /* ── Rellenos de formato condicional ── */
 :host ::ng-deep ag-grid-angular.xl-grid .xl-fill-verde,
 :host ::ng-deep ag-grid-angular.xl-grid .xl-fill-ok {

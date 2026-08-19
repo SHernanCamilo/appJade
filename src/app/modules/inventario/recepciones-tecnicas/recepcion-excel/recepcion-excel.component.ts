@@ -157,19 +157,23 @@ export class RecepcionExcelComponent implements OnInit {
       cellClass: 'xl-cell xl-center',
       headerTooltip: 'Marcar como recibido',
     },
-    { headerName: 'Código', field: 'codigo_producto', width: 120 },
-    { headerName: 'Producto', field: 'producto_nombre', width: 300, tooltipField: 'producto_nombre' },
-    { headerName: 'Tipo', field: 'tipo_producto', width: 110 },
-    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 130 },
-    { headerName: 'Concentración', field: 'concentracion', width: 120 },
-    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 110 },
+    // ── Columnas A–H: datos del producto y OC (NO editables) ──
+    { headerName: 'Código', field: 'codigo_producto', width: 120, editable: false, cellClass: 'xl-cell xl-locked' },
+    { headerName: 'Producto', field: 'producto_nombre', width: 300, editable: false, cellClass: 'xl-cell xl-locked', tooltipField: 'producto_nombre' },
+    { headerName: 'Tipo', field: 'tipo_producto', width: 110, editable: false, cellClass: 'xl-cell xl-locked' },
+    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 130, editable: false, cellClass: 'xl-cell xl-locked' },
+    { headerName: 'Concentración', field: 'concentracion', width: 120, editable: false, cellClass: 'xl-cell xl-locked' },
+    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 110, editable: false, cellClass: 'xl-cell xl-locked' },
     {
       headerName: 'Cant. Solic.',
       field: 'cantidad_solicitada',
       width: 92,
+      editable: false,
       type: 'numericColumn',
-      cellClass: 'xl-cell xl-num',
+      cellClass: 'xl-cell xl-num xl-locked',
     },
+
+    // ── Columnas editables: datos de recepción técnica ──
     {
       headerName: 'Med. Vital',
       field: 'es_medicamento_vital',
@@ -237,10 +241,11 @@ export class RecepcionExcelComponent implements OnInit {
       headerName: 'Muestra',
       field: 'muestra_poblacion',
       width: 80,
+      editable: false,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { min: 0, precision: 0 },
       type: 'numericColumn',
-      cellClass: 'xl-cell xl-num',
+      cellClass: 'xl-cell xl-num xl-locked',
     },
     { headerName: 'N. Lote', field: 'numero_lote', width: 118 },
     {
