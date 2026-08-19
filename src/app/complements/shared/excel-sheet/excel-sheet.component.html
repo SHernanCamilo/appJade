@@ -1,0 +1,174 @@
+<div class="xl-window">
+  <!-- ══════ 1. Title Bar ══════ -->
+  <header class="xl-titlebar">
+    <div class="xl-tb-left">
+      <span class="xl-app-icon">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+          <path fill="#fff" d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8V3z" opacity=".55"/>
+          <path fill="#fff" d="M14 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-6V2z"/>
+          <path fill="#217346" d="M17.9 7.6h-1.5l-1 1.9-1-1.9h-1.6l1.7 2.9-1.8 3h1.6l1.1-2 1.1 2h1.6l-1.8-3 1.6-2.9z"/>
+        </svg>
+      </span>
+      <div class="xl-tb-titles">
+        <span class="xl-tb-name">{{ config.title.documentName }}</span>
+        <span class="xl-tb-sub" *ngIf="config.title.subtitle">{{ config.title.subtitle }}</span>
+      </div>
+      <span class="xl-tb-saved">
+        <i [class]="getSaveIcon()"></i> {{ getSaveLabel() }}
+      </span>
+    </div>
+
+    <div class="xl-tb-right">
+      <button
+        *ngFor="let btn of config.title.secondaryActions"
+        type="button"
+        class="xl-tb-btn"
+        (click)="onSecondaryAction(btn.action)">
+        <i [class]="btn.icon || 'pi pi-times'"></i>
+        <span>{{ btn.label }}</span>
+      </button>
+      <button
+        *ngIf="config.title.primaryAction"
+        type="button"
+        class="xl-tb-btn xl-tb-btn-cta"
+        [disabled]="config.title.primaryAction.disabled || config.title.primaryAction.loading"
+        (click)="onPrimaryAction()">
+        <i [class]="config.title.primaryAction.loading ? 'pi pi-spin pi-spinner' : (config.title.primaryAction.icon || 'pi pi-save')"></i>
+        <span>{{ config.title.primaryAction.label }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ══════ 2. Tab Strip ══════ -->
+  <nav class="xl-tabstrip" role="tablist">
+    <button
+      *ngFor="let tab of config.ribbonTabs; trackBy: trackByTabId"
+      type="button"
+      role="tab"
+      class="xl-tab"
+      [class.active]="activeTab()?.id === tab.id"
+      [attr.aria-selected]="activeTab()?.id === tab.id"
+      (click)="setActiveTab(tab.id)">
+      {{ tab.label }}
+    </button>
+  </nav>
+
+  <!-- ══════ 3. Ribbon ══════ -->
+  <div class="xl-ribbon">
+    <ng-container *ngIf="activeTab() as tab">
+      <div
+        *ngFor="let group of tab.groups; trackBy: trackByGroupTitle"
+        class="xl-rgroup"
+        [class.xl-rgroup-grow]="group.grow">
+
+        <div class="xl-rgroup-body">
+          <ng-container *ngFor="let item of group.items">
+            <!-- Button / Toggle -->
+            <button
+              *ngIf="item.type === 'button' || item.type === 'toggle'"
+              type="button"
+              class="xl-rbtn"
+              [class.xl-rbtn-lg]="$any(item).size === 'lg'"
+              [class.xl-rbtn-active]="$any(item).active"
+              [title]="$any(item).tooltip || $any(item).label || ''"
+              [disabled]="$any(item).disabled"
+              (click)="onRibbonClick(item)">
+              <i *ngIf="$any(item).icon" [class]="$any(item).icon"></i>
+              <span *ngIf="$any(item).label" [innerHTML]="$any(item).label | nl2br"></span>
+            </button>
+
+            <!-- Separator -->
+            <div *ngIf="item.type === 'separator'" class="xl-rsep"></div>
+
+            <!-- Legend -->
+            <div *ngIf="item.type === 'legend'" class="xl-rlegend">
+              <span *ngFor="let l of $any(item).items" class="xl-swatch-row">
+                <i class="xl-swatch" [style.background]="l.color"></i> {{ l.label }}
+              </span>
+            </div>
+
+            <!-- Dropdown -->
+            <select
+              *ngIf="item.type === 'dropdown'"
+              class="xl-rselect"
+              [title]="$any(item).tooltip || $any(item).label || ''"
+              [ngModel]="$any(item).value"
+              (ngModelChange)="onRibbonDropdown(item, $event)">
+              <option *ngFor="let opt of $any(item).options" [value]="opt.value">{{ opt.label }}</option>
+            </select>
+          </ng-container>
+        </div>
+
+        <span class="xl-rgroup-title">{{ group.title }}</span>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- ══════ 4. Formula Bar ══════ -->
+  <div class="xl-formulabar">
+    <div class="xl-namebox" [title]="'Celda ' + cellInfo.reference">
+      {{ cellInfo.reference }}
+      <i class="pi pi-chevron-down"></i>
+    </div>
+    <div class="xl-fx"><i>fx</i></div>
+    <input
+      type="text"
+      class="xl-formula-input"
+      [ngModel]="formulaValue()"
+      (ngModelChange)="formulaValue.set($event)"
+      (keydown)="onFormulaKeydown($event)"
+      [readOnly]="!cellInfo.editable"
+      [attr.aria-label]="'Contenido de celda ' + cellInfo.reference" />
+  </div>
+
+  <!-- ══════ 5. Grid Area (Content Projection) ══════ -->
+  <div class="xl-sheet" [class.xl-sheet-loading]="loading">
+    <ng-content></ng-content>
+    <div *ngIf="loading" class="xl-sheet-spinner">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Abriendo hoja…</span>
+    </div>
+  </div>
+
+  <!-- ══════ 6. Sheet Tabs ══════ -->
+  <div class="xl-sheetbar" *ngIf="config.sheets && config.sheets.length > 0">
+    <div class="xl-sheetnav">
+      <button type="button" class="xl-sheetnav-btn" disabled><i class="pi pi-angle-left"></i></button>
+      <button type="button" class="xl-sheetnav-btn" disabled><i class="pi pi-angle-right"></i></button>
+    </div>
+    <div class="xl-sheettabs">
+      <span
+        *ngFor="let sheet of config.sheets; trackBy: trackBySheetId"
+        class="xl-sheettab"
+        [class.active]="sheet.active"
+        [style.border-top-color]="sheet.color || null"
+        (click)="onSheetTab(sheet)">
+        {{ sheet.label }}
+      </span>
+      <button type="button" class="xl-sheettab-add" title="Nueva hoja">+</button>
+    </div>
+  </div>
+
+  <!-- ══════ 7. Status Bar ══════ -->
+  <footer class="xl-statusbar" *ngIf="config.statusBar">
+    <div class="xl-sb-left">
+      <span class="xl-sb-ready">{{ config.statusBar.readyText || 'Listo' }}</span>
+      <ng-container *ngFor="let item of config.statusBar.items; trackBy: trackByStatusKey">
+        <span class="xl-sb-div"></span>
+        <span class="xl-sb-item" [ngClass]="item.variant || 'default'">
+          <b>{{ item.value }}</b> {{ item.label }}
+        </span>
+      </ng-container>
+    </div>
+
+    <div class="xl-sb-right">
+      <span class="xl-sb-hint" *ngIf="config.statusBar.hint">{{ config.statusBar.hint }}</span>
+      <span class="xl-sb-div" *ngIf="config.statusBar.hint && config.statusBar.showZoom !== false"></span>
+      <div class="xl-zoom" *ngIf="config.statusBar.showZoom !== false">
+        <button type="button" class="xl-zoom-btn" (click)="zoomOut()"><i class="pi pi-minus"></i></button>
+        <button type="button" class="xl-zoom-level" (click)="resetZoom()">{{ zoom() }}%</button>
+        <button type="button" class="xl-zoom-btn" (click)="zoomIn()"><i class="pi pi-plus"></i></button>
+      </div>
+    </div>
+  </footer>
+</div>

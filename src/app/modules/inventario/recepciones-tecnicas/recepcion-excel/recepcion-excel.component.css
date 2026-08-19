@@ -1,862 +1,105 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   Réplica de Microsoft Excel — Recepción Técnica
-   Paleta y métricas tomadas de Excel para Microsoft 365
+   Recepción Técnica Excel — Grid-only styles
+   The Excel shell chrome (title, ribbon, formula, status) is provided by
+   the shared <app-excel-sheet> component. This file only customizes
+   the AG Grid appearance for this specific use case.
    ══════════════════════════════════════════════════════════════════════════ */
 
 :host {
-  /* Paleta oficial Excel */
-  --xl-green: #217346;
-  --xl-green-dark: #1a5c38;
-  --xl-green-light: #2b8a56;
-  --xl-chrome: #f5f5f5;
-  --xl-chrome-line: #d4d4d4;
-  --xl-header-bg: #f0f0f0;
-  --xl-header-bg-active: #d8d8d8;
-  --xl-grid-line: #d0d0d0;
-  --xl-text: #212121;
-  --xl-text-soft: #616161;
-  --xl-select: #217346;
-  --xl-row-hover: #f2f7f4;
-
-  /* Rellenos de formato condicional (idénticos a los estilos de Excel) */
-  --xl-fill-good-bg: #c6efce;
-  --xl-fill-good-fg: #006100;
-  --xl-fill-neutral-bg: #ffeb9c;
-  --xl-fill-neutral-fg: #9c5700;
-  --xl-fill-bad-bg: #ffc7ce;
-  --xl-fill-bad-fg: #9c0006;
-
-  --xl-font: 'Segoe UI', 'Calibri', system-ui, -apple-system, sans-serif;
-  --xl-font-cell: 'Calibri', 'Segoe UI', system-ui, sans-serif;
-
   display: block;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
 }
 
-.xl-window {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  background: var(--xl-chrome);
-  font-family: var(--xl-font);
-  color: var(--xl-text);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ════════════ 1. Barra de título ════════════ */
-
-.xl-titlebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  height: 44px;
-  padding: 0 8px 0 10px;
-  background: var(--xl-green);
-  color: #fff;
-  flex-shrink: 0;
-}
-
-.xl-tb-left {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-.xl-app-icon {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.xl-tb-titles {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-  min-width: 0;
-}
-
-.xl-tb-name {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.xl-tb-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.75);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.xl-tb-saved {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: 6px;
-  padding: 3px 9px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.14);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
-}
-
-.xl-tb-saved i {
-  font-size: 11px;
-}
-
-.xl-tb-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.xl-tb-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 3px;
-  background: transparent;
-  color: #fff;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.12s;
-  white-space: nowrap;
-}
-
-.xl-tb-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.xl-tb-btn i {
-  font-size: 12px;
-}
-
-.xl-tb-btn-cta {
-  background: #fff;
-  border-color: #fff;
-  color: var(--xl-green-dark);
-  font-weight: 600;
-}
-
-.xl-tb-btn-cta:hover:not(:disabled) {
-  background: #e9f4ee;
-}
-
-.xl-tb-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-/* ════════════ 2. Pestañas de la cinta ════════════ */
-
-.xl-tabstrip {
-  display: flex;
-  align-items: flex-end;
-  gap: 1px;
-  height: 30px;
-  padding: 0 6px;
-  background: var(--xl-green);
-  flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.xl-tabstrip::-webkit-scrollbar {
-  display: none;
-}
-
-.xl-tab {
-  height: 26px;
-  padding: 0 13px;
-  border: none;
-  border-radius: 4px 4px 0 0;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.92);
-  font-family: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s;
-}
-
-.xl-tab:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.xl-tab.active {
-  background: var(--xl-chrome);
-  color: var(--xl-green-dark);
-  font-weight: 600;
-  height: 30px;
-}
-
-/* ════════════ 3. Cinta de opciones ════════════ */
-
-.xl-ribbon {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  height: 78px;
-  padding: 3px 4px 0;
-  background: var(--xl-chrome);
-  border-bottom: 1px solid var(--xl-chrome-line);
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.xl-rgroup {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 0 8px;
-  border-right: 1px solid #e0e0e0;
-  flex-shrink: 0;
-}
-
-.xl-rgroup-grow {
-  flex: 1;
-  border-right: none;
-  min-width: 0;
-}
-
-.xl-rgroup-body {
-  display: flex;
-  align-items: flex-start;
-  gap: 2px;
-  flex: 1;
-  padding-top: 2px;
-}
-
-.xl-rgroup-title {
-  font-size: 10.5px;
-  color: #757575;
-  text-align: center;
-  padding: 2px 0 3px;
-  white-space: nowrap;
-}
-
-/* Botones grandes de la cinta (icono arriba, texto abajo) */
-.xl-rbtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 3px;
-  min-width: 56px;
-  padding: 4px 6px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--xl-text);
-  font-family: inherit;
-  font-size: 10.5px;
-  line-height: 1.25;
-  text-align: center;
-  cursor: pointer;
-  transition: background 0.1s, border-color 0.1s;
-}
-
-.xl-rbtn:hover {
-  background: #e8e8e8;
-  border-color: #cfcfcf;
-}
-
-.xl-rbtn:active {
-  background: #dedede;
-}
-
-.xl-rbtn i {
-  font-size: 17px;
-  color: var(--xl-green);
-  line-height: 1;
-}
-
-.xl-rbtn-lg {
-  height: 52px;
-}
-
-/* Leyenda de formato condicional */
-.xl-rgroup-legend {
-  flex-direction: column;
-  gap: 3px;
-  justify-content: center;
-  padding-top: 6px;
-}
-
-.xl-swatch-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #424242;
-  white-space: nowrap;
-}
-
-.xl-swatch {
-  width: 13px;
-  height: 13px;
-  border: 1px solid #a6a6a6;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.xl-swatch.xl-fill-verde { background: var(--xl-fill-good-bg); }
-.xl-swatch.xl-fill-amarillo { background: var(--xl-fill-neutral-bg); }
-.xl-swatch.xl-fill-rojo { background: var(--xl-fill-bad-bg); }
-
-/* ════════════ 4. Barra de fórmulas ════════════ */
-
-.xl-formulabar {
-  display: flex;
-  align-items: stretch;
-  height: 24px;
-  background: #fff;
-  border-bottom: 1px solid var(--xl-chrome-line);
-  flex-shrink: 0;
-}
-
-.xl-namebox {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  width: 118px;
-  padding: 0 6px;
-  border-right: 1px solid var(--xl-chrome-line);
-  background: #fff;
-  font-family: var(--xl-font-cell);
-  font-size: 12px;
-  color: var(--xl-text);
-  flex-shrink: 0;
-  cursor: default;
-  user-select: none;
-}
-
-.xl-namebox i {
-  font-size: 9px;
-  color: #616161;
-}
-
-.xl-fx {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  border-right: 1px solid var(--xl-chrome-line);
-  flex-shrink: 0;
-}
-
-.xl-fx i {
-  font-family: 'Times New Roman', Georgia, serif;
-  font-style: italic;
-  font-size: 13px;
-  color: #616161;
-}
-
-.xl-formula-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  padding: 0 8px;
-  background: #fff;
-  font-family: var(--xl-font-cell);
-  font-size: 12.5px;
-  color: var(--xl-text);
-}
-
-.xl-formula-input:focus {
-  background: #fffef7;
-}
-
-.xl-formula-input[readonly] {
-  color: #9e9e9e;
-  background: #fafafa;
-}
-
-/* ════════════ 5. Hoja de cálculo ════════════ */
-
-.xl-sheet {
-  flex: 1 1 auto;
-  min-height: 0;
-  background: #fff;
-  position: relative;
-}
-
-.xl-grid {
+/* ── Make the Excel shell fill the host ── */
+:host ::ng-deep app-excel-sheet {
+  display: block;
   width: 100%;
   height: 100%;
 }
 
-.xl-sheet-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+/* ─── AG Grid: Excel-faithful appearance ─────────────────────────────────── */
+
+:host ::ng-deep .xl-grid {
+  width: 100%;
   height: 100%;
-  color: var(--xl-text-soft);
-  font-size: 13px;
-}
-
-.xl-sheet-loading i {
-  font-size: 18px;
-  color: var(--xl-green);
-}
-
-/* ─────── AG Grid: reglas explícitas para asegurar el look Excel ─────── */
-
-:host ::ng-deep ag-grid-angular.xl-grid {
-  --ag-font-family: var(--xl-font-cell);
+  --ag-font-family: 'Calibri', 'Segoe UI', system-ui, sans-serif;
   --ag-font-size: var(--xl-font-size, 11px);
   --ag-grid-size: 2px;
-  --ag-border-color: var(--xl-grid-line);
-  --ag-row-border-color: var(--xl-grid-line);
+  --ag-border-color: #d0d0d0;
+  --ag-row-border-color: #d0d0d0;
   --ag-background-color: #fff;
   --ag-odd-row-background-color: #fff;
-  --ag-row-hover-color: var(--xl-row-hover);
+  --ag-row-hover-color: #f2f7f4;
   --ag-selected-row-background-color: #e4efe9;
   --ag-header-height: 21px;
   --ag-row-height: 21px;
   --ag-cell-horizontal-padding: 4px;
-  --ag-input-focus-border-color: var(--xl-green);
-  --ag-checkbox-checked-color: var(--xl-green);
+  --ag-input-focus-border-color: #217346;
+  --ag-checkbox-checked-color: #217346;
 }
 
-:host ::ng-deep ag-grid-angular.xl-grid .ag-root-wrapper {
-  border: none;
-}
+:host ::ng-deep .xl-grid .ag-root-wrapper { border: none; }
 
-/* ── Encabezados: gris plano de Excel, NO verde ── */
-:host ::ng-deep ag-grid-angular.xl-grid .ag-header {
-  background-color: var(--xl-header-bg) !important;
-  border-bottom: 1px solid #9e9e9e;
-  font-family: var(--xl-font);
-}
+/* ── Headers: flat gray, not green ── */
+:host ::ng-deep .xl-grid .ag-header { background-color: #f0f0f0 !important; border-bottom: 1px solid #9e9e9e; }
+:host ::ng-deep .xl-grid .ag-header-row { background-color: #f0f0f0 !important; }
+:host ::ng-deep .xl-grid .ag-header-cell,
+:host ::ng-deep .xl-grid .ag-header-group-cell { background-color: #f0f0f0 !important; color: #212121 !important; border-right: 1px solid #bdbdbd; padding: 0 4px; }
+:host ::ng-deep .xl-grid .ag-header-cell::after,
+:host ::ng-deep .xl-grid .ag-header-group-cell::after { display: none; }
 
-:host ::ng-deep ag-grid-angular.xl-grid .ag-header-row {
-  background-color: var(--xl-header-bg) !important;
-}
+/* Column letters */
+:host ::ng-deep .xl-grid .xl-collabel .ag-header-group-cell-label { justify-content: center; }
+:host ::ng-deep .xl-grid .xl-collabel { font-size: 11px; font-weight: 400; color: #424242 !important; }
 
-:host ::ng-deep ag-grid-angular.xl-grid .ag-header-cell,
-:host ::ng-deep ag-grid-angular.xl-grid .ag-header-group-cell {
-  background-color: var(--xl-header-bg) !important;
-  color: var(--xl-text) !important;
-  border-right: 1px solid #bdbdbd;
-  padding: 0 4px;
-}
+/* Field name sub-header */
+:host ::ng-deep .xl-grid .xl-fieldname .ag-header-cell-label { justify-content: center; }
+:host ::ng-deep .xl-grid .xl-fieldname .ag-header-cell-text { font-size: 11.5px; font-weight: 600; color: #212121; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-:host ::ng-deep ag-grid-angular.xl-grid .ag-header-cell::after,
-:host ::ng-deep ag-grid-angular.xl-grid .ag-header-group-cell::after {
-  display: none;
-}
+/* Row number gutter */
+:host ::ng-deep .xl-grid .xl-corner { background-color: #e4e4e4 !important; border-right: 1px solid #9e9e9e !important; }
+:host ::ng-deep .xl-grid .xl-rownum { background-color: #f0f0f0; color: #424242; font-size: 10.5px; display: flex !important; align-items: center; justify-content: center; border-right: 1px solid #9e9e9e; font-variant-numeric: tabular-nums; user-select: none; }
 
-/* Fila 1 del encabezado: letras de columna (A, B, C…) centradas y en gris */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-collabel .ag-header-group-text,
-:host ::ng-deep ag-grid-angular.xl-grid .xl-collabel {
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 400;
-  color: #424242 !important;
-}
+/* Cells */
+:host ::ng-deep .xl-grid .ag-cell { border-right: 1px solid #d0d0d0; line-height: 19px; padding: 0 4px; color: #212121; }
+:host ::ng-deep .xl-grid .ag-row { border-bottom: 1px solid #d0d0d0; }
 
-:host ::ng-deep ag-grid-angular.xl-grid .xl-collabel .ag-header-group-cell-label {
-  justify-content: center;
-}
+/* Focus: green 2px border */
+:host ::ng-deep .xl-grid .ag-cell-focus:not(.ag-cell-range-selected) { border: 2px solid #217346 !important; outline: none; box-shadow: inset 0 0 0 1px #fff; }
 
-/* Fila 2 del encabezado: nombre real del campo, en negrita */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fieldname .ag-header-cell-label {
-  justify-content: center;
-}
+/* Locked cells (OC data — readonly) */
+:host ::ng-deep .xl-grid .xl-locked { background-color: #f9f9f9 !important; color: #424242; }
 
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fieldname .ag-header-cell-text {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--xl-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Alignments */
+:host ::ng-deep .xl-grid .xl-center { justify-content: center; text-align: center; }
+:host ::ng-deep .xl-grid .xl-num { justify-content: flex-end; text-align: right; font-variant-numeric: tabular-nums; }
+:host ::ng-deep .xl-grid .xl-strong { font-weight: 700; }
 
-/* Esquina superior izquierda (sobre la canaleta de filas) */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-corner {
-  background-color: #e4e4e4 !important;
-  border-right: 1px solid #9e9e9e !important;
-}
+/* Conditional format fills */
+:host ::ng-deep .xl-grid .xl-fill-verde,
+:host ::ng-deep .xl-grid .xl-fill-ok { background-color: #c6efce !important; color: #006100 !important; }
+:host ::ng-deep .xl-grid .xl-fill-amarillo,
+:host ::ng-deep .xl-grid .xl-fill-warn { background-color: #ffeb9c !important; color: #9c5700 !important; }
+:host ::ng-deep .xl-grid .xl-fill-rojo,
+:host ::ng-deep .xl-grid .xl-fill-bad { background-color: #ffc7ce !important; color: #9c0006 !important; }
 
-/* ── Canaleta de números de fila ── */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-rownum {
-  background-color: var(--xl-header-bg);
-  color: #424242;
-  font-family: var(--xl-font);
-  font-size: 10.5px;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid #9e9e9e;
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-}
+/* INVIMA icon */
+:host ::ng-deep .xl-invima-wrap { display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; overflow: hidden; }
+:host ::ng-deep .xl-invima-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:host ::ng-deep .xl-invima-icon { font-size: 12px; flex-shrink: 0; }
 
-/* ── Celdas: cuadrícula fina uniforme ── */
-:host ::ng-deep ag-grid-angular.xl-grid .ag-cell {
-  border-right: 1px solid var(--xl-grid-line);
-  border-bottom: none;
-  line-height: 19px;
-  padding: 0 4px;
-  color: var(--xl-text);
-}
+/* Inline editor */
+:host ::ng-deep .xl-grid .ag-cell-inline-editing { border: 2px solid #217346 !important; border-radius: 0; box-shadow: none; height: 21px !important; padding: 0 !important; background: #fff; }
+:host ::ng-deep .xl-grid .ag-cell-inline-editing input,
+:host ::ng-deep .xl-grid .ag-cell-inline-editing select { font-family: 'Calibri', 'Segoe UI', sans-serif; font-size: 11.5px; height: 100%; border: none; outline: none; padding: 0 3px; background: transparent; }
 
-:host ::ng-deep ag-grid-angular.xl-grid .ag-row {
-  border-bottom: 1px solid var(--xl-grid-line);
-}
+/* Checkbox */
+:host ::ng-deep .xl-grid .ag-checkbox-input-wrapper.ag-checked::after { color: #217346; }
 
-/* Celda activa: contorno verde de 2px, como el selector de Excel */
-:host ::ng-deep ag-grid-angular.xl-grid .ag-cell-focus:not(.ag-cell-range-selected) {
-  border: 2px solid var(--xl-select) !important;
-  outline: none;
-  box-shadow: inset 0 0 0 1px #fff;
-}
-
-/* Alineaciones */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-center {
-  justify-content: center;
-  text-align: center;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .xl-num {
-  justify-content: flex-end;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .xl-strong {
-  font-weight: 700;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .xl-locked {
-  color: #424242;
-}
-
-/* ── Celdas bloqueadas (datos de la OC — no editables) ── */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-locked {
-  background-color: #f9f9f9 !important;
-  color: #424242;
-  cursor: default;
-}
-
-/* ── Rellenos de formato condicional ── */
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fill-verde,
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fill-ok {
-  background-color: var(--xl-fill-good-bg) !important;
-  color: var(--xl-fill-good-fg) !important;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fill-amarillo,
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fill-warn {
-  background-color: var(--xl-fill-neutral-bg) !important;
-  color: var(--xl-fill-neutral-fg) !important;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fill-rojo,
-:host ::ng-deep ag-grid-angular.xl-grid .xl-fill-bad {
-  background-color: var(--xl-fill-bad-bg) !important;
-  color: var(--xl-fill-bad-fg) !important;
-}
-
-/* ── Icono de validación INVIMA ── */
-:host ::ng-deep .xl-invima-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  width: 100%;
-  overflow: hidden;
-}
-
-:host ::ng-deep .xl-invima-val {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-:host ::ng-deep .xl-invima-icon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-/* ── Editor de celda en línea ── */
-:host ::ng-deep ag-grid-angular.xl-grid .ag-cell-inline-editing {
-  border: 2px solid var(--xl-select) !important;
-  border-radius: 0;
-  box-shadow: none;
-  height: 21px !important;
-  padding: 0 !important;
-  background: #fff;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .ag-cell-inline-editing input,
-:host ::ng-deep ag-grid-angular.xl-grid .ag-cell-inline-editing select {
-  font-family: var(--xl-font-cell);
-  font-size: 11.5px;
-  height: 100%;
-  border: none;
-  outline: none;
-  padding: 0 3px;
-  background: transparent;
-}
-
-/* ── Checkboxes en verde Excel ── */
-:host ::ng-deep ag-grid-angular.xl-grid .ag-checkbox-input-wrapper.ag-checked::after {
-  color: var(--xl-green);
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid .ag-checkbox-input-wrapper {
-  font-size: 13px;
-}
-
-/* ── Barras de desplazamiento estilo Excel ── */
-:host ::ng-deep ag-grid-angular.xl-grid ::-webkit-scrollbar {
-  width: 14px;
-  height: 14px;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid ::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-left: 1px solid #d4d4d4;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border: 3px solid #f0f0f0;
-  border-radius: 7px;
-}
-
-:host ::ng-deep ag-grid-angular.xl-grid ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* ════════════ 6. Observaciones + pestañas de hoja ════════════ */
-
-.xl-obsbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 28px;
-  padding: 0 8px;
-  background: #fff;
-  border-top: 1px solid var(--xl-chrome-line);
-  flex-shrink: 0;
-}
-
-.xl-obs-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #424242;
-  white-space: nowrap;
-  margin: 0;
-}
-
-.xl-obs-input {
-  flex: 1;
-  min-width: 0;
-  height: 20px;
-  padding: 0 6px;
-  border: 1px solid var(--xl-chrome-line);
-  border-radius: 2px;
-  font-family: var(--xl-font-cell);
-  font-size: 11.5px;
-  color: var(--xl-text);
-  outline: none;
-}
-
-.xl-obs-input:focus {
-  border-color: var(--xl-green);
-  box-shadow: inset 0 0 0 1px var(--xl-green);
-}
-
-.xl-sheetbar {
-  display: flex;
-  align-items: stretch;
-  height: 26px;
-  background: var(--xl-chrome);
-  border-top: 1px solid var(--xl-chrome-line);
-  flex-shrink: 0;
-}
-
-.xl-sheetnav {
-  display: flex;
-  align-items: center;
-  padding: 0 3px;
-  border-right: 1px solid #e0e0e0;
-}
-
-.xl-sheetnav-btn {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 2px;
-  background: transparent;
-  color: #616161;
-  cursor: pointer;
-  font-size: 11px;
-}
-
-.xl-sheetnav-btn:disabled {
-  color: #bdbdbd;
-  cursor: default;
-}
-
-.xl-sheettabs {
-  display: flex;
-  align-items: stretch;
-  padding-left: 3px;
-}
-
-.xl-sheettab {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 14px;
-  font-size: 11.5px;
-  color: var(--xl-text-soft);
-  border-right: 1px solid #e0e0e0;
-  cursor: default;
-  user-select: none;
-}
-
-.xl-sheettab.active {
-  background: #fff;
-  color: var(--xl-green-dark);
-  font-weight: 600;
-  border-top: 2px solid var(--xl-green);
-  border-right: 1px solid var(--xl-chrome-line);
-  margin-top: -1px;
-}
-
-/* ════════════ 7. Barra de estado ════════════ */
-
-.xl-statusbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  height: 24px;
-  padding: 0 8px;
-  background: var(--xl-green);
-  color: #fff;
-  font-size: 11.5px;
-  flex-shrink: 0;
-}
-
-.xl-sb-left,
-.xl-sb-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.xl-sb-ready {
-  font-weight: 600;
-}
-
-.xl-sb-item {
-  white-space: nowrap;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.xl-sb-item b {
-  font-weight: 700;
-  color: #fff;
-}
-
-.xl-sb-item.ok b { color: #b7f3cd; }
-.xl-sb-item.warn b { color: #ffe9a8; }
-.xl-sb-item.bad b { color: #ffc9cd; }
-
-.xl-sb-div {
-  width: 1px;
-  height: 13px;
-  background: rgba(255, 255, 255, 0.3);
-  flex-shrink: 0;
-}
-
-.xl-sb-hint {
-  color: rgba(255, 255, 255, 0.8);
-  white-space: nowrap;
-}
-
-/* Control de zoom */
-.xl-zoom {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  flex-shrink: 0;
-}
-
-.xl-zoom-btn {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 18px;
-  border: none;
-  border-radius: 2px;
-  background: transparent;
-  color: #fff;
-  cursor: pointer;
-  font-size: 9px;
-  transition: background 0.1s;
-}
-
-.xl-zoom-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.xl-zoom-level {
-  min-width: 42px;
-  height: 18px;
-  border: none;
-  border-radius: 2px;
-  background: transparent;
-  color: #fff;
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-}
-
-.xl-zoom-level:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* ════════════ Responsive ════════════ */
-
-@media (max-width: 1100px) {
-  .xl-sb-hint { display: none; }
-}
-
-@media (max-width: 860px) {
-  .xl-rgroup-grow { display: none; }
-  .xl-tb-sub,
-  .xl-tb-saved { display: none; }
-  .xl-tb-btn span { display: none; }
-  .xl-tb-btn { padding: 0 9px; }
-}
+/* Scrollbars */
+:host ::ng-deep .xl-grid ::-webkit-scrollbar { width: 14px; height: 14px; }
+:host ::ng-deep .xl-grid ::-webkit-scrollbar-track { background: #f0f0f0; border-left: 1px solid #d4d4d4; }
+:host ::ng-deep .xl-grid ::-webkit-scrollbar-thumb { background: #c1c1c1; border: 3px solid #f0f0f0; border-radius: 7px; }
+:host ::ng-deep .xl-grid ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }

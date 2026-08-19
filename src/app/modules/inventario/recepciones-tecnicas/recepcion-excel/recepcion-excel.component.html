@@ -1,193 +1,28 @@
 <p-toast position="top-right"></p-toast>
 
-<div class="xl-window">
-  <!-- ══════════ 1. Barra de título ══════════ -->
-  <header class="xl-titlebar">
-    <div class="xl-tb-left">
-      <span class="xl-app-icon">
-        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-          <path fill="#fff" d="M13 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8V3z" opacity=".55"/>
-          <path fill="#fff" d="M14 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-6V2z"/>
-          <path fill="#217346" d="M17.9 7.6h-1.5l-1 1.9-1-1.9h-1.6l1.7 2.9-1.8 3h1.6l1.1-2 1.1 2h1.6l-1.8-3 1.6-2.9z"/>
-        </svg>
-      </span>
-      <div class="xl-tb-titles">
-        <span class="xl-tb-name">
-          Recepción Técnica — {{ ordenInfo()?.numero || 'Cargando…' }}
-        </span>
-        <span class="xl-tb-sub" *ngIf="ordenInfo()?.proveedor">{{ ordenInfo()?.proveedor }}</span>
-      </div>
-      <span class="xl-tb-saved"><i class="pi pi-cloud"></i> Sin guardar</span>
-    </div>
+<app-excel-sheet
+  [config]="excelConfig()"
+  [cellInfo]="cellInfo()"
+  [loading]="isLoading()"
+  (primaryAction)="guardar()"
+  (secondaryAction)="onSecondaryAction($event)"
+  (ribbonAction)="onRibbonAction($event)"
+  (formulaCommit)="onFormulaCommit($event)"
+  (zoomChange)="onZoomChange($event)">
 
-    <div class="xl-tb-right">
-      <button type="button" class="xl-tb-btn" (click)="cerrar()" title="Cerrar (Esc)">
-        <i class="pi pi-times"></i><span>Cerrar</span>
-      </button>
-      <button
-        type="button"
-        class="xl-tb-btn xl-tb-btn-cta"
-        (click)="guardar()"
-        [disabled]="isSaving() || totalRecibidos() === 0">
-        <i class="pi" [class.pi-spin]="isSaving()" [class.pi-spinner]="isSaving()" [class.pi-save]="!isSaving()"></i>
-        <span>Guardar Recepción</span>
-      </button>
-    </div>
-  </header>
+  <!-- Grid goes inside via content projection -->
+  <ag-grid-angular
+    class="ag-theme-alpine xl-grid"
+    [style.--xl-font-size]="gridFontSize()"
+    [rowData]="rowData"
+    [columnDefs]="columnDefs"
+    [defaultColDef]="defaultColDef"
+    [gridOptions]="gridOptions"
+    [localeText]="localeText"
+    [tooltipShowDelay]="500"
+    (gridReady)="onGridReady($event)"
+    (cellFocused)="onCellFocused($event)"
+    (cellValueChanged)="onCellValueChanged($event)">
+  </ag-grid-angular>
 
-  <!-- ══════════ 2. Pestañas de la cinta ══════════ -->
-  <nav class="xl-tabstrip" role="tablist">
-    @for (tab of ribbonTabs; track tab) {
-      <button
-        type="button"
-        role="tab"
-        class="xl-tab"
-        [class.active]="activeRibbonTab() === tab"
-        [attr.aria-selected]="activeRibbonTab() === tab"
-        (click)="setRibbonTab(tab)">
-        {{ tab }}
-      </button>
-    }
-  </nav>
-
-  <!-- ══════════ 3. Cinta de opciones ══════════ -->
-  <div class="xl-ribbon">
-    <div class="xl-rgroup">
-      <div class="xl-rgroup-body">
-        <button type="button" class="xl-rbtn xl-rbtn-lg" (click)="toggleTodos(true)">
-          <i class="pi pi-check-square"></i>
-          <span>Marcar<br>todos</span>
-        </button>
-        <button type="button" class="xl-rbtn xl-rbtn-lg" (click)="toggleTodos(false)">
-          <i class="pi pi-stop"></i>
-          <span>Quitar<br>todos</span>
-        </button>
-      </div>
-      <span class="xl-rgroup-title">Selección</span>
-    </div>
-
-    <div class="xl-rgroup">
-      <div class="xl-rgroup-body">
-        <button type="button" class="xl-rbtn xl-rbtn-lg" (click)="autoajustarColumnas()">
-          <i class="pi pi-arrows-h"></i>
-          <span>Ajustar<br>columnas</span>
-        </button>
-        <button type="button" class="xl-rbtn xl-rbtn-lg" (click)="exportarCsv()">
-          <i class="pi pi-file-export"></i>
-          <span>Exportar<br>CSV</span>
-        </button>
-      </div>
-      <span class="xl-rgroup-title">Hoja</span>
-    </div>
-
-    <div class="xl-rgroup xl-rgroup-grow">
-      <div class="xl-rgroup-body xl-rgroup-legend">
-        <span class="xl-swatch-row"><i class="xl-swatch xl-fill-verde"></i> Más de 6 meses</span>
-        <span class="xl-swatch-row"><i class="xl-swatch xl-fill-amarillo"></i> 6 meses o menos</span>
-        <span class="xl-swatch-row"><i class="xl-swatch xl-fill-rojo"></i> Vencido</span>
-      </div>
-      <span class="xl-rgroup-title">Formato condicional · Vencimiento</span>
-    </div>
-  </div>
-
-  <!-- ══════════ 4. Barra de fórmulas ══════════ -->
-  <div class="xl-formulabar">
-    <div class="xl-namebox" [title]="'Celda ' + activeCellRef()">
-      {{ activeCellRef() }}
-      <i class="pi pi-chevron-down"></i>
-    </div>
-    <div class="xl-fx" aria-hidden="true"><i>fx</i></div>
-    <input
-      type="text"
-      class="xl-formula-input"
-      [ngModel]="activeCellValue()"
-      (ngModelChange)="activeCellValue.set($event)"
-      (keyup.enter)="commitFormula(activeCellValue())"
-      [readOnly]="!activeCellEditable()"
-      [attr.aria-label]="'Contenido de la celda ' + activeCellRef()"
-      placeholder="" />
-  </div>
-
-  <!-- ══════════ 5. Hoja de cálculo ══════════ -->
-  <div class="xl-sheet">
-    @if (isLoading()) {
-      <div class="xl-sheet-loading">
-        <i class="pi pi-spin pi-spinner"></i>
-        <span>Abriendo hoja…</span>
-      </div>
-    } @else {
-      <ag-grid-angular
-        class="ag-theme-alpine xl-grid"
-        [style.--xl-font-size]="gridFontSize()"
-        [rowData]="rowData"
-        [columnDefs]="columnDefs"
-        [defaultColDef]="defaultColDef"
-        [gridOptions]="gridOptions"
-        [localeText]="localeText"
-        [tooltipShowDelay]="500"
-        (gridReady)="onGridReady($event)"
-        (cellFocused)="onCellFocused($event)"
-        (cellValueChanged)="onCellValueChanged($event)">
-      </ag-grid-angular>
-    }
-  </div>
-
-  <!-- ══════════ 6. Observaciones + pestañas de hoja ══════════ -->
-  <div class="xl-obsbar">
-    <label class="xl-obs-label" for="obsGlobal">Observaciones</label>
-    <input
-      id="obsGlobal"
-      type="text"
-      class="xl-obs-input"
-      [ngModel]="observacionesGlobal()"
-      (ngModelChange)="observacionesGlobal.set($event)"
-      placeholder="Novedades generales de la entrega…" />
-  </div>
-
-  <div class="xl-sheetbar">
-    <div class="xl-sheetnav">
-      <button type="button" class="xl-sheetnav-btn" disabled aria-label="Hoja anterior">
-        <i class="pi pi-angle-left"></i>
-      </button>
-      <button type="button" class="xl-sheetnav-btn" disabled aria-label="Hoja siguiente">
-        <i class="pi pi-angle-right"></i>
-      </button>
-    </div>
-    <div class="xl-sheettabs">
-      <span class="xl-sheettab active">{{ sheetName }}</span>
-    </div>
-  </div>
-
-  <!-- ══════════ 7. Barra de estado ══════════ -->
-  <footer class="xl-statusbar">
-    <div class="xl-sb-left">
-      <span class="xl-sb-ready">Listo</span>
-      <span class="xl-sb-div"></span>
-      <span class="xl-sb-item"><b>{{ totalItems() }}</b> productos</span>
-      <span class="xl-sb-div"></span>
-      <span class="xl-sb-item ok"><b>{{ totalRecibidos() }}</b> recibidos</span>
-      <span class="xl-sb-div"></span>
-      <span class="xl-sb-item warn"><b>{{ totalPendientes() }}</b> pendientes</span>
-      @if (totalRechazados() > 0) {
-        <span class="xl-sb-div"></span>
-        <span class="xl-sb-item bad"><b>{{ totalRechazados() }}</b> rechazados</span>
-      }
-    </div>
-
-    <div class="xl-sb-right">
-      <span class="xl-sb-hint">Clic para editar · Enter baja · Tab avanza · Ctrl+Z deshace</span>
-      <span class="xl-sb-div"></span>
-      <div class="xl-zoom">
-        <button type="button" class="xl-zoom-btn" (click)="zoomOut()" aria-label="Reducir zoom">
-          <i class="pi pi-minus"></i>
-        </button>
-        <button type="button" class="xl-zoom-level" (click)="resetZoom()" title="Restablecer al 100%">
-          {{ zoom() }}%
-        </button>
-        <button type="button" class="xl-zoom-btn" (click)="zoomIn()" aria-label="Aumentar zoom">
-          <i class="pi pi-plus"></i>
-        </button>
-      </div>
-    </div>
-  </footer>
-</div>
+</app-excel-sheet>
