@@ -85,7 +85,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
 
   loadCompras(): void {
     this.isLoading.set(true);
-    const status = this.currentView() === 'pending' ? 'confirmado,en_sitio,parcial' : 'recibida';
+    const status = this.currentView() === 'pending' ? 'confirmado,en_sitio,parcial' : 'RECEPCIONADO,CONFIRMADO';
     
     this.inventarioService.getRecepciones({ status }).subscribe({
       next: (res) => {
