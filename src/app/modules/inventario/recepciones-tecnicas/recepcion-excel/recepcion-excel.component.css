@@ -1,122 +1,521 @@
-.excel-container {
-  display: flex;
-  flex-direction: column;
+/* ══════════════════════════════════════════════════════════════════════════
+   Vista tipo Excel — Recepción Técnica
+   Ocupa el 100% del viewport (ruta sin layout lateral)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:host {
+  display: block;
+  width: 100vw;
   height: 100vh;
-  background: #f8fafc;
   overflow: hidden;
 }
 
-/* Header */
-.excel-header {
+.xl-app {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #f3f2f1;
+  font-family: 'Segoe UI', Calibri, system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Barra de título (verde Excel) ─────────────────────────────────────── */
+
+.xl-titlebar {
+  display: flex;
   align-items: center;
-  padding: 0.75rem 1.5rem;
-  background: #1e293b;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 48px;
+  padding: 0 0.75rem;
+  background: #217346; /* Verde Excel */
   color: #fff;
   flex-shrink: 0;
 }
-.excel-header h2 { margin: 0; font-size: 1.1rem; font-weight: 600; }
-.excel-header h2 i { margin-right: 0.5rem; color: #60a5fa; }
-.excel-subtitle { margin: 0.25rem 0 0; font-size: 0.8rem; color: #94a3b8; }
-.excel-header-actions { display: flex; gap: 0.5rem; align-items: center; }
 
-/* Stats */
-.excel-stats {
+.xl-titlebar-left {
   display: flex;
-  gap: 2rem;
-  padding: 0.5rem 1.5rem;
-  background: #e2e8f0;
-  font-size: 0.8rem;
-  color: #475569;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.xl-file-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.95rem;
   flex-shrink: 0;
 }
 
-/* Tabla */
-.excel-table-wrapper {
-  flex: 1;
-  overflow: hidden;
-  padding: 0;
+.xl-titlebar-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
 }
 
-:host ::ng-deep .p-datatable {
-  font-size: 0.78rem;
-}
-:host ::ng-deep .p-datatable .p-datatable-thead > tr > th {
-  background: #334155;
-  color: #e2e8f0;
+.xl-filename {
+  font-size: 0.9rem;
   font-weight: 600;
-  font-size: 0.72rem;
-  padding: 0.4rem 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
   white-space: nowrap;
-  border-right: 1px solid #475569;
-}
-:host ::ng-deep .p-datatable .p-datatable-thead > tr > th.editable-col {
-  background: #1e3a5f;
-}
-:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td {
-  padding: 0.25rem 0.35rem;
-  border-right: 1px solid #e2e8f0;
-  vertical-align: middle;
-}
-:host ::ng-deep .p-datatable .p-datatable-tbody > tr:hover > td {
-  background: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Columnas fijas */
-.frozen-col {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: #fff !important;
+.xl-filemeta {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Filas */
-.row-rejected td { background: #fef2f2 !important; }
-.row-unchecked td { opacity: 0.5; }
+.xl-titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
 
-/* Celdas editables */
-.cell-input {
-  width: 100%;
-  padding: 0.3rem 0.4rem;
+.xl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.xl-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.xl-btn-primary {
+  background: #fff;
+  border-color: #fff;
+  color: #185c37;
+  font-weight: 600;
+}
+
+.xl-btn-primary:hover:not(:disabled) {
+  background: #eaf5ee;
+}
+
+.xl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Cinta de herramientas ─────────────────────────────────────────────── */
+
+.xl-ribbon {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  background: #fff;
+  border-bottom: 1px solid #d0d7de;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.xl-ribbon-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.xl-ribbon-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #8a8886;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.xl-ribbon-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.xl-ribbon-sep {
+  width: 1px;
+  background: #e1dfdd;
+  flex-shrink: 0;
+}
+
+.xl-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
   border: 1px solid transparent;
   border-radius: 3px;
+  background: transparent;
+  color: #323130;
   font-size: 0.78rem;
-  transition: border-color 0.15s;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
 }
-.cell-input:focus {
-  border-color: #3b82f6;
-  outline: none;
-  background: #eff6ff;
+
+.xl-tool:hover {
+  background: #f3f2f1;
+  border-color: #d0d7de;
 }
-.cell-date { font-family: monospace; }
-.cell-product { font-weight: 500; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-:host ::ng-deep .cell-number { width: 70px; }
-:host ::ng-deep .cell-number .p-inputnumber-input { font-size: 0.78rem; padding: 0.3rem; text-align: center; }
-:host ::ng-deep .cell-dropdown { width: 100%; font-size: 0.75rem; }
-:host ::ng-deep .cell-dropdown .p-dropdown-label { padding: 0.25rem 0.4rem; font-size: 0.75rem; }
+.xl-tool i {
+  font-size: 0.8rem;
+  color: #217346;
+}
 
-/* INVIMA */
-.cell-invima { position: relative; }
-.invima-icon { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 0.9rem; }
+/* Leyenda de semáforo */
+.xl-ribbon-legend .xl-ribbon-actions {
+  gap: 0.7rem;
+}
 
-/* Semáforo */
-.semaforo-verde { background: #dcfce7 !important; }
-.semaforo-amarillo { background: #fef9c3 !important; }
-.semaforo-rojo { background: #fee2e2 !important; }
+.xl-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: #605e5c;
+  white-space: nowrap;
+}
 
-/* Footer */
-.excel-footer {
-  padding: 0.75rem 1.5rem;
-  border-top: 1px solid #e2e8f0;
+.xl-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #b1b1b1;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* ─── Hoja de cálculo ───────────────────────────────────────────────────── */
+
+.xl-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
   background: #fff;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.xl-grid {
+  width: 100%;
+  height: 100%;
+}
+
+.xl-loading {
+  flex: 1 1 auto;
+  padding: 0.75rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* ─── AG Grid: apariencia Excel ─────────────────────────────────────────── */
+
+:host ::ng-deep .xl-grid {
+  --ag-borders: solid 1px;
+  --ag-border-color: #d0d7de;
+  --ag-row-border-color: #e1dfdd;
+  --ag-header-background-color: #f3f2f1;
+  --ag-header-foreground-color: #323130;
+  --ag-odd-row-background-color: #fff;
+  --ag-background-color: #fff;
+  --ag-row-hover-color: #f0f7f3;
+  --ag-selected-row-background-color: #e8f2ec;
+  --ag-range-selection-border-color: #217346;
+  --ag-cell-horizontal-border: solid #e1dfdd;
+  --ag-font-family: 'Segoe UI', Calibri, system-ui, sans-serif;
+  --ag-font-size: 12.5px;
+  --ag-grid-size: 3px;
+  --ag-borders-critical: solid 1px;
+}
+
+/* Encabezados: gris claro con líneas, como Excel */
+:host ::ng-deep .xl-grid .ag-header {
+  border-bottom: 1px solid #b1b1b1;
+}
+
+:host ::ng-deep .xl-grid .ag-header-cell {
+  border-right: 1px solid #d0d7de;
+  font-weight: 600;
+  font-size: 11.5px;
+  color: #323130;
+}
+
+:host ::ng-deep .xl-grid .ag-header-cell-label {
+  justify-content: center;
+}
+
+/* Esquina superior izquierda (como la de Excel) */
+:host ::ng-deep .xl-grid .xl-corner {
+  background: #e8e6e3 !important;
+}
+
+/* Columna de número de fila: gutter gris */
+:host ::ng-deep .xl-grid .xl-rownum {
+  background: #f3f2f1;
+  color: #605e5c;
+  font-size: 11px;
+  text-align: center;
+  justify-content: center;
+  border-right: 1px solid #b1b1b1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Celdas: líneas de cuadrícula finas */
+:host ::ng-deep .xl-grid .ag-cell {
+  border-right: 1px solid #e1dfdd;
+  line-height: 28px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* Celda enfocada: borde verde grueso como Excel */
+:host ::ng-deep .xl-grid .ag-cell-focus:not(.ag-cell-range-selected) {
+  border: 2px solid #217346 !important;
+  outline: none;
+}
+
+/* Solo lectura: fondo levemente gris */
+:host ::ng-deep .xl-grid .xl-readonly {
+  background: #fafafa;
+  color: #605e5c;
+}
+
+/* Editable: fondo blanco con indicador sutil */
+:host ::ng-deep .xl-grid .xl-editable {
+  background: #fff;
+}
+
+:host ::ng-deep .xl-grid .xl-editable:hover {
+  background: #f7fbf9;
+}
+
+/* Alineaciones */
+:host ::ng-deep .xl-grid .xl-center {
+  text-align: center;
+}
+
+:host ::ng-deep .xl-grid .xl-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+:host ::ng-deep .xl-grid .xl-strong {
+  font-weight: 600;
+  color: #185c37;
+}
+
+/* Código de producto: monoespaciado */
+:host ::ng-deep .xl-grid .xl-code {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11.5px;
+  color: #a4262c;
+}
+
+:host ::ng-deep .xl-grid .xl-product {
+  font-weight: 500;
+  color: #201f1e;
+}
+
+/* Sombra en columnas fijas (como Excel al inmovilizar paneles) */
+:host ::ng-deep .xl-grid .ag-pinned-left-cols-container,
+:host ::ng-deep .xl-grid .ag-pinned-left-header {
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.08);
+  border-right: 1px solid #b1b1b1;
+}
+
+/* Semáforo de vencimiento */
+:host ::ng-deep .xl-grid .xl-semaforo-verde,
+.xl-swatch.xl-semaforo-verde {
+  background: #dff6e4 !important;
+  color: #0b6a35;
+}
+
+:host ::ng-deep .xl-grid .xl-semaforo-amarillo,
+.xl-swatch.xl-semaforo-amarillo {
+  background: #fff4ce !important;
+  color: #8a6100;
+}
+
+:host ::ng-deep .xl-grid .xl-semaforo-rojo,
+.xl-swatch.xl-semaforo-rojo {
+  background: #fde7e9 !important;
+  color: #a4262c;
+}
+
+/* Etiquetas de estado (INVIMA / concepto) */
+:host ::ng-deep .xl-grid .xl-tag-ok {
+  background: #dff6e4;
+  color: #0b6a35;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+:host ::ng-deep .xl-grid .xl-tag-bad {
+  background: #fde7e9;
+  color: #a4262c;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+:host ::ng-deep .xl-grid .xl-tag-warn {
+  background: #fff4ce;
+  color: #8a6100;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* Icono de validación INVIMA dentro de la celda */
+:host ::ng-deep .xl-invima-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+
+:host ::ng-deep .xl-invima-icon {
+  font-size: 0.85rem;
   flex-shrink: 0;
 }
-.obs-label { font-size: 0.8rem; font-weight: 600; color: #334155; margin-bottom: 0.3rem; display: block; }
-.obs-textarea { width: 100%; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.5rem; resize: none; }
-.obs-textarea:focus { border-color: #3b82f6; outline: none; }
 
-.text-center { text-align: center; }
+/* Checkboxes: verde Excel */
+:host ::ng-deep .xl-grid .ag-checkbox-input-wrapper.ag-checked::after {
+  color: #217346;
+}
+
+/* Editor de celda activo */
+:host ::ng-deep .xl-grid .ag-cell-inline-editing {
+  border: 2px solid #217346 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  height: 30px !important;
+  padding: 0 !important;
+}
+
+:host ::ng-deep .xl-grid .ag-cell-inline-editing input,
+:host ::ng-deep .xl-grid .ag-cell-inline-editing select {
+  font-size: 12.5px;
+  height: 100%;
+  border: none;
+  outline: none;
+}
+
+/* ─── Observaciones generales ───────────────────────────────────────────── */
+
+.xl-obs {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  border-bottom: 1px solid #d0d7de;
+  flex-shrink: 0;
+}
+
+.xl-obs-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #323130;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.xl-obs-input {
+  flex: 1;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #d0d7de;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  color: #201f1e;
+}
+
+.xl-obs-input:focus {
+  border-color: #217346;
+  outline: 1px solid #217346;
+}
+
+/* ─── Barra de estado ───────────────────────────────────────────────────── */
+
+.xl-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 30px;
+  padding: 0 0.85rem;
+  background: #217346;
+  color: #fff;
+  font-size: 0.74rem;
+  flex-shrink: 0;
+}
+
+.xl-status-left,
+.xl-status-right {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.xl-status-item {
+  white-space: nowrap;
+}
+
+.xl-status-item strong {
+  font-weight: 700;
+}
+
+.xl-status-sep {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.xl-status-item.xl-ok strong {
+  color: #a7f3c4;
+}
+
+.xl-status-item.xl-warn strong {
+  color: #ffe9a8;
+}
+
+.xl-status-item.xl-bad strong {
+  color: #ffc4c9;
+}
+
+.xl-status-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .xl-ribbon-legend {
+    display: none;
+  }
+
+  .xl-status-hint {
+    display: none;
+  }
+
+  .xl-filemeta {
+    display: none;
+  }
+}

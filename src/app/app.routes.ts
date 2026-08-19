@@ -22,6 +22,13 @@ export const routes: Routes = [
     loadComponent: () => import('./modules/tableroUrgencias/tablero-urgencias.component').then(m => m.TableroUrgenciasComponent),
     canActivate: [tableroGuard]
   },
+
+  // Vista Excel de Recepción Técnica — pantalla completa sin layout (se abre en pestaña nueva)
+  {
+    path: 'recepcionExcel/:compraId',
+    loadComponent: () => import('./modules/inventario/recepciones-tecnicas/recepcion-excel/recepcion-excel.component').then(m => m.RecepcionExcelComponent),
+    canActivate: [authGuard]
+  },
   
   
   // Rutas protegidas con layout

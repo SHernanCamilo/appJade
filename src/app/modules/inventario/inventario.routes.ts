@@ -29,12 +29,6 @@ export const INVENTARIO_ROUTES: Routes = [
         data: { moduleCode: 'INV-RECEPCIONES' }
       },
       {
-        path: 'recepcionTecnica/excel/:compraId',
-        loadComponent: () => import('./recepciones-tecnicas/recepcion-excel/recepcion-excel.component').then(m => m.RecepcionExcelComponent),
-        canActivate: [moduleGuard],
-        data: { moduleCode: 'INV-RECEPCIONES' }
-      },
-      {
         path: 'productos',
         loadComponent: () => import('./productos/productos.component').then(m => m.ProductosComponent),
         canActivate: [moduleGuard],

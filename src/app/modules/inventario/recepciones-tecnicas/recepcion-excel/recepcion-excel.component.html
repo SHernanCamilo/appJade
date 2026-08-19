@@ -1,126 +1,127 @@
-<p-toast></p-toast>
+<p-toast position="top-right"></p-toast>
 
-<div class="excel-container">
-  <!-- Header -->
-  <div class="excel-header">
-    <div class="excel-header-info">
-      <h2><i class="pi pi-table"></i> Recepción Técnica — Vista Excel</h2>
-      @if (ordenInfo(); as info) {
-        <p class="excel-subtitle">Orden: <strong>{{ info.numero }}</strong> | Proveedor: <strong>{{ info.proveedor }}</strong></p>
-      }
+<div class="xl-app">
+  <!-- ══ Barra de título (como la de Excel) ══ -->
+  <header class="xl-titlebar">
+    <div class="xl-titlebar-left">
+      <span class="xl-file-icon"><i class="pi pi-table"></i></span>
+      <div class="xl-titlebar-text">
+        <span class="xl-filename">
+          Recepción Técnica — {{ ordenInfo()?.numero || 'Cargando...' }}
+        </span>
+        <span class="xl-filemeta" *ngIf="ordenInfo()?.proveedor">
+          {{ ordenInfo()?.proveedor }}
+        </span>
+      </div>
     </div>
-    <div class="excel-header-actions">
-      <p-button label="Cerrar" icon="pi pi-times" [text]="true" routerLink="/inventario/farmacia/recepcionTecnica"></p-button>
-      <p-button
-        label="Guardar Recepción"
-        icon="pi pi-save"
-        severity="success"
-        (onClick)="guardar()"
-        [loading]="isSaving()"
-        [disabled]="totalRecibidos() === 0">
-      </p-button>
+
+    <div class="xl-titlebar-right">
+      <button type="button" class="xl-btn" (click)="cerrar()">
+        <i class="pi pi-times"></i> Cerrar
+      </button>
+      <button
+        type="button"
+        class="xl-btn xl-btn-primary"
+        (click)="guardar()"
+        [disabled]="isSaving() || totalRecibidos() === 0">
+        <i class="pi" [class.pi-spin]="isSaving()" [class.pi-spinner]="isSaving()" [class.pi-save]="!isSaving()"></i>
+        Guardar Recepción
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ Cinta de herramientas ══ -->
+  <div class="xl-ribbon">
+    <div class="xl-ribbon-group">
+      <span class="xl-ribbon-label">Selección</span>
+      <div class="xl-ribbon-actions">
+        <button type="button" class="xl-tool" (click)="toggleTodos(true)" title="Marcar todos como recibidos">
+          <i class="pi pi-check-square"></i> Todos
+        </button>
+        <button type="button" class="xl-tool" (click)="toggleTodos(false)" title="Desmarcar todos">
+          <i class="pi pi-stop"></i> Ninguno
+        </button>
+      </div>
+    </div>
+
+    <div class="xl-ribbon-sep"></div>
+
+    <div class="xl-ribbon-group">
+      <span class="xl-ribbon-label">Vista</span>
+      <div class="xl-ribbon-actions">
+        <button type="button" class="xl-tool" (click)="autoajustarColumnas()" title="Autoajustar ancho de columnas">
+          <i class="pi pi-arrows-h"></i> Autoajustar
+        </button>
+        <button type="button" class="xl-tool" (click)="exportarCsv()" title="Descargar como CSV">
+          <i class="pi pi-download"></i> Exportar CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="xl-ribbon-sep"></div>
+
+    <div class="xl-ribbon-group xl-ribbon-legend">
+      <span class="xl-ribbon-label">Vencimiento</span>
+      <div class="xl-ribbon-actions">
+        <span class="xl-legend"><i class="xl-swatch xl-semaforo-verde"></i> &gt; 6 meses</span>
+        <span class="xl-legend"><i class="xl-swatch xl-semaforo-amarillo"></i> ≤ 6 meses</span>
+        <span class="xl-legend"><i class="xl-swatch xl-semaforo-rojo"></i> Vencido</span>
+      </div>
     </div>
   </div>
 
-  <!-- Stats -->
-  <div class="excel-stats">
-    <span>Total: {{ totalItems() }} productos</span>
-    <span>Recibidos: {{ totalRecibidos() }}</span>
-  </div>
-
+  <!-- ══ Hoja de cálculo ══ -->
   @if (isLoading()) {
-    <p-skeleton height="400px" styleClass="mt-3"></p-skeleton>
+    <div class="xl-loading">
+      <p-skeleton height="34px" styleClass="mb-1"></p-skeleton>
+      <p-skeleton height="30px" styleClass="mb-1" *ngFor="let _ of [1,2,3,4,5,6,7,8,9,10]"></p-skeleton>
+    </div>
   } @else {
-    <!-- Tabla tipo Excel -->
-    <div class="excel-table-wrapper">
-      <p-table
-        [value]="rows()"
-        [scrollable]="true"
-        scrollHeight="calc(100vh - 220px)"
-        [frozenColumns]="['codigo_producto', 'producto_nombre']"
-        styleClass="p-datatable-sm p-datatable-gridlines"
-        [rowHover]="true">
-
-        <ng-template pTemplate="header">
-          <tr>
-            <!-- Columnas fijas (datos del producto) -->
-            <th class="frozen-col" style="min-width: 50px">✓</th>
-            <th class="frozen-col" style="min-width: 120px">Código</th>
-            <th class="frozen-col" style="min-width: 250px">Producto</th>
-            <th style="min-width: 100px">Tipo</th>
-            <th style="min-width: 150px">Forma Farm.</th>
-            <th style="min-width: 120px">Concentración</th>
-            <th style="min-width: 100px">Unid. Empaque</th>
-            <th style="min-width: 60px">Cant. Solic.</th>
-            <!-- Columnas editables -->
-            <th class="editable-col" style="min-width: 60px">Med. Vital?</th>
-            <th class="editable-col" style="min-width: 160px">Cód. Sanitario / CUM</th>
-            <th class="editable-col" style="min-width: 100px">Estado INVIMA</th>
-            <th class="editable-col" style="min-width: 180px">Fabricante</th>
-            <th class="editable-col" style="min-width: 90px">Vida Útil</th>
-            <th class="editable-col" style="min-width: 130px">Fecha Vencimiento</th>
-            <th class="editable-col" style="min-width: 80px">Cant. Recibida</th>
-            <th class="editable-col" style="min-width: 80px">Muestra</th>
-            <th class="editable-col" style="min-width: 120px">N. Lote</th>
-            <th class="editable-col" style="min-width: 100px">Aspecto</th>
-            <th class="editable-col" style="min-width: 100px">Embalaje</th>
-            <th class="editable-col" style="min-width: 100px">Contenido</th>
-            <th class="editable-col" style="min-width: 70px">Temp. °C</th>
-            <th class="editable-col" style="min-width: 120px">Concepto</th>
-            <th class="editable-col" style="min-width: 200px">Observaciones</th>
-          </tr>
-        </ng-template>
-
-        <ng-template pTemplate="body" let-row let-i="rowIndex">
-          <tr [class.row-rejected]="row.concepto_recepcion === 'rechazado'" [class.row-unchecked]="!row.recibido">
-            <!-- Checkbox recibido -->
-            <td class="frozen-col"><p-checkbox [(ngModel)]="row.recibido" [binary]="true"></p-checkbox></td>
-            <!-- Datos fijos -->
-            <td class="frozen-col"><code>{{ row.codigo_producto }}</code></td>
-            <td class="frozen-col cell-product">{{ row.producto_nombre }}</td>
-            <td>{{ row.tipo_producto }}</td>
-            <td>{{ row.forma_farmaceutica }}</td>
-            <td>{{ row.concentracion }}</td>
-            <td>{{ row.unidad_empaque }}</td>
-            <td class="text-center"><strong>{{ row.cantidad_solicitada }}</strong></td>
-            <!-- Editables -->
-            <td><p-checkbox [(ngModel)]="row.es_medicamento_vital" [binary]="true"></p-checkbox></td>
-            <td class="cell-invima">
-              <input pInputText [(ngModel)]="row.codigo_sanitario" (blur)="onCodigoSanitarioBlur(row)" placeholder="CUM / Reg. Sanitario" class="cell-input" />
-              @if (getInvimaIcon(row)) {
-                <i [class]="getInvimaIcon(row)" [style.color]="getInvimaColor(row)" class="invima-icon"></i>
-              }
-            </td>
-            <td>
-              <p-tag [value]="row.estado_invima || '-'" [severity]="row.estado_invima === 'Vigente' ? 'success' : row.estado_invima === 'Vencido' ? 'danger' : 'info'" [style]="{fontSize: '0.75rem'}"></p-tag>
-            </td>
-            <td><input pInputText [(ngModel)]="row.fabricante" class="cell-input" /></td>
-            <td><input pInputText [(ngModel)]="row.vida_util" class="cell-input" placeholder="24 meses" /></td>
-            <td [class]="getSemaforoClass(row)">
-              <input type="date" [(ngModel)]="row.fecha_vencimiento" (change)="onFechaVencimientoChange(row)" class="cell-input cell-date" />
-            </td>
-            <td><p-inputNumber [(ngModel)]="row.cantidad_recibida" [min]="0" [max]="row.cantidad_solicitada" [showButtons]="true" styleClass="cell-number"></p-inputNumber></td>
-            <td><p-inputNumber [(ngModel)]="row.muestra_poblacion" [min]="0" styleClass="cell-number"></p-inputNumber></td>
-            <td><input pInputText [(ngModel)]="row.numero_lote" class="cell-input" /></td>
-            <td><p-dropdown [(ngModel)]="row.aspecto_cumple" [options]="cumpleOptions" optionLabel="label" optionValue="value" styleClass="cell-dropdown" appendTo="body"></p-dropdown></td>
-            <td><p-dropdown [(ngModel)]="row.embalaje_cumple" [options]="cumpleOptions" optionLabel="label" optionValue="value" styleClass="cell-dropdown" appendTo="body"></p-dropdown></td>
-            <td><p-dropdown [(ngModel)]="row.contenido_cumple" [options]="cumpleOptions" optionLabel="label" optionValue="value" styleClass="cell-dropdown" appendTo="body"></p-dropdown></td>
-            <td><p-inputNumber [(ngModel)]="row.cadena_frio_temperatura" [minFractionDigits]="1" suffix=" °C" styleClass="cell-number"></p-inputNumber></td>
-            <td><p-dropdown [(ngModel)]="row.concepto_recepcion" [options]="conceptoOptions" optionLabel="label" optionValue="value" styleClass="cell-dropdown" appendTo="body"></p-dropdown></td>
-            <td><input pInputText [(ngModel)]="row.observaciones_recepcion" class="cell-input" placeholder="Notas..." /></td>
-          </tr>
-        </ng-template>
-
-        <ng-template pTemplate="emptymessage">
-          <tr><td colspan="23" class="text-center p-4">No hay productos para recepcionar.</td></tr>
-        </ng-template>
-      </p-table>
+    <div class="xl-sheet">
+      <ag-grid-angular
+        class="ag-theme-alpine xl-grid"
+        [rowData]="rowData"
+        [columnDefs]="columnDefs"
+        [defaultColDef]="defaultColDef"
+        [gridOptions]="gridOptions"
+        [localeText]="localeText"
+        [tooltipShowDelay]="400"
+        (gridReady)="onGridReady($event)"
+        (cellValueChanged)="onCellValueChanged($event)">
+      </ag-grid-angular>
     </div>
 
-    <!-- Observaciones generales -->
-    <div class="excel-footer">
-      <label class="obs-label">Observaciones Generales:</label>
-      <textarea pInputText [ngModel]="observacionesGlobal()" (ngModelChange)="observacionesGlobal.set($event)" rows="2" class="obs-textarea" placeholder="Novedades generales de la entrega..."></textarea>
+    <!-- ══ Observaciones generales ══ -->
+    <div class="xl-obs">
+      <label class="xl-obs-label" for="obsGlobal">Observaciones generales</label>
+      <input
+        id="obsGlobal"
+        type="text"
+        class="xl-obs-input"
+        [ngModel]="observacionesGlobal()"
+        (ngModelChange)="observacionesGlobal.set($event)"
+        placeholder="Novedades generales de la entrega..." />
     </div>
+
+    <!-- ══ Barra de estado (como la de Excel) ══ -->
+    <footer class="xl-statusbar">
+      <div class="xl-status-left">
+        <span class="xl-status-item"><strong>{{ totalItems() }}</strong> productos</span>
+        <span class="xl-status-sep">|</span>
+        <span class="xl-status-item xl-ok"><strong>{{ totalRecibidos() }}</strong> recibidos</span>
+        <span class="xl-status-sep">|</span>
+        <span class="xl-status-item xl-warn"><strong>{{ totalPendientes() }}</strong> pendientes</span>
+        @if (totalRechazados() > 0) {
+          <span class="xl-status-sep">|</span>
+          <span class="xl-status-item xl-bad"><strong>{{ totalRechazados() }}</strong> rechazados</span>
+        }
+      </div>
+      <div class="xl-status-right">
+        <span class="xl-status-hint">
+          <i class="pi pi-info-circle"></i>
+          Doble clic o F2 para editar · Enter baja · Tab avanza
+        </span>
+      </div>
+    </footer>
   }
 </div>
