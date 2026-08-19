@@ -5,23 +5,22 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import type {
   ColDef,
+  ColGroupDef,
   GridApi,
   GridReadyEvent,
   CellValueChangedEvent,
+  CellFocusedEvent,
   ValueGetterParams,
   CellClassParams,
   GridOptions,
 } from 'ag-grid-community';
-import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { SkeletonModule } from 'primeng/skeleton';
 import { InventarioService } from '../../../../core/services/inventario.service';
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 
 /** Fila del formulario de recepción técnica. */
 interface RecepcionRow {
-  // Datos del producto (solo lectura)
   codigo_producto: string;
   producto_nombre: string;
   marca: string;
@@ -31,7 +30,6 @@ interface RecepcionRow {
   unidad_empaque: string;
   cantidad_solicitada: number;
 
-  // Campos editables
   es_medicamento_vital: boolean;
   codigo_sanitario: string;
   estado_invima: string;
@@ -48,7 +46,6 @@ interface RecepcionRow {
   concepto_recepcion: string;
   observaciones_recepcion: string;
 
-  // Estado interno
   _validatingInvima: boolean;
   _invimaValid: boolean | null;
   _semaforo: 'verde' | 'amarillo' | 'rojo' | '';
@@ -59,10 +56,21 @@ interface RecepcionRow {
 const CUMPLE_VALUES = ['Cumple', 'No Cumple'];
 const CONCEPTO_VALUES = ['', 'aceptado', 'cuarentena', 'rechazado'];
 
+/** Convierte un índice 0-based en letra de columna estilo Excel (A, B, ... Z, AA, AB). */
+function toColumnLetter(index: number): string {
+  let letter = '';
+  let n = index;
+  while (n >= 0) {
+    letter = String.fromCharCode((n % 26) + 65) + letter;
+    n = Math.floor(n / 26) - 1;
+  }
+  return letter;
+}
+
 @Component({
   selector: 'app-recepcion-excel',
   standalone: true,
-  imports: [CommonModule, FormsModule, AgGridAngular, ButtonModule, ToastModule, SkeletonModule],
+  imports: [CommonModule, FormsModule, AgGridAngular, ToastModule],
   providers: [MessageService],
   templateUrl: './recepcion-excel.component.html',
   styleUrl: './recepcion-excel.component.css',
@@ -78,102 +86,94 @@ export class RecepcionExcelComponent implements OnInit {
   readonly ordenInfo = signal<{ numero: string; proveedor: string; compraId: number } | null>(null);
   readonly observacionesGlobal = signal('');
 
-  /** Contadores reactivos (se recalculan al editar celdas). */
+  // ── Contadores de la barra de estado ──
   readonly totalItems = signal(0);
   readonly totalRecibidos = signal(0);
   readonly totalRechazados = signal(0);
   readonly totalPendientes = computed(() => this.totalItems() - this.totalRecibidos());
 
-  readonly localeText = AG_GRID_LOCALE;
+  // ── Barra de fórmulas ──
+  readonly activeCellRef = signal('A1');
+  readonly activeCellValue = signal('');
+  readonly activeCellEditable = signal(true);
 
-  /** AG Grid trabaja sobre este arreglo mutable. */
+  // ── Zoom ──
+  readonly zoom = signal(100);
+  private static readonly ZOOM_STEPS = [70, 80, 90, 100, 110, 125, 150];
+
+  // ── Cinta de opciones ──
+  readonly ribbonTabs = ['Archivo', 'Inicio', 'Datos', 'Revisar', 'Vista'];
+  readonly activeRibbonTab = signal('Inicio');
+
+  readonly localeText = AG_GRID_LOCALE;
+  readonly sheetName = 'Recepción';
+
   rowData: RecepcionRow[] = [];
 
   private gridApi?: GridApi<RecepcionRow>;
   private compraId = 0;
+  /** Mapa colId → letra de columna, para el cuadro de nombres. */
+  private colLetters = new Map<string, string>();
 
-  // ─── Configuración de columnas ────────────────────────────────────────────
+  // ─── Configuración base del grid ──────────────────────────────────────────
 
   readonly defaultColDef: ColDef<RecepcionRow> = {
     resizable: true,
     sortable: true,
     suppressMovable: false,
-    minWidth: 80,
+    minWidth: 70,
+    editable: true,
     cellClass: 'xl-cell',
-    headerClass: 'xl-header',
-    editable: true, // Todo editable por defecto (como Excel)
   };
 
   readonly gridOptions: GridOptions<RecepcionRow> = {
-    // ━━ Comportamiento idéntico a Excel ━━
-    singleClickEdit: true,         // Un clic entra a edición (como Excel)
+    singleClickEdit: true,
     stopEditingWhenCellsLoseFocus: true,
     enterNavigatesVertically: true,
     enterNavigatesVerticallyAfterEdit: true,
-    tabToNextCell: undefined,      // Tab natural: avanza a siguiente celda
     enableCellTextSelection: true,
     ensureDomOrder: true,
-    undoRedoCellEditing: true,     // Ctrl+Z funciona
+    undoRedoCellEditing: true,
     undoRedoCellEditingLimit: 50,
-    rowHeight: 28,
-    headerHeight: 32,
+    rowHeight: 21,
+    headerHeight: 21,
+    groupHeaderHeight: 21,
     animateRows: false,
     suppressCellFocus: false,
     rowSelection: 'multiple',
     suppressRowClickSelection: true,
-    // Sin agrupar, sin paginación (todo en una hoja como Excel)
     suppressPaginationPanel: true,
-    domLayout: 'normal',
-    enableRangeSelection: false,
-    clipboardDelimiter: '\t',      // Ctrl+C copia con tabs como Excel
+    clipboardDelimiter: '\t',
+    suppressMovableColumns: false,
   };
 
-  readonly columnDefs: ColDef<RecepcionRow>[] = [
-    // ── Número de fila (como Excel: columna A, B, C... pero con números) ──
-    {
-      headerName: '',
-      colId: 'rowNumber',
-      width: 45,
-      maxWidth: 45,
-      sortable: false,
-      editable: false,
-      suppressSizeToFit: true,
-      cellClass: 'xl-rownum',
-      headerClass: 'xl-header xl-corner',
-      valueGetter: (p: ValueGetterParams<RecepcionRow>) => (p.node?.rowIndex ?? 0) + 1,
-    },
+  /** Columnas de datos (sin la canaleta de números de fila). */
+  private readonly dataColumns: ColDef<RecepcionRow>[] = [
     {
       headerName: '✓',
       field: 'recibido',
-      width: 45,
-      maxWidth: 45,
-      editable: true,
+      width: 42,
       cellDataType: 'boolean',
       cellClass: 'xl-cell xl-center',
-      headerClass: 'xl-header xl-center',
-      headerTooltip: 'Marcar el ítem como recibido',
+      headerTooltip: 'Marcar como recibido',
     },
-
-    // ── Datos del producto (editables como Excel — libre movimiento) ──
-    { headerName: 'Código', field: 'codigo_producto', width: 130 },
-    { headerName: 'Producto', field: 'producto_nombre', width: 320, tooltipField: 'producto_nombre' },
-    { headerName: 'Tipo', field: 'tipo_producto', width: 120 },
-    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 140 },
-    { headerName: 'Concentración', field: 'concentracion', width: 130 },
-    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 115 },
+    { headerName: 'Código', field: 'codigo_producto', width: 120 },
+    { headerName: 'Producto', field: 'producto_nombre', width: 300, tooltipField: 'producto_nombre' },
+    { headerName: 'Tipo', field: 'tipo_producto', width: 110 },
+    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 130 },
+    { headerName: 'Concentración', field: 'concentracion', width: 120 },
+    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 110 },
     {
       headerName: 'Cant. Solic.',
       field: 'cantidad_solicitada',
-      width: 100,
+      width: 92,
       type: 'numericColumn',
       cellClass: 'xl-cell xl-num',
     },
-
-    // ── Campos de recepción (editables) ──
     {
       headerName: 'Med. Vital',
       field: 'es_medicamento_vital',
-      width: 85,
+      width: 78,
       cellDataType: 'boolean',
       cellClass: 'xl-cell xl-center',
       headerTooltip: 'Medicamento Vital No Disponible',
@@ -181,55 +181,53 @@ export class RecepcionExcelComponent implements OnInit {
     {
       headerName: 'Cód. Sanitario / CUM',
       field: 'codigo_sanitario',
-      width: 175,
+      width: 165,
       cellRenderer: (p: any) => {
         const val = p.value ?? '';
         const row = p.data as RecepcionRow;
         let icon = '';
         if (row._validatingInvima) {
-          icon = '<i class="pi pi-spin pi-spinner xl-invima-icon" style="color:#94a3b8"></i>';
+          icon = '<i class="pi pi-spin pi-spinner xl-invima-icon" style="color:#8a8886"></i>';
         } else if (row._invimaValid === true) {
-          icon = '<i class="pi pi-check-circle xl-invima-icon" style="color:#16a34a"></i>';
+          icon = '<i class="pi pi-check-circle xl-invima-icon" style="color:#107c10"></i>';
         } else if (row._invimaValid === false) {
-          icon = '<i class="pi pi-times-circle xl-invima-icon" style="color:#dc2626"></i>';
+          icon = '<i class="pi pi-times-circle xl-invima-icon" style="color:#d13438"></i>';
         }
-        return `<span class="xl-invima-wrap">${val}${icon}</span>`;
+        return `<span class="xl-invima-wrap"><span class="xl-invima-val">${val}</span>${icon}</span>`;
       },
     },
     {
       headerName: 'Estado INVIMA',
       field: 'estado_invima',
-      width: 120,
+      width: 112,
       editable: false,
       cellClass: (p: CellClassParams<RecepcionRow>) => {
-        const base = 'xl-cell xl-center';
-        if (p.value === 'Vigente') return `${base} xl-tag-ok`;
-        if (p.value === 'Vencido') return `${base} xl-tag-bad`;
-        if (p.value) return `${base} xl-tag-warn`;
+        const base = 'xl-cell xl-center xl-locked';
+        if (p.value === 'Vigente') return `${base} xl-fill-ok`;
+        if (p.value === 'Vencido') return `${base} xl-fill-bad`;
+        if (p.value) return `${base} xl-fill-warn`;
         return base;
       },
     },
-    { headerName: 'Fabricante', field: 'fabricante', width: 200 },
-    { headerName: 'Vida Útil', field: 'vida_util', width: 100 },
+    { headerName: 'Fabricante', field: 'fabricante', width: 190 },
+    { headerName: 'Vida Útil', field: 'vida_util', width: 88 },
     {
       headerName: 'Fecha Vencimiento',
       field: 'fecha_vencimiento',
-      width: 145,
-      // Usar editor de texto simple — el agDateStringCellEditor no funciona bien en celdas compactas
+      width: 132,
       cellEditor: 'agTextCellEditor',
       cellEditorParams: { maxLength: 10 },
-      valueFormatter: (p) => p.value || '',
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center';
         const s = p.data?._semaforo;
-        return s ? `${base} xl-semaforo-${s}` : base;
+        return s ? `${base} xl-fill-${s}` : base;
       },
-      tooltipValueGetter: () => 'Formato: YYYY-MM-DD',
+      tooltipValueGetter: () => 'Formato: AAAA-MM-DD',
     },
     {
       headerName: 'Cant. Recibida',
       field: 'cantidad_recibida',
-      width: 115,
+      width: 104,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { min: 0, precision: 0 },
       type: 'numericColumn',
@@ -238,38 +236,38 @@ export class RecepcionExcelComponent implements OnInit {
     {
       headerName: 'Muestra',
       field: 'muestra_poblacion',
-      width: 90,
+      width: 80,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { min: 0, precision: 0 },
       type: 'numericColumn',
       cellClass: 'xl-cell xl-num',
     },
-    { headerName: 'N. Lote', field: 'numero_lote', width: 130 },
+    { headerName: 'N. Lote', field: 'numero_lote', width: 118 },
     {
       headerName: 'Aspecto',
       field: 'aspecto_cumple',
-      width: 110,
+      width: 100,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CUMPLE_VALUES },
     },
     {
       headerName: 'Embalaje',
       field: 'embalaje_cumple',
-      width: 110,
+      width: 100,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CUMPLE_VALUES },
     },
     {
       headerName: 'Contenido',
       field: 'contenido_cumple',
-      width: 110,
+      width: 100,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CUMPLE_VALUES },
     },
     {
       headerName: 'Temp. °C',
       field: 'cadena_frio_temperatura',
-      width: 90,
+      width: 82,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { precision: 1 },
       type: 'numericColumn',
@@ -278,18 +276,51 @@ export class RecepcionExcelComponent implements OnInit {
     {
       headerName: 'Concepto',
       field: 'concepto_recepcion',
-      width: 130,
+      width: 118,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CONCEPTO_VALUES },
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center';
-        if (p.value === 'aceptado') return `${base} xl-tag-ok`;
-        if (p.value === 'rechazado') return `${base} xl-tag-bad`;
-        if (p.value === 'cuarentena') return `${base} xl-tag-warn`;
+        if (p.value === 'aceptado') return `${base} xl-fill-ok`;
+        if (p.value === 'rechazado') return `${base} xl-fill-bad`;
+        if (p.value === 'cuarentena') return `${base} xl-fill-warn`;
         return base;
       },
     },
-    { headerName: 'Observaciones', field: 'observaciones_recepcion', width: 250 },
+    { headerName: 'Observaciones', field: 'observaciones_recepcion', width: 230 },
+  ];
+
+  /**
+   * Estructura final: la canaleta de números de fila + cada columna envuelta en
+   * un grupo cuyo encabezado es la letra (A, B, C...), igual que Excel.
+   */
+  readonly columnDefs: (ColDef<RecepcionRow> | ColGroupDef<RecepcionRow>)[] = [
+    {
+      headerName: '',
+      colId: 'rowNumber',
+      width: 40,
+      maxWidth: 40,
+      sortable: false,
+      editable: false,
+      resizable: false,
+      suppressMovable: true,
+      lockPosition: true,
+      suppressSizeToFit: true,
+      cellClass: 'xl-rownum',
+      headerClass: 'xl-corner',
+      valueGetter: (p: ValueGetterParams<RecepcionRow>) => (p.node?.rowIndex ?? 0) + 1,
+    },
+    ...this.dataColumns.map((col, i) => {
+      const letter = toColumnLetter(i);
+      const colId = (col.field as string) ?? `c${i}`;
+      this.colLetters.set(colId, letter);
+      return {
+        headerName: letter,
+        headerClass: 'xl-collabel',
+        marryChildren: false,
+        children: [{ ...col, colId, headerClass: 'xl-fieldname' }],
+      } as ColGroupDef<RecepcionRow>;
+    }),
   ];
 
   // ─── Ciclo de vida ────────────────────────────────────────────────────────
@@ -366,6 +397,28 @@ export class RecepcionExcelComponent implements OnInit {
     this.gridApi = event.api;
   }
 
+  /** Actualiza el cuadro de nombres y la barra de fórmulas. */
+  onCellFocused(event: CellFocusedEvent): void {
+    const colId = (event.column as any)?.getColId?.() ?? '';
+    const rowIndex = event.rowIndex ?? 0;
+
+    if (!colId || colId === 'rowNumber') {
+      this.activeCellEditable.set(false);
+      this.activeCellValue.set('');
+      return;
+    }
+
+    const letter = this.colLetters.get(colId) ?? '';
+    this.activeCellRef.set(`${letter}${rowIndex + 1}`);
+
+    const row = this.rowData[rowIndex];
+    const raw = row ? (row as any)[colId] : '';
+    this.activeCellValue.set(raw === null || raw === undefined ? '' : String(raw));
+
+    const colDef = (event.column as any)?.getColDef?.();
+    this.activeCellEditable.set(colDef?.editable !== false);
+  }
+
   onCellValueChanged(event: CellValueChangedEvent<RecepcionRow>): void {
     const field = event.colDef.field;
     const row = event.data;
@@ -382,9 +435,26 @@ export class RecepcionExcelComponent implements OnInit {
     if (field === 'cantidad_recibida' || field === 'recibido' || field === 'concepto_recepcion') {
       this.recalcTotals();
     }
+
+    // Reflejar el nuevo valor en la barra de fórmulas
+    const raw = event.newValue;
+    this.activeCellValue.set(raw === null || raw === undefined ? '' : String(raw));
   }
 
-  /** Recalcula los contadores del pie de página. */
+  /** Escribe en la celda activa desde la barra de fórmulas. */
+  commitFormula(value: string): void {
+    const cell = this.gridApi?.getFocusedCell();
+    if (!cell) return;
+
+    const colId = cell.column.getColId();
+    if (colId === 'rowNumber') return;
+
+    const node = this.gridApi?.getDisplayedRowAtIndex(cell.rowIndex);
+    if (!node) return;
+
+    node.setDataValue(colId, value);
+  }
+
   private recalcTotals(): void {
     this.totalItems.set(this.rowData.length);
     this.totalRecibidos.set(this.rowData.filter((r) => r.recibido && r.cantidad_recibida > 0).length);
@@ -457,40 +527,66 @@ export class RecepcionExcelComponent implements OnInit {
     else row._semaforo = 'verde';
   }
 
-  // ─── Acciones de la barra superior ────────────────────────────────────────
+  // ─── Acciones de la cinta ─────────────────────────────────────────────────
 
-  /** Marca o desmarca todas las filas como recibidas. */
+  setRibbonTab(tab: string): void {
+    this.activeRibbonTab.set(tab);
+  }
+
   toggleTodos(recibido: boolean): void {
     this.rowData.forEach((r) => (r.recibido = recibido));
     this.gridApi?.refreshCells({ force: true });
     this.recalcTotals();
   }
 
-  /** Autoajusta el ancho de las columnas al contenido. */
   autoajustarColumnas(): void {
     this.gridApi?.autoSizeAllColumns();
   }
 
-  /** Exporta la grilla actual a CSV (abre en Excel). */
   exportarCsv(): void {
     this.gridApi?.exportDataAsCsv({
       fileName: `recepcion_${this.ordenInfo()?.numero ?? this.compraId}.csv`,
-      columnKeys: this.columnDefs
-        .map((c) => (c as ColDef).field ?? (c as ColDef).colId ?? '')
-        .filter((k) => k && k !== 'rowNumber'),
+      columnKeys: this.dataColumns.map((c) => c.field as string).filter(Boolean),
     });
   }
 
+  // ─── Zoom ─────────────────────────────────────────────────────────────────
+
+  zoomIn(): void {
+    const steps = RecepcionExcelComponent.ZOOM_STEPS;
+    const idx = steps.indexOf(this.zoom());
+    if (idx < steps.length - 1) this.setZoom(steps[idx + 1]);
+  }
+
+  zoomOut(): void {
+    const steps = RecepcionExcelComponent.ZOOM_STEPS;
+    const idx = steps.indexOf(this.zoom());
+    if (idx > 0) this.setZoom(steps[idx - 1]);
+  }
+
+  resetZoom(): void {
+    this.setZoom(100);
+  }
+
+  private setZoom(pct: number): void {
+    this.zoom.set(pct);
+    const scale = pct / 100;
+    this.gridApi?.setGridOption('rowHeight', Math.round(21 * scale));
+    this.gridApi?.resetRowHeights();
+  }
+
+  /** Escala tipográfica aplicada al grid vía variable CSS. */
+  readonly gridFontSize = computed(() => `${(11 * this.zoom()) / 100}px`);
+
+  // ─── Cerrar / Guardar ─────────────────────────────────────────────────────
+
   cerrar(): void {
-    // Si se abrió en pestaña nueva, cerrarla; si no, volver al listado.
     if (window.opener) {
       window.close();
     } else {
       this.router.navigate(['/inventario/farmacia/recepcionTecnica']);
     }
   }
-
-  // ─── Guardar ──────────────────────────────────────────────────────────────
 
   guardar(): void {
     this.gridApi?.stopEditing();
