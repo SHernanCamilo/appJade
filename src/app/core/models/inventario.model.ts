@@ -80,12 +80,22 @@ export interface PedidoTrazabilidad {
 }
 
 export interface OrdenCompraItem {
+  id?: number;
+  compra_id?: number;
+  pedido_detalle_id?: number;
+  codigo_producto_indigo?: string;
   codigo_producto?: string;
   producto_codigo?: string;
   producto_nombre?: string;
-  cantidad: number;
-  precio_unitario: number;
-  total: number;
+  clasificacion_venta?: string;
+  proveedor?: string;
+  cantidad_solicitada_compra: number;
+  fecha_entrega_estimada?: string;
+  clasificacion_vie?: string;
+  precio_unitario_compra: number;
+  observaciones?: string;
+  estado?: string;
+  total_linea?: number;
 }
 
 export interface OrdenCompra {
@@ -94,6 +104,7 @@ export interface OrdenCompra {
   numero_orden_compra: string;
   oc_indigo?: string;
   proveedor?: string;
+  proveedor_nombre?: string;
   fecha_orden: string;
   estado: string;
   items_count: number;

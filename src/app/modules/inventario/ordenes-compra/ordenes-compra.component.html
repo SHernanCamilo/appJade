@@ -190,7 +190,7 @@
                                     <strong>{{ oc.numero_orden_compra }}</strong>
                                     <div *ngIf="oc.oc_indigo" class="text-muted" style="font-size: 0.7rem;">Indigo: {{ oc.oc_indigo }}</div>
                                 </td>
-                                <td class="text-truncate" style="max-width:250px">{{ oc.proveedor || 'Sin proveedor' }}</td>
+                                <td class="text-truncate" style="max-width:250px">{{ oc.proveedor_nombre || oc.proveedor || 'Sin proveedor' }}</td>
                                 <td>{{ oc.fecha_orden | date:'dd/MM/yyyy' }}</td>
                                 <td>
                                     <span class="badge badge-status" [ngClass]="getStatusBadge(oc.estado)">
@@ -415,7 +415,7 @@
             <div>
                 <div class="order-info-row">
                     <span class="order-info-label">Proveedor:</span>
-                    <span class="order-info-value">{{ currentOrden()?.proveedor || '-' }}</span>
+                    <span class="order-info-value">{{ currentOrden()?.proveedor_nombre || currentOrden()?.proveedor || '-' }}</span>
                 </div>
                 <div class="order-info-row">
                     <span class="order-info-label">Fecha:</span>
@@ -461,11 +461,11 @@
             </ng-template>
             <ng-template pTemplate="body" let-item>
                 <tr>
-                    <td><code style="color: #b45309; font-size: 0.8rem;">{{ item.codigo_producto || item.producto_codigo }}</code></td>
+                    <td><code style="color: #b45309; font-size: 0.8rem;">{{ item.codigo_producto_indigo || item.codigo_producto || item.producto_codigo }}</code></td>
                     <td class="fw-medium" style="font-size: 0.82rem;">{{ item.producto_nombre }}</td>
-                    <td class="text-center">{{ item.cantidad }}</td>
-                    <td class="text-end text-muted">{{ item.precio_unitario | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
-                    <td class="text-end fw-bold text-primary">{{ item.total | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                    <td class="text-center">{{ item.cantidad_solicitada_compra }}</td>
+                    <td class="text-end text-muted">{{ item.precio_unitario_compra | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                    <td class="text-end fw-bold text-primary">{{ item.total_linea | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
                 </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
