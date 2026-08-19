@@ -22,9 +22,25 @@ export const RIBBON_RECEPCION: RibbonTab[] = [
       {
         title: 'Fuente',
         items: [
-          { type: 'toggle', id: 'bold', icon: 'pi pi-bold', tooltip: 'Negrita', size: 'sm' },
-          { type: 'toggle', id: 'italic', icon: 'pi pi-italic', tooltip: 'Cursiva', size: 'sm' },
+          {
+            type: 'dropdown', id: 'font-family', tooltip: 'Tipo de fuente', size: 'sm',
+            value: 'Calibri',
+            options: [
+              { label: 'Calibri', value: 'Calibri' },
+              { label: 'Arial', value: 'Arial' },
+              { label: 'Times New Roman', value: 'Times New Roman' },
+              { label: 'Courier New', value: 'Courier New' },
+              { label: 'Segoe UI', value: 'Segoe UI' },
+            ],
+          },
+          {
+            type: 'dropdown', id: 'font-size', tooltip: 'Tamaño', size: 'sm',
+            value: '11',
+            options: ['8','9','10','11','12','14','16','18','20','22','24'].map(s => ({ label: s, value: s })),
+          },
           { type: 'separator' },
+          { type: 'toggle', id: 'bold', icon: 'pi pi-bold', tooltip: 'Negrita (Ctrl+B)', size: 'sm' },
+          { type: 'toggle', id: 'italic', icon: 'pi pi-italic', tooltip: 'Cursiva (Ctrl+I)', size: 'sm' },
         ],
       },
       {

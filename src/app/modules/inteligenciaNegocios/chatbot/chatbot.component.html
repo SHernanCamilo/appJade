@@ -1,0 +1,148 @@
+<div class="chatbot-container">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="header-left">
+      <button pButton icon="pi pi-bars" class="p-button-text p-button-sm header-btn"
+              (click)="toggleSidebar()" pTooltip="Historial"></button>
+      <div class="header-info">
+        <i class="bi bi-robot"></i>
+        <div>
+          <h2>Asistente de Datos IA</h2>
+          <span class="status-indicator">
+            <span class="status-dot"></span>
+            En línea · OpenRouter Free
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button pButton icon="pi pi-book" class="p-button-text p-button-sm header-btn"
+              (click)="toggleCatalog()" pTooltip="Ver vistas disponibles"></button>
+      <button pButton icon="pi pi-plus" class="p-button-text p-button-sm header-btn"
+              (click)="newConversation()" pTooltip="Nueva conversación"></button>
+    </div>
+  </div>
+
+  <div class="chat-body">
+    <!-- Sidebar de conversaciones -->
+    <div class="conversations-sidebar" [class.visible]="showSidebar">
+      <div class="sidebar-header">
+        <h3>Historial</h3>
+        <button pButton icon="pi pi-times" class="p-button-text p-button-sm"
+                (click)="showSidebar = false"></button>
+      </div>
+      <div class="sidebar-content">
+        <div *ngIf="loadingConversations" class="sidebar-loading">
+          <p-progressSpinner [style]="{ width: '30px', height: '30px' }" strokeWidth="4"></p-progressSpinner>
+        </div>
+        <div *ngIf="!loadingConversations && conversations.length === 0" class="sidebar-empty">
+          <i class="bi bi-chat-dots"></i>
+          <p>Sin conversaciones previas</p>
+        </div>
+        <div *ngFor="let conv of conversations" class="conversation-item"
+             [class.active]="conversationId === conv.id"
+             (click)="loadConversation(conv)">
+          <div class="conv-info">
+            <span class="conv-title">{{ conv.titulo || 'Conversación' }}</span>
+            <span class="conv-date">{{ formatTime(conv.updated_at) }}</span>
+          </div>
+          <button pButton icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm conv-delete"
+                  (click)="deleteConversation(conv, $event)" pTooltip="Eliminar"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Área de mensajes -->
+    <div class="messages-area" #messagesContainer>
+      <!-- Catálogo expandible -->
+      <div *ngIf="showCatalog" class="catalog-panel">
+        <div class="catalog-header">
+          <h4><i class="bi bi-database"></i> Vistas disponibles para ti</h4>
+          <button pButton icon="pi pi-times" class="p-button-text p-button-sm"
+                  (click)="showCatalog = false"></button>
+        </div>
+        <div class="catalog-content">
+          <div *ngIf="catalog.length === 0" class="catalog-empty">
+            No tienes vistas asignadas.
+          </div>
+          <div *ngFor="let item of catalog" class="catalog-item">
+            <div class="catalog-item-header">
+              <p-tag [value]="item.schema" severity="info" [style]="{ fontSize: '0.7rem' }"></p-tag>
+              <span class="catalog-view-name">{{ item.vista }}</span>
+            </div>
+            <p class="catalog-desc">{{ item.descripcion }}</p>
+            <div *ngIf="item.ejemplo_preguntas?.length" class="catalog-suggestions">
+              <button *ngFor="let q of item.ejemplo_preguntas?.slice(0, 2)"
+                      pButton class="p-button-outlined p-button-sm suggestion-chip"
+                      [label]="q" (click)="useSuggestion(q)"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mensajes -->
+      <div *ngFor="let msg of messages" class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+        <div class="message-avatar">
+          <i *ngIf="msg.role === 'assistant'" class="bi bi-robot"></i>
+          <i *ngIf="msg.role === 'user'" class="bi bi-person-fill"></i>
+        </div>
+        <div class="message-bubble">
+          <div class="message-content" [innerHTML]="msg.content | formatMarkdown"></div>
+          <span *ngIf="msg.created_at" class="message-time">{{ formatTime(msg.created_at) }}</span>
+        </div>
+      </div>
+
+      <!-- Indicador de carga -->
+      <div *ngIf="loading" class="message assistant">
+        <div class="message-avatar">
+          <i class="bi bi-robot"></i>
+        </div>
+        <div class="message-bubble typing">
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sugerencias iniciales -->
+      <div *ngIf="messages.length <= 1 && !loading" class="suggestions-panel">
+        <p class="suggestions-title">Prueba preguntando:</p>
+        <div class="suggestions-grid">
+          <button pButton class="p-button-outlined suggestion-btn" label="¿Cuál es el censo actual?"
+                  icon="pi pi-users" (click)="useSuggestion('¿Cuál es el censo actual de pacientes hospitalizados?')"></button>
+          <button pButton class="p-button-outlined suggestion-btn" label="Egresos del mes"
+                  icon="pi pi-chart-bar" (click)="useSuggestion('¿Cuántos egresos hubo este mes?')"></button>
+          <button pButton class="p-button-outlined suggestion-btn" label="Medicamentos bajo stock"
+                  icon="pi pi-exclamation-triangle" (click)="useSuggestion('¿Qué medicamentos tienen bajo stock?')"></button>
+          <button pButton class="p-button-outlined suggestion-btn" label="¿Qué puedes hacer?"
+                  icon="pi pi-info-circle" (click)="useSuggestion('¿Qué información puedo consultar?')"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input de mensaje -->
+  <div class="chat-input">
+    <div class="input-wrapper">
+      <textarea pInputTextarea
+                #messageInput
+                [(ngModel)]="currentMessage"
+                (keydown)="onKeydown($event)"
+                placeholder="Escribe tu pregunta..."
+                [rows]="1"
+                [autoResize]="true"
+                [disabled]="loading"
+                class="message-textarea"></textarea>
+      <button pButton
+              icon="pi pi-send"
+              class="p-button-rounded send-btn"
+              [disabled]="!currentMessage.trim() || loading"
+              (click)="sendMessage()"
+              pTooltip="Enviar (Enter)"></button>
+    </div>
+    <p class="input-hint">
+      <i class="bi bi-shield-check"></i>
+      Solo puedo consultar vistas permitidas para tu perfil. Máx. 30 consultas/hora.
+    </p>
+  </div>
+</div>

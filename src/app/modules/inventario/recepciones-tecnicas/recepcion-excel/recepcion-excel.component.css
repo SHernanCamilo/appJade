@@ -30,9 +30,9 @@
   --ag-border-color: #d0d0d0;
   --ag-row-border-color: #d0d0d0;
   --ag-background-color: #fff;
-  --ag-odd-row-background-color: #fff;
-  --ag-row-hover-color: #f2f7f4;
-  --ag-selected-row-background-color: #e4efe9;
+  --ag-odd-row-background-color: #f9fafb;  /* Subtle zebra */
+  --ag-row-hover-color: #e8f4ed;
+  --ag-selected-row-background-color: #d2e9da;
   --ag-header-height: 21px;
   --ag-row-height: 21px;
   --ag-cell-horizontal-padding: 4px;

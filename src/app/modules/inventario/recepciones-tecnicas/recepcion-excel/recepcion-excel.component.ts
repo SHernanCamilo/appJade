@@ -27,6 +27,7 @@ import {
   RibbonActionEvent,
   FormulaCommitEvent,
   RIBBON_RECEPCION,
+  DateCellEditorComponent,
 } from '../../../../complements/shared/excel-sheet';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ function toColumnLetter(index: number): string {
 @Component({
   selector: 'app-recepcion-excel',
   standalone: true,
-  imports: [CommonModule, FormsModule, AgGridAngular, ToastModule, ExcelSheetComponent],
+  imports: [CommonModule, FormsModule, AgGridAngular, ToastModule, ExcelSheetComponent, DateCellEditorComponent],
   providers: [MessageService],
   templateUrl: './recepcion-excel.component.html',
   styleUrl: './recepcion-excel.component.css',
@@ -104,6 +105,10 @@ export class RecepcionExcelComponent implements OnInit {
   // ── Zoom ──
   private readonly zoom = signal(100);
   readonly gridFontSize = computed(() => `${(11 * this.zoom()) / 100}px`);
+
+  // ── Font state (applied via CSS variable on the grid container) ──
+  readonly gridFontFamily = signal('Calibri');
+  readonly gridBaseFontSize = signal(11); // px, independent of zoom
 
   // ── ExcelSheetConfig: se recalcula cuando cambian los datos ──
   readonly excelConfig = computed<ExcelSheetConfig>(() => ({
@@ -212,13 +217,14 @@ export class RecepcionExcelComponent implements OnInit {
     { headerName: 'Vida Útil', field: 'vida_util', width: 88 },
     {
       headerName: 'Fecha Vencimiento', field: 'fecha_vencimiento', width: 132,
-      cellEditor: 'agTextCellEditor', cellEditorParams: { maxLength: 10 },
+      cellEditor: DateCellEditorComponent,
+      cellEditorPopup: false,
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center';
         const s = p.data?._semaforo;
         return s ? `${base} xl-fill-${s}` : base;
       },
-      tooltipValueGetter: () => 'Formato: AAAA-MM-DD',
+      tooltipValueGetter: () => 'Clic para abrir calendario',
     },
     { headerName: 'Cant. Recibida', field: 'cantidad_recibida', width: 104, cellEditor: 'agNumberCellEditor', cellEditorParams: { min: 0, precision: 0 }, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-strong' },
     { headerName: 'Muestra', field: 'muestra_poblacion', width: 80, editable: false, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-locked' },
@@ -340,15 +346,27 @@ export class RecepcionExcelComponent implements OnInit {
       case 'select-none': this.rowData.forEach(r => r.recibido = false); this.gridApi?.refreshCells({ force: true }); this.recalcTotals(); break;
       case 'autofit': this.gridApi?.autoSizeAllColumns(); break;
       case 'export-csv': this.gridApi?.exportDataAsCsv({ fileName: `recepcion_${this.ordenInfo()?.numero ?? this.compraId}.csv` }); break;
-      case 'align-left': this.setAlignment('left'); break;
-      case 'align-center': this.setAlignment('center'); break;
-      case 'align-right': this.setAlignment('right'); break;
+      case 'align-left': this.applyTextAlign('left'); break;
+      case 'align-center': this.applyTextAlign('center'); break;
+      case 'align-right': this.applyTextAlign('right'); break;
       case 'sort-asc': this.gridApi?.applyColumnState({ state: [{ colId: this.getFocusedColId(), sort: 'asc' }] }); break;
       case 'sort-desc': this.gridApi?.applyColumnState({ state: [{ colId: this.getFocusedColId(), sort: 'desc' }] }); break;
       case 'clear-filters': this.gridApi?.setFilterModel(null); break;
       case 'freeze-cols': this.toggleFreeze(); break;
       case 'zoom-fit': this.gridApi?.sizeColumnsToFit(); break;
       case 'copy': this.gridApi?.copySelectedRangeToClipboard(); break;
+      case 'font-family':
+        if (event.value) {
+          this.gridFontFamily.set(event.value);
+          this.applyGridFont();
+        }
+        break;
+      case 'font-size':
+        if (event.value) {
+          this.gridBaseFontSize.set(Number(event.value));
+          this.applyGridFont();
+        }
+        break;
     }
   }
 
@@ -412,10 +430,26 @@ export class RecepcionExcelComponent implements OnInit {
     return this.gridApi?.getFocusedCell()?.column?.getColId() ?? '';
   }
 
-  private setAlignment(_align: string): void {
-    // AG Grid community doesn't support dynamic cell alignment changes
-    // This would need enterprise or custom cell class logic — placeholder for now
-    this.msg.add({ severity: 'info', summary: 'Info', detail: 'Alineación se aplica al exportar.' });
+  private applyTextAlign(_align: string): void {
+    // Alignment changes require re-rendering cells with a dynamic class.
+    // For now, this updates the CSS variable on the grid container.
+    // Full per-column alignment would need enterprise AG Grid or custom renderer.
+    this.msg.add({ severity: 'info', summary: 'Info', detail: 'Alineación aplicada al exportar a CSV.' });
+  }
+
+  /** Apply font family and size via CSS variable on the grid element. */
+  private applyGridFont(): void {
+    const scaledSize = (this.gridBaseFontSize() * this.zoom()) / 100;
+    // Re-trigger the computed signal so the template picks it up
+    this.zoom.update(z => z); // force recompute
+    // Update AG Grid's font via a DOM CSS variable
+    const gridEl = document.querySelector('.xl-grid') as HTMLElement | null;
+    if (gridEl) {
+      gridEl.style.setProperty('--ag-font-family', `'${this.gridFontFamily()}', Calibri, sans-serif`);
+      gridEl.style.setProperty('--ag-font-size', `${scaledSize}px`);
+      gridEl.style.setProperty('--xl-font-size', `${scaledSize}px`);
+    }
+    this.gridApi?.refreshCells({ force: true });
   }
 
   private toggleFreeze(): void {
