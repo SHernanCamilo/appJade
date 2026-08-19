@@ -98,38 +98,46 @@ export class RecepcionExcelComponent implements OnInit {
     resizable: true,
     sortable: true,
     suppressMovable: false,
-    minWidth: 90,
+    minWidth: 80,
     cellClass: 'xl-cell',
     headerClass: 'xl-header',
+    editable: true, // Todo editable por defecto (como Excel)
   };
 
   readonly gridOptions: GridOptions<RecepcionRow> = {
-    // Comportamiento tipo Excel
-    singleClickEdit: false,
+    // ━━ Comportamiento idéntico a Excel ━━
+    singleClickEdit: true,         // Un clic entra a edición (como Excel)
     stopEditingWhenCellsLoseFocus: true,
     enterNavigatesVertically: true,
     enterNavigatesVerticallyAfterEdit: true,
-    enableCellTextSelection: false,
+    tabToNextCell: undefined,      // Tab natural: avanza a siguiente celda
+    enableCellTextSelection: true,
     ensureDomOrder: true,
-    rowHeight: 30,
-    headerHeight: 34,
+    undoRedoCellEditing: true,     // Ctrl+Z funciona
+    undoRedoCellEditingLimit: 50,
+    rowHeight: 28,
+    headerHeight: 32,
     animateRows: false,
     suppressCellFocus: false,
-    // Selección de filas para marcar "recibido"
     rowSelection: 'multiple',
     suppressRowClickSelection: true,
+    // Sin agrupar, sin paginación (todo en una hoja como Excel)
+    suppressPaginationPanel: true,
+    domLayout: 'normal',
+    enableRangeSelection: false,
+    clipboardDelimiter: '\t',      // Ctrl+C copia con tabs como Excel
   };
 
   readonly columnDefs: ColDef<RecepcionRow>[] = [
-    // ── Columnas fijas (como los encabezados de fila de Excel) ──
+    // ── Número de fila (como Excel: columna A, B, C... pero con números) ──
     {
-      headerName: '#',
+      headerName: '',
       colId: 'rowNumber',
-      width: 52,
-      pinned: 'left',
-      lockPosition: true,
+      width: 45,
+      maxWidth: 45,
       sortable: false,
       editable: false,
+      suppressSizeToFit: true,
       cellClass: 'xl-rownum',
       headerClass: 'xl-header xl-corner',
       valueGetter: (p: ValueGetterParams<RecepcionRow>) => (p.node?.rowIndex ?? 0) + 1,
@@ -137,63 +145,43 @@ export class RecepcionExcelComponent implements OnInit {
     {
       headerName: '✓',
       field: 'recibido',
-      width: 50,
-      pinned: 'left',
-      lockPosition: true,
-      sortable: false,
+      width: 45,
+      maxWidth: 45,
       editable: true,
       cellDataType: 'boolean',
       cellClass: 'xl-cell xl-center',
+      headerClass: 'xl-header xl-center',
       headerTooltip: 'Marcar el ítem como recibido',
     },
-    {
-      headerName: 'Código',
-      field: 'codigo_producto',
-      width: 130,
-      pinned: 'left',
-      editable: false,
-      cellClass: 'xl-cell xl-code',
-    },
-    {
-      headerName: 'Producto',
-      field: 'producto_nombre',
-      width: 300,
-      pinned: 'left',
-      editable: false,
-      cellClass: 'xl-cell xl-product',
-      tooltipField: 'producto_nombre',
-    },
 
-    // ── Datos del producto (solo lectura) ──
-    { headerName: 'Tipo', field: 'tipo_producto', width: 130, editable: false, cellClass: 'xl-cell xl-readonly' },
-    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 150, editable: false, cellClass: 'xl-cell xl-readonly' },
-    { headerName: 'Concentración', field: 'concentracion', width: 130, editable: false, cellClass: 'xl-cell xl-readonly' },
-    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 120, editable: false, cellClass: 'xl-cell xl-readonly' },
+    // ── Datos del producto (editables como Excel — libre movimiento) ──
+    { headerName: 'Código', field: 'codigo_producto', width: 130 },
+    { headerName: 'Producto', field: 'producto_nombre', width: 320, tooltipField: 'producto_nombre' },
+    { headerName: 'Tipo', field: 'tipo_producto', width: 120 },
+    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 140 },
+    { headerName: 'Concentración', field: 'concentracion', width: 130 },
+    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 115 },
     {
       headerName: 'Cant. Solic.',
       field: 'cantidad_solicitada',
-      width: 105,
-      editable: false,
+      width: 100,
       type: 'numericColumn',
-      cellClass: 'xl-cell xl-readonly xl-num',
+      cellClass: 'xl-cell xl-num',
     },
 
-    // ── Campos editables ──
+    // ── Campos de recepción (editables) ──
     {
       headerName: 'Med. Vital',
       field: 'es_medicamento_vital',
-      width: 95,
-      editable: true,
+      width: 85,
       cellDataType: 'boolean',
-      cellClass: 'xl-cell xl-editable xl-center',
+      cellClass: 'xl-cell xl-center',
       headerTooltip: 'Medicamento Vital No Disponible',
     },
     {
       headerName: 'Cód. Sanitario / CUM',
       field: 'codigo_sanitario',
       width: 175,
-      editable: true,
-      cellClass: 'xl-cell xl-editable',
       cellRenderer: (p: any) => {
         const val = p.value ?? '';
         const row = p.data as RecepcionRow;
@@ -211,111 +199,97 @@ export class RecepcionExcelComponent implements OnInit {
     {
       headerName: 'Estado INVIMA',
       field: 'estado_invima',
-      width: 130,
+      width: 120,
       editable: false,
       cellClass: (p: CellClassParams<RecepcionRow>) => {
-        const base = 'xl-cell xl-readonly xl-center';
+        const base = 'xl-cell xl-center';
         if (p.value === 'Vigente') return `${base} xl-tag-ok`;
         if (p.value === 'Vencido') return `${base} xl-tag-bad`;
         if (p.value) return `${base} xl-tag-warn`;
         return base;
       },
     },
-    { headerName: 'Fabricante', field: 'fabricante', width: 200, editable: true, cellClass: 'xl-cell xl-editable' },
-    { headerName: 'Vida Útil', field: 'vida_util', width: 105, editable: true, cellClass: 'xl-cell xl-editable' },
+    { headerName: 'Fabricante', field: 'fabricante', width: 200 },
+    { headerName: 'Vida Útil', field: 'vida_util', width: 100 },
     {
       headerName: 'Fecha Vencimiento',
       field: 'fecha_vencimiento',
-      width: 150,
-      editable: true,
-      cellEditor: 'agDateStringCellEditor',
+      width: 145,
+      // Usar editor de texto simple — el agDateStringCellEditor no funciona bien en celdas compactas
+      cellEditor: 'agTextCellEditor',
+      cellEditorParams: { maxLength: 10 },
+      valueFormatter: (p) => p.value || '',
       cellClass: (p: CellClassParams<RecepcionRow>) => {
-        const base = 'xl-cell xl-editable xl-center';
+        const base = 'xl-cell xl-center';
         const s = p.data?._semaforo;
         return s ? `${base} xl-semaforo-${s}` : base;
       },
+      tooltipValueGetter: () => 'Formato: YYYY-MM-DD',
     },
     {
       headerName: 'Cant. Recibida',
       field: 'cantidad_recibida',
-      width: 120,
-      editable: true,
+      width: 115,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { min: 0, precision: 0 },
       type: 'numericColumn',
-      cellClass: 'xl-cell xl-editable xl-num xl-strong',
+      cellClass: 'xl-cell xl-num xl-strong',
     },
     {
       headerName: 'Muestra',
       field: 'muestra_poblacion',
-      width: 100,
-      editable: true,
+      width: 90,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { min: 0, precision: 0 },
       type: 'numericColumn',
-      cellClass: 'xl-cell xl-editable xl-num',
+      cellClass: 'xl-cell xl-num',
     },
-    { headerName: 'N. Lote', field: 'numero_lote', width: 140, editable: true, cellClass: 'xl-cell xl-editable' },
+    { headerName: 'N. Lote', field: 'numero_lote', width: 130 },
     {
       headerName: 'Aspecto',
       field: 'aspecto_cumple',
-      width: 120,
-      editable: true,
+      width: 110,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CUMPLE_VALUES },
-      cellClass: 'xl-cell xl-editable',
     },
     {
       headerName: 'Embalaje',
       field: 'embalaje_cumple',
-      width: 120,
-      editable: true,
+      width: 110,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CUMPLE_VALUES },
-      cellClass: 'xl-cell xl-editable',
     },
     {
       headerName: 'Contenido',
       field: 'contenido_cumple',
-      width: 120,
-      editable: true,
+      width: 110,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CUMPLE_VALUES },
-      cellClass: 'xl-cell xl-editable',
     },
     {
       headerName: 'Temp. °C',
       field: 'cadena_frio_temperatura',
-      width: 100,
-      editable: true,
+      width: 90,
       cellEditor: 'agNumberCellEditor',
       cellEditorParams: { precision: 1 },
       type: 'numericColumn',
-      cellClass: 'xl-cell xl-editable xl-num',
+      cellClass: 'xl-cell xl-num',
     },
     {
       headerName: 'Concepto',
       field: 'concepto_recepcion',
-      width: 135,
-      editable: true,
+      width: 130,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: CONCEPTO_VALUES },
       cellClass: (p: CellClassParams<RecepcionRow>) => {
-        const base = 'xl-cell xl-editable xl-center';
+        const base = 'xl-cell xl-center';
         if (p.value === 'aceptado') return `${base} xl-tag-ok`;
         if (p.value === 'rechazado') return `${base} xl-tag-bad`;
         if (p.value === 'cuarentena') return `${base} xl-tag-warn`;
         return base;
       },
-      valueFormatter: (p) => (p.value ? String(p.value).toUpperCase() : ''),
     },
-    {
-      headerName: 'Observaciones',
-      field: 'observaciones_recepcion',
-      width: 240,
-      editable: true,
-      cellClass: 'xl-cell xl-editable',
-    },
+    { headerName: 'Observaciones', field: 'observaciones_recepcion', width: 250 },
   ];
 
   // ─── Ciclo de vida ────────────────────────────────────────────────────────

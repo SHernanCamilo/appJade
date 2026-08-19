@@ -16,7 +16,7 @@
   width: 100%;
   height: 100%;
   background: #f3f2f1;
-  font-family: 'Segoe UI', Calibri, system-ui, -apple-system, sans-serif;
+  font-family: 'Calibri', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 /* ─── Barra de título (verde Excel) ─────────────────────────────────────── */
@@ -227,86 +227,75 @@
 
 :host ::ng-deep .xl-grid {
   --ag-borders: solid 1px;
-  --ag-border-color: #d0d7de;
-  --ag-row-border-color: #e1dfdd;
-  --ag-header-background-color: #f3f2f1;
-  --ag-header-foreground-color: #323130;
+  --ag-border-color: #d4d4d4;
+  --ag-row-border-color: #e5e5e5;
+  --ag-header-background-color: #f0f0f0;
+  --ag-header-foreground-color: #333;
   --ag-odd-row-background-color: #fff;
   --ag-background-color: #fff;
-  --ag-row-hover-color: #f0f7f3;
-  --ag-selected-row-background-color: #e8f2ec;
+  --ag-row-hover-color: #e8f0fe;
+  --ag-selected-row-background-color: #d2e3fc;
   --ag-range-selection-border-color: #217346;
-  --ag-cell-horizontal-border: solid #e1dfdd;
-  --ag-font-family: 'Segoe UI', Calibri, system-ui, sans-serif;
-  --ag-font-size: 12.5px;
-  --ag-grid-size: 3px;
+  --ag-cell-horizontal-border: solid #e5e5e5;
+  --ag-font-family: 'Calibri', 'Segoe UI', system-ui, sans-serif;
+  --ag-font-size: 13px;
+  --ag-grid-size: 2px;
   --ag-borders-critical: solid 1px;
+  --ag-input-focus-border-color: #217346;
 }
 
-/* Encabezados: gris claro con líneas, como Excel */
+/* Encabezados tipo Excel: fondo gris plano con borde inferior */
 :host ::ng-deep .xl-grid .ag-header {
-  border-bottom: 1px solid #b1b1b1;
+  border-bottom: 1px solid #b0b0b0;
 }
 
 :host ::ng-deep .xl-grid .ag-header-cell {
-  border-right: 1px solid #d0d7de;
+  border-right: 1px solid #d4d4d4;
   font-weight: 600;
-  font-size: 11.5px;
-  color: #323130;
+  font-size: 12px;
+  color: #333;
+  padding: 0 6px;
 }
 
 :host ::ng-deep .xl-grid .ag-header-cell-label {
   justify-content: center;
 }
 
-/* Esquina superior izquierda (como la de Excel) */
+/* Esquina superior izquierda */
 :host ::ng-deep .xl-grid .xl-corner {
-  background: #e8e6e3 !important;
+  background: #e8e8e8 !important;
 }
 
-/* Columna de número de fila: gutter gris */
+/* Columna de número de fila */
 :host ::ng-deep .xl-grid .xl-rownum {
-  background: #f3f2f1;
-  color: #605e5c;
+  background: #f5f5f5;
+  color: #666;
   font-size: 11px;
   text-align: center;
-  justify-content: center;
-  border-right: 1px solid #b1b1b1;
+  border-right: 1px solid #c0c0c0;
   font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Celdas: líneas de cuadrícula finas */
+/* Todas las celdas: gridlines uniformes como Excel */
 :host ::ng-deep .xl-grid .ag-cell {
-  border-right: 1px solid #e1dfdd;
-  line-height: 28px;
-  padding-left: 6px;
-  padding-right: 6px;
+  border-right: 1px solid #e5e5e5;
+  line-height: 26px;
+  padding: 0 5px;
 }
 
-/* Celda enfocada: borde verde grueso como Excel */
+/* Celda enfocada: borde verde grueso como la selección de Excel */
 :host ::ng-deep .xl-grid .ag-cell-focus:not(.ag-cell-range-selected) {
   border: 2px solid #217346 !important;
   outline: none;
 }
 
-/* Solo lectura: fondo levemente gris */
-:host ::ng-deep .xl-grid .xl-readonly {
-  background: #fafafa;
-  color: #605e5c;
-}
-
-/* Editable: fondo blanco con indicador sutil */
-:host ::ng-deep .xl-grid .xl-editable {
-  background: #fff;
-}
-
-:host ::ng-deep .xl-grid .xl-editable:hover {
-  background: #f7fbf9;
-}
-
 /* Alineaciones */
 :host ::ng-deep .xl-grid .xl-center {
   text-align: center;
+  justify-content: center;
 }
 
 :host ::ng-deep .xl-grid .xl-num {
@@ -315,71 +304,45 @@
 }
 
 :host ::ng-deep .xl-grid .xl-strong {
-  font-weight: 600;
-  color: #185c37;
-}
-
-/* Código de producto: monoespaciado */
-:host ::ng-deep .xl-grid .xl-code {
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 11.5px;
-  color: #a4262c;
-}
-
-:host ::ng-deep .xl-grid .xl-product {
-  font-weight: 500;
-  color: #201f1e;
-}
-
-/* Sombra en columnas fijas (como Excel al inmovilizar paneles) */
-:host ::ng-deep .xl-grid .ag-pinned-left-cols-container,
-:host ::ng-deep .xl-grid .ag-pinned-left-header {
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.08);
-  border-right: 1px solid #b1b1b1;
+  font-weight: 700;
 }
 
 /* Semáforo de vencimiento */
 :host ::ng-deep .xl-grid .xl-semaforo-verde,
 .xl-swatch.xl-semaforo-verde {
-  background: #dff6e4 !important;
-  color: #0b6a35;
+  background: #c6efce !important;
 }
 
 :host ::ng-deep .xl-grid .xl-semaforo-amarillo,
 .xl-swatch.xl-semaforo-amarillo {
-  background: #fff4ce !important;
-  color: #8a6100;
+  background: #ffeb9c !important;
 }
 
 :host ::ng-deep .xl-grid .xl-semaforo-rojo,
 .xl-swatch.xl-semaforo-rojo {
-  background: #fde7e9 !important;
-  color: #a4262c;
+  background: #ffc7ce !important;
 }
 
-/* Etiquetas de estado (INVIMA / concepto) */
+/* Etiquetas de concepto / estado */
 :host ::ng-deep .xl-grid .xl-tag-ok {
-  background: #dff6e4;
-  color: #0b6a35;
+  background: #c6efce;
+  color: #006100;
   font-weight: 600;
-  font-size: 11px;
 }
 
 :host ::ng-deep .xl-grid .xl-tag-bad {
-  background: #fde7e9;
-  color: #a4262c;
+  background: #ffc7ce;
+  color: #9c0006;
   font-weight: 600;
-  font-size: 11px;
 }
 
 :host ::ng-deep .xl-grid .xl-tag-warn {
-  background: #fff4ce;
-  color: #8a6100;
+  background: #ffeb9c;
+  color: #9c5700;
   font-weight: 600;
-  font-size: 11px;
 }
 
-/* Icono de validación INVIMA dentro de la celda */
+/* Icono de INVIMA dentro de la celda */
 :host ::ng-deep .xl-invima-wrap {
   display: flex;
   align-items: center;
@@ -389,29 +352,39 @@
 }
 
 :host ::ng-deep .xl-invima-icon {
-  font-size: 0.85rem;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
-/* Checkboxes: verde Excel */
-:host ::ng-deep .xl-grid .ag-checkbox-input-wrapper.ag-checked::after {
-  color: #217346;
-}
-
-/* Editor de celda activo */
+/* Editor activo: borde verde, sin sombra exagerada */
 :host ::ng-deep .xl-grid .ag-cell-inline-editing {
   border: 2px solid #217346 !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  height: 30px !important;
+  box-shadow: none;
+  height: 28px !important;
   padding: 0 !important;
+  background: #fff;
 }
 
 :host ::ng-deep .xl-grid .ag-cell-inline-editing input,
 :host ::ng-deep .xl-grid .ag-cell-inline-editing select {
-  font-size: 12.5px;
+  font-size: 13px;
+  font-family: 'Calibri', 'Segoe UI', sans-serif;
   height: 100%;
   border: none;
   outline: none;
+  padding: 0 4px;
+}
+
+/* Checkboxes */
+:host ::ng-deep .xl-grid .ag-checkbox-input-wrapper.ag-checked::after {
+  color: #217346;
+}
+
+/* Remover sombra de pinned (ya no hay columnas fijas) */
+:host ::ng-deep .xl-grid .ag-pinned-left-cols-container,
+:host ::ng-deep .xl-grid .ag-pinned-left-header {
+  box-shadow: none;
+  border-right: 1px solid #c0c0c0;
 }
 
 /* ─── Observaciones generales ───────────────────────────────────────────── */
