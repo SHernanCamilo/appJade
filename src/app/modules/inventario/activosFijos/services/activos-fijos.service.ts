@@ -88,11 +88,27 @@ export interface ResumenTrazabilidad {
   para_reparacion: number;
   en_buen_estado: number;
   tomas_hoy: number;
+  externos: number;
 }
 
 export interface DetalleActivoResponse {
   activo: ActivoFijo;
   historial: TrazabilidadActivo[];
+}
+
+/** Payload para registrar un activo que no existe en el maestro. */
+export interface NovedadExternaPayload {
+  placa: string;
+  serie?: string | null;
+  articulo_nombre?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  responsable?: string | null;
+  localizacion?: string | null;
+  sucursal?: string | null;
+  estado_fisico?: string | null;
+  observacion?: string | null;
+  unidad_funcional?: string | null;
 }
 
 interface ApiResponse<T> {
@@ -163,6 +179,8 @@ export class ActivosFijosService {
     usuario_id?: number;
     desde?: string;
     hasta?: string;
+    unidad_funcional?: string;
+    es_externo?: boolean;
     per_page?: number;
     page?: number;
   } = {}): Observable<ApiPaginated<TrazabilidadActivo>> {
@@ -178,5 +196,56 @@ export class ActivosFijosService {
 
   resumen(): Observable<ApiResponse<ResumenTrazabilidad>> {
     return this.http.get<ApiResponse<ResumenTrazabilidad>>(`${this.baseUrl}/trazabilidad/resumen`);
+  }
+
+  // ── Exportar Excel ──────────────────────────────────────────────────────
+
+  exportarExcel(filtros: {
+    unidad_funcional?: string;
+    placa?: string;
+    estado_fisico?: string;
+    desde?: string;
+    hasta?: string;
+    es_externo?: boolean;
+  }): Observable<Blob> {
+    const params: Record<string, string> = {};
+    Object.entries(filtros).forEach(([clave, valor]) => {
+      if (valor !== null && valor !== undefined && valor !== '') {
+        params[clave] = String(valor);
+      }
+    });
+
+    return this.http.get(`${this.baseUrl}/exportar`, {
+      params,
+      responseType: 'blob'
+    });
+  }
+
+  // ── Novedad externa (activo no encontrado en el maestro) ────────────────
+
+  registrarNovedadExterna(payload: NovedadExternaPayload): Observable<ApiResponse<TrazabilidadActivo>> {
+    return this.http.post<ApiResponse<TrazabilidadActivo>>(`${this.baseUrl}/novedad-externa`, payload);
+  }
+
+  // ── Unidades funcionales ────────────────────────────────────────────────
+
+  unidadesFuncionales(): Observable<ApiResponse<{ valor: string; origen: string }[]>> {
+    return this.http.get<ApiResponse<{ valor: string; origen: string }[]>>(`${this.baseUrl}/unidades-funcionales`);
+  }
+
+  // ── Empleados (Fabric: No.VW_Payroll_EmpleadosActivos) ──────────────────
+
+  empleados(busqueda: string = '', limit = 50): Observable<ApiResponse<{ documento: string; nombre: string }[]>> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (busqueda.trim()) {
+      params['busqueda'] = busqueda.trim();
+    }
+    return this.http.get<ApiResponse<{ documento: string; nombre: string }[]>>(`${this.baseUrl}/empleados`, { params });
+  }
+
+  // ── Centros de Costo / Unidades Funcionales (Fabric) ────────────────────
+
+  centrosCosto(): Observable<ApiResponse<{ code: string; unidad_funcional: string }[]>> {
+    return this.http.get<ApiResponse<{ code: string; unidad_funcional: string }[]>>(`${this.baseUrl}/centros-costo`);
   }
 }

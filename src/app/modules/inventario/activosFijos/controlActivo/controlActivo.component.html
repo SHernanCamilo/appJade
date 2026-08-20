@@ -82,10 +82,163 @@
       </section>
 
       <!-- ── Sin activo seleccionado ──────────────────────────────── -->
-      <div class="ti-vacio" *ngIf="!activo && resultados.length === 0 && !buscando">
+      <div class="ti-vacio" *ngIf="!activo && resultados.length === 0 && !buscando && !sinResultados && !mostrarFormExterno">
         <i class="pi pi-search"></i>
         Busque un activo por placa, serie, responsable o artículo para iniciar la toma.
       </div>
+
+      <!-- ── Sin resultados + opción registrar por fuera ──────────── -->
+      <section class="ti-card ti-card--aviso" *ngIf="sinResultados && !mostrarFormExterno && !activo">
+        <div class="ti-vacio">
+          <i class="pi pi-exclamation-triangle"></i>
+          No se encontró ningún activo con ese criterio de búsqueda.
+        </div>
+        <div class="ti-acciones-centradas">
+          <button
+            type="button"
+            class="ti-btn ti-btn--warning"
+            (click)="abrirFormExterno()">
+            <i class="pi pi-plus-circle"></i>
+            ¿No se encontró? Registrar activo por fuera
+          </button>
+        </div>
+      </section>
+
+      <!-- ── Formulario de activo externo ─────────────────────────── -->
+      <section class="ti-card ti-card--externo" *ngIf="mostrarFormExterno">
+        <div class="ti-card__encabezado">
+          <h3 class="ti-card__titulo ti-card__titulo--warning">
+            <i class="pi pi-exclamation-circle"></i>
+            Registrar activo por fuera del maestro
+          </h3>
+          <button
+            type="button"
+            class="ti-btn ti-btn--secondary"
+            (click)="cerrarFormExterno()">
+            <i class="pi pi-arrow-left"></i>
+            Volver a búsqueda
+          </button>
+        </div>
+
+        <p class="ti-ayuda ti-ayuda--warning">
+          <i class="pi pi-info-circle"></i>
+          Este formulario es para registrar un activo que <strong>no aparece en el maestro de Indigo</strong>.
+          Solo úselo cuando haya verificado que la placa no existe en el sistema.
+        </p>
+
+        <div class="ti-grid">
+          <!-- Columna 1 -->
+          <div class="ti-columna">
+            <div class="ti-fila">
+              <label>Placa <span class="ti-requerido">*</span></label>
+              <input type="text" [(ngModel)]="formularioExterno.placa" placeholder="Placa del activo" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Serie</label>
+              <input type="text" [(ngModel)]="formularioExterno.serie" placeholder="Número de serie" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Nombre del artículo</label>
+              <input type="text" [(ngModel)]="formularioExterno.articulo_nombre" placeholder="Descripción del artículo" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Marca</label>
+              <input type="text" [(ngModel)]="formularioExterno.marca" placeholder="Marca" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Modelo</label>
+              <input type="text" [(ngModel)]="formularioExterno.modelo" placeholder="Modelo" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Unidad funcional</label>
+              <p-dropdown
+                [(ngModel)]="formularioExterno.unidad_funcional"
+                [options]="centrosCostoOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar unidad funcional..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
+            </div>
+          </div>
+
+          <!-- Columna 2 -->
+          <div class="ti-columna">
+            <div class="ti-fila">
+              <label>Responsable</label>
+              <p-autoComplete
+                [(ngModel)]="formularioExterno.responsable"
+                [suggestions]="empleadosSugerencias"
+                (completeMethod)="buscarEmpleados($event)"
+                
+                [dropdown]="false"
+                placeholder="Buscar empleado..."
+                [minLength]="3"
+                [forceSelection]="false"
+                styleClass="ti-autocomplete-prime">
+              </p-autoComplete>
+            </div>
+
+            <div class="ti-fila">
+              <label>Localización</label>
+              <p-dropdown
+                [(ngModel)]="formularioExterno.localizacion"
+                [options]="centrosCostoOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar centro de costo..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
+            </div>
+
+            <div class="ti-fila">
+              <label>Sucursal</label>
+              <input type="text" [(ngModel)]="formularioExterno.sucursal" placeholder="Sucursal" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Estado físico</label>
+              <select [(ngModel)]="formularioExterno.estado_fisico" class="ti-input">
+                <option value="">-- Seleccione --</option>
+                <option *ngFor="let e of estadosFisicos" [value]="e">{{ e }}</option>
+              </select>
+            </div>
+
+            <div class="ti-fila ti-fila--observacion">
+              <label>Observación</label>
+              <textarea
+                [(ngModel)]="formularioExterno.observacion"
+                placeholder="Describa la novedad o situación del activo"
+                class="ti-input"
+                rows="3"
+                maxlength="2000"></textarea>
+              <small class="ti-contador">{{ formularioExterno.observacion.length }} / 2000</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="ti-acciones-centradas" style="margin-top: 1rem;">
+          <button
+            type="button"
+            class="ti-btn ti-btn--warning"
+            [disabled]="!puedeRegistrarExterno"
+            (click)="registrarExterno()">
+            <i class="pi" [ngClass]="guardandoExterno ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+            {{ guardandoExterno ? 'Guardando...' : 'Registrar activo externo' }}
+          </button>
+        </div>
+      </section>
 
       <!-- ── Resultados múltiples ─────────────────────────────────── -->
       <section class="ti-card" *ngIf="resultados.length > 0">
@@ -207,13 +360,33 @@
             <div class="ti-fila">
               <label>Responsable</label>
               <input type="text" [value]="valor(activo.responsable)" class="ti-input ti-input--readonly" readonly />
-              <input type="text" [(ngModel)]="formulario.novedad_responsable" placeholder="Novedad responsable" class="ti-input" />
+              <p-autoComplete
+                [(ngModel)]="formulario.novedad_responsable"
+                [suggestions]="empleadosSugerencias"
+                (completeMethod)="buscarEmpleados($event)"
+                
+                [dropdown]="false"
+                placeholder="Buscar empleado..."
+                [minLength]="3"
+                [forceSelection]="false"
+                styleClass="ti-autocomplete-prime">
+              </p-autoComplete>
             </div>
 
             <div class="ti-fila">
               <label>Localización</label>
               <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
-              <input type="text" [(ngModel)]="formulario.novedad_localizacion" placeholder="Novedad localización" class="ti-input" />
+              <p-dropdown
+                [(ngModel)]="formulario.novedad_localizacion"
+                [options]="centrosCostoOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar centro de costo..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
             </div>
 
             <div class="ti-fila">
@@ -226,6 +399,22 @@
               <label>Sucursal</label>
               <input type="text" [value]="valor(activo.sucursal)" class="ti-input ti-input--readonly" readonly />
               <input type="text" [(ngModel)]="formulario.novedad_sucursal" placeholder="Novedad sucursal" class="ti-input" />
+            </div>
+
+            <div class="ti-fila">
+              <label>Unidad funcional</label>
+              <span class="ti-input ti-input--readonly">—</span>
+              <p-dropdown
+                [(ngModel)]="formulario.novedad_unidad_funcional"
+                [options]="unidadesFuncionalesOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="true"
+                filterBy="label"
+                [showClear]="true"
+                placeholder="Buscar unidad funcional..."
+                styleClass="ti-dropdown-prime">
+              </p-dropdown>
             </div>
 
             <div class="ti-fila">
@@ -343,6 +532,10 @@
           <span class="ti-kpi__valor">{{ resumen.para_baja | number }}</span>
           <span class="ti-kpi__label">Para dar de baja</span>
         </div>
+        <div class="ti-kpi ti-kpi--externo">
+          <span class="ti-kpi__valor">{{ resumen.externos | number }}</span>
+          <span class="ti-kpi__label">Externos</span>
+        </div>
       </section>
 
       <!-- ── Filtros ──────────────────────────────────────────────── -->
@@ -362,6 +555,21 @@
         </div>
 
         <div class="ti-filtro">
+          <label for="fUnidad">Unidad funcional</label>
+          <p-dropdown
+            [(ngModel)]="filtros.unidad_funcional"
+            [options]="centrosCostoOpciones"
+            optionLabel="label"
+            optionValue="value"
+            [filter]="true"
+            filterBy="label"
+            [showClear]="true"
+            placeholder="Todas"
+            styleClass="ti-dropdown-prime ti-dropdown-prime--filtro">
+          </p-dropdown>
+        </div>
+
+        <div class="ti-filtro">
           <label for="fDesde">Desde</label>
           <input id="fDesde" type="date" [(ngModel)]="filtros.desde" class="ti-input" />
         </div>
@@ -369,6 +577,13 @@
         <div class="ti-filtro">
           <label for="fHasta">Hasta</label>
           <input id="fHasta" type="date" [(ngModel)]="filtros.hasta" class="ti-input" />
+        </div>
+
+        <div class="ti-filtro ti-filtro--check">
+          <label class="ti-check-label">
+            <input type="checkbox" [(ngModel)]="filtros.es_externo" />
+            Solo externos
+          </label>
         </div>
 
         <div class="ti-filtros__acciones">
@@ -380,6 +595,12 @@
                   *ngIf="hayFiltrosActivos" (click)="limpiarFiltros()">
             <i class="pi pi-times"></i>
             Limpiar
+          </button>
+          <button type="button" class="ti-btn ti-btn--excel"
+                  [disabled]="exportando"
+                  (click)="exportarExcel()">
+            <i class="pi" [ngClass]="exportando ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+            {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
           </button>
         </div>
       </section>

@@ -1,5 +1,5 @@
-﻿import { Component, OnInit, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+﻿import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TableModule } from 'primeng/table';
@@ -77,6 +77,8 @@ export class RecepcionesTecnicasComponent implements OnInit {
     { label: 'Rechazado', value: 'rechazado' }
   ];
 
+  private readonly location = inject(Location);
+
   constructor(private inventarioService: InventarioService, private router: Router) {}
 
   ngOnInit(): void {
@@ -85,7 +87,7 @@ export class RecepcionesTecnicasComponent implements OnInit {
 
   loadCompras(): void {
     this.isLoading.set(true);
-    const status = this.currentView() === 'pending' ? 'confirmado,en_sitio,parcial' : 'recibida';
+    const status = this.currentView() === 'pending' ? 'confirmado,en_sitio,parcial' : 'RECEPCIONADO,CONFIRMADO';
     
     this.inventarioService.getRecepciones({ status }).subscribe({
       next: (res) => {
@@ -128,10 +130,16 @@ export class RecepcionesTecnicasComponent implements OnInit {
     }
   }
 
-  // --- Abrir Vista Excel ---
+  // --- Abrir Vista Excel en una pestaña nueva (pantalla completa, sin layout) ---
   openReceptionExcel(orden: OrdenCompra): void {
     if (!orden.compra_id) return;
-    this.router.navigate(['/inventario/recepciones-tecnicas/excel', orden.compra_id]);
+
+    const urlTree = this.router.createUrlTree(['/recepcionExcel', orden.compra_id]);
+    const url = this.router.serializeUrl(urlTree);
+    // prepareExternalUrl respeta el base-href en producción
+    const fullUrl = this.location.prepareExternalUrl(url);
+
+    window.open(fullUrl, '_blank');
   }
 
   // --- Realizar RecepciÃ³n TÃ©cnica ---

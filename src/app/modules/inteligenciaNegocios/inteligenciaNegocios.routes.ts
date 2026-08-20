@@ -31,7 +31,7 @@ function vistasReporteRoutes(config: {
     {
       path: `${config.path}/viewVistas/fullscreen/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
+        import('./vistas/viewVistas/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
       data: { listPath }
     },
     {
@@ -70,7 +70,7 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   {
     path: 'vistas/viewVistas/fullscreen/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistasFullscreen.component').then(m => m.ViewVistasFullscreenComponent),
+      import('./vistas/viewVistas/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
     data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {
@@ -203,6 +203,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       moduleCode: 'BI-TABLERO-EGRESOS',
       pageTitle: 'Tablero de Egresos',
       pageSubtitle: 'Cuenta de ingresos por sucursal y unidad funcional (dc.VW_HC_Egresos_Conteo)'
+    }
+  },
+  {
+    path: 'chatbot',
+    loadComponent: () =>
+      import('./chatbot/chatbot.component').then(m => m.ChatBotComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-CHATBOT',
+      pageTitle: 'Asistente de Datos IA',
+      pageSubtitle: 'Consulta información de las vistas disponibles mediante lenguaje natural'
     }
   }
 ];
