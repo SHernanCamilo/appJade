@@ -52,11 +52,13 @@
       <button pButton type="button" icon="pi pi-download"
         class="p-button-rounded p-button-success btn-accion-descarga"
         pTooltip="Descargar formato Excel" tooltipPosition="top"
+        *hasPermission="'talhum-turnos-exportar'"
         [disabled]="!selectedUnidad"
         (click)="descargarFormatoExcel()"></button>
       <button pButton type="button" icon="pi pi-upload"
         class="p-button-rounded p-button-warning btn-accion-carga"
         pTooltip="Carga masiva Excel" tooltipPosition="top"
+        *hasPermission="'talhum-turnos-carga-masiva'"
         [disabled]="!selectedUnidad || cuadroBloqueado"
         (click)="showCargaMasivaDialog = true"></button>
       <button pButton type="button" icon="pi pi-clock"
@@ -67,6 +69,7 @@
       <button pButton type="button" icon="pi pi-trash"
         class="p-button-rounded p-button-danger btn-accion-eliminar"
         pTooltip="Eliminar cuadro" tooltipPosition="top"
+        *hasPermission="'talhum-turnos-eliminar'"
         [disabled]="!selectedEmpleados.length || isLoading || cuadroBloqueado"
         (click)="eliminarCuadroCompleto()"></button>
     </div>
@@ -171,6 +174,7 @@
              tooltipPosition="top">
 
           <div class="dia-numero">{{ dia.numero }}</div>
+          <div *ngIf="dia.esDelMes && tieneHoraExtra(dia.fecha)" class="dia-hora-extra-badge" pTooltip="Hora extra" tooltipPosition="top"></div>
 
           <div *ngIf="dia.esDelMes && dia.nombreFestivo" class="dia-festivo-tag">
             <i class="pi pi-flag-fill"></i>
@@ -355,33 +359,7 @@
 
         <!-- Horas extras (solo si hay) -->
         <div *ngIf="cuadro.horas_extras && cuadro.horas_extras.total_extras > 0" class="extras-section">
-          <h4 class="extras-title"><i class="pi pi-exclamation-triangle"></i> Horas Extras</h4>
-          <div class="totales-grid-modal">
-            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_diurnas > 0">
-              <span class="total-label">HED (25%)</span>
-              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_diurnas) }}</span>
-            </div>
-            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_nocturnas > 0">
-              <span class="total-label">HEN (75%)</span>
-              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_nocturnas) }}</span>
-            </div>
-            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_festivas > 0">
-              <span class="total-label">HEDF (100%)</span>
-              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_festivas) }}</span>
-            </div>
-            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_festivas_nocturnas > 0">
-              <span class="total-label">HENF (150%)</span>
-              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_festivas_nocturnas) }}</span>
-            </div>
-            <div class="total-box-modal extra-total">
-              <span class="total-label">TOTAL EXTRAS</span>
-              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.total_extras) }}</span>
-            </div>
-            <div class="total-box-modal extra-box" *ngIf="cuadro.horas_extras!.extras_manuales > 0">
-              <span class="total-label">Registradas</span>
-              <span class="total-valor-modal">{{ formatHoras(cuadro.horas_extras!.extras_manuales) }}</span>
-            </div>
-          </div>
+          <h4 class="extras-title"><i class="pi pi-exclamation-triangle"></i> Horas Extras: {{ formatHoras(cuadro.horas_extras!.total_extras) }}</h4>
         </div>
       </div>
 
