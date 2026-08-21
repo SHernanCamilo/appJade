@@ -19,8 +19,7 @@ export class talentoHumanoComponent {
       description: 'Gestión de eventos y novedades',
       color: 'primary',
       items: [
-        { name: 'Dashboard', route: '/talentoHumano/eventos/dashboard', icon: 'bi-speedometer2' },
-        { name: 'Cargue', route: '/talentoHumano/eventos/cargue', icon: 'bi-upload' },
+        { name: 'Cargue de Eventos', route: '/talentoHumano/eventos/dashboard', icon: 'bi-speedometer2' },
         { name: 'Parámetros', route: '/talentoHumano/eventos/parametros', icon: 'bi-gear' }
       ]
     },

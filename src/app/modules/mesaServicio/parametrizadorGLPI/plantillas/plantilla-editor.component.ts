@@ -23,7 +23,8 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { MessageService } from 'primeng/api';
 
 import { GlpiPlantillaService } from '../services/glpi-plantilla.service';
-import { GlpiCategoriaNodoComponent, GlpiCategoriaAnsOpciones, GlpiCategoriaBusqueda } from './categoria-nodo.component';
+import { GlpiCategoriaNodoComponent } from './categoria-nodo.component';
+import { GlpiCategoriaAnsOpciones, GlpiCategoriaBusqueda } from './glpi-categoria.state';
 import {
   GLPI_PRIORIDADES,
   GLPI_UNIDADES,

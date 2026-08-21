@@ -1,0 +1,225 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <div class="header-top">
+      <button class="btn-back" type="button" routerLink="/mesaServicio">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+    <div class="header-main">
+      <div>
+        <h1 class="page-title">
+          <i class="pi pi-clock me-2"></i>
+          Tablero TIC — ANS
+        </h1>
+        <p class="page-subtitle" *ngIf="tablero">
+          Casos abiertos que pasan por <strong>{{ tablero.grupo.nombre }}</strong>.
+          Agrupados por el último grupo técnico (N1 → N2 → N3). Alerta {{ tablero.alerta_horas }} h antes del ANS.
+        </p>
+        <p class="page-subtitle" *ngIf="!tablero">
+          Tickets abiertos de Nivel 1 Nacional, agrupados por el último grupo técnico asignado.
+        </p>
+      </div>
+      <button
+        pButton
+        type="button"
+        label="Actualizar"
+        icon="pi pi-refresh"
+        class="p-button-primary btn-refresh"
+        [loading]="isLoading"
+        (click)="cargar(true)">
+      </button>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div class="kpi-grid" *ngIf="tablero && !isLoading">
+      <button
+        type="button"
+        class="kpi kpi-abiertos"
+        [class.is-active]="!alertaSeleccionada"
+        (click)="filtrarAlerta(null)">
+        <span class="kpi-label">Abiertos</span>
+        <span class="kpi-value">{{ resumenEstado.abiertos }}</span>
+        <span class="kpi-hint">{{ hintEstado('abiertos') }}</span>
+      </button>
+      <button
+        type="button"
+        class="kpi kpi-vencido"
+        [class.is-active]="alertaSeleccionada === 'vencido'"
+        (click)="filtrarAlerta('vencido')">
+        <span class="kpi-label">Vencidos</span>
+        <span class="kpi-value">{{ resumenEstado.vencidos }}</span>
+        <span class="kpi-hint">{{ hintEstado('vencido') }}</span>
+      </button>
+      <button
+        type="button"
+        class="kpi kpi-alerta"
+        [class.is-active]="alertaSeleccionada === 'por_vencer'"
+        (click)="filtrarAlerta('por_vencer')">
+        <span class="kpi-label">Por vencer</span>
+        <span class="kpi-value">{{ resumenEstado.por_vencer }}</span>
+        <span class="kpi-hint">{{ hintEstado('por_vencer') }}</span>
+      </button>
+      <button
+        type="button"
+        class="kpi kpi-ok"
+        [class.is-active]="alertaSeleccionada === 'en_tiempo'"
+        (click)="filtrarAlerta('en_tiempo')">
+        <span class="kpi-label">En tiempo</span>
+        <span class="kpi-value">{{ resumenEstado.en_tiempo }}</span>
+        <span class="kpi-hint">{{ hintEstado('en_tiempo') }}</span>
+      </button>
+    </div>
+
+    <div class="kpi-grid kpi-niveles" *ngIf="tablero && !isLoading">
+      <button
+        *ngFor="let nivel of niveles"
+        type="button"
+        class="kpi"
+        [class.is-active]="nivelSeleccionado === nivel.nivel"
+        [class.kpi-n1]="nivel.nivel === 1"
+        [class.kpi-n2]="nivel.nivel === 2"
+        [class.kpi-n3]="nivel.nivel === 3"
+        (click)="filtrarNivel(nivel.nivel)">
+        <span class="kpi-label">{{ nivel.nombre }}</span>
+        <span class="kpi-value">{{ nivel.total }}</span>
+        <span class="kpi-hint">{{ hintNivel(nivel) }}</span>
+      </button>
+    </div>
+
+    <div class="kpi-grid" *ngIf="isLoading && !tablero">
+      <p-skeleton *ngFor="let i of [1,2,3,4]" height="6.2rem" borderRadius="10px"></p-skeleton>
+    </div>
+
+    <div class="list-card">
+      <div class="list-card-header">
+        <div class="list-card-title">
+          <i class="pi pi-ticket me-2"></i>
+          Tickets
+          <span class="badge-count">{{ ticketsFiltrados.length }}</span>
+        </div>
+        <div class="filters">
+          <p-dropdown
+            [options]="opcionesGrupo"
+            [(ngModel)]="grupoSeleccionado"
+            placeholder="Todos los grupos"
+            [showClear]="true"
+            [filter]="true"
+            filterBy="label"
+            appendTo="body"
+            [style]="{ minWidth: '16rem' }">
+          </p-dropdown>
+          <p-dropdown
+            [options]="opcionesEntidad"
+            [(ngModel)]="entidadSeleccionada"
+            placeholder="Todas las entidades"
+            [showClear]="true"
+            [filter]="true"
+            filterBy="label"
+            appendTo="body"
+            [style]="{ minWidth: '16rem' }">
+          </p-dropdown>
+          <p-dropdown
+            [options]="opcionesAlerta"
+            [(ngModel)]="alertaSeleccionada"
+            placeholder="Todas las alertas"
+            [showClear]="true"
+            appendTo="body"
+            [style]="{ minWidth: '12rem' }">
+          </p-dropdown>
+          <div class="filter-search">
+            <i class="pi pi-search search-icon"></i>
+            <input
+              type="text"
+              [(ngModel)]="busqueda"
+              placeholder="Buscar ticket, técnico o grupo..."
+              class="search-input">
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container" *ngIf="!isLoading || tablero">
+        <p-table
+          [value]="ticketsFiltrados"
+          sortField="grupo_actual"
+          rowGroupMode="subheader"
+          groupRowsBy="grupo_actual"
+          [paginator]="true"
+          [rows]="40"
+          [rowsPerPageOptions]="[20, 40, 100]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} tickets"
+          [rowHover]="true"
+          styleClass="p-datatable-sm">
+          <ng-template pTemplate="header">
+            <tr>
+              <th style="width: 7rem">Ticket</th>
+              <th>Título</th>
+              <th>Entidad</th>
+              <th>Prioridad</th>
+              <th>ANS</th>
+              <th>Vence</th>
+              <th>Alerta</th>
+              <th>Técnico</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="groupheader" let-ticket>
+            <tr class="group-row">
+              <td colspan="8">
+                <div class="group-head">
+                  <span class="nivel-badge">N{{ ticket.nivel }}</span>
+                  <strong>{{ ticket.grupo_actual }}</strong>
+                  <span class="group-stats" *ngIf="resumenGrupo(ticket.grupo_actual) as g">
+                    {{ g.total }} casos
+                    · <span class="txt-vencido">{{ g.vencidos }} vencidos</span>
+                    · <span class="txt-alerta">{{ g.por_vencer }} por vencer</span>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-ticket>
+            <tr [class]="'row-' + ticket.alerta" (click)="abrirTicket(ticket)">
+              <td>
+                <span class="codigo-badge">#{{ ticket.id }}</span>
+              </td>
+              <td>
+                <div class="titulo-cell">{{ ticket.titulo }}</div>
+                <div class="meta-cell">{{ ticket.categoria }}</div>
+              </td>
+              <td>
+                <div class="titulo-cell">{{ ticket.entidad_corta }}</div>
+              </td>
+              <td>{{ ticket.prioridad }}</td>
+              <td>{{ ticket.ans }}</td>
+              <td>
+                <div class="titulo-cell">{{ ticket.tiempo_texto }}</div>
+                <div class="meta-cell" *ngIf="ticket.vence_ans">{{ ticket.vence_ans }}</div>
+              </td>
+              <td>
+                <p-tag
+                  [value]="etiquetaAlerta(ticket.alerta)"
+                  [severity]="severidadAlerta(ticket.alerta)">
+                </p-tag>
+              </td>
+              <td>{{ ticket.tecnico }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <i class="pi pi-inbox"></i>
+                  <p>No hay tickets con esos filtros.</p>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+  </div>
+</div>

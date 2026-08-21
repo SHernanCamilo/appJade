@@ -149,6 +149,17 @@
   cursor: not-allowed;
 }
 
+.btn-action-danger { background: #ef4444; color: white; }
+.btn-action-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+.btn-action-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-action-icon {
   width: 36px;
   height: 36px;
@@ -740,6 +751,12 @@
 
 .bandeja-bulk-btn {
   white-space: nowrap;
+}
+
+.bandeja-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .bandeja-paso-title {

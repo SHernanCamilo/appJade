@@ -90,6 +90,12 @@
             [value]="novedadesFiltradas"
             [columns]="solicitudColumns"
             [loading]="isLoading"
+            [lazy]="true"
+            [lazyLoadOnInit]="false"
+            [totalRecords]="solicitudTotal"
+            [rows]="solicitudPerPage"
+            [first]="solicitudFirst"
+            (onLazyLoad)="onSolicitudesLazyLoad($event)"
             [showCaption]="false"
             [showGlobalSearch]="false"
             styleClass="modern-table"
@@ -185,15 +191,24 @@
               <i class="pi me-2" [ngClass]="bandeja.icono"></i>{{ bandeja.titulo }}
               <span class="bandeja-paso-count" [ngClass]="'bandeja-paso-count--' + bandeja.estilo">{{ bandeja.items.length }}</span>
             </h3>
-            <button
-              *ngIf="cantidadSeleccionados(bandeja.paso) > 0"
-              type="button"
-              class="btn-action btn-action-primary bandeja-bulk-btn"
-              [disabled]="isProcesandoMasivo || isProcesando"
-              (click)="aprobarSeleccionados(bandeja.paso)">
-              <i class="pi" [ngClass]="isProcesandoMasivo ? 'pi-spin pi-spinner' : 'pi-check'"></i>
-              Aceptar seleccionados ({{ cantidadSeleccionados(bandeja.paso) }})
-            </button>
+            <div class="bandeja-bulk-actions" *ngIf="cantidadSeleccionados(bandeja.paso) > 0">
+              <button
+                type="button"
+                class="btn-action btn-action-primary bandeja-bulk-btn"
+                [disabled]="isProcesandoMasivo || isProcesando"
+                (click)="aprobarSeleccionados(bandeja.paso)">
+                <i class="pi" [ngClass]="isProcesandoMasivo ? 'pi-spin pi-spinner' : 'pi-check'"></i>
+                Aceptar seleccionados ({{ cantidadSeleccionados(bandeja.paso) }})
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-action-danger bandeja-bulk-btn"
+                [disabled]="isProcesandoMasivo || isProcesando"
+                (click)="abrirRechazoSeleccionados(bandeja.paso)">
+                <i class="pi pi-ban"></i>
+                Rechazar seleccionados ({{ cantidadSeleccionados(bandeja.paso) }})
+              </button>
+            </div>
           </div>
           <div class="modern-table-container">
             <app-data-table
@@ -280,9 +295,17 @@
     [maximizable]="true"
     [style]="{width: '900px', maxWidth: '95vw'}"
     styleClass="novedad-dialog"
-    [breakpoints]="{'960px': '90vw', '640px': '95vw'}">
+    [breakpoints]="{'960px': '90vw', '640px': '95vw'}"
+    (onHide)="cerrarFormulario()">
 
-    <div class="solicitud-form-container">
+    <div class="solicitud-form-container" *ngIf="isLoadingEdicion">
+      <p-skeleton height="2.5rem" styleClass="mb-3"></p-skeleton>
+      <p-skeleton height="8rem" styleClass="mb-3"></p-skeleton>
+      <p-skeleton height="8rem" styleClass="mb-3"></p-skeleton>
+      <p-skeleton height="6rem"></p-skeleton>
+    </div>
+
+    <div class="solicitud-form-container" *ngIf="!isLoadingEdicion">
 
       <!-- Empresa (solo visible si usuario es transversal/admin) -->
       <div class="form-section mb-3" *ngIf="esTransversal">
@@ -617,7 +640,7 @@
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-end gap-2">
         <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
-          (onClick)="showFormDialog = false">
+          (onClick)="cerrarFormulario()">
         </p-button>
         <p-button 
           [label]="submitLabel" 
@@ -625,7 +648,7 @@
           severity="success"
           (onClick)="onSubmit()" 
           [loading]="isSubmitting"
-          [disabled]="fechaInicialInvalida || sinNovedadesEmpresa || mensajesSolapamiento.length > 0">
+          [disabled]="isLoadingEdicion || fechaInicialInvalida || sinNovedadesEmpresa || mensajesSolapamiento.length > 0">
         </p-button>
       </div>
     </ng-template>
@@ -744,6 +767,8 @@
             optionValue="value"
             [filter]="true"
             filterPlaceholder="Buscar motivo..."
+            emptyMessage="No hay motivos de rechazo"
+            emptyFilterMessage="Sin coincidencias"
             [loading]="isLoadingMotivosRechazo"
             [showClear]="true"
             styleClass="w-100"
@@ -797,12 +822,20 @@
 
   <!-- Dialog Rechazar evento -->
   <p-dialog
-    header="Rechazar Evento"
+    [header]="rechazoMasivo ? 'Rechazar eventos seleccionados' : 'Rechazar Evento'"
     [(visible)]="showRechazoDialog"
     [modal]="true"
     [closable]="true"
-    [style]="{width: '480px', maxWidth: '95vw'}">
+    [style]="{width: '520px', maxWidth: '95vw'}">
     <div class="mb-2">
+      <p class="text-muted small mb-3" *ngIf="rechazoMasivo">
+        Se rechazarán <strong>{{ eventosARechazar.length }}</strong> evento(s):
+        {{ consecutivosRechazo }}.
+      </p>
+      <p class="text-muted small mb-3" *ngIf="!rechazoMasivo && rechazoTarget">
+        Evento <strong>{{ rechazoTarget.consecutivo }}</strong>
+      </p>
+
       <label class="form-label">Motivo del rechazo <span class="text-danger">*</span></label>
       <p-dropdown
         [options]="motivosRechazoOptions"
@@ -812,6 +845,8 @@
         optionValue="value"
         [filter]="true"
         filterPlaceholder="Buscar motivo..."
+        emptyMessage="No hay motivos de rechazo"
+        emptyFilterMessage="Sin coincidencias"
         [loading]="isLoadingMotivosRechazo"
         [showClear]="true"
         styleClass="w-100"
@@ -820,18 +855,22 @@
       </p-dropdown>
       <small class="text-danger d-block mt-1" *ngIf="!rechazoMotivoId">Debe seleccionar un motivo</small>
 
-      <label class="form-label mt-3">Comentario adicional</label>
+      <label class="form-label mt-3">Descripción / comentario</label>
       <textarea pInputText [(ngModel)]="rechazoComentario" rows="3"
-        placeholder="Opcional: agregue un comentario adicional"
+        placeholder="Opcional: agregue una descripción o comentario adicional"
         class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
       </textarea>
     </div>
     <ng-template pTemplate="footer">
       <div class="d-flex justify-content-end gap-2">
         <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true"
-          (onClick)="showRechazoDialog = false"></p-button>
-        <p-button label="Rechazar" icon="pi pi-ban" severity="danger"
-          (onClick)="confirmarRechazo()" [loading]="isProcesando"
+          (onClick)="cerrarDialogoRechazo()"></p-button>
+        <p-button
+          [label]="rechazoMasivo ? 'Rechazar seleccionados' : 'Rechazar'"
+          icon="pi pi-ban"
+          severity="danger"
+          (onClick)="confirmarRechazo()"
+          [loading]="isProcesando || isProcesandoMasivo"
           [disabled]="!rechazoMotivoId"></p-button>
       </div>
     </ng-template>

@@ -15,15 +15,9 @@ export const TALENTOHUMANO_ROUTES: Routes = [
       {
         path: 'dashboard',
         loadComponent: () => import('./eventos/dashboard/dashboard.component').then(m => m.DashboardEventosComponent),
-        //canActivate: [moduleGuard],
+        canActivate: [moduleGuard],
         data: {moduleCode: 'TALHUM-EVENT-DASHBOA' }
       },
-      /*
-      {
-        path: 'cargue',
-        loadComponent: () => import('./eventos/cargue/cargue.component')
-          .then(m => m.CargueEventosComponent)
-      },*/
       {
         path: 'parametros',
         loadComponent: () => import('./eventos/parametros/parametros.component').then(m => m.ParametrosEventosComponent),
