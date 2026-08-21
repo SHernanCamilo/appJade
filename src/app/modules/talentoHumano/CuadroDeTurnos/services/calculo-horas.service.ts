@@ -77,6 +77,7 @@ export interface CuadroMesEmpleado {
     extras_festivas_nocturnas: number;
     extras_manuales: number;
     total_extras: number;
+    registros: any[];
   };
 }
 

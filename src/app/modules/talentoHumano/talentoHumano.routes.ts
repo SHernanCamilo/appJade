@@ -32,48 +32,57 @@ export const TALENTOHUMANO_ROUTES: Routes = [
     path: 'turnos',
     children: [
 
-      //Modulo en proceso
+      //Modulo de reportes
       {
         path: 'dashboard',
         loadComponent: () => import('./CuadroDeTurnos/dashboard/dashboard.component')
           .then(m => m.DashboardCuadroDeTurnosComponent),
-        data: { title: 'Cuadro de Turnos - Dashboard' }
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TUR', title: 'Cuadro de Turnos - Reportes' }
       },
-      //modulo en proceso
+      //modulo de grilla
       {
         path: 'cuadro/:id/grilla',
         loadComponent: () => import('./CuadroDeTurnos/cuadro-grilla/cuadro-grilla.component')
           .then(m => m.CuadroGrillaComponent),
-        data: { title: 'Grilla de Turnos' }
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TUR_CUA', title: 'Grilla de Turnos' }
       },
       //modulo de cuadro de turno
       {
         path: 'cuadro-empleado',
         loadComponent: () => import('./CuadroDeTurnos/cuadro-mes-empleado/cuadro-mes-empleado.component')
           .then(m => m.CuadroMesEmpleadoComponent),
-        data: { title: 'Cuadro de Turno por Empleado' }
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TUR_CUA', title: 'Cuadro de Turno por Empleado' }
       },
       //modulo de plantillas
       {
         path: 'plantillas',
         loadComponent: () => import('./CuadroDeTurnos/plantillas/plantillas-list.component')
           .then(m => m.PlantillasListComponent),
-        data: { title: 'Plantillas de Turnos' }
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TUR_CFG', title: 'Plantillas de Turnos' }
       },
 
       //modulo temporal se estara eliminando
+
+      /*
       {
         path: 'unidades-funcionales',
         loadComponent: () => import('./CuadroDeTurnos/unidades-funcionales/unidades-funcionales-list.component')
           .then(m => m.UnidadesFuncionalesListComponent),
-        data: { title: 'Unidades Funcionales' }
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TUR_GRP', title: 'Unidades Funcionales' }
       },
-      //modulo de configuración unificado (jornada + recargos + cierre)
+      */
+      //modulo de configuración unificado (jornada + cierre + conceptos)
       {
         path: 'configuracion',
         loadComponent: () => import('./CuadroDeTurnos/configuracion-turnos/configuracion-turnos.component')
           .then(m => m.ConfiguracionTurnosComponent),
-        data: { title: 'Configuración de Turnos' }
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TUR_CFG', title: 'Configuración de Turnos' }
       },
       { path: 'parametrizacion', redirectTo: 'configuracion', pathMatch: 'full' },
       { path: 'cierre-cuadro', redirectTo: 'configuracion', pathMatch: 'full' }

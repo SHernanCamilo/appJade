@@ -22,6 +22,8 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 // Services
 import { PlantillaService, Plantilla } from '../services/plantilla.service';
 import { UserContextService } from '../../../../core/services/user-context.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
+import { PermissionService } from '../../../../core/services/permission.service';
 import { environment } from '../../../../environments/environment';
 
 interface EmpresaOption {
@@ -47,7 +49,8 @@ interface EmpresaOption {
     SkeletonModule,
     DropdownModule,
     InputMaskModule,
-    CalendarModule
+    CalendarModule,
+    HasPermissionDirective
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './plantillas-list.component.html',
@@ -79,6 +82,7 @@ export class PlantillasListComponent implements OnInit {
     private confirmationService: ConfirmationService,
     private plantillaService: PlantillaService,
     private userContextService: UserContextService,
+    public permissionService: PermissionService,
     private http: HttpClient
   ) {}
 
@@ -86,16 +90,22 @@ export class PlantillasListComponent implements OnInit {
     this.loadUserContext();
   }
 
+  // ── Permisos ──────────────────────────────────────────────
+  canCreate(): boolean { return this.permissionService.hasPermission('talhum-turnos-plantillas-crear'); }
+  canEdit(): boolean { return this.permissionService.hasPermission('talhum-turnos-plantillas-editar'); }
+  canDelete(): boolean { return this.permissionService.hasPermission('talhum-turnos-plantillas-eliminar'); }
+
   /**
-   * Usa el servicio cacheado de contexto de usuario.
+   * Carga empresas habilitadas para Cuadro de Turnos (filtrado por CUADRO_TURNOS_EMPRESAS en backend).
    */
   private loadUserContext(): void {
-    this.userContextService.getContext().subscribe({
-      next: (ctx) => {
-        this.isSuperAdmin = ctx.isSuperAdmin;
-        this.userEmpresas = ctx.empresas.map(e => ({ id: e.id, nombre: e.nombre }));
+    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/cuadro-turno-permisos/empresas`).subscribe({
+      next: (response) => {
+        const empresas = response.data || [];
+        this.userEmpresas = empresas.map((e: any) => ({ id: e.id, nombre: e.nombre }));
+        this.isSuperAdmin = this.userEmpresas.length > 1;
         this.empresasLoaded = true;
-        if (!this.isSuperAdmin && this.userEmpresas.length === 1) {
+        if (this.userEmpresas.length === 1) {
           this.selectedEmpresaFilter = this.userEmpresas[0].id;
         }
         this.loadPlantillas();

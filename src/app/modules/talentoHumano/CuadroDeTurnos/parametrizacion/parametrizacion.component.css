@@ -21,6 +21,12 @@
 .vigente-value { font-size: 0.95rem; font-weight: 700; color: #1f2937; }
 .vigente-obs { margin-top: 0.6rem; font-size: 0.75rem; color: #065f46; display: flex; align-items: center; gap: 0.3rem; }
 
+/* Acciones vigente */
+.vigente-acciones { display: flex; gap: 0.25rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #d1fae5; }
+.vigente-acciones :host ::ng-deep .p-button.p-button-text { color: #6366f1; }
+.vigente-acciones :host ::ng-deep .p-button.p-button-text.p-button-danger { color: #ef4444; }
+.vigente-acciones :host ::ng-deep .p-button.p-button-rounded { width: 2rem; height: 2rem; }
+
 /* Historial */
 .historial-section h4 { font-size: 0.82rem; color: #6b7280; margin: 0 0 0.5rem; font-weight: 600; }
 .historial-list { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -28,6 +34,8 @@
 .historial-item.vigente { background: #f0fdf4; border: 1px solid #bbf7d0; }
 .historial-periodo { font-weight: 600; color: #374151; min-width: 200px; }
 .historial-data { color: #6b7280; flex: 1; }
+.historial-acciones { display: flex; gap: 0.25rem; }
+.historial-acciones :host ::ng-deep .p-button.p-button-rounded { width: 1.75rem; height: 1.75rem; }
 .tag-vigente { background: #10b981; color: #fff; font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 3px; margin-left: 0.4rem; font-weight: 700; }
 
 /* Grid de recargos */
