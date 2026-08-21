@@ -1273,13 +1273,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     });
   }
 
-  /** Calcula el porcentaje de progreso de la jornada (total / max * 100) */
-  getProgresoJornada(): number {
-    if (!this.cuadro?.jornada_max?.horas_max_mes || !this.cuadro?.totales?.total) return 0;
-    const pct = (this.cuadro.totales.total / this.cuadro.jornada_max.horas_max_mes) * 100;
-    return Math.min(pct, 100);
-  }
-
   trackByFecha(_: number, d: DiaCalendario) { return d.fecha; }
 
   private toIsoDate(d: Date): string {
