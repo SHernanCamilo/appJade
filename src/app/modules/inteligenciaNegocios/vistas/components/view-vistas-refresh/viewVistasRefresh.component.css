@@ -1491,3 +1491,47 @@
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px;
   padding: 4px 6px; word-break: break-all;
 }
+
+/* ═══════ Panel filtro obligatorio (vistas >1M filas) ═══════ */
+
+.vr-mandatory-filter {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(2px);
+}
+.vr-mandatory-filter__card {
+  max-width: 460px; width: 100%; padding: 32px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.vr-mandatory-filter__icon {
+  font-size: 40px; color: #f59e0b; margin-bottom: 12px;
+}
+.vr-mandatory-filter__title {
+  margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #111827;
+}
+.vr-mandatory-filter__desc {
+  font-size: 13px; color: #4b5563; line-height: 1.5; margin: 0 0 20px;
+}
+.vr-mandatory-filter__desc strong { color: #111827; }
+.vr-mandatory-filter__desc small { color: #9ca3af; }
+
+.vr-mandatory-filter__form {
+  width: 100%; text-align: left; margin-bottom: 20px;
+  display: grid; grid-template-columns: 1fr; gap: 8px;
+}
+.vr-mandatory-filter__label {
+  font-size: 11.5px; font-weight: 600; color: #374151; margin-top: 4px;
+}
+.vr-mandatory-filter__label small { font-weight: 400; color: #9ca3af; }
+.vr-mandatory-filter__select,
+.vr-mandatory-filter__input {
+  padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 13px; width: 100%; transition: border-color .15s;
+}
+.vr-mandatory-filter__select:focus,
+.vr-mandatory-filter__input:focus {
+  outline: none; border-color: #217346; box-shadow: 0 0 0 2px rgba(33,115,70,.12);
+}

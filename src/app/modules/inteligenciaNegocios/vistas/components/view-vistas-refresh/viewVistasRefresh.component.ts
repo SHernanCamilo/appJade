@@ -1098,6 +1098,28 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   // -FLUJO PRINCIPAL: Actualizar -
+
+  /** Limite maximo de filas que se exportan de Fabric (protege RAM del navegador) */
+  private static readonly MAX_EXPORT_ROWS = 500_000;
+  /** Si la vista tiene mas de este numero de filas, obliga un filtro de fechas antes de cargar */
+  private static readonly REQUIRE_FILTER_THRESHOLD = 1_000_000;
+
+  /** Controla el panel que pide filtro obligatorio */
+  readonly requiresDateFilter = signal(false);
+  readonly estimatedRowCount  = signal(0);
+
+  /** Filtro de fechas obligatorio (cuando la vista tiene >1M filas) */
+  mandatoryDateFrom = '';
+  mandatoryDateTo   = '';
+  mandatoryDateCol  = '';
+
+  /** Columnas tipo fecha disponibles para el filtro obligatorio */
+  get dateColumnsForFilter(): Array<{ name: string; label: string }> {
+    return this.columns
+      .filter(c => /date|datetime|timestamp/i.test(c.type ?? ''))
+      .map(c => ({ name: c.name, label: humanizeColumnName(c.name) }));
+  }
+
   /** Punto de entrada - equivale a "Actualizar todo" o clic derecho -> Actualizar en Excel */
   startRefresh(): void {
     const p = this.progress();
@@ -1111,23 +1133,115 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     this.progress.set({
       status: 'queuing',
-      message: 'Iniciando conexion con Fabric...',
+      message: 'Estimando tamano de la vista...',
+      percent: 2,
+      rows: 0,
+      elapsed: 0,
+    });
+
+    // Primero: saber cuantas filas tiene la vista para decidir si pedimos filtro
+    this.http.post<{ success: boolean; count: number; strategy: string }>(
+      `${this.baseUrl}/estimate-rows`,
+      { schema_name: this.schema, view: this.viewName }
+    ).subscribe({
+      next: res => {
+        const count = res?.count ?? 0;
+        this.estimatedRowCount.set(count);
+        console.log(`[startRefresh] Vista ${this.viewName}: ~${count.toLocaleString()} filas`);
+
+        if (count > ViewVistasRefreshComponent.REQUIRE_FILTER_THRESHOLD) {
+          // Vista demasiado grande: pedir filtro de fechas obligatorio
+          this.progress.set({
+            status: 'idle',
+            message: `La vista tiene ~${count.toLocaleString()} registros. Aplique un filtro de fechas para cargar (max ${ViewVistasRefreshComponent.MAX_EXPORT_ROWS.toLocaleString()}).`,
+            percent: 0,
+            rows: 0,
+            elapsed: 0,
+          });
+          this.requiresDateFilter.set(true);
+
+          // Pre-seleccionar la primera columna de fecha si hay una
+          const dateCols = this.dateColumnsForFilter;
+          if (dateCols.length > 0 && !this.mandatoryDateCol) {
+            this.mandatoryDateCol = dateCols[0].name;
+          }
+          this.releaseLoadSlot();
+          return;
+        }
+
+        // Vista dentro del limite: cargar directamente
+        this.doExport(count > ViewVistasRefreshComponent.MAX_EXPORT_ROWS
+          ? ViewVistasRefreshComponent.MAX_EXPORT_ROWS
+          : 0, // 0 = sin limite explicito, el backend decide
+        {});
+      },
+      error: () => {
+        // Si falla la estimacion, cargar con el limite default (proteccion)
+        console.warn('[startRefresh] No se pudo estimar filas, cargando con limite');
+        this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {});
+      },
+    });
+  }
+
+  /**
+   * El usuario aplico el filtro obligatorio de fechas: ahora si lanzar el export.
+   */
+  applyMandatoryFilter(): void {
+    if (!this.mandatoryDateCol || !this.mandatoryDateFrom) {
+      alert('Seleccione una columna de fecha y al menos la fecha "Desde".');
+      return;
+    }
+
+    this.requiresDateFilter.set(false);
+    this.startTime = Date.now();
+    this.startElapsedTimer();
+
+    this.progress.set({
+      status: 'queuing',
+      message: 'Iniciando descarga con filtro de fechas...',
       percent: 3,
       rows: 0,
       elapsed: 0,
     });
 
-    // Encolar el export asincrono (usa R2/parquet si esta disponible)
-    // Usamos format:'xlsx' porque el backend lo maneja mejor que CSV
+    const filters: Record<string, unknown> = {};
+    filters[this.mandatoryDateCol] = {
+      type: 'dateRange',
+      from: this.mandatoryDateFrom,
+      to:   this.mandatoryDateTo || undefined,
+    };
+
+    // Agregar tambien como filtro dinamico para que se vea en la UI
+    const newFilter: DynamicFilter = {
+      col: this.mandatoryDateCol,
+      label: humanizeColumnName(this.mandatoryDateCol),
+      colType: 'date',
+      dateFrom: this.mandatoryDateFrom,
+      dateTo: this.mandatoryDateTo || undefined,
+    };
+    this.activeFilters.update(fs => [...fs, newFilter]);
+
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, filters);
+  }
+
+  /**
+   * Lanza el export asincrono a Fabric.
+   * @param maxRows Limite de filas (0 = sin limite)
+   * @param filters Filtros opcionales que el backend aplica en la query
+   */
+  private doExport(maxRows: number, filters: Record<string, unknown>): void {
+    this.progress.update(p => ({ ...p, status: 'queuing', message: 'Iniciando conexion con Fabric...', percent: 3 }));
+
+    const body: Record<string, unknown> = {
+      schema_name: this.schema,
+      view:        this.viewName,
+      format:      'xlsx',
+      filters,
+    };
+    if (maxRows > 0) body['max_rows'] = maxRows;
+
     this.http.post<{ success: boolean; job_id: string; message: string }>(
-      `${this.baseUrl}/export/start`,
-      {
-        schema_name: this.schema,
-        view:        this.viewName,
-        format:      'xlsx',
-        max_rows:    20000,
-        filters:     {},
-      }
+      `${this.baseUrl}/export/start`, body
     ).subscribe({
       next: res => {
         if (!res.success || !res.job_id) {

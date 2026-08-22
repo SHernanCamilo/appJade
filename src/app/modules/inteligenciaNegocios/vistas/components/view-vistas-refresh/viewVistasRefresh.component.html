@@ -39,6 +39,39 @@
         </button>
       </div>
 
+      <!-- Panel: Filtro obligatorio para vistas grandes (>1M filas) -->
+      <div *ngIf="requiresDateFilter()" class="vr-mandatory-filter">
+        <div class="vr-mandatory-filter__card">
+          <i class="pi pi-exclamation-circle vr-mandatory-filter__icon"></i>
+          <h3 class="vr-mandatory-filter__title">Vista muy grande</h3>
+          <p class="vr-mandatory-filter__desc">
+            <strong>{{ vista?.nombre || viewName }}</strong> tiene aproximadamente
+            <strong>{{ estimatedRowCount() | number:'1.0-0' }}</strong> registros.
+            Para proteger el rendimiento del navegador, debe aplicar un filtro de fechas antes de cargar.
+            <br><small>Maximo: 500.000 registros por carga.</small>
+          </p>
+
+          <div class="vr-mandatory-filter__form">
+            <label class="vr-mandatory-filter__label">Columna de fecha</label>
+            <select class="vr-mandatory-filter__select" [(ngModel)]="mandatoryDateCol">
+              <option value="">-- Seleccione --</option>
+              <option *ngFor="let c of dateColumnsForFilter" [value]="c.name">{{ c.label }}</option>
+            </select>
+
+            <label class="vr-mandatory-filter__label">Desde</label>
+            <input type="date" class="vr-mandatory-filter__input" [(ngModel)]="mandatoryDateFrom" />
+
+            <label class="vr-mandatory-filter__label">Hasta <small>(opcional)</small></label>
+            <input type="date" class="vr-mandatory-filter__input" [(ngModel)]="mandatoryDateTo" />
+          </div>
+
+          <button class="vr-btn vr-btn--green" (click)="applyMandatoryFilter()" [disabled]="!mandatoryDateCol || !mandatoryDateFrom">
+            <i class="pi pi-filter"></i>
+            Aplicar filtro y cargar datos
+          </button>
+        </div>
+      </div>
+
       <!-- Error -->
       <div *ngIf="progress().status === 'error'" class="vr-error-panel">
         <i class="pi pi-exclamation-triangle vr-error-panel__icon"></i>
