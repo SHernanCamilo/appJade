@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 
@@ -103,7 +103,7 @@ export interface MotivoRechazoOption {
   id: number;
   codigo: number;
   descriocion: string;
-  id_modulo: number;
+  id_modulo?: number;
 }
 
 export function formatMotivoRechazoLabel(motivo: Pick<MotivoRechazoOption, 'codigo' | 'descriocion'>): string {
@@ -166,84 +166,32 @@ export class EventSolicitudService {
   }
 
   getNovedadesCatalogo(empresaId?: number | null): Observable<any[]> {
-    // Si no hay empresa, devolver array vacío
     if (!empresaId) {
-      console.log('=== SERVICIO - Sin empresa ID, devolviendo array vacío ===');
-      return new Observable(observer => {
-        observer.next([]);
-        observer.complete();
-      });
+      return of([]);
     }
-    
-    // Usar el endpoint correcto para novedades por empresa
-    let params = new HttpParams();
-    params = params.set('empresa_id', empresaId.toString());
-    
+
+    const params = new HttpParams().set('empresa_id', empresaId.toString());
     const url = `${environment.URL_SERVICIOS}/talento-humano/eventos/novedad-cargo`;
-    
-    console.log('=== SERVICIO - Llamando API de novedad-cargo ===');
-    console.log('URL:', url);
-    console.log('Parámetros:', params.toString());
-    console.log('Empresa ID:', empresaId);
-    
+
     return this.http.get<{ success: boolean; data: any[] }>(url, { params }).pipe(
       map(r => {
-        console.log('=== SERVICIO - Respuesta RAW del API ===');
-        console.log('URL usada:', url);
-        console.log('Respuesta completa:', r);
-        console.log('Success:', r.success);
-        console.log('Data:', r.data);
-        console.log('Empresa ID:', empresaId);
-        console.log('Total registros:', r.data?.length || 0);
-        
-        if (!r.success) {
-          console.warn('API devolvió success: false');
+        if (!r.success || !r.data?.length) {
           return [];
         }
-        
-        if (!r.data || r.data.length === 0) {
-          console.log('No hay novedades para esta empresa');
-          return [];
-        }
-        
-        console.log('Primeros 3 registros RAW:', r.data.slice(0, 3));
-        
-        const mapped = r.data.map((item: any) => {
-          // El endpoint novedad-cargo puede tener estructura diferente
-          // Puede tener campos como: novedad_id, novedad, cubre, etc.
-          console.log('Estructura del item:', item);
-          
-          // Extraer información de la novedad
+
+        return r.data.map((item: any) => {
           const novedad = item.novedad || item;
           const novedadId = item.novedad_id || novedad.id || item.id;
           const codigo = novedad.codigo || item.codigo;
           const descripcion = novedad.descripcion || item.descripcion;
           const cubreValue = item.cubre !== undefined ? item.cubre : (novedad.cubre || false);
-          const cubreBoolean = !!cubreValue;
-          
-          if (novedadId === 5) {
-            console.log(`=== NOVEDAD ID 5 ENCONTRADA ===`, {
-              itemCompleto: item,
-              novedadId,
-              codigo,
-              descripcion,
-              cubreOriginal: cubreValue,
-              tipoOriginal: typeof cubreValue,
-              cubreConvertido: cubreBoolean
-            });
-          }
-          
+
           return {
             label: `${codigo} - ${descripcion}`,
             value: novedadId,
-            cubre: cubreBoolean
+            cubre: !!cubreValue
           };
         });
-        
-        console.log('Servicio - Novedades mapeadas:', mapped);
-        console.log('Servicio - Novedad id:5 mapeada:', mapped.find((m: any) => m.value === 5));
-        
-        return mapped;
       })
     );
   }
@@ -299,12 +247,43 @@ export class EventSolicitudService {
     ).pipe(map(r => r.data));
   }
 
-  getSolicitudes(estado?: string): Observable<{ success: boolean; data: EventSolicitud[] }> {
-    let params = new HttpParams();
-    if (estado) params = params.set('estado', estado);
-    return this.http.get<{ success: boolean; data: EventSolicitud[] }>(
+  getSolicitudes(filtros: {
+    estado?: string | number | null;
+    search?: string;
+    page?: number;
+    per_page?: number;
+  } = {}): Observable<{ success: boolean; data: EventSolicitud[]; total: number; current_page: number; per_page: number }> {
+    let params = new HttpParams()
+      .set('page', String(filtros.page ?? 1))
+      .set('per_page', String(filtros.per_page ?? 10));
+    if (filtros.estado != null && filtros.estado !== '') {
+      params = params.set('estado', String(filtros.estado));
+    }
+    if (filtros.search?.trim()) {
+      params = params.set('search', filtros.search.trim());
+    }
+    return this.http.get<{ success: boolean; data: EventSolicitud[]; total: number; current_page: number; per_page: number }>(
       `${this.base}/solicitudes`, { params }
     );
+  }
+
+  verificarSolapamiento(params: {
+    empleado_id: number;
+    fecha_inicial: string;
+    fecha_final: string;
+    excluir_id?: number;
+  }): Observable<EventSolicitud | null> {
+    let httpParams = new HttpParams()
+      .set('empleado_id', String(params.empleado_id))
+      .set('fecha_inicial', params.fecha_inicial)
+      .set('fecha_final', params.fecha_final);
+    if (params.excluir_id) {
+      httpParams = httpParams.set('excluir_id', String(params.excluir_id));
+    }
+
+    return this.http.get<{ success: boolean; data: EventSolicitud | null }>(
+      `${this.base}/solicitudes/solapamiento`, { params: httpParams }
+    ).pipe(map(r => r.data ?? null));
   }
 
   /** Eventos pendientes de acción para el usuario autenticado (bandeja). */

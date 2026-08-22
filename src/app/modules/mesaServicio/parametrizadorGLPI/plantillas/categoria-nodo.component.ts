@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Injectable, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -10,16 +10,8 @@ import {
   GlpiAnsOpcion,
   GlpiPrioridad
 } from '../interfaces/glpi-plantilla.interface';
-
-@Injectable()
-export class GlpiCategoriaBusqueda {
-  texto = '';
-}
-
-@Injectable()
-export class GlpiCategoriaAnsOpciones {
-  opciones: GlpiAnsOpcion[] = [];
-}
+import { GlpiCategoriaAnsOpciones, GlpiCategoriaBusqueda } from './glpi-categoria.state';
+import { GlpiCategoriaNodoHijasComponent } from './categoria-nodo-hijas.component';
 
 @Component({
   selector: 'app-glpi-categoria-nodo',
@@ -31,7 +23,7 @@ export class GlpiCategoriaAnsOpciones {
     InputTextModule,
     DropdownModule,
     TooltipModule,
-    GlpiCategoriaNodoComponent
+    GlpiCategoriaNodoHijasComponent
   ],
   templateUrl: './categoria-nodo.component.html',
   styleUrl: './categoria-nodo.component.css'

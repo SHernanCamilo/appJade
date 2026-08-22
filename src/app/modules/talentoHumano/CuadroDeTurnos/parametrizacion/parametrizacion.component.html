@@ -55,6 +55,12 @@
       <div *ngIf="parametroVigente.observacion" class="vigente-obs">
         <i class="pi pi-info-circle"></i> {{ parametroVigente.observacion }}
       </div>
+      <div class="vigente-acciones">
+        <button pButton icon="pi pi-pencil" class="p-button-rounded p-button-text p-button-sm" 
+                pTooltip="Editar" tooltipPosition="top" (click)="abrirJornadaDialog(parametroVigente)"></button>
+        <button pButton icon="pi pi-trash" class="p-button-rounded p-button-text p-button-danger p-button-sm" 
+                pTooltip="Eliminar" tooltipPosition="top" (click)="eliminarJornada(parametroVigente)"></button>
+      </div>
     </div>
 
     <!-- Historial -->
@@ -71,92 +77,16 @@
           <div class="historial-data">
             {{ p.horas_max_semana }}h/sem | {{ p.jornada_nocturna_inicio }}-{{ p.jornada_nocturna_fin }}
           </div>
-          <button class="btn-edit-sm" (click)="abrirJornadaDialog(p)" pTooltip="Editar">
-            <i class="pi pi-pencil"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════ SECCIÓN: TIPOS DE RECARGO ═══════════ -->
-  <div class="section-card">
-    <div class="section-header">
-      <div class="section-title">
-        <i class="pi pi-percentage"></i>
-        <span>Tipos de Recargo</span>
-      </div>
-      <button pButton type="button" label="Nuevo recargo" icon="pi pi-plus"
-        class="p-button-sm p-button-outlined" (click)="abrirRecargoDialog()"></button>
-    </div>
-
-    <div class="recargos-grid">
-      <div *ngFor="let tipo of tiposRecargo" class="recargo-card" [class.inactivo]="!tipo.activo">
-        <div class="recargo-header">
-          <span class="recargo-codigo">{{ tipo.codigo }}</span>
-          <span class="recargo-porcentaje">{{ tipo.porcentaje }}%</span>
-        </div>
-        <div class="recargo-nombre">{{ tipo.nombre }}</div>
-        <div class="recargo-tags">
-          <span *ngIf="tipo.es_hora_extra" class="tag tag-extra">Extra</span>
-          <span *ngIf="tipo.aplica_dominical_festivo" class="tag tag-festivo">Dom/Fest</span>
-          <span *ngIf="tipo.hora_inicio" class="tag tag-horario">{{ tipo.hora_inicio!.substring(0,5) }}-{{ tipo.hora_fin!.substring(0,5) }}</span>
-        </div>
-        <div class="recargo-acciones">
-          <button class="btn-edit-sm" (click)="abrirRecargoDialog(tipo)"><i class="pi pi-pencil"></i></button>
-          <button *ngIf="tipo.activo" class="btn-del-sm" (click)="desactivarRecargo(tipo)"><i class="pi pi-ban"></i></button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════ DIALOG: TIPO RECARGO ═══════════ -->
-  <p-dialog [(visible)]="showRecargoDialog" [modal]="true" [style]="{width: '480px'}"
-            [header]="editandoRecargo ? 'Editar Recargo' : 'Nuevo Recargo'">
-    <div class="form-grid">
-      <div class="form-row">
-        <div class="form-field">
-          <label>Código *</label>
-          <input type="text" [(ngModel)]="recargoForm.codigo" placeholder="Ej: RN" maxlength="10"
-                 style="text-transform:uppercase" class="form-input">
-        </div>
-        <div class="form-field">
-          <label>Porcentaje *</label>
-          <div class="input-with-suffix">
-            <input type="number" [(ngModel)]="recargoForm.porcentaje" min="0" max="500" class="form-input">
-            <span class="input-suffix">%</span>
+          <div class="historial-acciones">
+            <button pButton icon="pi pi-pencil" class="p-button-rounded p-button-text p-button-sm" 
+                    pTooltip="Editar" tooltipPosition="top" (click)="abrirJornadaDialog(p)"></button>
+            <button pButton icon="pi pi-trash" class="p-button-rounded p-button-text p-button-danger p-button-sm" 
+                    pTooltip="Eliminar" tooltipPosition="top" (click)="eliminarJornada(p)"></button>
           </div>
         </div>
       </div>
-      <div class="form-field">
-        <label>Nombre *</label>
-        <input type="text" [(ngModel)]="recargoForm.nombre" placeholder="Ej: Recargo Nocturno" class="form-input">
-      </div>
-      <div class="form-row">
-        <div class="form-field">
-          <label>Hora inicio</label>
-          <input type="time" [(ngModel)]="recargoForm.hora_inicio" class="form-input">
-        </div>
-        <div class="form-field">
-          <label>Hora fin</label>
-          <input type="time" [(ngModel)]="recargoForm.hora_fin" class="form-input">
-        </div>
-      </div>
-      <div class="form-checks">
-        <label class="check-label">
-          <input type="checkbox" [(ngModel)]="recargoForm.es_hora_extra"> Es hora extra
-        </label>
-        <label class="check-label">
-          <input type="checkbox" [(ngModel)]="recargoForm.aplica_dominical_festivo"> Aplica dominical/festivo
-        </label>
-      </div>
     </div>
-    <ng-template pTemplate="footer">
-      <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showRecargoDialog=false"></button>
-      <button pButton [label]="editandoRecargo ? 'Actualizar' : 'Crear'" icon="pi pi-check"
-              [loading]="isSaving" (click)="guardarRecargo()"></button>
-    </ng-template>
-  </p-dialog>
+  </div>
 
   <!-- ═══════════ DIALOG: PARÁMETRO JORNADA ═══════════ -->
   <p-dialog [(visible)]="showJornadaDialog" [modal]="true" [style]="{width: '550px'}"

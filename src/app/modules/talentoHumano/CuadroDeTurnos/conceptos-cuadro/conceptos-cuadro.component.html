@@ -1,0 +1,137 @@
+<div class="conceptos-container">
+
+  <!-- Header -->
+  <div class="conceptos-header">
+    <div class="header-left">
+      <i class="pi pi-list"></i>
+      <h3>Conceptos de Cuadro</h3>
+    </div>
+    <button pButton label="Nuevo concepto" icon="pi pi-plus" class="p-button-outlined p-button-success" (click)="abrirCrear()"></button>
+  </div>
+
+  <!-- Lista de conceptos como cards -->
+  <div class="conceptos-grid" *ngIf="!loading && conceptos.length > 0">
+    <div class="concepto-card" *ngFor="let concepto of conceptos" [class.inactivo]="!concepto.activo">
+      <div class="card-top">
+        <p-tag [value]="concepto.codigo" severity="info"></p-tag>
+        <p-tag [value]="concepto.tipo_concepto === 'devengado' ? 'Devengado' : 'Deducido'"
+               [severity]="concepto.tipo_concepto === 'devengado' ? 'success' : 'warn'">
+        </p-tag>
+      </div>
+      <div class="card-nombre">{{ concepto.nombre }}</div>
+      <div class="card-formula">
+        <code>{{ concepto.formula }}</code>
+      </div>
+      <div class="card-actions">
+        <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" pTooltip="Editar" (click)="abrirEditar(concepto)"></button>
+        <button pButton icon="pi pi-ban" class="p-button-text p-button-danger p-button-sm" pTooltip="Eliminar" (click)="eliminar(concepto)"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && conceptos.length === 0">
+    <i class="pi pi-inbox"></i>
+    <p>No hay conceptos configurados</p>
+    <small>Cree el primer concepto para definir cómo se calculan los valores del cuadro de turnos</small>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="loading">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Cargando conceptos...</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- Modal crear/editar concepto -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<p-dialog
+  [header]="editMode ? 'Editar Concepto' : 'Nuevo Concepto'"
+  [(visible)]="showModal"
+  [modal]="true"
+  [style]="{ width: '750px', maxWidth: '95vw' }"
+  [breakpoints]="{ '768px': '95vw' }"
+  styleClass="concepto-dialog">
+
+  <div class="modal-layout">
+
+    <!-- Panel izquierdo: datos del concepto -->
+    <div class="modal-panel-left">
+      <div class="field">
+        <label>Código *</label>
+        <input pInputText [(ngModel)]="conceptoForm.codigo" placeholder="Ej: HED" maxlength="10" class="w-full">
+      </div>
+
+      <div class="field">
+        <label>Nombre *</label>
+        <input pInputText [(ngModel)]="conceptoForm.nombre" placeholder="Ej: Hora Extra Diurna" maxlength="100" class="w-full">
+      </div>
+
+      <div class="field">
+        <label>Tipo *</label>
+        <p-dropdown
+          [(ngModel)]="conceptoForm.tipo_concepto"
+          [options]="tiposConcepto"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleccionar"
+          styleClass="w-full">
+        </p-dropdown>
+      </div>
+
+      <div class="field field-switch">
+        <label>Activo</label>
+        <p-inputSwitch [(ngModel)]="conceptoForm.activo"></p-inputSwitch>
+      </div>
+    </div>
+
+    <!-- Panel derecho: fórmula -->
+    <div class="modal-panel-right">
+      <div class="field">
+        <label>Fórmula *</label>
+        <textarea pInputTextarea [(ngModel)]="conceptoForm.formula" [rows]="4" placeholder="Ej: [Horas Extra Diurnas] * [Valor Hora] * 1.25" class="w-full formula-textarea"></textarea>
+      </div>
+
+      <!-- Variables disponibles -->
+      <div class="variables-section">
+        <label>Variables disponibles <small>(clic para insertar)</small></label>
+        <div class="variables-chips">
+          <p-chip *ngFor="let v of variablesDisponibles"
+                  [label]="v"
+                  styleClass="variable-chip"
+                  (click)="insertarVariable(v)">
+          </p-chip>
+        </div>
+      </div>
+
+      <!-- Probar fórmula -->
+      <div class="probar-section">
+        <button pButton label="Probar fórmula" icon="pi pi-play" class="p-button-outlined p-button-sm" (click)="toggleProbar()" [disabled]="!conceptoForm.formula.trim()"></button>
+
+        <div class="probar-panel" *ngIf="showProbarPanel">
+          <div class="probar-variables">
+            <div class="probar-field" *ngFor="let key of getVariablesPruebaKeys()">
+              <label>{{ key }}</label>
+              <input pInputText type="number" [(ngModel)]="variablesPrueba[key]" class="w-full">
+            </div>
+          </div>
+
+          <button pButton label="Ejecutar" icon="pi pi-check" class="p-button-sm p-button-success mt-2" (click)="probarFormula()" [loading]="probando"></button>
+
+          <!-- Resultado -->
+          <div class="probar-resultado" *ngIf="resultadoPrueba">
+            <p-message *ngIf="resultadoPrueba.success" severity="success" [text]="'Resultado: ' + resultadoPrueba.resultado"></p-message>
+            <p-message *ngIf="!resultadoPrueba.success" severity="error" [text]="'Error: ' + resultadoPrueba.error"></p-message>
+            <small class="formula-resuelta" *ngIf="resultadoPrueba.success">{{ resultadoPrueba.formula_resuelta }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showModal = false"></button>
+    <button pButton label="Guardar" icon="pi pi-save" (click)="guardar()" [disabled]="!formValido"></button>
+  </ng-template>
+</p-dialog>

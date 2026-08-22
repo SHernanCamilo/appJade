@@ -99,54 +99,22 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
   }
 
   /**
-   * Cargar empresas — misma lógica que cuadro-mes-empleado
-   * Super admin/transversal: trae todas con /empresas-activas
-   * Usuario normal: trae las suyas con /contexto/empresas-disponibles
+   * Cargar empresas habilitadas para Cuadro de Turnos (filtrado por CUADRO_TURNOS_EMPRESAS en backend).
    */
   loadEmpresas(): void {
     this.isLoadingEmpresas = true;
 
-    // 1. Primero obtener unidades del usuario para saber su rol
-    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/unidades-funcionales/del-usuario`).subscribe({
+    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/cuadro-turno-permisos/empresas`).subscribe({
       next: (response) => {
-        const accessLevel = response.access_level;
-        const esTransversal = (accessLevel === 'super_admin' || accessLevel === 'transversal');
-
-        if (esTransversal) {
-          // Super admin: traer TODAS las empresas activas
-          this.http.get<any>(`${environment.URL_SERVICIOS}/empresas-activas`).subscribe({
-            next: (r) => {
-              this.empresas = r.data || [];
-              this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
-              this.isLoadingEmpresas = false;
-              if (this.empresas.length === 1) {
-                this.selectedEmpresa = this.empresas[0].id;
-                this.onEmpresaChange();
-              }
-            },
-            error: () => { this.isLoadingEmpresas = false; }
-          });
-        } else {
-          // Usuario normal: traer sus empresas asignadas
-          this.http.get<any>(`${environment.URL_SERVICIOS}/contexto/empresas-disponibles`).subscribe({
-            next: (empResponse) => {
-              const empresasUsuario = empResponse.data || empResponse || [];
-              this.empresas = Array.isArray(empresasUsuario) ? empresasUsuario : [];
-              this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
-              this.isLoadingEmpresas = false;
-              if (this.empresas.length === 1) {
-                this.selectedEmpresa = this.empresas[0].id;
-                this.onEmpresaChange();
-              }
-            },
-            error: () => { this.isLoadingEmpresas = false; }
-          });
+        this.empresas = response.data || [];
+        this.empresasOptions = this.empresas.map((e: any) => ({ label: e.nombre, value: e.id }));
+        this.isLoadingEmpresas = false;
+        if (this.empresas.length === 1) {
+          this.selectedEmpresa = this.empresas[0].id;
+          this.onEmpresaChange();
         }
       },
-      error: () => {
-        this.isLoadingEmpresas = false;
-        this.messageService.add({ severity: 'warn', summary: 'Advertencia', detail: 'No se pudieron cargar los datos iniciales' });
-      }
+      error: () => { this.isLoadingEmpresas = false; }
     });
   }
 
@@ -329,6 +297,10 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
         const emp = this.empleados.find(e => e.id === idEmpleado) || data.empleado;
         const nombre = emp?.nombre || 'Empleado';
         this.reportData = this.construirGrillaReporte([{ id: idEmpleado, nombre, turnos: data.turnos }], anio, mes);
+        // Guardar datos extras para la exportación
+        this.reportData.totales = data.totales;
+        this.reportData.horas_extras = data.horas_extras;
+        this.reportData.empleado = { id: idEmpleado, nombre };
       },
       error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el reporte' })
     });
@@ -430,26 +402,73 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Reporte Turnos');
 
-      // Header
-      const headerRow = ['Empleado', ...this.reportData.dias.map((d: any) => d.numero), 'Total'];
+      const empleado = this.reportData.empleado?.nombre || 'Empleado';
+      const periodo = this.reportData.periodo || '';
+
+      // ── Título ──
+      ws.addRow([`Reporte de Turnos - ${empleado}`]);
+      ws.addRow([`Periodo: ${periodo}`]);
+      ws.addRow([]);
+
+      // ── Grilla de turnos ──
+      const headerRow = ['Empleado', ...this.reportData.dias.map((d: any) => `${d.numero} ${d.letra}`), 'Total'];
       ws.addRow(headerRow);
 
-      // Data
       this.reportData.filas.forEach((fila: any) => {
         const row = [fila.nombre, ...fila.celdas.map((c: any) => c.esDescanso ? 'D' : c.codigo || ''), fila.totalHoras];
         ws.addRow(row);
       });
 
-      // Estilo header
-      ws.getRow(1).font = { bold: true };
+      ws.addRow([]);
+
+      // ── Totales de horas ──
+      if (this.reportData.totales) {
+        const t = this.reportData.totales;
+        ws.addRow(['RESUMEN DE HORAS']);
+        ws.addRow(['Horas Normales', `${t.normales} h`]);
+        ws.addRow(['Horas Nocturnas', `${t.nocturnas} h`]);
+        ws.addRow(['Horas Festivas', `${t.festivas} h`]);
+        ws.addRow(['Horas Festivas Nocturnas', `${t.festivas_nocturnas} h`]);
+        ws.addRow(['TOTAL', `${t.total} h`]);
+        ws.addRow([]);
+      }
+
+      // ── Detalle de Horas Extras ──
+      if (this.reportData.horas_extras && this.reportData.horas_extras.total_extras > 0) {
+        const he = this.reportData.horas_extras;
+        ws.addRow(['HORAS EXTRAS']);
+        ws.addRow(['Total Extras', `${he.total_extras} h`]);
+        ws.addRow(['Extras Diurnas (HED 25%)', `${he.extras_diurnas} h`]);
+        ws.addRow(['Extras Nocturnas (HEN 75%)', `${he.extras_nocturnas} h`]);
+        ws.addRow([]);
+
+        // Detalle por día
+        if (he.registros && he.registros.length > 0) {
+          ws.addRow(['DETALLE HORAS EXTRAS POR DIA']);
+          ws.addRow(['Fecha', 'Hora Inicio', 'Hora Fin', 'Tipo', 'Motivo']);
+          he.registros.forEach((r: any) => {
+            ws.addRow([r.fecha, r.hora_inicio, r.hora_fin, r.tipo || 'hora_extra', r.motivo || '']);
+          });
+        }
+      }
+
+      // ── Estilos ──
+      ws.getRow(1).font = { bold: true, size: 14 };
+      ws.getRow(2).font = { italic: true, size: 11 };
+      ws.getRow(4).font = { bold: true };
       ws.getColumn(1).width = 30;
+
+      // Ajustar ancho columnas de días
+      for (let i = 2; i <= this.reportData.dias.length + 1; i++) {
+        ws.getColumn(i).width = 6;
+      }
 
       wb.xlsx.writeBuffer().then(buffer => {
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Reporte_Turnos_${this.reportData.periodo.replace(' ', '_')}.xlsx`;
+        a.download = `Reporte_Turnos_${empleado.replace(/\s+/g, '_')}_${periodo.replace(/\s+/g, '_')}.xlsx`;
         a.click();
         window.URL.revokeObjectURL(url);
       });

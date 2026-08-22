@@ -160,6 +160,17 @@ export class ParametrizacionComponent implements OnInit {
     });
   }
 
+  eliminarJornada(param: ParametroJornada): void {
+    if (!confirm(`¿Eliminar el parámetro de jornada vigente desde ${param.vigente_desde}?`)) return;
+    this.service.eliminarParametroJornada(param.id!).subscribe({
+      next: () => {
+        this.toast('success', 'Parámetro eliminado');
+        this.cargarParametrosJornada();
+      },
+      error: () => this.toast('error', 'Error al eliminar')
+    });
+  }
+
   emptyJornadaForm(): any {
     return {
       horas_max_dia: 8, horas_max_semana: 42, horas_max_mes: null,

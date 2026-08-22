@@ -52,13 +52,11 @@
   </div>
 
   <div class="nodo-hijas" formArrayName="hijas" *ngIf="hijas.length > 0 && estaExpandido">
-    <app-glpi-categoria-nodo
-      *ngFor="let hija of hijas.controls; let j = index"
-      [nodo]="$any(hija)"
+    <app-glpi-categoria-nodo-hijas
+      [hijas]="hijas"
       [nivel]="nivel + 1"
-      [indice]="j + 1"
       [submitted]="submitted"
-      (eliminar)="quitarHija(j)">
-    </app-glpi-categoria-nodo>
+      (quitar)="quitarHija($event)">
+    </app-glpi-categoria-nodo-hijas>
   </div>
 </div>

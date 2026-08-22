@@ -1,0 +1,202 @@
+.conceptos-container {
+  padding: 1.5rem;
+}
+
+.conceptos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-left i {
+  font-size: 1.25rem;
+  color: var(--primary-color, #10b981);
+}
+
+.header-left h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Grid de cards */
+.conceptos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.concepto-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 1rem;
+  transition: box-shadow 0.2s;
+}
+
+.concepto-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.concepto-card.inactivo {
+  opacity: 0.5;
+}
+
+.card-top {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-nombre {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-formula {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  overflow-x: auto;
+}
+
+.card-formula code {
+  font-size: 0.8rem;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* Empty & loading states */
+.empty-state, .loading-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #9ca3af;
+}
+
+.empty-state i, .loading-state i {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+/* Modal layout */
+.modal-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .modal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modal-panel-left, .modal-panel-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: #374151;
+}
+
+.field-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.field-switch label {
+  margin-bottom: 0;
+}
+
+.formula-textarea {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.85rem;
+}
+
+/* Variables chips */
+.variables-section label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #6b7280;
+}
+
+.variables-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+:host ::ng-deep .variable-chip {
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background 0.2s;
+}
+
+:host ::ng-deep .variable-chip:hover {
+  background: #d1fae5 !important;
+}
+
+/* Probar fórmula */
+.probar-section {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+.probar-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.probar-variables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.probar-field label {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.probar-field input {
+  font-size: 0.85rem;
+}
+
+.probar-resultado {
+  margin-top: 0.75rem;
+}
+
+.formula-resuelta {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #6b7280;
+}

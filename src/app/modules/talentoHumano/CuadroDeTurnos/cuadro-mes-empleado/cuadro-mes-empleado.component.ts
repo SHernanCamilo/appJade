@@ -24,6 +24,7 @@ import { FrecuenciaService, PrevisualizarResponse } from '../services/frecuencia
 import { CargaMasivaService, ImportResult } from '../services/carga-masiva.service';
 import { CierreCuadroService } from '../services/cierre-cuadro.service';
 import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 import { environment } from '../../../../environments/environment';
 
 interface Empleado {
@@ -50,7 +51,8 @@ interface DiaCalendario {
   imports: [
     CommonModule, FormsModule, RouterModule,
     ButtonModule, DropdownModule, DialogModule, InputTextModule,
-    CheckboxModule, ToastModule, TooltipModule, TagModule, SkeletonModule, OverlayPanelModule, CalendarModule
+    CheckboxModule, ToastModule, TooltipModule, TagModule, SkeletonModule, OverlayPanelModule, CalendarModule,
+    HasPermissionDirective
   ],
   providers: [MessageService],
   templateUrl: './cuadro-mes-empleado.component.html',
@@ -165,7 +167,7 @@ export class CuadroMesEmpleadoComponent implements OnInit {
 
     this.cargarEmpresas();
     this.cargarPlantillas();
-    this.construirCalendario();
+    this.cargarFestivosYConstruirCalendario();
   }
 
   // ───── Control de acceso ─────
@@ -208,6 +210,7 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     this.diaSeleccionado = null;
     this.idCuadroActual = null;
     this.construirCalendario();
+    this.cargarFestivosYConstruirCalendario();
     this.asegurarCuadroUnidad();
     this.cargarEmpleadosUnidad();
   }
@@ -491,6 +494,10 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   // ═══════════════════════════════════════════════════════════
 
   cargarFestivosYConstruirCalendario(): void {
+    // Construir calendario inmediatamente (sin festivos)
+    this.construirCalendario();
+    
+    // Cargar festivos en background y re-renderizar
     this.calculoService.getFestivos(this.selectedAnio).subscribe({
       next: festivos => {
         this.festivosMes = festivos || [];
@@ -498,7 +505,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       },
       error: () => {
         this.festivosMes = [];
-        this.construirCalendario();
       }
     });
   }
@@ -1056,6 +1062,7 @@ export class CuadroMesEmpleadoComponent implements OnInit {
 
     // Si hay frecuencia configurada → generar turnos recurrentes
     if (this.frecuenciaForm.tipo_frecuencia && this.frecuenciaForm.tipo_frecuencia !== 'sin_programacion') {
+      if (!confirm('¿Desea programar los turnos con la frecuencia configurada?\n\nLos turnos existentes en las fechas programadas serán reemplazados.')) return;
       this.guardarConFrecuencia();
       return;
     }
@@ -1063,6 +1070,14 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     if (!this.idCuadroActual) {
       this.toastError('No se pudo obtener el ID del cuadro. Selecciona la unidad nuevamente.');
       return;
+    }
+
+    // Si ya existe un turno asignado y estamos cambiándolo → confirmar
+    if (this.editForm.idAsignacion && this.diaSeleccionado?.turno && !this.editForm.esDescanso) {
+      const turnoActual = this.diaSeleccionado.turno.plantilla?.nombre || 'turno actual';
+      if (!confirm(`Ya existe el turno "${turnoActual}" en este día.\n\n¿Desea reemplazarlo con el nuevo turno seleccionado?`)) {
+        return;
+      }
     }
 
     this.isSavingDay = true;
@@ -1191,6 +1206,28 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   // UTILITARIOS
   // ═══════════════════════════════════════════════════════════
 
+  // ── Permisos ──────────────────────────────────────────────
+  canCreate(): boolean { return this.permissionService.hasPermission('talhum-turnos-crear'); }
+  canEdit(): boolean { return this.permissionService.hasPermission('talhum-turnos-editar'); }
+  canDelete(): boolean { return this.permissionService.hasPermission('talhum-turnos-eliminar'); }
+  canExport(): boolean { return this.permissionService.hasPermission('talhum-turnos-exportar'); }
+  canUpload(): boolean { return this.permissionService.hasPermission('talhum-turnos-carga-masiva'); }
+  canPublish(): boolean { return this.permissionService.hasPermission('talhum-turnos-publicar'); }
+  canClose(): boolean { return this.permissionService.hasPermission('talhum-turnos-cerrar'); }
+
+  // ── Jornada ────────────────────────────────────────────────
+  /** Calcula el porcentaje de progreso de la jornada (total / max * 100) */
+  getProgresoJornada(): number {
+    if (!this.cuadro?.jornada_max?.horas_max_mes || !this.cuadro?.totales?.total) return 0;
+    const pct = (this.cuadro.totales.total / this.cuadro.jornada_max.horas_max_mes) * 100;
+    return Math.min(pct, 100);
+  }
+
+  tieneHoraExtra(fecha: string): boolean {
+    if (!this.cuadro?.horas_extras?.registros) return false;
+    return this.cuadro.horas_extras.registros.some((r: any) => r.fecha === fecha);
+  }
+
   formatHoras(h?: number): string {
     const v = Number(h ?? 0);
     return `${v.toFixed(2)} h`;
@@ -1234,13 +1271,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
         this.cargarCuadro();
       }
     });
-  }
-
-  /** Calcula el porcentaje de progreso de la jornada (total / max * 100) */
-  getProgresoJornada(): number {
-    if (!this.cuadro?.jornada_max?.horas_max_mes || !this.cuadro?.totales?.total) return 0;
-    const pct = (this.cuadro.totales.total / this.cuadro.jornada_max.horas_max_mes) * 100;
-    return Math.min(pct, 100);
   }
 
   trackByFecha(_: number, d: DiaCalendario) { return d.fecha; }
