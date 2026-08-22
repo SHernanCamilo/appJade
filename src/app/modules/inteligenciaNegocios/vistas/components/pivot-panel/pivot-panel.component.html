@@ -1,0 +1,115 @@
+<aside class="pivot-panel">
+  <header class="pivot-panel__header">
+    <i class="pi pi-table"></i>
+    <span class="pivot-panel__title">Campos de tabla dinamica</span>
+    <button class="pivot-panel__close" (click)="close()" title="Cerrar">
+      <i class="pi pi-times"></i>
+    </button>
+  </header>
+
+  <div class="pivot-panel__body">
+    <!-- Selector de hoja fuente -->
+    <div class="pivot-panel__section" *ngIf="sheets.length > 1">
+      <label class="pivot-panel__label">Hoja fuente:</label>
+      <select class="pivot-panel__select" [(ngModel)]="selectedSheetId" (ngModelChange)="onSheetChange()">
+        <option value="">-- Seleccionar hoja --</option>
+        <option *ngFor="let s of sheets" [value]="s.id" [disabled]="!s.hasData">
+          {{ s.label }}{{ !s.hasData ? ' (sin datos)' : '' }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Busqueda de campos -->
+    <div class="pivot-panel__search">
+      <i class="pi pi-search"></i>
+      <input type="text" placeholder="Buscar campo..." [(ngModel)]="fieldSearch">
+    </div>
+
+    <!-- Lista de campos disponibles -->
+    <div class="pivot-panel__fields">
+      <div *ngFor="let col of filteredColumns"
+           class="pivot-field"
+           draggable="true"
+           (dragstart)="onDragStart($event, col.name)">
+        <i class="pi pi-grip-vertical pivot-field__grip"></i>
+        <span class="pivot-field__name">{{ humanize(col.name) }}</span>
+        <div class="pivot-field__btns">
+          <button (click)="addFieldAuto('row', col.name)" title="Filas"><i class="pi pi-bars"></i></button>
+          <button (click)="addFieldAuto('column', col.name)" title="Columnas"><i class="pi pi-th-large"></i></button>
+          <button (click)="addFieldAuto('value', col.name)" title="Valores"><i class="pi pi-calculator"></i></button>
+          <button (click)="addFieldAuto('filter', col.name)" title="Filtros"><i class="pi pi-filter"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 zonas de destino -->
+    <div class="pivot-zones">
+      <!-- FILTROS -->
+      <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'filter')">
+        <label class="pivot-zone__label"><i class="pi pi-filter"></i> FILTROS</label>
+        <div class="pivot-zone__items">
+          <span *ngFor="let f of config.filterFields; let i = index"
+                class="pivot-chip" draggable="true"
+                (dragstart)="onChipDragStart($event, 'filter', i, f)">
+            {{ humanize(f) }}
+            <button (click)="removeFieldAuto('filter', i)"><i class="pi pi-times"></i></button>
+          </span>
+          <span *ngIf="config.filterFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
+        </div>
+      </div>
+
+      <!-- COLUMNAS -->
+      <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'column')">
+        <label class="pivot-zone__label"><i class="pi pi-th-large"></i> COLUMNAS</label>
+        <div class="pivot-zone__items">
+          <span *ngFor="let f of config.columnFields; let i = index"
+                class="pivot-chip" draggable="true"
+                (dragstart)="onChipDragStart($event, 'column', i, f)">
+            {{ humanize(f) }}
+            <button (click)="removeFieldAuto('column', i)"><i class="pi pi-times"></i></button>
+          </span>
+          <span *ngIf="config.columnFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
+        </div>
+      </div>
+
+      <!-- FILAS -->
+      <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'row')">
+        <label class="pivot-zone__label"><i class="pi pi-bars"></i> FILAS</label>
+        <div class="pivot-zone__items">
+          <span *ngFor="let f of config.rowFields; let i = index"
+                class="pivot-chip" draggable="true"
+                (dragstart)="onChipDragStart($event, 'row', i, f)">
+            {{ humanize(f) }}
+            <button (click)="removeFieldAuto('row', i)"><i class="pi pi-times"></i></button>
+          </span>
+          <span *ngIf="config.rowFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
+        </div>
+      </div>
+
+      <!-- VALORES -->
+      <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'value')">
+        <label class="pivot-zone__label"><i class="pi pi-calculator"></i> VALORES</label>
+        <div class="pivot-zone__items">
+          <span *ngFor="let vf of config.valueFields; let i = index" class="pivot-chip pivot-chip--value">
+            <select class="pivot-chip__op" [ngModel]="vf.operation" (ngModelChange)="changeValueOperation(i, $event)">
+              <option value="sum">SUM</option>
+              <option value="avg">PROMEDIO</option>
+              <option value="count">CONTAR</option>
+              <option value="min">MIN</option>
+              <option value="max">MAX</option>
+              <option value="distinct">DISTINTOS</option>
+            </select>
+            <span>{{ humanize(vf.column) }}</span>
+            <button (click)="removeFieldAuto('value', i)"><i class="pi pi-times"></i></button>
+          </span>
+          <span *ngIf="config.valueFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Limpiar -->
+    <button class="pivot-panel__clear" (click)="clearAll()">
+      <i class="pi pi-trash"></i> Limpiar todo
+    </button>
+  </div>
+</aside>

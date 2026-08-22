@@ -1,0 +1,1493 @@
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ViewVistasRefresh â€” Excel-like "Actualizar datos" view
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+:host {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+:host ::ng-deep app-excel-sheet {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* â”€â”€ Workspace principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-workspace {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* â”€â”€ Grid wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-grid-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;  /* necesario para que los overlays se posicionen dentro */
+  transition: opacity 0.2s;
+  overflow: hidden;
+}
+
+.vr-grid-wrap--faded {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.vr-grid {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Estilos tipo Excel Desktop */
+  --ag-font-family: 'Segoe UI', 'Calibri', 'Tahoma', system-ui, sans-serif;
+  --ag-font-size: 11px;
+  --ag-grid-size: 2px;
+  --ag-border-color: #d1d5db;
+  --ag-row-border-color: #d1d5db;
+  --ag-background-color: #fff;
+  --ag-odd-row-background-color: #fff;
+  --ag-row-hover-color: #f0fdf4;
+  --ag-selected-row-background-color: #dcfce7;
+  --ag-header-background-color: #e5e7eb;
+  --ag-header-foreground-color: #374151;
+  --ag-header-height: 26px;
+  --ag-header-column-separator-display: block;
+  --ag-row-height: 25px;
+  --ag-cell-horizontal-padding: 8px;
+  --ag-cell-horizontal-border: solid #d1d5db;
+  --ag-input-focus-border-color: #217346;
+  --ag-checkbox-checked-color: #217346;
+  --ag-range-selection-border-color: #217346;
+}
+
+/* Estilo Excel: bordes finos, encabezado gris claro */
+:host ::ng-deep .vr-grid .ag-root-wrapper { 
+  border: 1px solid #9ca3af; 
+  border-radius: 0;
+}
+:host ::ng-deep .vr-grid .ag-header {
+  background: #e5e7eb !important;
+  border-bottom: 1px solid #9ca3af !important;
+  font-weight: 700;
+}
+/* ---- Fila 1 del encabezado: letras Excel (A, B, C...) ------------------- */
+:host ::ng-deep .vr-grid .ag-header-group-cell {
+  background: #d9d9d9 !important;
+  border-right: 1px solid #9ca3af !important;
+  border-bottom: 1px solid #9ca3af !important;
+  padding: 0 !important;
+  justify-content: center;
+}
+:host ::ng-deep .vr-grid .ag-header-group-cell .ag-header-group-cell-label {
+  justify-content: center;
+  width: 100%;
+}
+:host ::ng-deep .vr-grid .ag-header-group-cell .ag-header-group-text {
+  font-size: 10px;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+/* Oculta el icono de expandir/colapsar del grupo (no aplica aqui) */
+:host ::ng-deep .vr-grid .ag-header-group-cell .ag-header-expand-icon {
+  display: none !important;
+}
+
+/* ---- Fila 2 del encabezado: nombres de columna -------------------------- */
+:host ::ng-deep .vr-grid .ag-header-cell {
+  color: #000 !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  border-right: 1px solid #bbb !important;
+  padding: 0 6px !important;
+  background: #e2efda !important;
+}
+:host ::ng-deep .vr-grid .ag-header-cell:hover {
+  background: #c6e0b4 !important;
+}
+:host ::ng-deep .vr-grid .ag-header-cell-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Esquina superior izquierda (columna de numeros de fila) */
+:host ::ng-deep .vr-grid .ag-header-cell.excel-corner-header {
+  background: #d9d9d9 !important;
+  border-right: 2px solid #9ca3af !important;
+}
+:host ::ng-deep .vr-grid .ag-cell {
+  font-size: 11px;
+  color: #1f2937;
+  border-right: 1px solid #d1d5db;
+  border-bottom: 1px solid #d1d5db;
+  line-height: 23px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+:host ::ng-deep .vr-grid .ag-row {
+  border-bottom: 1px solid #d1d5db;
+}
+:host ::ng-deep .vr-grid .ag-row-hover {
+  background-color: #f0fdf4 !important;
+}
+:host ::ng-deep .vr-grid .ag-row-selected {
+  background-color: #dcfce7 !important;
+}
+:host ::ng-deep .vr-grid .bi-cell--number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #1e3a5f;
+  font-weight: 500;
+}
+:host ::ng-deep .vr-grid .bi-cell--date {
+  color: #4b5563;
+  font-size: 10.5px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+:host ::ng-deep .vr-grid .bi-cell--text {
+  color: #1f2937;
+}
+/* Cursor tipo Excel al pasar sobre las celdas */
+:host ::ng-deep .vr-grid .ag-cell {
+  cursor: cell;
+}
+/* Scroll bars tipo Excel */
+:host ::ng-deep .vr-grid .ag-body-viewport::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+:host ::ng-deep .vr-grid .ag-body-viewport::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+:host ::ng-deep .vr-grid .ag-body-viewport::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 7px;
+  border: 3px solid #f3f4f6;
+}
+:host ::ng-deep .vr-grid .ag-body-viewport::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* â”€â”€ Estado vacÃ­o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  /* Overlay absoluto â€” no empuja la grilla */
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  z-index: 5;
+  padding: 3rem;
+  text-align: center;
+}
+
+.vr-empty__icon {
+  width: 64px;
+  height: 64px;
+  opacity: 0.85;
+}
+
+.vr-empty__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.vr-empty__sub {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  max-width: 440px;
+}
+
+/* â”€â”€ Error panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-error-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #fef2f2;
+  border-bottom: 2px solid #fca5a5;
+  color: #991b1b;
+  font-size: 13px;
+  /* Overlay absoluto â€” no empuja la grilla */
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.vr-error-panel__icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.vr-error-panel__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vr-error-panel__detail {
+  font-size: 11.5px;
+  color: #b91c1c;
+}
+
+/* â”€â”€ Overlay parsing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-parse-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 14px;
+  background: rgba(33, 115, 70, 0.92);
+  color: #fff;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PANEL LATERAL DE PROGRESO â€” imita "Actualizando conexiones" de Excel Online
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+.vr-progress-panel {
+  position: absolute;
+  top: 0;
+  right: -340px;         /* Oculto fuera de pantalla */
+  width: 320px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.vr-progress-panel--visible {
+  right: 0;
+}
+
+/* Header del panel */
+.vr-progress-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #217346;
+  color: #fff;
+}
+
+.vr-progress-panel__icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.vr-progress-panel__title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.vr-progress-panel__close {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: background 0.15s;
+}
+.vr-progress-panel__close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.vr-progress-panel__close:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Body del panel */
+.vr-progress-panel__body {
+  flex: 1;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.vr-progress-panel__view {
+  padding: 10px 12px;
+  background: #f0fdf4;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+}
+
+.vr-progress-panel__view-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #166534;
+}
+
+.vr-progress-panel__view-schema {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Barra de progreso */
+.vr-progress-bar {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.vr-progress-bar__fill {
+  height: 100%;
+  background: #217346;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.vr-progress-bar__fill--pulse {
+  background: linear-gradient(90deg, #217346, #4ade80, #217346);
+  background-size: 200% 100%;
+  animation: vr-shimmer 1.8s linear infinite;
+}
+
+@keyframes vr-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Steps */
+.vr-progress-panel__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vr-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.vr-step__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.vr-step--active .vr-step__dot {
+  background: #217346;
+  box-shadow: 0 0 0 3px rgba(33, 115, 70, 0.2);
+  animation: vr-pulse-dot 1.2s ease-in-out infinite;
+}
+
+.vr-step--done .vr-step__dot {
+  background: #217346;
+}
+
+@keyframes vr-pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(33, 115, 70, 0.2); }
+  50%       { box-shadow: 0 0 0 5px rgba(33, 115, 70, 0.1); }
+}
+
+.vr-step--active .vr-step__label {
+  color: #111827;
+  font-weight: 600;
+}
+
+.vr-step--done .vr-step__label {
+  color: #374151;
+}
+
+.vr-step__count {
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: #dcfce7;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #166534;
+  font-weight: 600;
+}
+
+.vr-progress-panel__elapsed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.vr-progress-panel__message {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* â”€â”€ Spin animation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-spin {
+  animation: vr-rotate 1.5s linear infinite;
+}
+
+@keyframes vr-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CHIPS DE FILTROS ACTIVOS
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+.vr-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 5px 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  min-height: 34px;
+}
+
+.vr-filter-chips__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #6b7280;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.vr-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  color: #1e40af;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.vr-filter-chip__remove {
+  background: transparent;
+  border: none;
+  color: #93c5fd;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.vr-filter-chip__remove:hover { color: #1d4ed8; }
+
+.vr-filter-chips__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-left: auto;
+}
+.vr-filter-chips__clear:hover { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+/* â”€â”€ Botones generales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+.vr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vr-btn--green {
+  background: #217346;
+  color: #fff;
+}
+.vr-btn--green:hover { background: #1a5c38; }
+
+.vr-btn--outline {
+  background: transparent;
+  border-color: #d1d5db;
+  color: #374151;
+}
+.vr-btn--outline:hover { background: #f3f4f6; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PANEL "AGREGAR VISTA" â€” cargar vistas adicionales como nuevas pestaÃ±as
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+.vr-add-panel {
+  position: absolute;
+  top: 0;
+  right: -380px;
+  width: 360px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 25;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.vr-add-panel--visible {
+  right: 0;
+}
+
+/* Header del panel */
+.vr-add-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #1e40af;
+  color: #fff;
+}
+
+.vr-add-panel__header i:first-child {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.vr-add-panel__title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.vr-add-panel__close {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: background 0.15s;
+}
+.vr-add-panel__close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* Body del panel */
+.vr-add-panel__body {
+  flex: 1;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.vr-add-panel__help {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Buscador */
+.vr-add-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.vr-add-search__icon {
+  position: absolute;
+  left: 10px;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.vr-add-search__input {
+  flex: 1;
+  padding: 8px 32px 8px 32px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition: border-color 0.15s;
+}
+.vr-add-search__input:focus {
+  outline: none;
+  border-color: #1e40af;
+}
+
+.vr-add-search__clear {
+  position: absolute;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  transition: color 0.15s;
+}
+.vr-add-search__clear:hover { color: #374151; }
+
+/* Loading state */
+.vr-add-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+/* Lista de vistas */
+.vr-add-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vr-add-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+  width: 100%;
+}
+.vr-add-item:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.vr-add-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vr-add-item__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vr-add-item__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vr-add-item__schema {
+  font-size: 0.72rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.vr-add-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vr-add-item__cols {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.vr-add-item__icon {
+  font-size: 0.85rem;
+  color: #1e40af;
+}
+
+.vr-add-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Panel de AnÃ¡lisis RÃ¡pido
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+.vr-analysis-group {
+  margin-bottom: 1.5rem;
+}
+
+.vr-analysis-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.vr-analysis-select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: white;
+}
+
+.vr-analysis-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.vr-analysis-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.vr-analysis-metric {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.vr-analysis-select-sm {
+  flex: 1;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  background: white;
+}
+
+.vr-analysis-btn-remove {
+  padding: 0.375rem 0.5rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vr-analysis-btn-remove:hover {
+  background: #dc2626;
+}
+
+.vr-analysis-btn-add {
+  width: 100%;
+  padding: 0.5rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px dashed #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.15s;
+}
+
+.vr-analysis-btn-add:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.vr-analysis-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.vr-analysis-btn-primary {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.15s;
+}
+
+.vr-analysis-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.vr-analysis-btn-primary:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.vr-analysis-btn-secondary {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.15s;
+}
+
+.vr-analysis-btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Letras de Columna Estilo Excel (A, B, C, D...)
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* Bordes mÃ¡s visibles en las celdas - como Excel */
+::ng-deep .ag-theme-alpine .ag-cell {
+  border-right: 1px solid #d1d5db !important;
+  border-bottom: 1px solid #d1d5db !important;
+}
+
+::ng-deep .ag-theme-alpine .ag-header-cell {
+  border-right: 1px solid #9ca3af !important;
+  border-bottom: 1px solid #9ca3af !important;
+}
+
+/* Fondo gris para nÃºmeros de fila (como Excel) */
+::ng-deep .ag-theme-alpine .bi-cell-row-number {
+  background-color: #e5e7eb !important;
+  border-right: 2px solid #9ca3af !important;
+  font-weight: 700 !important;
+  color: #374151 !important;
+  font-size: 11px !important;
+}
+
+/* Ambas filas del encabezado nunca desbordan */
+::ng-deep .ag-theme-alpine .ag-header-cell,
+::ng-deep .ag-theme-alpine .ag-header-group-cell {
+  overflow: hidden;
+}
+
+/* Checkbox selection column estilo Excel */
+::ng-deep .ag-theme-alpine .ag-selection-checkbox {
+  margin-right: 4px;
+}
+
+/* Bordes del contenedor principal */
+::ng-deep .ag-theme-alpine {
+  border: 1px solid #9ca3af !important;
+}
+
+/* LÃ­neas de grid visibles en todas las celdas */
+::ng-deep .ag-theme-alpine .ag-row {
+  border-bottom: 1px solid #d1d5db !important;
+}
+
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Panel de Tabla Dinámica (Pivot Table) — replica el diseño de Excel
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vr-pivot-panel {
+  position: absolute;
+  top: 0;
+  right: -400px;
+  width: 380px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #d1d5db;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.vr-pivot-panel--visible {
+  right: 0;
+}
+
+/* Header del panel */
+.vr-pivot-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #217346;
+  color: #fff;
+}
+
+.vr-pivot-panel__header i:first-child {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.vr-pivot-panel__title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.vr-pivot-panel__close {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: background 0.15s;
+}
+.vr-pivot-panel__close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* Body del panel */
+.vr-pivot-panel__body {
+  flex: 1;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.vr-pivot-panel__help {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.vr-pivot-panel__separator {
+  margin: 4px 0;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Lista de campos disponibles */
+.vr-pivot-fields {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.vr-pivot-field-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  transition: background 0.1s;
+}
+.vr-pivot-field-item:hover {
+  background: #f3f4f6;
+}
+
+.vr-pivot-field-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.vr-pivot-field-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.vr-pivot-field-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  transition: all 0.15s;
+}
+.vr-pivot-field-btn:hover {
+  background: #217346;
+  color: #fff;
+  border-color: #217346;
+}
+
+/* Zonas de destino (4 cuadrantes) */
+.vr-pivot-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 8px;
+}
+
+.vr-pivot-zone {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 6px 8px;
+  min-height: 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fafafa;
+}
+
+.vr-pivot-zone--filters {
+  grid-column: 1 / 2;
+  grid-row: 1;
+}
+
+.vr-pivot-zone--columns {
+  grid-column: 2 / 3;
+  grid-row: 1;
+}
+
+.vr-pivot-zone--rows {
+  grid-column: 1 / 2;
+  grid-row: 2;
+}
+
+.vr-pivot-zone--values {
+  grid-column: 2 / 3;
+  grid-row: 2;
+}
+
+.vr-pivot-zone__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vr-pivot-zone__label i {
+  font-size: 0.65rem;
+}
+
+.vr-pivot-zone__items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.vr-pivot-zone__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.vr-pivot-zone__chip-remove {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.6rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.vr-pivot-zone__chip-remove:hover {
+  color: #ef4444;
+}
+
+.vr-pivot-zone__empty {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* Acciones del pivot */
+.vr-pivot-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Menu Contextual Custom (clic derecho)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vr-context-menu {
+  position: absolute;
+  z-index: 100;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.vr-context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  color: #1f2937;
+  transition: background 0.1s;
+}
+.vr-context-menu__item:hover {
+  background: #e2efda;
+}
+.vr-context-menu__item i {
+  font-size: 12px;
+  color: #6b7280;
+  width: 16px;
+}
+
+.vr-context-menu__separator {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 4px 8px;
+}
+
+
+/* Drag grip icon en campos del pivot */
+.vr-pivot-field-grip {
+  color: #9ca3af;
+  font-size: 10px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+.vr-pivot-field-item[draggable="true"] {
+  cursor: grab;
+}
+.vr-pivot-field-item[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}
+
+/* Chips draggables en zonas */
+.vr-pivot-zone__chip[draggable="true"] {
+  cursor: grab;
+}
+.vr-pivot-zone__chip[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.5;
+}
+
+/* Zona de drop highlight */
+.vr-pivot-zone:has(.vr-pivot-zone__items) {
+  transition: background 0.15s, border-color 0.15s;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Panel de Columnas (mostrar/ocultar)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vr-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.vr-column-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+}
+.vr-column-list__item:hover {
+  background: #f3f4f6;
+}
+.vr-column-list__item--hidden {
+  opacity: 0.5;
+}
+.vr-column-list__item--hidden .vr-column-list__name {
+  text-decoration: line-through;
+}
+
+.vr-column-list__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.vr-column-list__item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #217346;
+  cursor: pointer;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Seleccion de Celdas Estilo Excel
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Celda enfocada: borde azul grueso como Excel */
+:host ::ng-deep .vr-grid .ag-cell-focus {
+  border: 2px solid #217346 !important;
+  outline: none !important;
+  box-shadow: inset 0 0 0 1px rgba(33, 115, 70, 0.2);
+}
+
+/* Fila con celda enfocada: highlight suave */
+:host ::ng-deep .vr-grid .ag-row-focus {
+  background-color: #f0fdf4 !important;
+}
+
+/* Celda seleccionada (multi-select) */
+:host ::ng-deep .vr-grid .ag-cell-range-selected:not(.ag-cell-focus) {
+  background-color: rgba(33, 115, 70, 0.08) !important;
+}
+
+/* Fila seleccionada con checkbox */
+:host ::ng-deep .vr-grid .ag-row-selected {
+  background-color: #dcfce7 !important;
+}
+
+/* Header de columna activa: highlight suave */
+:host ::ng-deep .vr-grid .ag-header-cell-moving {
+  background-color: #c6e0b4 !important;
+}
+
+/* Celda en modo edicion */
+:host ::ng-deep .vr-grid .ag-cell-inline-editing {
+  border: 2px solid #2563eb !important;
+  box-shadow: 0 0 4px rgba(37, 99, 235, 0.3);
+  padding: 0 6px !important;
+  background: #fff !important;
+}
+
+:host ::ng-deep .vr-grid .ag-cell-inline-editing input {
+  font-size: 11px;
+  font-family: inherit;
+  border: none;
+  outline: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* Cursor tipo celda en toda la grilla */
+:host ::ng-deep .vr-grid .ag-cell {
+  cursor: cell;
+}
+
+/* Cuando se selecciona una fila completa */
+:host ::ng-deep .vr-grid .ag-row-selected .bi-cell-row-number {
+  background-color: #217346 !important;
+  color: #fff !important;
+}
+
+/* ═══════ Guia de formulas (panel lateral) ═══════ */
+
+.vr-fx-note {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 11.5px;
+  color: #1e3a5f;
+  line-height: 1.5;
+}
+.vr-fx-note strong { display: block; margin-bottom: 6px; color: #1e40af; }
+.vr-fx-note ol { margin: 0; padding-left: 18px; }
+.vr-fx-note li { margin-bottom: 4px; }
+.vr-fx-note__sep {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed #bfdbfe;
+}
+
+.vr-fx-views { margin-bottom: 14px; }
+.vr-fx-views__title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; color: #374151; margin-bottom: 6px;
+}
+.vr-fx-view {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 8px; margin-bottom: 4px;
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;
+}
+.vr-fx-view code { font-size: 11px; color: #1e40af; font-weight: 600; }
+.vr-fx-view__meta { font-size: 10px; color: #6b7280; }
+
+.vr-fx-cats { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.vr-fx-cat {
+  padding: 4px 9px; font-size: 10.5px; cursor: pointer;
+  background: #f3f4f6; color: #374151;
+  border: 1px solid #d1d5db; border-radius: 12px;
+  transition: background .1s, color .1s;
+}
+.vr-fx-cat:hover { background: #e5e7eb; }
+.vr-fx-cat--active {
+  background: #1e40af; color: #fff; border-color: #1e40af; font-weight: 600;
+}
+.vr-fx-cat:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+
+.vr-fx-list { display: flex; flex-direction: column; gap: 8px; }
+.vr-fx-item {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb; border-left: 3px solid #1e40af; border-radius: 4px;
+  background: #fff;
+}
+.vr-fx-item__syntax { font-size: 11.5px; font-weight: 600; color: #111827; font-family: Consolas, monospace; }
+.vr-fx-item__desc { font-size: 11px; color: #4b5563; margin: 3px 0 5px; line-height: 1.4; }
+.vr-fx-item__example {
+  display: block; font-size: 10.5px; color: #047857;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px;
+  padding: 4px 6px; word-break: break-all;
+}

@@ -1,0 +1,88 @@
+<div class="me-container">
+  <!-- Header -->
+  <header class="me-header">
+    <div class="me-header__left">
+      <i class="pi pi-file-excel me-header__icon"></i>
+      <div>
+        <h2 class="me-header__title">Excel Sheets</h2>
+        <p class="me-header__sub">Workbooks guardados con tus vistas, formulas y filtros</p>
+      </div>
+    </div>
+    <div class="me-header__right">
+      <input
+        type="text"
+        class="me-search"
+        placeholder="Buscar por nombre o vista..."
+        [ngModel]="filter()"
+        (ngModelChange)="filter.set($event)" />
+      <button class="me-btn me-btn--refresh" (click)="loadList()" title="Recargar">
+        <i class="pi pi-refresh"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <div class="me-loading" *ngIf="loading()">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>Cargando workbooks...</span>
+  </div>
+
+  <!-- Empty state -->
+  <div class="me-empty" *ngIf="!loading() && filteredWorkbooks.length === 0">
+    <i class="pi pi-inbox me-empty__icon"></i>
+    <p>No tienes workbooks guardados todavia.</p>
+    <p class="me-empty__hint">
+      Abre una vista en modo Excel, trabaja con tus datos y el workbook se guardara automaticamente.
+    </p>
+  </div>
+
+  <!-- Grid de tarjetas -->
+  <div class="me-grid" *ngIf="!loading() && filteredWorkbooks.length > 0">
+    <div
+      class="me-card"
+      *ngFor="let wb of filteredWorkbooks; trackBy: trackById"
+      (click)="openWorkbook(wb)"
+      [class.me-card--favorite]="wb.is_favorite">
+
+      <!-- Icono -->
+      <div class="me-card__icon-wrap">
+        <i class="pi pi-file-excel"></i>
+        <span class="me-card__view-count">{{ wb.viewCount }}</span>
+      </div>
+
+      <!-- Contenido -->
+      <div class="me-card__body">
+        <h3 class="me-card__name">{{ wb.name }}</h3>
+        <p class="me-card__desc" *ngIf="wb.description">{{ wb.description }}</p>
+        <div class="me-card__views">
+          <span class="me-card__view-tag" *ngFor="let v of wb.viewNames">{{ v }}</span>
+        </div>
+        <div class="me-card__meta">
+          <span class="me-card__time">
+            <i class="pi pi-clock"></i> {{ timeAgo(wb.last_opened_at) }}
+          </span>
+          <span class="me-card__created">
+            Creado: {{ wb.created_at | date:'shortDate' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="me-card__actions">
+        <button
+          class="me-card__action"
+          [class.me-card__action--fav]="wb.is_favorite"
+          title="Favorito"
+          (click)="toggleFavorite(wb, $event)">
+          <i [class]="wb.is_favorite ? 'pi pi-star-fill' : 'pi pi-star'"></i>
+        </button>
+        <button
+          class="me-card__action me-card__action--del"
+          title="Eliminar"
+          (click)="deleteWorkbook(wb, $event)">
+          <i class="pi pi-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

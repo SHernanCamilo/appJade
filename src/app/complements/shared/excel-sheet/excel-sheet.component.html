@@ -46,8 +46,8 @@
       type="button"
       role="tab"
       class="xl-tab"
-      [class.active]="activeTab()?.id === tab.id"
-      [attr.aria-selected]="activeTab()?.id === tab.id"
+      [class.active]="activeTab().id === tab.id"
+      [attr.aria-selected]="activeTab().id === tab.id"
       (click)="setActiveTab(tab.id)">
       {{ tab.label }}
     </button>
@@ -112,13 +112,48 @@
     </div>
     <div class="xl-fx"><i>fx</i></div>
     <input
+      #formulaInputEl
       type="text"
       class="xl-formula-input"
       [ngModel]="formulaValue()"
-      (ngModelChange)="formulaValue.set($event)"
+      (ngModelChange)="onFormulaTextChange($event, formulaInputEl)"
       (keydown)="onFormulaKeydown($event)"
+      (blur)="onFormulaBlur()"
       [readOnly]="!cellInfo.editable"
-      [attr.aria-label]="'Contenido de celda ' + cellInfo.reference" />
+      autocomplete="off"
+      spellcheck="false"
+      [attr.aria-label]="'Contenido de celda ' + cellInfo.reference"
+      [attr.aria-expanded]="suggestionsOpen()"
+      aria-autocomplete="list" />
+
+    <!-- Autocompletado de formulas -->
+    <ul
+      *ngIf="suggestionsOpen() && formulaSuggestions.length > 0"
+      class="xl-fx-suggest"
+      role="listbox">
+      <li
+        *ngFor="let s of formulaSuggestions; let i = index"
+        class="xl-fx-suggest__item"
+        [class.xl-fx-suggest__item--active]="i === suggestionIndex()"
+        role="option"
+        [attr.aria-selected]="i === suggestionIndex()"
+        (mousedown)="acceptSuggestion(s, formulaInputEl)"
+        (mouseenter)="suggestionIndex.set(i)">
+        <i class="xl-fx-suggest__icon"
+           [class.pi]="true"
+           [class.pi-bolt]="s.kind === 'function'"
+           [class.pi-table]="s.kind === 'view'"
+           [class.pi-list]="s.kind === 'column'"></i>
+        <span class="xl-fx-suggest__body">
+          <span class="xl-fx-suggest__label">{{ s.label }}</span>
+          <span class="xl-fx-suggest__detail">{{ s.detail }}</span>
+          <span *ngIf="s.hint && i === suggestionIndex()" class="xl-fx-suggest__hint">{{ s.hint }}</span>
+        </span>
+      </li>
+      <li class="xl-fx-suggest__footer">
+        <kbd>Tab</kbd> insertar &nbsp; <kbd>&uarr;</kbd><kbd>&darr;</kbd> navegar &nbsp; <kbd>Esc</kbd> cerrar
+      </li>
+    </ul>
   </div>
 
   <!-- ══════ 5. Grid Area (Content Projection) ══════ -->
@@ -144,8 +179,15 @@
         [style.border-top-color]="sheet.color || null"
         (click)="onSheetTab(sheet)">
         {{ sheet.label }}
+        <button
+          type="button"
+          class="xl-sheettab-close"
+          *ngIf="sheet.closable !== false && config.sheets!.length > 1"
+          [attr.aria-label]="'Cerrar hoja ' + sheet.label"
+          title="Cerrar hoja"
+          (click)="onCloseSheet($event, sheet)">&times;</button>
       </span>
-      <button type="button" class="xl-sheettab-add" title="Nueva hoja">+</button>
+      <button type="button" class="xl-sheettab-add" title="Nueva hoja" (click)="onAddSheet()">+</button>
     </div>
   </div>
 

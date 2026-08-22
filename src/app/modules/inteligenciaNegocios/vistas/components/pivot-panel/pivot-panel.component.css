@@ -1,0 +1,113 @@
+:host { display: block; height: 100%; }
+
+.pivot-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+  overflow: hidden;
+}
+
+.pivot-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #217346;
+  color: #fff;
+  flex-shrink: 0;
+}
+.pivot-panel__title { flex: 1; font-size: 13px; font-weight: 600; }
+.pivot-panel__close {
+  width: 24px; height: 24px; border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 4px; background: transparent; color: rgba(255,255,255,0.8);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.pivot-panel__close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+.pivot-panel__body {
+  flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+}
+
+.pivot-panel__section { display: flex; flex-direction: column; gap: 4px; }
+.pivot-panel__label { font-size: 11px; font-weight: 600; color: #374151; }
+.pivot-panel__select {
+  padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 4px;
+  font-size: 12px; background: #fff;
+}
+
+.pivot-panel__search {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 4px;
+}
+.pivot-panel__search i { color: #9ca3af; font-size: 12px; }
+.pivot-panel__search input {
+  flex: 1; border: none; outline: none; font-size: 12px; background: transparent;
+}
+
+/* Lista de campos */
+.pivot-panel__fields {
+  max-height: 150px; overflow-y: auto; border: 1px solid #e5e7eb;
+  border-radius: 4px; padding: 2px;
+}
+.pivot-field {
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+  border-radius: 3px; cursor: grab; font-size: 11px;
+}
+.pivot-field:hover { background: #f3f4f6; }
+.pivot-field:active { cursor: grabbing; opacity: 0.6; }
+.pivot-field__grip { color: #9ca3af; font-size: 9px; }
+.pivot-field__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: #1f2937; }
+.pivot-field__btns { display: flex; gap: 2px; }
+.pivot-field__btns button {
+  width: 20px; height: 20px; border: 1px solid #d1d5db; border-radius: 3px;
+  background: #fff; color: #6b7280; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; font-size: 9px;
+}
+.pivot-field__btns button:hover { background: #217346; color: #fff; border-color: #217346; }
+
+/* 4 zonas */
+.pivot-zones {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.pivot-zone {
+  border: 1px solid #d1d5db; border-radius: 4px; padding: 6px;
+  min-height: 60px; background: #fafafa; transition: background 0.15s;
+}
+.pivot-zone:hover { background: #f0f9ff; border-color: #93c5fd; }
+.pivot-zone__label {
+  font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;
+  display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+  padding-bottom: 3px; border-bottom: 1px solid #e5e7eb;
+}
+.pivot-zone__label i { font-size: 9px; }
+.pivot-zone__items { display: flex; flex-direction: column; gap: 3px; }
+.pivot-zone__empty { font-size: 10px; color: #9ca3af; font-style: italic; text-align: center; padding: 6px 0; }
+
+/* Chips */
+.pivot-chip {
+  display: flex; align-items: center; gap: 4px; padding: 3px 6px;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 3px;
+  font-size: 10px; color: #1f2937; font-weight: 500; cursor: grab;
+}
+.pivot-chip:active { cursor: grabbing; opacity: 0.5; }
+.pivot-chip button {
+  background: transparent; border: none; color: #9ca3af; cursor: pointer;
+  padding: 0; font-size: 9px; display: flex;
+}
+.pivot-chip button:hover { color: #ef4444; }
+
+.pivot-chip--value { gap: 3px; }
+.pivot-chip__op {
+  border: none; background: #e2efda; padding: 1px 4px; border-radius: 2px;
+  font-size: 9px; font-weight: 700; color: #217346; cursor: pointer;
+}
+
+/* Limpiar */
+.pivot-panel__clear {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;
+  background: #fff; cursor: pointer; font-size: 12px; color: #374151;
+  margin-top: auto;
+}
+.pivot-panel__clear:hover { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
