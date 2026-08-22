@@ -12,8 +12,7 @@
         Control de Activos Fijos
       </h2>
       <p class="ti-subtitulo">
-        Consulta el activo, registre las novedades
-        encontradas en sitio y verifique la trazabilidad completa.
+        Consulte el activo, registre las novedades encontradas en sitio y verifique la trazabilidad completa.
       </p>
     </div>
 
@@ -81,40 +80,34 @@
         </div>
       </section>
 
-      <!-- ── Sin activo seleccionado ──────────────────────────────── -->
+      <!-- ── Estado vacío ──────────────────────────────────────────── -->
       <div class="ti-vacio" *ngIf="!activo && resultados.length === 0 && !buscando && !sinResultados && !mostrarFormExterno">
         <i class="pi pi-search"></i>
         Busque un activo por placa, serie, responsable o artículo para iniciar la toma.
       </div>
 
-      <!-- ── Sin resultados + opción registrar por fuera ──────────── -->
+      <!-- ── Sin resultados ────────────────────────────────────────── -->
       <section class="ti-card ti-card--aviso" *ngIf="sinResultados && !mostrarFormExterno && !activo">
         <div class="ti-vacio">
           <i class="pi pi-exclamation-triangle"></i>
           No se encontró ningún activo con ese criterio de búsqueda.
         </div>
         <div class="ti-acciones-centradas">
-          <button
-            type="button"
-            class="ti-btn ti-btn--warning"
-            (click)="abrirFormExterno()">
+          <button type="button" class="ti-btn ti-btn--warning" (click)="abrirFormExterno()">
             <i class="pi pi-plus-circle"></i>
             ¿No se encontró? Registrar activo por fuera
           </button>
         </div>
       </section>
 
-      <!-- ── Formulario de activo externo ─────────────────────────── -->
+      <!-- ── Formulario activo externo ─────────────────────────────── -->
       <section class="ti-card ti-card--externo" *ngIf="mostrarFormExterno">
         <div class="ti-card__encabezado">
           <h3 class="ti-card__titulo ti-card__titulo--warning">
             <i class="pi pi-exclamation-circle"></i>
             Registrar activo por fuera del maestro
           </h3>
-          <button
-            type="button"
-            class="ti-btn ti-btn--secondary"
-            (click)="cerrarFormExterno()">
+          <button type="button" class="ti-btn ti-btn--secondary" (click)="cerrarFormExterno()">
             <i class="pi pi-arrow-left"></i>
             Volver a búsqueda
           </button>
@@ -129,6 +122,22 @@
         <div class="ti-grid">
           <!-- Columna 1 -->
           <div class="ti-columna">
+
+            <!-- Tipo de inventario — REQUERIDO -->
+            <div class="ti-fila ti-fila--full">
+              <label>Tipo de inventario <span class="ti-requerido">*</span></label>
+              <p-dropdown
+                [(ngModel)]="formularioExterno.tipo_inventario_id"
+                [options]="tiposInventarioOpciones"
+                optionLabel="label"
+                optionValue="value"
+                [filter]="false"
+                [showClear]="true"
+                placeholder="Seleccione el tipo de inventario..."
+                styleClass="ti-dropdown-prime ti-dropdown-prime--tipo">
+              </p-dropdown>
+            </div>
+
             <div class="ti-fila">
               <label>Placa <span class="ti-requerido">*</span></label>
               <input type="text" [(ngModel)]="formularioExterno.placa" placeholder="Placa del activo" class="ti-input" />
@@ -153,21 +162,6 @@
               <label>Modelo</label>
               <input type="text" [(ngModel)]="formularioExterno.modelo" placeholder="Modelo" class="ti-input" />
             </div>
-
-            <div class="ti-fila">
-              <label>Unidad funcional</label>
-              <p-dropdown
-                [(ngModel)]="formularioExterno.unidad_funcional"
-                [options]="centrosCostoOpciones"
-                optionLabel="label"
-                optionValue="value"
-                [filter]="true"
-                filterBy="label"
-                [showClear]="true"
-                placeholder="Buscar unidad funcional..."
-                styleClass="ti-dropdown-prime">
-              </p-dropdown>
-            </div>
           </div>
 
           <!-- Columna 2 -->
@@ -178,7 +172,6 @@
                 [(ngModel)]="formularioExterno.responsable"
                 [suggestions]="empleadosSugerencias"
                 (completeMethod)="buscarEmpleados($event)"
-                
                 [dropdown]="false"
                 placeholder="Buscar empleado..."
                 [minLength]="3"
@@ -197,7 +190,7 @@
                 [filter]="true"
                 filterBy="label"
                 [showClear]="true"
-                placeholder="Buscar centro de costo..."
+                placeholder="Buscar localización..."
                 styleClass="ti-dropdown-prime">
               </p-dropdown>
             </div>
@@ -228,7 +221,7 @@
           </div>
         </div>
 
-        <div class="ti-acciones-centradas" style="margin-top: 1rem;">
+        <div class="ti-acciones-centradas">
           <button
             type="button"
             class="ti-btn ti-btn--warning"
@@ -245,7 +238,6 @@
         <h3 class="ti-card__titulo">
           {{ resultados.length }} activos encontrados — seleccione uno
         </h3>
-
         <p-table [value]="resultados" styleClass="ti-tabla" [scrollable]="true" scrollHeight="320px">
           <ng-template pTemplate="header">
             <tr>
@@ -253,18 +245,17 @@
               <th>Artículo</th>
               <th>Serie</th>
               <th>Responsable</th>
-              <th>Sucursal</th>
+              <th>Localización</th>
               <th style="width: 8rem"></th>
             </tr>
           </ng-template>
-
           <ng-template pTemplate="body" let-item>
             <tr>
               <td><strong>{{ valor(item.placa) }}</strong></td>
               <td>{{ valor(item.articulo) }}</td>
               <td>{{ valor(item.serie) }}</td>
               <td>{{ valor(item.responsable) }}</td>
-              <td>{{ valor(item.sucursal) }}</td>
+              <td>{{ valor(item.localizacion) }}</td>
               <td>
                 <button type="button" class="ti-btn ti-btn--sm ti-btn--primary" (click)="seleccionar(item)">
                   Seleccionar
@@ -289,7 +280,11 @@
             class="ti-btn ti-btn--danger"
             [disabled]="!puedeRegistrar"
             (click)="registrar()"
-            [pTooltip]="puedeRegistrar ? 'Guardar la novedad' : 'Llene al menos un campo de novedad u observación'"
+            [pTooltip]="!formulario.tipo_inventario_id
+              ? 'Seleccione el tipo de inventario'
+              : !puedeRegistrar
+                ? 'Llene al menos un campo de novedad u observación'
+                : 'Guardar la novedad'"
             tooltipPosition="left">
             <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
             {{ guardando ? 'Guardando...' : 'Registrar novedad' }}
@@ -297,10 +292,49 @@
           </button>
         </div>
 
+        <!-- Tipo de inventario — selector obligatorio visible -->
+        <div class="ti-tipo-inventario-selector">
+          <div class="ti-tipo-inventario-selector__campo">
+            <label>
+              <i class="pi pi-list"></i>
+              Tipo de inventario <span class="ti-requerido">*</span>
+            </label>
+            <p-dropdown
+              [(ngModel)]="formulario.tipo_inventario_id"
+              [options]="tiposInventarioOpciones"
+              optionLabel="label"
+              optionValue="value"
+              [showClear]="true"
+              placeholder="Seleccione el tipo de inventario que está realizando..."
+              styleClass="ti-dropdown-prime ti-dropdown-prime--tipo"
+              (ngModelChange)="alertaPeriodicidad = null">
+            </p-dropdown>
+          </div>
+
+          <!-- Info de restricción del tipo seleccionado -->
+          <div class="ti-tipo-inventario-selector__info" *ngIf="tipoInventarioSeleccionado">
+            <i class="pi pi-info-circle"></i>
+            <span>{{ tipoInventarioSeleccionado.descripcion_restriccion }}</span>
+          </div>
+        </div>
+
+        <!-- Alerta de periodicidad (HTTP 409) -->
+        <div class="ti-alerta-periodicidad" *ngIf="alertaPeriodicidad">
+          <i class="pi pi-exclamation-circle"></i>
+          <div>
+            <strong>Restricción de periodicidad</strong>
+            <p>{{ alertaPeriodicidad }}</p>
+          </div>
+          <button type="button" class="ti-alerta-periodicidad__cerrar" (click)="alertaPeriodicidad = null">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
         <p class="ti-ayuda">
           <i class="pi pi-info-circle"></i>
-          La columna izquierda es lo que hay en Indigo (solo lectura).
+          La columna izquierda muestra los datos de Indigo (solo lectura).
           Llene a la derecha únicamente los campos donde encuentre diferencia.
+          El <strong>Estado del activo</strong> es informativo y no se puede modificar.
         </p>
 
         <div class="ti-grid">
@@ -314,13 +348,13 @@
               <input type="text" [(ngModel)]="formulario.novedad_placa" placeholder="Novedad placa" class="ti-input" />
             </div>
 
-            <div class="ti-fila">
-              <label>Estado</label>
-              <input type="text" [value]="valor(activo.estado)" class="ti-input ti-input--readonly" readonly />
-              <select [(ngModel)]="formulario.novedad_estado" class="ti-input">
-                <option value="">-- Seleccione --</option>
-                <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
-              </select>
+            <!-- Estado: SOLO LECTURA — no tiene campo de novedad -->
+            <div class="ti-fila ti-fila--solo-lectura">
+              <label>
+                Estado del activo
+                <span class="ti-readonly-badge">Solo lectura</span>
+              </label>
+              <input type="text" [value]="valor(activo.estado)" class="ti-input ti-input--readonly ti-input--estado" readonly />
             </div>
 
             <div class="ti-fila">
@@ -347,16 +381,12 @@
               <input type="text" [(ngModel)]="formulario.novedad_serie" placeholder="Novedad serie" class="ti-input" />
             </div>
 
-            <div class="ti-fila ti-fila--observacion">
-              <label>Observación en Indigo</label>
-              <textarea [value]="valor(activo.observacion)" class="ti-input ti-input--readonly" rows="3" readonly></textarea>
-            </div>
-
           </div>
 
           <!-- Columna 2 -->
           <div class="ti-columna">
 
+            <!-- Responsable — viene de la vista Fabric (VW_Fixed_DetalleActivos) -->
             <div class="ti-fila">
               <label>Responsable</label>
               <input type="text" [value]="valor(activo.responsable)" class="ti-input ti-input--readonly" readonly />
@@ -364,7 +394,6 @@
                 [(ngModel)]="formulario.novedad_responsable"
                 [suggestions]="empleadosSugerencias"
                 (completeMethod)="buscarEmpleados($event)"
-                
                 [dropdown]="false"
                 placeholder="Buscar empleado..."
                 [minLength]="3"
@@ -373,6 +402,7 @@
               </p-autoComplete>
             </div>
 
+            <!-- Localización — viene de Localizacion-Sucursal en Fabric -->
             <div class="ti-fila">
               <label>Localización</label>
               <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
@@ -384,37 +414,15 @@
                 [filter]="true"
                 filterBy="label"
                 [showClear]="true"
-                placeholder="Buscar centro de costo..."
+                placeholder="Buscar localización..."
                 styleClass="ti-dropdown-prime">
               </p-dropdown>
-            </div>
-
-            <div class="ti-fila">
-              <label>Tipo de inventario</label>
-              <input type="text" [value]="valor(activo.tipo_inventario)" class="ti-input ti-input--readonly" readonly />
-              <input type="text" [(ngModel)]="formulario.novedad_tipo_inventario" placeholder="Novedad tipo inventario" class="ti-input" />
             </div>
 
             <div class="ti-fila">
               <label>Sucursal</label>
               <input type="text" [value]="valor(activo.sucursal)" class="ti-input ti-input--readonly" readonly />
               <input type="text" [(ngModel)]="formulario.novedad_sucursal" placeholder="Novedad sucursal" class="ti-input" />
-            </div>
-
-            <div class="ti-fila">
-              <label>Unidad funcional</label>
-              <span class="ti-input ti-input--readonly">—</span>
-              <p-dropdown
-                [(ngModel)]="formulario.novedad_unidad_funcional"
-                [options]="unidadesFuncionalesOpciones"
-                optionLabel="label"
-                optionValue="value"
-                [filter]="true"
-                filterBy="label"
-                [showClear]="true"
-                placeholder="Buscar unidad funcional..."
-                styleClass="ti-dropdown-prime">
-              </p-dropdown>
             </div>
 
             <div class="ti-fila">
@@ -468,7 +476,12 @@
               <p-tag
                 *ngIf="registro.estado_fisico"
                 [value]="registro.estado_fisico"
-                [severity]="severidadEstadoFisico(registro.estado_fisico)"></p-tag>
+                [severity]="severidadEstadoFisico(registro.estado_fisico)">
+              </p-tag>
+              <!-- Tipo inventario en el historial -->
+              <span class="ti-timeline__tipo" *ngIf="registro.tipo_inventario">
+                {{ registro.tipo_inventario.nombre }}
+              </span>
             </div>
 
             <div class="ti-timeline__cuerpo">
@@ -554,17 +567,16 @@
           </select>
         </div>
 
+        <!-- Filtro Tipo Inventario (reemplaza Unidad Funcional) -->
         <div class="ti-filtro">
-          <label for="fUnidad">Unidad funcional</label>
+          <label>Tipo de inventario</label>
           <p-dropdown
-            [(ngModel)]="filtros.unidad_funcional"
-            [options]="centrosCostoOpciones"
+            [(ngModel)]="filtros.tipo_inventario_id"
+            [options]="tiposInventarioOpciones"
             optionLabel="label"
             optionValue="value"
-            [filter]="true"
-            filterBy="label"
             [showClear]="true"
-            placeholder="Todas"
+            placeholder="Todos los tipos"
             styleClass="ti-dropdown-prime ti-dropdown-prime--filtro">
           </p-dropdown>
         </div>
@@ -626,6 +638,8 @@
               <th style="width: 3rem"></th>
               <th>Placa</th>
               <th>Artículo</th>
+              <!-- Tipo Inventario en lugar de Unidad Funcional -->
+              <th>Tipo Inventario</th>
               <th>Estado físico</th>
               <th style="width: 6rem">Cambios</th>
               <th>Registrado por</th>
@@ -647,11 +661,19 @@
               </td>
               <td><strong class="ti-placa-tabla">{{ valor(registro.placa) }}</strong></td>
               <td>{{ valor(registro.articulo_nombre) }}</td>
+              <!-- Tipo inventario -->
+              <td>
+                <span class="ti-tipo-badge" *ngIf="registro.tipo_inventario">
+                  {{ registro.tipo_inventario.nombre }}
+                </span>
+                <span *ngIf="!registro.tipo_inventario" class="ti-sin-dato">—</span>
+              </td>
               <td>
                 <p-tag
                   *ngIf="registro.estado_fisico"
                   [value]="registro.estado_fisico"
-                  [severity]="severidadEstadoFisico(registro.estado_fisico)"></p-tag>
+                  [severity]="severidadEstadoFisico(registro.estado_fisico)">
+                </p-tag>
                 <span *ngIf="!registro.estado_fisico" class="ti-sin-dato">—</span>
               </td>
               <td>
@@ -665,7 +687,7 @@
 
             <!-- Detalle expandible -->
             <tr *ngIf="expandidas[registro.id]" class="ti-detalle">
-              <td colspan="7">
+              <td colspan="8">
                 <div class="ti-detalle__cuerpo">
 
                   <div class="ti-detalle__bloque" *ngIf="registro.cambios.length > 0">
@@ -688,10 +710,16 @@
                   <div class="ti-detalle__bloque">
                     <h4>Datos del activo</h4>
                     <dl class="ti-datos">
-                      <dt>Serie</dt><dd>{{ valor(registro.serie) }}</dd>
-                      <dt>Código artículo</dt><dd>{{ valor(registro.articulo_codigo) }}</dd>
-                      <dt>Sucursal origen</dt><dd>{{ valor(registro.sucursal_origen) }}</dd>
-                      <dt>Correo del inventariador</dt><dd>{{ valor(registro.registrado_por.email) }}</dd>
+                      <dt>Serie</dt>
+                      <dd>{{ valor(registro.serie) }}</dd>
+                      <dt>Código artículo</dt>
+                      <dd>{{ valor(registro.articulo_codigo) }}</dd>
+                      <dt>Sucursal origen</dt>
+                      <dd>{{ valor(registro.sucursal_origen) }}</dd>
+                      <dt>Tipo de inventario</dt>
+                      <dd>{{ nombreTipoInventario(registro) }}</dd>
+                      <dt>Correo inventariador</dt>
+                      <dd>{{ valor(registro.registrado_por.email) }}</dd>
                     </dl>
                   </div>
 
@@ -706,7 +734,7 @@
 
           <ng-template pTemplate="emptymessage">
             <tr>
-              <td colspan="7">
+              <td colspan="8">
                 <div class="ti-vacio">
                   <i class="pi pi-inbox"></i>
                   <span *ngIf="!hayFiltrosActivos">Aún no hay tomas de inventario registradas.</span>

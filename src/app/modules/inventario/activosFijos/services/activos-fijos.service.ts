@@ -6,12 +6,41 @@ import { environment } from '../../../../environments/environment';
 /** Campo por el que se busca un activo en el maestro de Indigo. */
 export type CampoBusqueda = 'placa' | 'serie' | 'responsable' | 'articulo';
 
+/** Periodicidades soportadas por los tipos de inventario. */
+export type Periodicidad = 'anual' | 'mensual' | 'semestral' | 'trimestral' | 'semanal' | 'ninguna';
+
+/**
+ * Tipo de inventario parametrizable.
+ * Controla con qué frecuencia se puede registrar un activo.
+ */
+export interface TipoInventario {
+  id: number;
+  nombre: string;
+  periodicidad: Periodicidad;
+  periodicidad_nombre: string;
+  descripcion_restriccion: string;
+  activo: boolean;
+  descripcion: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  registros_count?: number;
+}
+
+/** Payload para crear o actualizar un tipo de inventario. */
+export interface TipoInventarioPayload {
+  nombre: string;
+  periodicidad: Periodicidad;
+  descripcion?: string | null;
+  activo?: boolean;
+}
+
 /**
  * Activo tal como lo entrega el backend, ya normalizado.
  * Los nombres son estables aunque la vista de Indigo cambie el casing.
  */
 export interface ActivoFijo {
   placa: string | null;
+  /** Estado del activo (EstadoActivo desde Fabric — SOLO LECTURA). */
   estado: string | null;
   articulo: string | null;
   articulo_codigo: string | null;
@@ -19,6 +48,7 @@ export interface ActivoFijo {
   modelo: string | null;
   serie: string | null;
   responsable: string | null;
+  /** Localización (Localizacion - Sucursal desde Fabric). */
   localizacion: string | null;
   tipo_inventario: string | null;
   sucursal: string | null;
@@ -46,6 +76,8 @@ export interface TrazabilidadActivo {
   observacion: string | null;
   sucursal_origen: string | null;
   estado_fisico: string | null;
+  tipo_inventario: TipoInventario | null;
+  tipo_inventario_id: number | null;
   cambios: CambioTrazabilidad[];
   total_cambios: number;
   registrado_por: {
@@ -57,18 +89,23 @@ export interface TrazabilidadActivo {
   created_at_human: string | null;
 }
 
-/** Payload para registrar una novedad. Solo se envían los campos con valor. */
+/**
+ * Payload para registrar una novedad.
+ * - tipo_inventario_id: REQUERIDO para validar periodicidad.
+ * - estado: NUNCA se envía (campo solo lectura).
+ * Solo se envían los campos con valor.
+ */
 export interface NovedadActivoPayload {
   placa: string;
+  tipo_inventario_id: number;
   novedad_placa?: string | null;
-  novedad_estado?: string | null;
+  /** Estado NO es editable; el campo solo lectura viene de Fabric. */
   novedad_articulo?: string | null;
   novedad_marca?: string | null;
   novedad_modelo?: string | null;
   novedad_serie?: string | null;
   novedad_responsable?: string | null;
   novedad_localizacion?: string | null;
-  novedad_tipo_inventario?: string | null;
   novedad_sucursal?: string | null;
   novedad_estado_fisico?: string | null;
   observacion?: string | null;
@@ -79,6 +116,7 @@ export interface NovedadActivoPayload {
 export interface OpcionesActivo {
   estados: string[];
   estados_fisicos: string[];
+  tipos_inventario: TipoInventario[];
 }
 
 export interface ResumenTrazabilidad {
@@ -96,9 +134,13 @@ export interface DetalleActivoResponse {
   historial: TrazabilidadActivo[];
 }
 
-/** Payload para registrar un activo que no existe en el maestro. */
+/**
+ * Payload para registrar un activo que no existe en el maestro.
+ * - tipo_inventario_id: REQUERIDO.
+ */
 export interface NovedadExternaPayload {
   placa: string;
+  tipo_inventario_id: number;
   serie?: string | null;
   articulo_nombre?: string | null;
   marca?: string | null;
@@ -108,7 +150,6 @@ export interface NovedadExternaPayload {
   sucursal?: string | null;
   estado_fisico?: string | null;
   observacion?: string | null;
-  unidad_funcional?: string | null;
 }
 
 interface ApiResponse<T> {
@@ -136,6 +177,7 @@ interface ApiPaginated<T> {
 @Injectable({ providedIn: 'root' })
 export class ActivosFijosService {
   private readonly baseUrl = `${environment.URL_SERVICIOS}/inventario/activos-fijos`;
+  private readonly tiposUrl = `${environment.URL_SERVICIOS}/inventario/tipos-inventario`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -179,7 +221,7 @@ export class ActivosFijosService {
     usuario_id?: number;
     desde?: string;
     hasta?: string;
-    unidad_funcional?: string;
+    tipo_inventario_id?: number;
     es_externo?: boolean;
     per_page?: number;
     page?: number;
@@ -201,7 +243,7 @@ export class ActivosFijosService {
   // ── Exportar Excel ──────────────────────────────────────────────────────
 
   exportarExcel(filtros: {
-    unidad_funcional?: string;
+    tipo_inventario_id?: number;
     placa?: string;
     estado_fisico?: string;
     desde?: string;
@@ -227,12 +269,6 @@ export class ActivosFijosService {
     return this.http.post<ApiResponse<TrazabilidadActivo>>(`${this.baseUrl}/novedad-externa`, payload);
   }
 
-  // ── Unidades funcionales ────────────────────────────────────────────────
-
-  unidadesFuncionales(): Observable<ApiResponse<{ valor: string; origen: string }[]>> {
-    return this.http.get<ApiResponse<{ valor: string; origen: string }[]>>(`${this.baseUrl}/unidades-funcionales`);
-  }
-
   // ── Empleados (Fabric: No.VW_Payroll_EmpleadosActivos) ──────────────────
 
   empleados(busqueda: string = '', limit = 50): Observable<ApiResponse<{ documento: string; nombre: string }[]>> {
@@ -243,9 +279,37 @@ export class ActivosFijosService {
     return this.http.get<ApiResponse<{ documento: string; nombre: string }[]>>(`${this.baseUrl}/empleados`, { params });
   }
 
-  // ── Centros de Costo / Unidades Funcionales (Fabric) ────────────────────
+  // ── Centros de Costo / Localizaciones (Fabric) ────────────────────────────
 
   centrosCosto(): Observable<ApiResponse<{ code: string; unidad_funcional: string }[]>> {
     return this.http.get<ApiResponse<{ code: string; unidad_funcional: string }[]>>(`${this.baseUrl}/centros-costo`);
+  }
+
+  // ── Tipos de Inventario (CRUD) ───────────────────────────────────────────
+
+  /** Lista todos los tipos (opcionalmente solo activos). */
+  listarTiposInventario(soloActivos = false): Observable<ApiResponse<TipoInventario[]>> {
+    const params: Record<string, string> = {};
+    if (soloActivos) {
+      params['activo'] = 'true';
+    }
+    return this.http.get<ApiResponse<TipoInventario[]>>(this.tiposUrl, { params });
+  }
+
+  crearTipoInventario(payload: TipoInventarioPayload): Observable<ApiResponse<TipoInventario>> {
+    return this.http.post<ApiResponse<TipoInventario>>(this.tiposUrl, payload);
+  }
+
+  actualizarTipoInventario(id: number, payload: TipoInventarioPayload): Observable<ApiResponse<TipoInventario>> {
+    return this.http.put<ApiResponse<TipoInventario>>(`${this.tiposUrl}/${id}`, payload);
+  }
+
+  eliminarTipoInventario(id: number): Observable<ApiResponse<null>> {
+    return this.http.delete<ApiResponse<null>>(`${this.tiposUrl}/${id}`);
+  }
+
+  toggleEstadoTipoInventario(id: number, activo?: boolean): Observable<ApiResponse<TipoInventario>> {
+    const body = activo !== undefined ? { activo } : {};
+    return this.http.patch<ApiResponse<TipoInventario>>(`${this.tiposUrl}/${id}/estado`, body);
   }
 }

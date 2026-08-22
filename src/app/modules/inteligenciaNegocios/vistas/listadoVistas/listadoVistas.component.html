@@ -187,6 +187,16 @@
                         tooltipPosition="left">
                   <i class="pi" [ngClass]="esEnMantenimiento(vista) ? 'pi-wrench' : 'pi-external-link'"></i>
                 </button>
+                <!-- Botón "Actualizar como Excel" — carga dataset completo vía parquet/export -->
+                <button
+                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
+                  class="btn-action-icon btn-action-excel"
+                  (click)="abrirVistaRefresh(vista, $event)"
+                  pTooltip="Cargar datos completos (parquet) — Vista tipo Excel"
+                  tooltipPosition="left"
+                  style="margin-left: 4px;">
+                  <i class="pi pi-table"></i>
+                </button>
               </td>
             </tr>
           </ng-template>

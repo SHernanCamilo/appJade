@@ -19,29 +19,34 @@ import {
   NovedadActivoPayload,
   NovedadExternaPayload,
   ResumenTrazabilidad,
+  TipoInventario,
   TrazabilidadActivo
 } from '../services/activos-fijos.service';
 
-/** Campos de novedad que el inventariador puede reportar. */
+/**
+ * Campos de novedad que el inventariador puede reportar.
+ * - Estado: ELIMINADO (es solo lectura desde Fabric).
+ * - Unidad funcional: ELIMINADA.
+ * - tipo_inventario_id: REQUERIDO, identifica el tipo de inventario que se realiza.
+ */
 interface FormularioNovedad {
+  tipo_inventario_id: number | null;
   novedad_placa: string;
-  novedad_estado: string;
   novedad_articulo: string;
   novedad_marca: string;
   novedad_modelo: string;
   novedad_serie: string;
   novedad_responsable: string;
   novedad_localizacion: string;
-  novedad_tipo_inventario: string;
   novedad_sucursal: string;
   novedad_estado_fisico: string;
-  novedad_unidad_funcional: string;
   observacion: string;
 }
 
 /** Formulario para registrar activo externo (no está en el maestro). */
 interface FormularioExterno {
   placa: string;
+  tipo_inventario_id: number | null;
   serie: string;
   articulo_nombre: string;
   marca: string;
@@ -51,27 +56,25 @@ interface FormularioExterno {
   sucursal: string;
   estado_fisico: string;
   observacion: string;
-  unidad_funcional: string;
 }
 
 const FORMULARIO_VACIO: FormularioNovedad = {
+  tipo_inventario_id: null,
   novedad_placa: '',
-  novedad_estado: '',
   novedad_articulo: '',
   novedad_marca: '',
   novedad_modelo: '',
   novedad_serie: '',
   novedad_responsable: '',
   novedad_localizacion: '',
-  novedad_tipo_inventario: '',
   novedad_sucursal: '',
   novedad_estado_fisico: '',
-  novedad_unidad_funcional: '',
   observacion: ''
 };
 
 const FORMULARIO_EXTERNO_VACIO: FormularioExterno = {
   placa: '',
+  tipo_inventario_id: null,
   serie: '',
   articulo_nombre: '',
   marca: '',
@@ -80,28 +83,23 @@ const FORMULARIO_EXTERNO_VACIO: FormularioExterno = {
   localizacion: '',
   sucursal: '',
   estado_fisico: '',
-  observacion: '',
-  unidad_funcional: ''
+  observacion: ''
 };
 
 /** Índices de las pestañas. */
-const TAB_REGISTRAR = 0;
+const TAB_REGISTRAR    = 0;
 const TAB_TRAZABILIDAD = 1;
 
 /**
  * Control de Activos Fijos — módulo único con dos pestañas.
  *
  *   Registro     → busca el activo en el maestro de Indigo (vista de Fabric),
- *                  muestra sus datos en solo lectura y permite reportar las
- *                  diferencias encontradas en sitio. Incluye el historial del
- *                  activo que se está inventariando.
+ *                  muestra sus datos en solo lectura (incluyendo EstadoActivo,
+ *                  Localización y Responsable) y permite reportar diferencias.
+ *                  Requiere seleccionar el Tipo de Inventario antes de guardar.
  *
- *   Trazabilidad → listado de todas las tomas registradas, con indicadores y
- *                  filtros por placa, estado físico y rango de fechas.
- *
- * Se unificaron en un solo componente para que el inventariador registre y
- * verifique sin cambiar de página: al guardar una novedad se salta a la
- * pestaña de trazabilidad ya recargada.
+ *   Trazabilidad → listado paginado de todas las tomas, filtrable por
+ *                  Tipo Inventario (en lugar de Unidad Funcional).
  */
 @Component({
   selector: 'app-control-activo',
@@ -122,7 +120,7 @@ const TAB_TRAZABILIDAD = 1;
   styleUrl: './controlActivo.component.css'
 })
 export class ControlActivoComponent implements OnInit {
-  private readonly service = inject(ActivosFijosService);
+  private readonly service  = inject(ActivosFijosService);
   private readonly messages = inject(MessageService);
 
   /** 0 = Registrar toma, 1 = Trazabilidad */
@@ -137,15 +135,13 @@ export class ControlActivoComponent implements OnInit {
   buscando = false;
 
   readonly camposBusqueda: Array<{ valor: CampoBusqueda; etiqueta: string }> = [
-    { valor: 'placa', etiqueta: 'Placa' },
-    { valor: 'serie', etiqueta: 'Serie' },
-    { valor: 'responsable', etiqueta: 'Responsable' },
-    { valor: 'articulo', etiqueta: 'Artículo' }
+    { valor: 'placa',        etiqueta: 'Placa'       },
+    { valor: 'serie',        etiqueta: 'Serie'       },
+    { valor: 'responsable',  etiqueta: 'Responsable' },
+    { valor: 'articulo',     etiqueta: 'Artículo'    }
   ];
 
-  /** Resultados cuando la búsqueda devuelve más de un activo. */
   resultados: ActivoFijo[] = [];
-
   activo: ActivoFijo | null = null;
   historial: TrazabilidadActivo[] = [];
   cargandoHistorial = false;
@@ -153,26 +149,27 @@ export class ControlActivoComponent implements OnInit {
   formulario: FormularioNovedad = { ...FORMULARIO_VACIO };
   guardando = false;
 
-  estados: string[] = [];
+  /** Estados físicos del activo (cargados desde opciones del backend). */
   estadosFisicos: string[] = [];
 
-  /** Unidades funcionales cargadas del backend. */
-  unidadesFuncionales: string[] = [];
-  unidadesFuncionalesOpciones: { label: string; value: string }[] = [];
+  /** Tipos de inventario activos para el dropdown requerido. */
+  tiposInventario: TipoInventario[] = [];
+  tiposInventarioOpciones: Array<{ label: string; value: number }> = [];
 
-  /** Centros de costo desde Fabric (cp.VW_Payroll_UnidadFuncionales_CC) */
+  /** Centros de costo (Localización) desde Fabric. */
   centrosCosto: { code: string; unidad_funcional: string }[] = [];
-  centrosCostoOpciones: { label: string; value: string }[] = [];
+  centrosCostoOpciones: Array<{ label: string; value: string }> = [];
 
-  /** Empleados activos para el select de responsable */
-  empleados: { documento: string; nombre: string }[] = [];
+  /** Empleados activos para el autocomplete de responsable. */
   empleadosSugerencias: string[] = [];
-  buscandoEmpleados = false;
 
   /** Controla si se muestra el formulario de activo externo. */
   mostrarFormExterno = false;
   formularioExterno: FormularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
   guardandoExterno = false;
+
+  /** Alerta de periodicidad: se muestra cuando el backend rechaza con 409. */
+  alertaPeriodicidad: string | null = null;
 
   /** Indica si la última búsqueda no encontró resultados. */
   sinResultados = false;
@@ -187,19 +184,27 @@ export class ControlActivoComponent implements OnInit {
   cargandoTraza = false;
   totalRegistros = 0;
   filasPorPagina = 25;
-  primeraFila = 0;
+  primeraFila    = 0;
 
-  filtros = { placa: '', estado_fisico: '', desde: '', hasta: '', unidad_funcional: '', es_externo: false };
+  /** Filtros: tipo_inventario_id reemplaza a unidad_funcional. */
+  filtros = {
+    placa: '',
+    estado_fisico: '',
+    desde: '',
+    hasta: '',
+    tipo_inventario_id: null as number | null,
+    es_externo: false
+  };
 
-  /** Exportando Excel. */
   exportando = false;
-
-  /** Filas expandidas en la tabla de trazabilidad. */
   expandidas: Record<number, boolean> = {};
+
+  // =========================================================================
+  // INIT
+  // =========================================================================
 
   ngOnInit(): void {
     this.cargarOpciones();
-    this.cargarUnidadesFuncionales();
     this.cargarCentrosCosto();
     this.cargarTrazabilidad();
     this.cargarResumen();
@@ -211,8 +216,6 @@ export class ControlActivoComponent implements OnInit {
 
   onTabChange(evento: { index: number }): void {
     this.tabActiva = evento.index;
-
-    // Al entrar a trazabilidad se recarga para reflejar lo recién guardado
     if (evento.index === TAB_TRAZABILIDAD) {
       this.cargarTrazabilidad();
       this.cargarResumen();
@@ -238,16 +241,15 @@ export class ControlActivoComponent implements OnInit {
   }
 
   consultar(): void {
-    if (!this.puedeBuscar) {
-      return;
-    }
+    if (!this.puedeBuscar) return;
 
-    this.buscando = true;
-    this.resultados = [];
-    this.activo = null;
-    this.historial = [];
-    this.sinResultados = false;
+    this.buscando        = true;
+    this.resultados      = [];
+    this.activo          = null;
+    this.historial       = [];
+    this.sinResultados   = false;
     this.mostrarFormExterno = false;
+    this.alertaPeriodicidad = null;
 
     this.service.buscar(this.campoBusqueda, this.valorBusqueda.trim()).subscribe({
       next: respuesta => {
@@ -265,7 +267,6 @@ export class ControlActivoComponent implements OnInit {
           return;
         }
 
-        // Un solo resultado: abrir directo. Varios: dejar elegir.
         if (encontrados.length === 1) {
           this.seleccionar(encontrados[0]);
         } else {
@@ -291,9 +292,10 @@ export class ControlActivoComponent implements OnInit {
   }
 
   seleccionar(activo: ActivoFijo): void {
-    this.activo = activo;
+    this.activo     = activo;
     this.resultados = [];
     this.formulario = { ...FORMULARIO_VACIO };
+    this.alertaPeriodicidad = null;
 
     if (activo.placa) {
       this.cargarHistorialActivo(activo.placa);
@@ -301,46 +303,61 @@ export class ControlActivoComponent implements OnInit {
   }
 
   regresar(): void {
-    this.activo = null;
-    this.resultados = [];
-    this.historial = [];
-    this.valorBusqueda = '';
-    this.formulario = { ...FORMULARIO_VACIO };
-    this.sinResultados = false;
+    this.activo          = null;
+    this.resultados      = [];
+    this.historial       = [];
+    this.valorBusqueda   = '';
+    this.formulario      = { ...FORMULARIO_VACIO };
+    this.sinResultados   = false;
     this.mostrarFormExterno = false;
-    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
+    this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
+    this.alertaPeriodicidad = null;
   }
 
   // =========================================================================
   // REGISTRO DE NOVEDAD
   // =========================================================================
 
-  /** Cuántos campos de novedad tienen valor (sin contar la observación). */
+  /** Campos de novedad con valor (excluye tipo_inventario_id y observacion). */
   get novedadesLlenas(): number {
+    const excluir = new Set(['tipo_inventario_id', 'observacion']);
     return Object.entries(this.formulario)
-      .filter(([clave]) => clave !== 'observacion')
-      .filter(([, valor]) => valor.trim() !== '').length;
+      .filter(([clave]) => !excluir.has(clave))
+      .filter(([, valor]) => String(valor ?? '').trim() !== '').length;
   }
 
   get puedeRegistrar(): boolean {
-    if (!this.activo || this.guardando) {
-      return false;
-    }
+    if (!this.activo || this.guardando) return false;
+    // Tipo de inventario es obligatorio
+    if (!this.formulario.tipo_inventario_id) return false;
     return this.novedadesLlenas > 0 || this.formulario.observacion.trim() !== '';
   }
 
+  get tipoInventarioSeleccionado(): TipoInventario | null {
+    if (!this.formulario.tipo_inventario_id) return null;
+    return this.tiposInventario.find(t => t.id === this.formulario.tipo_inventario_id) ?? null;
+  }
+
   registrar(): void {
-    if (!this.puedeRegistrar || !this.activo?.placa) {
-      return;
-    }
+    if (!this.puedeRegistrar || !this.activo?.placa) return;
 
     this.guardando = true;
+    this.alertaPeriodicidad = null;
 
-    const payload: NovedadActivoPayload = { placa: this.activo.placa };
+    const payload: NovedadActivoPayload = {
+      placa: this.activo.placa,
+      tipo_inventario_id: this.formulario.tipo_inventario_id!
+    };
 
-    // Solo se envían los campos con valor: ausente significa "sin novedad"
-    (Object.keys(this.formulario) as Array<keyof FormularioNovedad>).forEach(clave => {
-      const valor = this.formulario[clave].trim();
+    // Solo campos con valor, sin estado (readonly)
+    const camposNovedad: Array<keyof FormularioNovedad> = [
+      'novedad_placa', 'novedad_articulo', 'novedad_marca', 'novedad_modelo',
+      'novedad_serie', 'novedad_responsable', 'novedad_localizacion',
+      'novedad_sucursal', 'novedad_estado_fisico', 'observacion'
+    ];
+
+    camposNovedad.forEach(clave => {
+      const valor = String(this.formulario[clave] ?? '').trim();
       if (valor !== '') {
         (payload as unknown as Record<string, unknown>)[clave] = valor;
       }
@@ -357,22 +374,24 @@ export class ControlActivoComponent implements OnInit {
           detail: `Se guardaron ${respuesta.data.total_cambios} cambio(s) para la placa ${placaGuardada}.`,
           life: 6000
         });
-
         this.formulario = { ...FORMULARIO_VACIO };
         this.cargarHistorialActivo(placaGuardada);
-
-        // Refrescar la otra pestaña para que el registro ya aparezca allí
         this.cargarTrazabilidad();
         this.cargarResumen();
       },
       error: (error: HttpErrorResponse) => {
         this.guardando = false;
-        this.messages.add({
-          severity: 'error',
-          summary: 'No se pudo registrar',
-          detail: error.error?.message ?? 'Error guardando la novedad.',
-          life: 7000
-        });
+        // 409 = conflicto de periodicidad
+        if (error.status === 409) {
+          this.alertaPeriodicidad = error.error?.message ?? 'Ya existe un registro para este activo en el período.';
+        } else {
+          this.messages.add({
+            severity: 'error',
+            summary: 'No se pudo registrar',
+            detail: error.error?.message ?? 'Error guardando la novedad.',
+            life: 7000
+          });
+        }
       }
     });
   }
@@ -383,7 +402,6 @@ export class ControlActivoComponent implements OnInit {
 
   private cargarHistorialActivo(placa: string): void {
     this.cargandoHistorial = true;
-
     this.service.historial(placa).subscribe({
       next: respuesta => {
         this.cargandoHistorial = false;
@@ -396,32 +414,24 @@ export class ControlActivoComponent implements OnInit {
     });
   }
 
+  /**
+   * Carga opciones del backend: estados_fisicos + tipos_inventario activos.
+   * El estado del activo ya no se carga porque es solo lectura desde Fabric.
+   */
   private cargarOpciones(): void {
     this.service.opciones().subscribe({
       next: respuesta => {
-        this.estados = respuesta.data?.estados ?? [];
-        this.estadosFisicos = respuesta.data?.estados_fisicos ?? [];
-      },
-      error: () => {
-        // Fallback: el formulario sigue usable con los valores conocidos
-        this.estados = ['Activo', 'Inactivo'];
-        this.estadosFisicos = ['En buen estado', 'Para Reparacion', 'Dar de baja'];
-      }
-    });
-  }
-
-  private cargarUnidadesFuncionales(): void {
-    this.service.unidadesFuncionales().subscribe({
-      next: respuesta => {
-        this.unidadesFuncionales = (respuesta.data ?? []).map(uf => uf.valor);
-        this.unidadesFuncionalesOpciones = this.unidadesFuncionales.map(uf => ({
-          label: uf,
-          value: uf
+        this.estadosFisicos  = respuesta.data?.estados_fisicos ?? [];
+        this.tiposInventario = respuesta.data?.tipos_inventario ?? [];
+        this.tiposInventarioOpciones = this.tiposInventario.map(t => ({
+          label: `${t.nombre} (${t.periodicidad_nombre})`,
+          value: t.id
         }));
       },
       error: () => {
-        this.unidadesFuncionales = [];
-        this.unidadesFuncionalesOpciones = [];
+        this.estadosFisicos  = ['En buen estado', 'Para Reparacion', 'Dar de baja'];
+        this.tiposInventario = [];
+        this.tiposInventarioOpciones = [];
       }
     });
   }
@@ -454,20 +464,17 @@ export class ControlActivoComponent implements OnInit {
           `${emp.documento} - ${emp.nombre}`
         );
       },
-      error: () => {
-        this.empleadosSugerencias = [];
-      }
+      error: () => { this.empleadosSugerencias = []; }
     });
   }
 
   // =========================================================================
-  // REGISTRO DE ACTIVO EXTERNO (NO ESTÁ EN EL MAESTRO)
+  // REGISTRO DE ACTIVO EXTERNO
   // =========================================================================
 
   abrirFormExterno(): void {
     this.mostrarFormExterno = true;
-    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
-    // Pre-llenar la placa con lo que buscó el usuario si el campo era 'placa'
+    this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
     if (this.campoBusqueda === 'placa' && this.valorBusqueda.trim()) {
       this.formularioExterno.placa = this.valorBusqueda.trim();
     }
@@ -475,26 +482,32 @@ export class ControlActivoComponent implements OnInit {
 
   cerrarFormExterno(): void {
     this.mostrarFormExterno = false;
-    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
+    this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
   }
 
   get puedeRegistrarExterno(): boolean {
-    return this.formularioExterno.placa.trim().length >= 2 && !this.guardandoExterno;
+    return this.formularioExterno.placa.trim().length >= 2 &&
+           this.formularioExterno.tipo_inventario_id !== null &&
+           !this.guardandoExterno;
   }
 
   registrarExterno(): void {
-    if (!this.puedeRegistrarExterno) {
-      return;
-    }
+    if (!this.puedeRegistrarExterno) return;
 
     this.guardandoExterno = true;
 
-    const payload: NovedadExternaPayload = { placa: this.formularioExterno.placa.trim() };
+    const payload: NovedadExternaPayload = {
+      placa: this.formularioExterno.placa.trim(),
+      tipo_inventario_id: this.formularioExterno.tipo_inventario_id!
+    };
 
-    // Solo se envían los campos con valor
-    (Object.keys(this.formularioExterno) as Array<keyof FormularioExterno>).forEach(clave => {
-      if (clave === 'placa') return;
-      const valor = this.formularioExterno[clave].trim();
+    const camposExterno: Array<keyof Omit<FormularioExterno, 'placa' | 'tipo_inventario_id'>> = [
+      'serie', 'articulo_nombre', 'marca', 'modelo',
+      'responsable', 'localizacion', 'sucursal', 'estado_fisico', 'observacion'
+    ];
+
+    camposExterno.forEach(clave => {
+      const valor = String(this.formularioExterno[clave] ?? '').trim();
       if (valor !== '') {
         (payload as unknown as Record<string, unknown>)[clave] = valor;
       }
@@ -516,10 +529,13 @@ export class ControlActivoComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.guardandoExterno = false;
+        const msg = error.status === 409
+          ? error.error?.message
+          : (error.error?.message ?? 'Error registrando el activo externo.');
         this.messages.add({
-          severity: 'error',
-          summary: 'No se pudo registrar',
-          detail: error.error?.message ?? 'Error registrando el activo externo.',
+          severity: error.status === 409 ? 'warn' : 'error',
+          summary: error.status === 409 ? 'Restricción de periodicidad' : 'No se pudo registrar',
+          detail: msg,
           life: 7000
         });
       }
@@ -532,20 +548,19 @@ export class ControlActivoComponent implements OnInit {
 
   exportarExcel(): void {
     this.exportando = true;
-
     this.service.exportarExcel({
-      placa: this.filtros.placa || undefined,
-      estado_fisico: this.filtros.estado_fisico || undefined,
-      desde: this.filtros.desde || undefined,
-      hasta: this.filtros.hasta || undefined,
-      unidad_funcional: this.filtros.unidad_funcional || undefined,
-      es_externo: this.filtros.es_externo || undefined
+      tipo_inventario_id: this.filtros.tipo_inventario_id ?? undefined,
+      placa:              this.filtros.placa         || undefined,
+      estado_fisico:      this.filtros.estado_fisico || undefined,
+      desde:              this.filtros.desde         || undefined,
+      hasta:              this.filtros.hasta         || undefined,
+      es_externo:         this.filtros.es_externo    || undefined
     }).subscribe({
       next: (blob: Blob) => {
         this.exportando = false;
-        const url = window.URL.createObjectURL(blob);
-        const enlace = document.createElement('a');
-        enlace.href = url;
+        const url     = window.URL.createObjectURL(blob);
+        const enlace  = document.createElement('a');
+        enlace.href   = url;
         enlace.download = `activos_fijos_${new Date().toISOString().slice(0, 10)}.xlsx`;
         enlace.click();
         window.URL.revokeObjectURL(url);
@@ -574,23 +589,22 @@ export class ControlActivoComponent implements OnInit {
 
   cargarTrazabilidad(): void {
     this.cargandoTraza = true;
-
     const pagina = Math.floor(this.primeraFila / this.filasPorPagina) + 1;
 
     this.service.trazabilidad({
-      placa: this.filtros.placa || undefined,
-      estado_fisico: this.filtros.estado_fisico || undefined,
-      desde: this.filtros.desde || undefined,
-      hasta: this.filtros.hasta || undefined,
-      unidad_funcional: this.filtros.unidad_funcional || undefined,
-      es_externo: this.filtros.es_externo || undefined,
+      placa:               this.filtros.placa         || undefined,
+      estado_fisico:       this.filtros.estado_fisico || undefined,
+      desde:               this.filtros.desde         || undefined,
+      hasta:               this.filtros.hasta         || undefined,
+      tipo_inventario_id:  this.filtros.tipo_inventario_id ?? undefined,
+      es_externo:          this.filtros.es_externo    || undefined,
       per_page: this.filasPorPagina,
-      page: pagina
+      page:     pagina
     }).subscribe({
       next: respuesta => {
-        this.cargandoTraza = false;
-        this.registros = respuesta.data ?? [];
-        this.totalRegistros = respuesta.meta?.total ?? 0;
+        this.cargandoTraza   = false;
+        this.registros       = respuesta.data ?? [];
+        this.totalRegistros  = respuesta.meta?.total ?? 0;
       },
       error: (error: HttpErrorResponse) => {
         this.cargandoTraza = false;
@@ -613,7 +627,7 @@ export class ControlActivoComponent implements OnInit {
   }
 
   onPageChange(evento: { first: number; rows: number }): void {
-    this.primeraFila = evento.first;
+    this.primeraFila    = evento.first;
     this.filasPorPagina = evento.rows;
     this.cargarTrazabilidad();
   }
@@ -624,30 +638,34 @@ export class ControlActivoComponent implements OnInit {
   }
 
   limpiarFiltros(): void {
-    this.filtros = { placa: '', estado_fisico: '', desde: '', hasta: '', unidad_funcional: '', es_externo: false };
+    this.filtros = { placa: '', estado_fisico: '', desde: '', hasta: '', tipo_inventario_id: null, es_externo: false };
     this.primeraFila = 0;
     this.cargarTrazabilidad();
   }
 
   get hayFiltrosActivos(): boolean {
-    return this.filtros.placa !== '' ||
-      this.filtros.estado_fisico !== '' ||
-      this.filtros.desde !== '' ||
-      this.filtros.hasta !== '' ||
-      this.filtros.unidad_funcional !== '' ||
-      this.filtros.es_externo;
+    return this.filtros.placa            !== '' ||
+           this.filtros.estado_fisico    !== '' ||
+           this.filtros.desde            !== '' ||
+           this.filtros.hasta            !== '' ||
+           this.filtros.tipo_inventario_id !== null ||
+           this.filtros.es_externo;
   }
 
   alternar(id: number): void {
     this.expandidas[id] = !this.expandidas[id];
   }
 
-  /** Abre la trazabilidad filtrada por la placa que se está inventariando. */
   verTrazabilidadDeActivo(): void {
-    if (!this.activo?.placa) {
-      return;
-    }
-    this.filtros = { placa: this.activo.placa, estado_fisico: '', desde: '', hasta: '', unidad_funcional: '', es_externo: false };
+    if (!this.activo?.placa) return;
+    this.filtros = {
+      placa: this.activo.placa,
+      estado_fisico: '',
+      desde: '',
+      hasta: '',
+      tipo_inventario_id: null,
+      es_externo: false
+    };
     this.primeraFila = 0;
     this.irATrazabilidad();
   }
@@ -658,15 +676,18 @@ export class ControlActivoComponent implements OnInit {
 
   severidadEstadoFisico(estado: string | null): 'success' | 'warn' | 'danger' | 'info' {
     switch (estado) {
-      case 'En buen estado': return 'success';
-      case 'Para Reparacion': return 'warn';
-      case 'Dar de baja': return 'danger';
-      default: return 'info';
+      case 'En buen estado':   return 'success';
+      case 'Para Reparacion':  return 'warn';
+      case 'Dar de baja':      return 'danger';
+      default:                  return 'info';
     }
   }
 
-  /** Muestra un guion cuando el maestro no trae el dato. */
   valor(dato: string | null | undefined): string {
     return dato && dato.trim() !== '' ? dato : '—';
+  }
+
+  nombreTipoInventario(registro: TrazabilidadActivo): string {
+    return registro.tipo_inventario?.nombre ?? '—';
   }
 }

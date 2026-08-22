@@ -594,3 +594,13 @@
   font-size: 0.8rem;
   color: #6b7280;
 }
+
+/* ── Botón "Actualizar como Excel" ─────────────────────────────────────── */
+.btn-action-excel {
+  background: #217346;
+  color: white;
+}
+.btn-action-excel:hover {
+  background: #1a5c38;
+  transform: translateY(-1px);
+}

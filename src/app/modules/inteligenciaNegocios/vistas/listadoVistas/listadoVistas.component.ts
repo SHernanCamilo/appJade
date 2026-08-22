@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { ButtonModule } from 'primeng/button';
@@ -77,6 +78,7 @@ export class ListadoVistasComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private vistasService: VistasService,
     private messageService: MessageService
   ) {}
@@ -330,6 +332,40 @@ export class ListadoVistasComponent implements OnInit {
       vista.schema,
       vista.view_name
     ]);
+  }
+
+  /**
+   * Abre la vista en el modo "Actualizar como Excel" en una NUEVA PESTAÑA
+   * (sin sidebar, pantalla completa), igual que el modo fullscreen.
+   * Descarga el dataset completo vía export/parquet con virtual scroll.
+   *
+   * URL: ...viewVistas/refresh/:schema/:viewName
+   */
+  abrirVistaRefresh(vista: VistaBi, event: Event): void {
+    event.stopPropagation();
+
+    if (isVistaEnMantenimiento(vista) || !vista.estado) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Vista no disponible',
+        detail: 'Esta vista no está disponible para cargar en modo actualizar.',
+        life: 3000
+      });
+      return;
+    }
+
+    // Abrir en nueva pestaña usando ruta genérica con query params
+    const urlTree = this.router.createUrlTree([
+      '/inteligenciaNegocios/viewVistaExcel'
+    ], {
+      queryParams: {
+        schema: vista.schema,
+        viewName: vista.view_name
+      }
+    });
+    const url      = this.router.serializeUrl(urlTree);
+    const fullUrl  = this.location.prepareExternalUrl(url);
+    window.open(fullUrl, '_blank', 'noopener');
   }
 
   toggleGrupo(key: string): void {

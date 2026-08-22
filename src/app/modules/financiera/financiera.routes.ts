@@ -17,6 +17,13 @@ export const FINANCIERA_ROUTES: Routes = [
         data: { moduleCode: 'FIN_ANT_SOL' }
       },
       {
+        path: 'solicitudes/:id',
+        loadComponent: () => import('./anticipos/solicitudes/detalle/detalle-solicitud.component')
+          .then(m => m.DetalleSolicitudComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'FIN_ANT_SOL' }
+      },
+      {
         path: 'parametros',
         loadComponent: () => import('./anticipos/parametros/parametros.component')
           .then(m => m.ParametrosAnticiposComponent),
