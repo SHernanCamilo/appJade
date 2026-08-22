@@ -4,9 +4,9 @@
 
 export const environment = {
   production: true,
-  URL_BACKEND: 'https://review-dose-reasonable-pointed.trycloudflare.com',
-  URL_SERVICIOS: 'https://review-dose-reasonable-pointed.trycloudflare.com/api',
-  URL_FRONTEND: 'https://review-dose-reasonable-pointed.trycloudflare.com',
+  URL_BACKEND: 'https://jade-api.medilaser.com.co',
+  URL_SERVICIOS: 'https://jade-api.medilaser.com.co/api',
+  URL_FRONTEND: 'https://jade.medilaser.com.co/plataform',
   URL_GLPI: 'http://aqsolutions.tech',
   FESTIVOS_PAIS: 'CO',
   REGION_DEFAULT: 'CO',
