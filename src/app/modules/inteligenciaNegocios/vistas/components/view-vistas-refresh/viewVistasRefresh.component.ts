@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ViewVistasRefreshComponent
  *
  * Vista tipo "Excel Online" con carga desde export/parquet.
@@ -3200,6 +3200,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       });
     } else {
       // Actualizar la hoja pivot existente (no crear otra)
+      // Guardar la hoja actual ANTES de cambiar a la pivot
+      this.saveActiveSheetData(this.rawData, this.columnDefs);
+
       this.sheets.update(sheets => {
         const pivot = sheets.find(s => s.label === 'Pivot');
         if (pivot) {
@@ -3212,9 +3215,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       });
     }
 
-    // Aplicar al grid
-    this.rowData = result.rows;
+    // Aplicar al grid — rawData pasa a apuntar al resultado del pivot
+    // para que saveActiveSheetData guarde correctamente al cambiar de hoja.
+    this.rawData    = result.rows;
+    this.rowData    = result.rows;
     this.columnDefs = pivotCols;
+    this.columns    = [];
     this.applyColumnDefs();
     this.totalRows.set(result.rows.length);
     this.filteredRows.set(result.rows.length);
@@ -3625,33 +3631,34 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     // Si la hoja ya tiene datos cargados, restaurarlos
     if (sheet.rowData && sheet.rowData.length > 0 && sheet.columnDefs && sheet.columnDefs.length > 0) {
-      console.log('[loadSheetData] -“ Restaurando datos existentes:', sheet.rowData.length, 'registros');
-      
-      // COPIAR para independencia (evitar que se sobrescriban)
-      // Compartimos los objetos de fila (no deep-clone) y reusamos los
-      // columnDefs por referencia para preservar funciones y filtros.
+      console.log('[loadSheetData] Restaurando datos existentes:', sheet.rowData.length, 'registros');
+
+      // Restaurar datos de la hoja: cada hoja es independiente.
       this.rawData    = sheet.rowData;
       this.columnDefs = sheet.columnDefs;
-      this.applyColumnDefs();
       this.columns    = sheet.columns ?? [];
       this.rowData    = [...sheet.rowData];
-      
+
+      this.applyColumnDefs();
+
       this.totalRows.set(sheet.rowData.length);
       this.filteredRows.set(sheet.rowData.length);
-      
+
       // Actualizar metadatos de UI
-      this.schema = sheet.schema;
+      this.schema   = sheet.schema;
       this.viewName = sheet.viewName;
-      
+
+      // Reaplicar filtros si hay (solo para hojas de datos)
+      if (kind === 'view' && this.activeFilters().length > 0) {
+        this.applyFiltersToGrid();
+      }
+
       // Refrescar grid
       if (this.gridApi) {
-        this.applyColumnDefs();
         this.gridApi.setGridOption('rowData', this.rowData);
-        setTimeout(() => {
-          this.autoSizeColumns();
-        }, 100);
+        setTimeout(() => this.autoSizeColumns(), 100);
       }
-    } else {
+        } else {
       if (kind !== 'view' || !sheet.schema || !sheet.viewName) {
         console.log('[loadSheetData] Hoja sin datos y sin vista asociada, nada que cargar');
         return;
