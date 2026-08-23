@@ -3123,6 +3123,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const pivotSheetId = `sheet-pivot-${Date.now()}`;
     const analysisCount = this.sheets().filter(s => (s.kind ?? 'view') === 'pivot').length;
 
+    // Guardar la hoja de datos actual ANTES de crear el pivot
+    // Solo si la hoja activa es de datos (no otro pivot previo)
+    const activeSheet = this.sheets().find(s => s.active);
+    if (activeSheet && (activeSheet.kind ?? 'view') === 'view' && this.pivotSourceData.length > 0) {
+      this.sheets.update(sheets => {
+        const ds = sheets.find(s => s.id === activeSheet.id);
+        if (ds) {
+          ds.rowData    = this.pivotSourceData;
+          ds.columnDefs = ds.columnDefs && ds.columnDefs.length > 0 ? ds.columnDefs : this.columnDefs;
+        }
+        return [...sheets];
+      });
+    }
+
     // Sin limite: una tabla dinamica es un resumen agregado, no una vista mas
     this.sheets.update(sheets => {
       sheets.forEach(s => s.active = false);
@@ -3199,8 +3213,19 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   /** Al abrir el panel, guardar referencia a los datos actuales */
   openPivotPanel(): void {
-    // Guardar los datos de la hoja activa como fuente del pivot
-    this.pivotSourceData = this.rawData.length > 0 ? this.rawData : this.rowData;
+    // Guardar los datos de la hoja de datos activa como fuente del pivot.
+    // IMPORTANTE: guardamos una referencia directa a los datos de la hoja de DATOS
+    // (no a this.rawData que puede ser de otra hoja si ya hay un pivot activo).
+    const activeSheet = this.sheets().find(s => s.active);
+    const dataSheet   = (activeSheet?.kind ?? 'view') === 'view'
+      ? activeSheet
+      : this.sheets().find(s => (s.kind ?? 'view') === 'view' && (s.rowData?.length ?? 0) > 0);
+
+    if (dataSheet?.rowData && dataSheet.rowData.length > 0) {
+      this.pivotSourceData = dataSheet.rowData;
+    } else {
+      this.pivotSourceData = this.rawData.length > 0 ? this.rawData : this.rowData;
+    }
     this.showPivotPanel.set(true);
   }
 
@@ -3254,17 +3279,41 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       });
     });
 
-    // Crear o actualizar hoja "Pivot"
+    // ─── Crear o actualizar la hoja Pivot ────────────────────────────────────
+    //
+    // IMPORTANTE: NO tocar la hoja de datos. El pivot opera sobre una COPIA
+    // de los datos (pivotSourceData) y sus resultados van SOLO a la hoja Pivot.
+    // Antes esto llamaba saveActiveSheetData antes de crear el pivot, pero eso
+    // sobreescribia la hoja de datos con pivot data si se llamaba mas de una vez.
+
     const existingPivot = this.sheets().find(s => s.label === 'Pivot');
+    const pivotSheetId  = existingPivot?.id ?? `sheet-pivot-${Date.now()}`;
+
     if (!existingPivot) {
-      // Guardar datos de la hoja actual
-      this.saveActiveSheetData(this.rawData, this.columnDefs);
-      
-      // Crear nueva hoja pivot (sin limite: es un resumen, no una vista cargada)
+      // Primera vez: guardar la hoja de datos ANTES de crear pivot.
+      // Pero solo si la hoja activa NO es ya un pivot (proteccion contra re-entradas).
+      const activeSheet = this.sheets().find(s => s.active);
+      if (activeSheet && (activeSheet.kind ?? 'view') !== 'pivot') {
+        // Guardar los datos originales de la hoja de datos en su slot
+        this.sheets.update(sheets => {
+          const ds = sheets.find(s => s.active);
+          if (ds && this.pivotSourceData.length > 0) {
+            ds.rowData    = this.pivotSourceData;
+            // Solo si tiene columnDefs originales (no los del pivot)
+            if (!ds.columnDefs || ds.columnDefs.length === 0 || ds.columnDefs === this.columnDefs) {
+              // columnDefs actuales son las originales de la data sheet
+              ds.columnDefs = this.columnDefs;
+            }
+          }
+          return [...sheets];
+        });
+      }
+
+      // Crear la hoja pivot
       this.sheets.update(sheets => {
         sheets.forEach(s => s.active = false);
         sheets.push({
-          id: `sheet-pivot-${Date.now()}`,
+          id: pivotSheetId,
           label: 'Pivot',
           schema: this.schema,
           viewName: `Pivot - ${this.viewName}`,
@@ -3277,24 +3326,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         return [...sheets];
       });
     } else {
-      // Actualizar la hoja pivot existente (no crear otra)
-      // Guardar la hoja actual ANTES de cambiar a la pivot
-      this.saveActiveSheetData(this.rawData, this.columnDefs);
-
+      // Actualizar la hoja pivot existente — NO tocar otras hojas
       this.sheets.update(sheets => {
-        const pivot = sheets.find(s => s.label === 'Pivot');
+        const pivot = sheets.find(s => s.id === existingPivot.id);
         if (pivot) {
-          pivot.rowData = result.rows;
+          pivot.rowData    = result.rows;
           pivot.columnDefs = pivotCols;
         }
-        // Activar la hoja pivot
-        sheets.forEach(s => s.active = s.label === 'Pivot');
+        // Activar la hoja pivot (puede que el usuario este en ella o no)
+        sheets.forEach(s => s.active = s.id === existingPivot.id);
         return [...sheets];
       });
     }
 
-    // Aplicar al grid — rawData pasa a apuntar al resultado del pivot
-    // para que saveActiveSheetData guarde correctamente al cambiar de hoja.
+    // Aplicar resultados del pivot AL GRID (la hoja activa ahora es Pivot)
     this.rawData    = result.rows;
     this.rowData    = result.rows;
     this.columnDefs = pivotCols;
@@ -3666,29 +3711,32 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * Guarda los datos cargados en la hoja activa actual
    */
   private saveActiveSheetData(data: Record<string, unknown>[], columnDefs: ColDef[]): void {
-    console.log('[saveActiveSheetData] data.length:', data.length, 'columnDefs:', columnDefs.length);
-    
+    if (data.length === 0 || columnDefs.length === 0) return;
+
     this.sheets.update(sheets => {
       const activeSheet = sheets.find(s => s.active);
-      if (activeSheet) {
-        // Solo guardar si hay datos nuevos (optimizacion)
-        if (data.length > 0) {
-          // COPIAR datos para independencia entre hojas
-          // Los datos se guardan por referencia de fila para que las ediciones
-          // (valueSetter) se reflejen en rawData y rowData.
-          activeSheet.rowData = data;
-          // IMPORTANTE: columnDefs POR REFERENCIA. Contienen funciones
-          // (valueGetter, valueFormatter, valueSetter, cellStyle) y clases de
-          // filtro que JSON.stringify destruye -> grilla en blanco.
-          activeSheet.columnDefs = columnDefs;
-          activeSheet.columns = this.columns;
-          console.log('[saveActiveSheetData] -“ Guardado:', activeSheet.label, '-', data.length, 'registros');
+      if (!activeSheet) return [...sheets];
+
+      const kind = activeSheet.kind ?? 'view';
+
+      // PROTECCION: no sobreescribir una hoja de datos con resultados de pivot.
+      // Si la hoja es de tipo 'view' y ya tiene datos guardados con mas columnas
+      // que lo que estamos intentando guardar, rechazar.
+      if (kind === 'view' && activeSheet.rowData && activeSheet.rowData.length > 0) {
+        const existingColCount = activeSheet.columnDefs?.length ?? 0;
+        if (existingColCount > 5 && columnDefs.length <= 5 && data.length < activeSheet.rowData.length) {
+          console.warn('[saveActiveSheetData] BLOQUEADO: intento de sobreescribir hoja de datos con pivot data',
+            { sheet: activeSheet.label, existingCols: existingColCount, newCols: columnDefs.length });
+          return [...sheets];
         }
       }
+
+      activeSheet.rowData    = data;
+      activeSheet.columnDefs = columnDefs;
+      activeSheet.columns    = this.columns;
       return [...sheets];
     });
   }
-
   /**
    * Carga los datos de una hoja especifica cuando el usuario cambia de pestana
    */
