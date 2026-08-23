@@ -1133,54 +1133,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     this.progress.set({
       status: 'queuing',
-      message: 'Estimando tamano de la vista...',
+      message: 'Conectando con Graph-Fabric...',
       percent: 2,
       rows: 0,
       elapsed: 0,
     });
 
-    // Primero: saber cuantas filas tiene la vista para decidir si pedimos filtro
-    this.http.post<{ success: boolean; count: number; strategy: string }>(
-      `${this.baseUrl}/estimate-rows`,
-      { schema_name: this.schema, view: this.viewName }
-    ).subscribe({
-      next: res => {
-        const count = res?.count ?? 0;
-        this.estimatedRowCount.set(count);
-        console.log(`[startRefresh] Vista ${this.viewName}: ~${count.toLocaleString()} filas`);
-
-        if (count > ViewVistasRefreshComponent.REQUIRE_FILTER_THRESHOLD) {
-          // Vista demasiado grande: pedir filtro de fechas obligatorio
-          this.progress.set({
-            status: 'idle',
-            message: `La vista tiene ~${count.toLocaleString()} registros. Aplique un filtro de fechas para cargar (max ${ViewVistasRefreshComponent.MAX_EXPORT_ROWS.toLocaleString()}).`,
-            percent: 0,
-            rows: 0,
-            elapsed: 0,
-          });
-          this.requiresDateFilter.set(true);
-
-          // Pre-seleccionar la primera columna de fecha si hay una
-          const dateCols = this.dateColumnsForFilter;
-          if (dateCols.length > 0 && !this.mandatoryDateCol) {
-            this.mandatoryDateCol = dateCols[0].name;
-          }
-          this.releaseLoadSlot();
-          return;
-        }
-
-        // Vista dentro del limite: cargar directamente
-        this.doExport(count > ViewVistasRefreshComponent.MAX_EXPORT_ROWS
-          ? ViewVistasRefreshComponent.MAX_EXPORT_ROWS
-          : 0, // 0 = sin limite explicito, el backend decide
-        {});
-      },
-      error: () => {
-        // Si falla la estimacion, cargar con el limite default (proteccion)
-        console.warn('[startRefresh] No se pudo estimar filas, cargando con limite');
-        this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {});
-      },
-    });
+    // Lanzar export: el backend ahora maneja R2 warm internamente.
+    // Si el parquet esta listo (~2s), devuelve ready + job_id inmediato.
+    // Si esta generandose, devuelve r2_status=generating → polling.
+    // Si es demasiado grande, devuelve r2_status=too_big → pide filtro.
+    // Si R2 no esta disponible, cae en stream clasico (30-130s).
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {});
   }
 
   /**
@@ -1230,7 +1194,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * @param filters Filtros opcionales que el backend aplica en la query
    */
   private doExport(maxRows: number, filters: Record<string, unknown>): void {
-    this.progress.update(p => ({ ...p, status: 'queuing', message: 'Iniciando conexion con Fabric...', percent: 3 }));
+    this.progress.update(p => ({ ...p, status: 'queuing', message: 'Verificando parquet en cache...', percent: 3 }));
 
     const body: Record<string, unknown> = {
       schema_name: this.schema,
@@ -1240,19 +1204,65 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     };
     if (maxRows > 0) body['max_rows'] = maxRows;
 
-    this.http.post<{ success: boolean; job_id: string; message: string }>(
+    this.http.post<{
+      success: boolean;
+      job_id?: string;
+      message?: string;
+      r2_status?: string;
+      estimated_s?: number;
+      row_count?: number;
+      rows?: number;
+    }>(
       `${this.baseUrl}/export/start`, body
     ).subscribe({
       next: res => {
-        if (!res.success || !res.job_id) {
-          this.setError('No se pudo iniciar la descarga de datos.');
+        const r2 = res.r2_status;
+
+        // ── R2 GENERATING: el parquet se esta creando en background ──
+        if (r2 === 'generating') {
+          const est = res.estimated_s ?? 60;
+          this.progress.set({
+            status: 'processing',
+            message: `Generando parquet (~${est}s estimados)...`,
+            percent: 5,
+            rows: 0,
+            elapsed: this.elapsed(),
+          });
+          this.startR2Polling(filters, maxRows);
           return;
         }
+
+        // ── R2 TOO_BIG: requiere filtros (>1M filas) ──
+        if (r2 === 'too_big') {
+          this.estimatedRowCount.set(res.row_count ?? 1000000);
+          this.progress.set({
+            status: 'idle',
+            message: `La vista tiene ~${(res.row_count ?? 1000000).toLocaleString()} registros. Aplique un filtro de fechas.`,
+            percent: 0, rows: 0, elapsed: 0,
+          });
+          this.requiresDateFilter.set(true);
+          const dateCols = this.dateColumnsForFilter;
+          if (dateCols.length > 0 && !this.mandatoryDateCol) {
+            this.mandatoryDateCol = dateCols[0].name;
+          }
+          this.releaseLoadSlot();
+          return;
+        }
+
+        // ── READY (o fallback stream): tenemos job_id → polling normal ──
+        if (!res.success || !res.job_id) {
+          this.setError(res.message || 'No se pudo iniciar la descarga de datos.');
+          return;
+        }
+
+        const source = r2 === 'ready' ? 'parquet' : 'stream';
         this.progress.set({
           status: 'processing',
-          message: 'Fabric esta exportando los datos (via parquet)...',
-          percent: 10,
-          rows: 0,
+          message: source === 'parquet'
+            ? `Datos listos desde parquet (${(res.rows ?? 0).toLocaleString()} filas)...`
+            : 'Fabric esta exportando los datos...',
+          percent: source === 'parquet' ? 60 : 10,
+          rows: res.rows ?? 0,
           elapsed: this.elapsed(),
           jobId: res.job_id,
         });
@@ -1263,6 +1273,74 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.setError(msg);
       },
     });
+  }
+
+  // ── R2 Polling: espera a que el parquet esté listo ─────────────────────────
+
+  private r2PollTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Hace polling cada 5s al endpoint /r2/status hasta que el parquet pasa a 'ready'.
+   * Cuando lo está, re-llama doExport y el backend ya sale por el fast path.
+   */
+  private startR2Polling(filters: Record<string, unknown>, maxRows: number): void {
+    if (this.r2PollTimer) clearInterval(this.r2PollTimer);
+
+    this.r2PollTimer = setInterval(() => {
+      this.http.get<{
+        success: boolean;
+        r2_status: string;
+        estimated_s?: number;
+        row_count?: number;
+        message?: string;
+      }>(`${this.baseUrl}/r2/status`, {
+        params: { schema: this.schema, view: this.viewName },
+      }).subscribe({
+        next: res => {
+          const status = res.r2_status;
+          console.log('[R2Poll]', status, res.message);
+
+          if (status === 'ready' || status === 'ready_stale') {
+            // Parquet listo: detener polling, lanzar export real
+            this.stopR2Polling();
+            this.progress.update(p => ({ ...p, message: 'Parquet listo, descargando datos...', percent: 50 }));
+            this.doExport(maxRows, filters);
+          } else if (status === 'too_big') {
+            this.stopR2Polling();
+            this.estimatedRowCount.set(res.row_count ?? 1000000);
+            this.requiresDateFilter.set(true);
+            this.progress.set({
+              status: 'idle',
+              message: `Vista demasiado grande (~${(res.row_count ?? 1000000).toLocaleString()}). Aplique filtro.`,
+              percent: 0, rows: 0, elapsed: 0,
+            });
+            this.releaseLoadSlot();
+          } else if (status === 'unavailable') {
+            // R2 cayó: fallback directo a stream
+            this.stopR2Polling();
+            this.progress.update(p => ({ ...p, message: 'R2 no disponible, usando export stream...' }));
+            this.doExport(maxRows, filters);
+          } else {
+            // Sigue generating: actualizar mensaje
+            const est = res.estimated_s ?? 30;
+            this.progress.update(p => ({
+              ...p,
+              message: `Generando parquet (~${est}s restantes)...`,
+              elapsed: this.elapsed(),
+            }));
+          }
+        },
+        error: () => {
+          // Error de red: fallback a stream
+          this.stopR2Polling();
+          this.doExport(maxRows, filters);
+        },
+      });
+    }, 5000);
+  }
+
+  private stopR2Polling(): void {
+    if (this.r2PollTimer) { clearInterval(this.r2PollTimer); this.r2PollTimer = null; }
   }
 
   cancelRefresh(): void {
@@ -3960,6 +4038,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   private clearTimers(): void {
     if (this.pollTimer)    { clearInterval(this.pollTimer);    this.pollTimer    = null; }
     if (this.elapsedTimer) { clearInterval(this.elapsedTimer); this.elapsedTimer = null; }
+    this.stopR2Polling();
   }
 
   private setError(detail: string): void {
