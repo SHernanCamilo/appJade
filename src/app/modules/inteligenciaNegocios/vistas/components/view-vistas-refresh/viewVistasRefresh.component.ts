@@ -3155,21 +3155,22 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     });
     this.activeFormulaSheet = '';
 
-    // 6. Cargar datos en el grid
-    this.rawData = pivotRows;
-    this.rowData = pivotRows;
-    this.columnDefs = pivotColumnDefs;
-    this.applyColumnDefs();
-    this.columns = [];
-    this.totalRows.set(pivotRows.length);
-    this.filteredRows.set(pivotRows.length);
-
-    if (this.gridApi) {
-      this.gridApi.setGridOption('rowData', pivotRows);
-      setTimeout(() => this.autoSizeColumns(), 100);
+    // 6. Aplicar al grid SOLO si la hoja pivot es la activa
+    const pivotActive = this.sheets().find(s => s.active);
+    if (pivotActive && (pivotActive.kind ?? 'view') === 'pivot') {
+      this.rawData = pivotRows;
+      this.rowData = pivotRows;
+      this.columnDefs = pivotColumnDefs;
+      this.applyColumnDefs();
+      this.columns = [];
+      this.totalRows.set(pivotRows.length);
+      this.filteredRows.set(pivotRows.length);
+      if (this.gridApi) {
+        this.gridApi.setGridOption('rowData', pivotRows);
+        setTimeout(() => this.autoSizeColumns(), 100);
+      }
     }
-
-    console.log(`[Pivot] Tabla dinamica generada: ${pivotRows.length} filas, ${pivotColumnDefs.length} columnas`);
+    console.log('[Pivot] Tabla dinamica generada:', pivotRows.length, 'filas,', pivotColumnDefs.length, 'columnas');
     this.closePivotPanel();
   }
 
@@ -3339,18 +3340,24 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       });
     }
 
-    // Aplicar resultados del pivot AL GRID (la hoja activa ahora es Pivot)
-    this.rawData    = result.rows;
-    this.rowData    = result.rows;
-    this.columnDefs = pivotCols;
-    this.columns    = [];
-    this.applyColumnDefs();
-    this.totalRows.set(result.rows.length);
-    this.filteredRows.set(result.rows.length);
+    // Solo aplicar al grid si la hoja Pivot es la activa AHORA.
+    // Si el usuario ve la hoja de datos y el pivot se auto-genera al arrastrar
+    // un campo, NO tocar la grilla. Los datos ya estan en sheet.rowData.
+    // El usuario vera los resultados al hacer clic en la pestana Pivot.
+    const nowActive = this.sheets().find(s => s.active);
+    if (nowActive && (nowActive.kind ?? 'view') === 'pivot') {
+      this.rawData    = result.rows;
+      this.rowData    = result.rows;
+      this.columnDefs = pivotCols;
+      this.columns    = [];
+      this.applyColumnDefs();
+      this.totalRows.set(result.rows.length);
+      this.filteredRows.set(result.rows.length);
 
-    if (this.gridApi) {
-      this.gridApi.setGridOption('rowData', result.rows);
-      setTimeout(() => this.autoSizeColumns(), 50);
+      if (this.gridApi) {
+        this.gridApi.setGridOption('rowData', result.rows);
+        setTimeout(() => this.autoSizeColumns(), 50);
+      }
     }
   }
 
