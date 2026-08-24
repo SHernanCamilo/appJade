@@ -1127,6 +1127,29 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return; // Ya esta en curso
     }
 
+    // Si hay un pivot abierto, cerrarlo: los datos van a cambiar y el pivot
+    // queda desactualizado. El usuario puede recrearlo despues.
+    const pivotSheet = this.sheets().find(s => (s.kind ?? 'view') === 'pivot');
+    if (pivotSheet) {
+      this.sheets.update(sheets => {
+        const idx = sheets.findIndex(s => s.id === pivotSheet.id);
+        if (idx >= 0) sheets.splice(idx, 1);
+        return [...sheets];
+      });
+      console.log('[startRefresh] Pivot cerrado: los datos se van a actualizar');
+    }
+
+    // Asegurarse de que la hoja de datos es la activa
+    const dataSheet = this.sheets().find(s => (s.kind ?? 'view') === 'view');
+    if (dataSheet && !dataSheet.active) {
+      this.sheets.update(sheets => {
+        sheets.forEach(s => s.active = s.id === dataSheet.id);
+        return [...sheets];
+      });
+      this.schema   = dataSheet.schema;
+      this.viewName = dataSheet.viewName;
+    }
+
     this.clearTimers();
     this.startTime = Date.now();
     this.startElapsedTimer();
@@ -1139,12 +1162,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       elapsed: 0,
     });
 
-    // Lanzar export: el backend ahora maneja R2 warm internamente.
-    // Si el parquet esta listo (~2s), devuelve ready + job_id inmediato.
-    // Si esta generandose, devuelve r2_status=generating → polling.
-    // Si es demasiado grande, devuelve r2_status=too_big → pide filtro.
-    // Si R2 no esta disponible, cae en stream clasico (30-130s).
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {});
+    // Lanzar export: el backend maneja R2 warm internamente.
+    // force_refresh=true le dice al backend que invalide el parquet y genere uno nuevo
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, true);
   }
 
   /**
@@ -1185,15 +1205,16 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     };
     this.activeFilters.update(fs => [...fs, newFilter]);
 
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, filters);
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, filters, false);
   }
 
   /**
    * Lanza el export asincrono a Fabric.
    * @param maxRows Limite de filas (0 = sin limite)
    * @param filters Filtros opcionales que el backend aplica en la query
+   * @param forceRefresh Si true, invalida el parquet y genera uno nuevo desde Fabric
    */
-  private doExport(maxRows: number, filters: Record<string, unknown>): void {
+  private doExport(maxRows: number, filters: Record<string, unknown>, forceRefresh = false): void {
     this.progress.update(p => ({ ...p, status: 'queuing', message: 'Verificando parquet en cache...', percent: 3 }));
 
     const body: Record<string, unknown> = {
@@ -1203,6 +1224,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       filters,
     };
     if (maxRows > 0) body['max_rows'] = maxRows;
+    if (forceRefresh) body['force_refresh'] = true;
 
     this.http.post<{
       success: boolean;
@@ -1301,10 +1323,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           console.log('[R2Poll]', status, res.message);
 
           if (status === 'ready' || status === 'ready_stale') {
-            // Parquet listo: detener polling, lanzar export real
             this.stopR2Polling();
             this.progress.update(p => ({ ...p, message: 'Parquet listo, descargando datos...', percent: 50 }));
-            this.doExport(maxRows, filters);
+            // No forzar: ya esta fresco
+            this.doExport(maxRows, filters, false);
           } else if (status === 'too_big') {
             this.stopR2Polling();
             this.estimatedRowCount.set(res.row_count ?? 1000000);
@@ -1316,10 +1338,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
             });
             this.releaseLoadSlot();
           } else if (status === 'unavailable') {
-            // R2 cayó: fallback directo a stream
             this.stopR2Polling();
             this.progress.update(p => ({ ...p, message: 'R2 no disponible, usando export stream...' }));
-            this.doExport(maxRows, filters);
+            this.doExport(maxRows, filters, false);
           } else {
             // Sigue generating: actualizar mensaje
             const est = res.estimated_s ?? 30;
@@ -1331,9 +1352,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           }
         },
         error: () => {
-          // Error de red: fallback a stream
           this.stopR2Polling();
-          this.doExport(maxRows, filters);
+          this.doExport(maxRows, filters, false);
         },
       });
     }, 5000);
