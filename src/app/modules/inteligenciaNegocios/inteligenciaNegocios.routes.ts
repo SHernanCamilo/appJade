@@ -206,6 +206,19 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     }
   },
   {
+    path: 'formularios/trasladoAsistencial',
+    loadComponent: () =>
+      import('./formularios/trasladoAsistencial/trasladoAsistencial.component').then(
+        m => m.TrasladoAsistencialComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORM-TRASLADO-ASI',
+      pageTitle: 'Traslado Asistencial',
+      pageSubtitle: 'Historia clínica de traslado primario o secundario asistencial'
+    }
+  },
+  {
     path: 'tableros/Egresos',
     loadComponent: () =>
       import('./tableros/egresos/egresos.component').then(m => m.EgresosTableroComponent),
