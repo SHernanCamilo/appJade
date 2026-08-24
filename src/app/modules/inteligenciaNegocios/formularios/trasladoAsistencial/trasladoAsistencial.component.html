@@ -1,0 +1,1509 @@
+<div class="page-container traslado-page">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern no-print">
+    <div class="header-top">
+      <button class="btn-back-modern" type="button" routerLink="/inteligenciaNegocios">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-send me-2"></i>
+          Traslado Asistencial
+        </h1>
+        <p class="page-subtitle-modern">
+          Historia clínica de traslado primario o secundario asistencial
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content" [class.is-readonly]="esConfirmado">
+    <!-- Selector de tipo -->
+    <div class="tipo-selector no-print" *ngIf="!tipo">
+      <p class="selector-hint">Seleccione el tipo de historia clínica a diligenciar:</p>
+
+      <div class="tipo-cards">
+        <button type="button" class="tipo-card" (click)="seleccionarTipo('primario')">
+          <div class="tipo-card-icon primario">
+            <i class="pi pi-map-marker"></i>
+          </div>
+          <h2>HISTORIA CLÍNICA EN EL TRASLADO PRIMARIO ASISTENCIAL</h2>
+          <p>Desde el sitio del evento hasta la institución receptora. Solo campos de la Resolución 2284 de 2023.</p>
+          <span class="tipo-chip">Res. 2284 de 2023</span>
+        </button>
+
+        <button type="button" class="tipo-card" (click)="seleccionarTipo('secundario')">
+          <div class="tipo-card-icon secundario">
+            <i class="pi pi-building"></i>
+          </div>
+          <h2>HISTORIA CLÍNICA EN EL TRASLADO SECUNDARIO ASISTENCIAL</h2>
+          <p>Entre instituciones de origen y destino (remisión). Solo campos de la Resolución 2284 de 2023.</p>
+          <span class="tipo-chip">Res. 2284 de 2023</span>
+        </button>
+      </div>
+
+      <div class="registros-panel">
+        <div class="registros-header">
+          <h3>
+            <i class="pi" [class.pi-list]="!isLoadingRegistros" [class.pi-spin]="isLoadingRegistros" [class.pi-spinner]="isLoadingRegistros"></i>
+            Registros realizados
+          </h3>
+          <span class="registros-count">{{ registros.length }} registro(s)</span>
+        </div>
+
+        <p-table
+          [value]="registros"
+          [paginator]="true"
+          [rows]="10"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} registros"
+          styleClass="registros-table"
+          [tableStyle]="{ 'min-width': '56rem' }">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Tipo</th>
+              <th>Fecha atención</th>
+              <th>Paciente</th>
+              <th>Identificación</th>
+              <th>Estado</th>
+              <th>Registro</th>
+              <th>Guardó</th>
+              <th>Confirmó</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-row>
+            <tr class="registro-row" (click)="abrirRegistro(row)">
+              <td>
+                <p-tag
+                  [value]="row.tipo === 'primario' ? 'Primario' : 'Secundario'"
+                  [severity]="row.tipo === 'primario' ? 'info' : 'success'">
+                </p-tag>
+              </td>
+              <td>{{ row.fechaAtencion || '—' }}</td>
+              <td>{{ row.paciente || '—' }}</td>
+              <td>{{ row.identificacion || '—' }}</td>
+              <td>
+                <p-tag
+                  *ngIf="row.estadoFinal === 'vivo'"
+                  value="Vivo"
+                  severity="success">
+                </p-tag>
+                <p-tag
+                  *ngIf="row.estadoFinal === 'muerto'"
+                  value="Muerto"
+                  severity="danger">
+                </p-tag>
+                <span *ngIf="row.estadoFinal !== 'vivo' && row.estadoFinal !== 'muerto'">—</span>
+              </td>
+              <td>
+                <p-tag
+                  [value]="row.estado === 'confirmado' ? 'Confirmado' : 'Guardado'"
+                  [severity]="row.estado === 'confirmado' ? 'success' : 'warn'">
+                </p-tag>
+              </td>
+              <td>
+                <div class="user-cell">{{ row.usuarioGuarda || '—' }}</div>
+                <small class="user-date">{{ row.fechaGuarda || '' }}</small>
+              </td>
+              <td>
+                <div class="user-cell">{{ row.usuarioConfirma || '—' }}</div>
+                <small class="user-date">{{ row.fechaConfirma || '' }}</small>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="8" class="registros-empty">
+                <i class="pi pi-inbox"></i>
+                <p>Aún no hay registros de traslado realizados.</p>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    </div>
+
+    <ng-container *ngIf="tipo">
+      <div class="search-panel no-print">
+        <div class="search-form">
+          <div class="form-tipo-badge">
+            <i class="pi"
+              [class.pi-map-marker]="tipo === 'primario' || tipo === 'primarioCompleto'"
+              [class.pi-building]="tipo === 'secundario' || tipo === 'secundarioCompleto'"></i>
+            {{ tituloFormulario }}
+            <span class="estado-chip" *ngIf="estadoRegistro === 'guardado'">Guardado</span>
+            <span class="estado-chip confirmado" *ngIf="estadoRegistro === 'confirmado'">Confirmado</span>
+          </div>
+          <div class="search-actions">
+            <button type="button" class="btn-toolbar" (click)="volverSeleccion()" pTooltip="Cambiar tipo de formulario">
+              <i class="pi pi-arrow-left"></i>
+              Cambiar tipo
+            </button>
+            <button type="button" class="btn-toolbar" (click)="limpiar()" [disabled]="esConfirmado" pTooltip="Limpiar todos los campos">
+              <i class="pi pi-times"></i>
+              Limpiar
+            </button>
+            <button
+              type="button"
+              class="btn-toolbar btn-toolbar-temporal"
+              (click)="guardar()"
+              [disabled]="isSaving || esConfirmado"
+              pTooltip="Guardar borrador">
+              <i class="pi" [class.pi-spin]="isSaving" [class.pi-spinner]="isSaving" [class.pi-save]="!isSaving"></i>
+              {{ isSaving ? 'Guardando...' : 'Guardar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-toolbar btn-toolbar-excel"
+              (click)="confirmar()"
+              [disabled]="isConfirming || esConfirmado"
+              pTooltip="Confirmar registro">
+              <i class="pi" [class.pi-spin]="isConfirming" [class.pi-spinner]="isConfirming" [class.pi-check]="!isConfirming"></i>
+              {{ isConfirming ? 'Confirmando...' : 'Confirmar' }}
+            </button>
+            <button type="button" class="btn-toolbar btn-toolbar-primary" (click)="imprimir()">
+              <i class="pi pi-print"></i>
+              Imprimir
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== HOJA RES. 2284 (7.1.1) ===================== -->
+      <div class="formato-sheet page-sheet" *ngIf="tipo === 'primario'">
+        <ng-container *ngTemplateOutlet="encabezado; context: { pagina: '1 de 1' }"></ng-container>
+
+        <div class="section-bar">DATOS DE LA PERSONA</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Nombres y apellidos:</th>
+            <td colspan="5">
+              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Tipo de documento:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="msi"> MSI</label>
+              <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="rc"> RC</label>
+              <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ti"> TI</label>
+              <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otro</label>
+              <input type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
+            </td>
+            <th>Número:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.numeroIdentificacion" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Edad:</th>
+            <td>
+              <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
+              <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
+              <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="meses"> Meses</label>
+              <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
+              <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="horas"> Horas</label>
+            </td>
+            <th>Sexo biológico:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="sexoRes" [(ngModel)]="form.sexo" value="femenino"> Femenino</label>
+              <label class="chk"><input type="radio" name="sexoRes" [(ngModel)]="form.sexo" value="masculino"> Masculino</label>
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">TIEMPOS DEL SERVICIO Y ESCENA</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Hora del despacho:</th>
+            <td><input type="time" class="full" [(ngModel)]="form.horaDespacho"></td>
+            <th><span class="req-num"></span> Hora de llegada al lugar de la escena:</th>
+            <td><input type="time" class="full" [(ngModel)]="form.horaLlegadaEscena"></td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Triage del paciente en escena:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.signosInicio.triage" autocomplete="off"></td>
+            <th><span class="req-num"></span> Hora de salida del lugar de la escena:</th>
+            <td><input type="time" class="full" [(ngModel)]="form.horaSalidaEscena"></td>
+          </tr>
+        </table>
+
+        <div class="section-bar">PROCEDIMIENTOS, MEDICAMENTOS Y CÓDIGO DE TRASLADO</div>
+        <div class="sub-label"><span class="req-num"></span> Procedimientos realizados durante el traslado (CUPS)</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>PROCEDIMIENTOS</th>
+              <th>CÓDIGO CUPS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of form.procedimientos">
+              <td><input type="text" class="full" [(ngModel)]="fila.procedimientos"></td>
+              <td class="col-cum"><input type="text" class="full" [(ngModel)]="fila.cupsProcedimientos"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="sub-label"><span class="req-num"></span> Medicamentos (CUMS o IUMS) y dispositivos médicos utilizados</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>CÓDIGO CUM O IUM</th>
+              <th>NOMBRE DEL MEDICAMENTO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let med of form.medicamentos">
+              <td class="col-cum"><input type="text" class="full" [(ngModel)]="med.codigoCumIum"></td>
+              <td><input type="text" class="full" [(ngModel)]="med.nombre"></td>
+            </tr>
+          </tbody>
+        </table>
+        <table class="form-table">
+          <tr>
+            <th>Dispositivos médicos:</th>
+            <td>
+              <textarea class="area-sm" rows="2" [(ngModel)]="form.insumos"></textarea>
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Código de traslado (CUPS):</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.cupsTraslado" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">ORIGEN, DESTINO Y ESTADO</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Lugar de origen:</th>
+            <td colspan="5">
+              <div class="ob-row">
+                Código REPS <input type="text" class="short" [(ngModel)]="form.origenReps">
+                Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento">
+                Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio">
+                Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad">
+                Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio">
+              </div>
+              Dirección <input type="text" class="full" [(ngModel)]="form.origenDireccion" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Hora de llegada de la ambulancia al servicio:</th>
+            <td><input type="time" class="full" [(ngModel)]="form.horaLlegadaServicio"></td>
+            <th><span class="req-num"></span> Código REPS de la institución receptora:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.destino1Reps" autocomplete="off"></td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Hora de recepción del paciente por la institución:</th>
+            <td><input type="time" class="full" [(ngModel)]="form.horaRecepcion"></td>
+            <th><span class="req-num"></span> Estado del paciente al ingreso:</th>
+            <td>
+              <label class="chk"><input type="radio" name="estadoFinalRes" [(ngModel)]="form.estadoFinal" value="vivo"> Vivo</label>
+              <label class="chk"><input type="radio" name="estadoFinalRes" [(ngModel)]="form.estadoFinal" value="muerto"> Muerto</label>
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">ACOMPAÑANTE</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Nombres y apellidos:</th>
+            <td colspan="5">
+              <input type="text" class="full" [(ngModel)]="form.nombreAcompanante" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Tipo de documento:</th>
+            <td colspan="2">
+              <label class="chk"><input type="radio" name="acompTipoId" [(ngModel)]="form.acompananteTipoId" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="acompTipoId" [(ngModel)]="form.acompananteTipoId" value="ti"> TI</label>
+              <label class="chk"><input type="radio" name="acompTipoId" [(ngModel)]="form.acompananteTipoId" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="acompTipoId" [(ngModel)]="form.acompananteTipoId" value="otro"> Otro</label>
+            </td>
+            <th>Número:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.acompananteNumeroId" autocomplete="off">
+            </td>
+            <th>Relación / parentesco:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.parentesco" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">TRIPULACIÓN</div>
+        <div class="sub-label"><span class="req-num"></span> Nombres, tipo y número de documento de la tripulación</div>
+        <table class="grid-table headers-plain firmas-table">
+          <tbody>
+            <tr class="rol-row">
+              <th>Médico</th>
+              <th>Auxiliar de Enfermería</th>
+              <th>Comandante / Conductor</th>
+            </tr>
+            <tr>
+              <td>
+                <input type="text" class="full" placeholder="Nombres y apellidos" [(ngModel)]="form.medico1.nombre">
+                <div class="doc-line">
+                  Tipo
+                  <input type="text" class="tiny" [(ngModel)]="form.medico1.tipoDocumento" placeholder="CC">
+                  N°
+                  <input type="text" [(ngModel)]="form.medico1.documento">
+                </div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombres y apellidos" [(ngModel)]="form.auxiliar1.nombre">
+                <div class="doc-line">
+                  Tipo
+                  <input type="text" class="tiny" [(ngModel)]="form.auxiliar1.tipoDocumento" placeholder="CC">
+                  N°
+                  <input type="text" [(ngModel)]="form.auxiliar1.documento">
+                </div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombres y apellidos" [(ngModel)]="form.comandante1.nombre">
+                <div class="doc-line">
+                  Tipo
+                  <input type="text" class="tiny" [(ngModel)]="form.comandante1.tipoDocumento" placeholder="CC">
+                  N°
+                  <input type="text" [(ngModel)]="form.comandante1.documento">
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-bar">PROFESIONAL QUE RECIBE</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Nombres y apellidos:</th>
+            <td colspan="3">
+              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Tipo de documento:</th>
+            <td>
+              <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="otro"> Otro</label>
+            </td>
+            <th>Número:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1Cc" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ===================== HOJA RES. 2284 (7.1.2) ===================== -->
+      <div class="formato-sheet page-sheet" *ngIf="tipo === 'secundario'">
+        <ng-container *ngTemplateOutlet="encabezado; context: { pagina: '1 de 1' }"></ng-container>
+
+        <div class="section-bar">DATOS DE LA PERSONA</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Nombres y apellidos:</th>
+            <td colspan="5">
+              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Tipo de documento:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="msi"> MSI</label>
+              <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="rc"> RC</label>
+              <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ti"> TI</label>
+              <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otro</label>
+              <input type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
+            </td>
+            <th>Número:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.numeroIdentificacion" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Edad:</th>
+            <td>
+              <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
+              <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
+              <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="meses"> Meses</label>
+              <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
+              <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="horas"> Horas</label>
+            </td>
+            <th>Sexo biológico:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="sexoSec" [(ngModel)]="form.sexo" value="femenino"> Femenino</label>
+              <label class="chk"><input type="radio" name="sexoSec" [(ngModel)]="form.sexo" value="masculino"> Masculino</label>
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Grupo de servicio al cual es trasladada la persona:</th>
+            <td colspan="5">
+              <label class="chk" *ngFor="let g of gruposServicio">
+                <input type="checkbox" [checked]="estaEnLista(form.gruposServicio, g)" (change)="toggleLista(form.gruposServicio, g)">
+                {{ g }}
+              </label>
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">PROCEDIMIENTOS, MEDICAMENTOS Y CÓDIGO DE TRASLADO</div>
+        <div class="sub-label"><span class="req-num"></span> Procedimientos realizados durante el traslado (CUPS)</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>PROCEDIMIENTOS</th>
+              <th>CÓDIGO CUPS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of form.procedimientos">
+              <td><input type="text" class="full" [(ngModel)]="fila.procedimientos"></td>
+              <td class="col-cum"><input type="text" class="full" [(ngModel)]="fila.cupsProcedimientos"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="sub-label"><span class="req-num"></span> Medicamentos (CUMS o IUMS) y dispositivos médicos utilizados</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>CÓDIGO CUM O IUM</th>
+              <th>NOMBRE DEL MEDICAMENTO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let med of form.medicamentos">
+              <td class="col-cum"><input type="text" class="full" [(ngModel)]="med.codigoCumIum"></td>
+              <td><input type="text" class="full" [(ngModel)]="med.nombre"></td>
+            </tr>
+          </tbody>
+        </table>
+        <table class="form-table">
+          <tr>
+            <th>Dispositivos médicos:</th>
+            <td>
+              <textarea class="area-sm" rows="2" [(ngModel)]="form.insumos"></textarea>
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Código de traslado (CUPS):</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.cupsTraslado" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">RECORRIDO, ORIGEN Y DESTINO</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Fecha y hora de inicio del recorrido:</th>
+            <td>
+              <input type="datetime-local" [(ngModel)]="form.fechaHoraInicioRecorrido">
+            </td>
+            <th><span class="req-num"></span> Fecha y hora de finalización del recorrido:</th>
+            <td>
+              <input type="datetime-local" [(ngModel)]="form.fechaHoraFinRecorrido">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Lugar de origen:</th>
+            <td colspan="5">
+              <div class="ob-row">
+                Código REPS <input type="text" class="short" [(ngModel)]="form.origenReps">
+                Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento">
+                Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio">
+                Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad">
+                Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio">
+              </div>
+              Dirección <input type="text" class="full" [(ngModel)]="form.origenDireccion" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Lugar de destino:</th>
+            <td colspan="5">
+              <div class="ob-row">
+                Código REPS <input type="text" class="short" [(ngModel)]="form.destino1Reps">
+                Departamento <input type="text" class="short" [(ngModel)]="form.destinoDepartamento">
+                Municipio <input type="text" class="short" [(ngModel)]="form.destinoMunicipio">
+                Localidad <input type="text" class="short" [(ngModel)]="form.destinoLocalidad">
+                Barrio <input type="text" class="short" [(ngModel)]="form.destinoBarrio">
+              </div>
+              Dirección <input type="text" class="full" [(ngModel)]="form.destinoDireccion" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Estado al finalizar el traslado:</th>
+            <td>
+              <label class="chk"><input type="radio" name="estadoFinalSec" [(ngModel)]="form.estadoFinal" value="vivo"> Vivo</label>
+              <label class="chk"><input type="radio" name="estadoFinalSec" [(ngModel)]="form.estadoFinal" value="muerto"> Muerto</label>
+            </td>
+            <th><span class="req-num"></span> Traslado redondo:</th>
+            <td>
+              <label class="chk"><input type="radio" name="redondoSec" [(ngModel)]="form.trasladoRedondo" value="si"> Sí</label>
+              <label class="chk"><input type="radio" name="redondoSec" [(ngModel)]="form.trasladoRedondo" value="no"> No</label>
+              Horas de espera
+              <input type="text" class="tiny" [(ngModel)]="form.horasEspera">
+            </td>
+          </tr>
+          <tr>
+            <th><span class="req-num"></span> Distancia del recorrido:</th>
+            <td colspan="5" class="ob-row">
+              <label class="chk"><input type="radio" name="unidadDistSec" [(ngModel)]="form.unidadDistancia" value="km"> Kilómetros</label>
+              <label class="chk"><input type="radio" name="unidadDistSec" [(ngModel)]="form.unidadDistancia" value="millas"> Millas</label>
+              <span class="req-num"></span> Iniciales
+              <input type="text" class="short" [(ngModel)]="form.kmInicio">
+              <span class="req-num"></span> Finales
+              <input type="text" class="short" [(ngModel)]="form.kmFinales">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">ACOMPAÑANTE</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Nombres y apellidos:</th>
+            <td colspan="5">
+              <input type="text" class="full" [(ngModel)]="form.nombreAcompanante" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Tipo de documento:</th>
+            <td colspan="2">
+              <label class="chk"><input type="radio" name="acompTipoIdSec" [(ngModel)]="form.acompananteTipoId" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="acompTipoIdSec" [(ngModel)]="form.acompananteTipoId" value="ti"> TI</label>
+              <label class="chk"><input type="radio" name="acompTipoIdSec" [(ngModel)]="form.acompananteTipoId" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="acompTipoIdSec" [(ngModel)]="form.acompananteTipoId" value="otro"> Otro</label>
+            </td>
+            <th>Número:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.acompananteNumeroId" autocomplete="off">
+            </td>
+            <th>Relación / parentesco:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.parentesco" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">TRIPULACIÓN</div>
+        <div class="sub-label"><span class="req-num"></span> Nombres, tipo y número de documento de la tripulación</div>
+        <table class="grid-table headers-plain firmas-table">
+          <tbody>
+            <tr class="rol-row">
+              <th>Médico</th>
+              <th>Auxiliar de Enfermería</th>
+              <th>Comandante / Conductor</th>
+            </tr>
+            <tr>
+              <td>
+                <input type="text" class="full" placeholder="Nombres y apellidos" [(ngModel)]="form.medico1.nombre">
+                <div class="doc-line">
+                  Tipo
+                  <input type="text" class="tiny" [(ngModel)]="form.medico1.tipoDocumento" placeholder="CC">
+                  N°
+                  <input type="text" [(ngModel)]="form.medico1.documento">
+                </div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombres y apellidos" [(ngModel)]="form.auxiliar1.nombre">
+                <div class="doc-line">
+                  Tipo
+                  <input type="text" class="tiny" [(ngModel)]="form.auxiliar1.tipoDocumento" placeholder="CC">
+                  N°
+                  <input type="text" [(ngModel)]="form.auxiliar1.documento">
+                </div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombres y apellidos" [(ngModel)]="form.comandante1.nombre">
+                <div class="doc-line">
+                  Tipo
+                  <input type="text" class="tiny" [(ngModel)]="form.comandante1.tipoDocumento" placeholder="CC">
+                  N°
+                  <input type="text" [(ngModel)]="form.comandante1.documento">
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-bar">PROFESIONAL QUE RECIBE</div>
+        <table class="form-table">
+          <tr>
+            <th><span class="req-num"></span> Nombres y apellidos:</th>
+            <td colspan="3">
+              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Tipo de documento:</th>
+            <td>
+              <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="otro"> Otro</label>
+            </td>
+            <th>Número:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1Cc" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">INGRESO A PRESTADOR DURANTE EL RECORRIDO</div>
+        <table class="form-table">
+          <tr>
+            <th>Causa (complicación o deterioro):</th>
+            <td colspan="5">
+              <textarea class="area-sm" rows="2" [(ngModel)]="form.causaDesvio"></textarea>
+            </td>
+          </tr>
+          <tr>
+            <th>Nombre del prestador:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.prestadorDesvio" autocomplete="off">
+            </td>
+            <th>Kilómetros de desviación:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.kmDesviacion" autocomplete="off">
+            </td>
+            <th>Tiempo utilizado:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.tiempoAtencionDesvio" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ===================== PÁGINA 1 ===================== -->
+      <div class="formato-sheet page-sheet" *ngIf="esFormatoCompleto">
+        <ng-container *ngTemplateOutlet="encabezado; context: { pagina: '1 de 2' }"></ng-container>
+
+        <table class="meta-top-table">
+          <tr>
+            <td class="col-record">
+              <div class="mini-bar">RÉCORD DE TRASLADO</div>
+              <div class="field-inline">
+                <span>Número:</span>
+                <input type="text" [(ngModel)]="form.recordNumero" autocomplete="off">
+              </div>
+              <div class="field-inline">
+                <span>Autorización número:</span>
+                <input type="text" [(ngModel)]="form.autorizacionNumero" autocomplete="off">
+              </div>
+              <div class="field-inline">
+                <span>Recibo de caja número:</span>
+                <input type="text" [(ngModel)]="form.reciboCajaNumero" autocomplete="off">
+              </div>
+            </td>
+            <td class="col-ident">
+              <div class="mini-bar">IDENTIFICACIÓN</div>
+              <div class="field-inline">
+                <span>Número:</span>
+                <input type="text" [(ngModel)]="form.identificacionNumero" autocomplete="off">
+              </div>
+              <div class="field-inline">
+                <span>Unidad:</span>
+                <input type="text" [(ngModel)]="form.unidad" autocomplete="off">
+              </div>
+              <div class="field-inline">
+                <span>Fecha atención:</span>
+                <input type="date" [(ngModel)]="form.fechaAtencion">
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">DATOS DEL SERVICIO</div>
+
+        <table class="form-table">
+          <tr>
+            <th>Convenio:</th>
+            <td colspan="5">
+              <input type="text" class="full" [(ngModel)]="form.convenio" autocomplete="off">
+            </td>
+          </tr>
+          <tr *ngIf="tipo === 'secundario'">
+            <th>IPS origen:</th>
+            <td colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.ipsOrigen" autocomplete="off">
+            </td>
+            <th>Servicio origen:</th>
+            <td colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.servicioOrigen" autocomplete="off">
+            </td>
+          </tr>
+          <tr *ngIf="tipo === 'secundario'">
+            <th>Médico que remite:</th>
+            <td colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.medicoRemite" autocomplete="off">
+            </td>
+            <th>Médico que recibe:</th>
+            <td colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.medicoRecibe" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Origen:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.origen" autocomplete="off">
+            </td>
+            <th>Código REPS:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.origenReps" autocomplete="off">
+            </td>
+            <th>Km. Inicio:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.kmInicio" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Destino 1:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.destino1" autocomplete="off"
+                [placeholder]="tipo === 'secundario' ? 'IPS destino' : ''">
+            </td>
+            <th>Código REPS:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.destino1Reps" autocomplete="off">
+            </td>
+            <th>Km. Llegada:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.kmLlegada1" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Destino 2:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.destino2" autocomplete="off">
+            </td>
+            <th>Código REPS:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.destino2Reps" autocomplete="off">
+            </td>
+            <th>Km. Llegada:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.kmLlegada2" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <table class="form-table checks-grid">
+          <tr>
+            <td>
+              <div class="check-col-title">Complejidad</div>
+              <label class="chk"><input type="radio" name="complejidad" [(ngModel)]="form.complejidad" value="baja"> Complejidad baja</label>
+              <label class="chk"><input type="radio" name="complejidad" [(ngModel)]="form.complejidad" value="mediana"> Complejidad mediana</label>
+            </td>
+            <td>
+              <div class="check-col-title">Tipo de transporte</div>
+              <label class="chk"><input type="radio" name="tipoTransporte" [(ngModel)]="form.tipoTransporte" value="terrestre"> Terrestre</label>
+              <label class="chk"><input type="radio" name="tipoTransporte" [(ngModel)]="form.tipoTransporte" value="aereo"> Aéreo</label>
+            </td>
+            <td>
+              <div class="check-col-title">Tipo de traslado</div>
+              <label class="chk"><input type="radio" name="tipoTraslado" [(ngModel)]="form.tipoTraslado" value="local"> Local</label>
+              <label class="chk"><input type="radio" name="tipoTraslado" [(ngModel)]="form.tipoTraslado" value="intermunicipal"> Intermunicipal</label>
+            </td>
+            <td>
+              <div class="check-col-title">Tipo de servicio</div>
+              <label class="chk"><input type="radio" name="tipoServicio" [(ngModel)]="form.tipoServicio" value="sencillo"> Sencillo</label>
+              <label class="chk"><input type="radio" name="tipoServicio" [(ngModel)]="form.tipoServicio" value="doble"> Doble</label>
+            </td>
+            <td>
+              <div class="check-col-title">Tipo de usuario</div>
+              <label class="chk"><input type="radio" name="tipoUsuario" [(ngModel)]="form.tipoUsuario" value="neonatal"> Neonatal</label>
+              <label class="chk"><input type="radio" name="tipoUsuario" [(ngModel)]="form.tipoUsuario" value="pediatrico"> Pediátrico</label>
+              <label class="chk"><input type="radio" name="tipoUsuario" [(ngModel)]="form.tipoUsuario" value="adulto"> Adulto</label>
+            </td>
+          </tr>
+        </table>
+
+        <table class="form-table">
+          <tr>
+            <th>CUPS de traslado:</th>
+            <td colspan="3">
+              <input type="text" class="full" [(ngModel)]="form.cupsTraslado" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Hora de solicitud:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaSolicitud">
+            </td>
+            <th>Solicitado por:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.solicitadoPor" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Hora de llegada:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaLlegada1">
+            </td>
+            <th>Hora de salida:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaSalida1">
+            </td>
+          </tr>
+          <tr>
+            <th>Hora de llegada:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaLlegada2">
+            </td>
+            <th>Hora de salida:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaSalida2">
+            </td>
+          </tr>
+          <tr>
+            <th>Hora de llegada:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaLlegada3">
+            </td>
+            <th>Hora de salida:</th>
+            <td>
+              <input type="time" class="full" [(ngModel)]="form.horaSalida3">
+            </td>
+          </tr>
+        </table>
+
+        <table class="form-table">
+          <tr>
+            <th>Jornada del traslado:</th>
+            <td>
+              <label class="chk"><input type="radio" name="jornada" [(ngModel)]="form.jornada" value="diurno"> Diurno</label>
+              <label class="chk"><input type="radio" name="jornada" [(ngModel)]="form.jornada" value="nocturno"> Nocturno</label>
+            </td>
+            <th *ngIf="tipo === 'primario'">Ubicación:</th>
+            <td *ngIf="tipo === 'primario'" colspan="2">
+              <label class="chk"><input type="radio" name="ubicacion" [(ngModel)]="form.ubicacion" value="residencia"> Residencia</label>
+              <label class="chk"><input type="radio" name="ubicacion" [(ngModel)]="form.ubicacion" value="via_publica"> Vía pública</label>
+              <label class="chk"><input type="radio" name="ubicacion" [(ngModel)]="form.ubicacion" value="ips"> IPS</label>
+              <label class="chk"><input type="radio" name="ubicacion" [(ngModel)]="form.ubicacion" value="trabajo"> Trabajo</label>
+              <label class="chk"><input type="radio" name="ubicacion" [(ngModel)]="form.ubicacion" value="comercio"> Comercio</label>
+              <label class="chk"><input type="radio" name="ubicacion" [(ngModel)]="form.ubicacion" value="otro"> Otro:</label>
+              <input type="text" class="short" [(ngModel)]="form.ubicacionOtro" autocomplete="off">
+            </td>
+            <th *ngIf="tipo === 'secundario'">IPS destino / servicio:</th>
+            <td *ngIf="tipo === 'secundario'" colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.ipsDestino" placeholder="IPS destino" autocomplete="off">
+              <input type="text" class="full" [(ngModel)]="form.servicioDestino" placeholder="Servicio destino" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Grupo de servicio al que se traslada el paciente:</th>
+            <td colspan="5">
+              <label class="chk" *ngFor="let g of gruposServicio">
+                <input type="checkbox" [checked]="estaEnLista(form.gruposServicio, g)" (change)="toggleLista(form.gruposServicio, g)">
+                {{ g }}
+              </label>
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">DATOS DEL PACIENTE</div>
+
+        <table class="form-table">
+          <tr>
+            <th>Nombres y apellidos:</th>
+            <td colspan="5">
+              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Edad:</th>
+            <td>
+              <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
+              <label class="chk"><input type="radio" name="edadUnidad" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
+              <label class="chk"><input type="radio" name="edadUnidad" [(ngModel)]="form.edadUnidad" value="meses"> Meses</label>
+              <label class="chk"><input type="radio" name="edadUnidad" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
+              <label class="chk"><input type="radio" name="edadUnidad" [(ngModel)]="form.edadUnidad" value="horas"> Horas</label>
+            </td>
+            <th>Sexo:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="sexo" [(ngModel)]="form.sexo" value="femenino"> Femenino</label>
+              <label class="chk"><input type="radio" name="sexo" [(ngModel)]="form.sexo" value="masculino"> Masculino</label>
+            </td>
+          </tr>
+          <tr>
+            <th>Tipo de identificación:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="tipoId" [(ngModel)]="form.tipoIdentificacion" value="msi"> MSI</label>
+              <label class="chk"><input type="radio" name="tipoId" [(ngModel)]="form.tipoIdentificacion" value="rc"> RC</label>
+              <label class="chk"><input type="radio" name="tipoId" [(ngModel)]="form.tipoIdentificacion" value="ti"> TI</label>
+              <label class="chk"><input type="radio" name="tipoId" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
+              <label class="chk"><input type="radio" name="tipoId" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
+              <label class="chk"><input type="radio" name="tipoId" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otro:</label>
+              <input type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
+            </td>
+            <th>Número de identificación:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.numeroIdentificacion" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Fecha nacimiento:</th>
+            <td>
+              <input type="date" class="full" [(ngModel)]="form.fechaNacimiento">
+            </td>
+            <th>Estado civil:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="estadoCivil" [(ngModel)]="form.estadoCivil" value="casado"> Casado/a</label>
+              <label class="chk"><input type="radio" name="estadoCivil" [(ngModel)]="form.estadoCivil" value="soltero"> Soltero/a</label>
+              <label class="chk"><input type="radio" name="estadoCivil" [(ngModel)]="form.estadoCivil" value="divorciado"> Divorciado/a</label>
+              <label class="chk"><input type="radio" name="estadoCivil" [(ngModel)]="form.estadoCivil" value="union_libre"> Unión libre</label>
+              <label class="chk"><input type="radio" name="estadoCivil" [(ngModel)]="form.estadoCivil" value="viudo"> Viudo/a</label>
+              <label class="chk"><input type="radio" name="estadoCivil" [(ngModel)]="form.estadoCivil" value="otro"> Otro:</label>
+              <input type="text" class="short" [(ngModel)]="form.estadoCivilOtro" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Ocupación:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.ocupacion" autocomplete="off">
+            </td>
+            <th>Dirección de residencia:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.direccionResidencia" autocomplete="off">
+            </td>
+            <th>Ciudad:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.ciudad" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Teléfono:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.telefono" autocomplete="off">
+            </td>
+            <th>Nombre de responsable o acompañante:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.nombreAcompanante" autocomplete="off">
+            </td>
+            <th>Parentesco:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.parentesco" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Teléfono acompañante:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.telefonoAcompanante" autocomplete="off">
+            </td>
+            <th>Zona de residencia:</th>
+            <td colspan="3">
+              <label class="chk"><input type="radio" name="zona" [(ngModel)]="form.zonaResidencia" value="rural"> Rural</label>
+              <label class="chk"><input type="radio" name="zona" [(ngModel)]="form.zonaResidencia" value="urbano"> Urbano</label>
+            </td>
+          </tr>
+          <tr>
+            <th>Grupo de atención especial:</th>
+            <td colspan="5">
+              <label class="chk" *ngFor="let g of gruposAtencion">
+                <input type="checkbox" [checked]="estaEnLista(form.gruposAtencionEspecial, g)" (change)="toggleLista(form.gruposAtencionEspecial, g)">
+                {{ g }}
+              </label>
+              <input type="text" class="short" [(ngModel)]="form.grupoAtencionOtro" placeholder="¿cuál?" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>EAPB:</th>
+            <td colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.eapb" autocomplete="off">
+            </td>
+            <th>Aseguradora/póliza:</th>
+            <td colspan="2">
+              <input type="text" class="full" [(ngModel)]="form.aseguradoraPoliza" autocomplete="off">
+            </td>
+          </tr>
+          <tr>
+            <th>Tipo de vinculación:</th>
+            <td colspan="2">
+              <label class="chk"><input type="radio" name="vinculacion" [(ngModel)]="form.tipoVinculacion" value="subsidiado"> Subsidiado</label>
+              <label class="chk"><input type="radio" name="vinculacion" [(ngModel)]="form.tipoVinculacion" value="contributivo"> Contributivo</label>
+              <label class="chk"><input type="radio" name="vinculacion" [(ngModel)]="form.tipoVinculacion" value="excepcion"> Excepción</label>
+            </td>
+            <th>Tipo de afiliado:</th>
+            <td colspan="2">
+              <label class="chk"><input type="radio" name="afiliado" [(ngModel)]="form.tipoAfiliado" value="cotizante"> Cotizante</label>
+              <label class="chk"><input type="radio" name="afiliado" [(ngModel)]="form.tipoAfiliado" value="beneficiario"> Beneficiario</label>
+              <label class="chk"><input type="radio" name="afiliado" [(ngModel)]="form.tipoAfiliado" value="no_asegurado"> No asegurado</label>
+            </td>
+          </tr>
+          <tr>
+            <th>Diagnóstico principal:</th>
+            <td colspan="3">
+              <input type="text" class="full" [(ngModel)]="form.diagnosticoPrincipal" autocomplete="off">
+            </td>
+            <th>Código CIE-10:</th>
+            <td>
+              <input type="text" class="full" [(ngModel)]="form.cie10" autocomplete="off">
+            </td>
+          </tr>
+          <tr *ngIf="tipo === 'secundario'">
+            <th>Motivo de remisión:</th>
+            <td colspan="5">
+              <textarea class="area-sm" rows="2" [(ngModel)]="form.motivoRemision"></textarea>
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">EXAMEN FÍSICO</div>
+
+        <table class="form-table">
+          <tr>
+            <th>Causa de la atención:</th>
+            <td colspan="5">
+              <label class="chk" *ngFor="let c of causasAtencion">
+                <input type="checkbox" [checked]="estaEnLista(form.causaAtencion, c)" (change)="toggleLista(form.causaAtencion, c)">
+                {{ c }}
+              </label>
+              <input type="text" class="short" [(ngModel)]="form.causaAtencionOtra" placeholder="Otra" autocomplete="off">
+            </td>
+          </tr>
+        </table>
+
+        <div class="sub-label">Signos vitales al inicio del traslado:</div>
+        <table class="form-table vitals-table">
+          <tr>
+            <td>
+              Tensión arterial
+              <input type="text" class="tiny" [(ngModel)]="form.signosInicio.taSistolica"> /
+              <input type="text" class="tiny" [(ngModel)]="form.signosInicio.taDiastolica"> mmHg
+            </td>
+            <td>
+              TAM
+              <input type="text" class="tiny" [(ngModel)]="form.signosInicio.tamSistolica"> /
+              <input type="text" class="tiny" [(ngModel)]="form.signosInicio.tamDiastolica"> mmHg
+            </td>
+            <td>
+              FC <input type="text" class="tiny" [(ngModel)]="form.signosInicio.fc"> lpm
+            </td>
+            <td>
+              FR <input type="text" class="tiny" [(ngModel)]="form.signosInicio.fr"> rpm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Temperatura <input type="text" class="tiny" [(ngModel)]="form.signosInicio.temperatura"> °C
+            </td>
+            <td>
+              FCF <input type="text" class="tiny" [(ngModel)]="form.signosInicio.fcf"> lpm
+            </td>
+            <td>
+              Pupila der. <input type="text" class="tiny" [(ngModel)]="form.signosInicio.pupilaDerecha"> mm
+            </td>
+            <td>
+              Pupila izq. <input type="text" class="tiny" [(ngModel)]="form.signosInicio.pupilaIzquierda"> mm
+            </td>
+          </tr>
+          <tr>
+            <td>
+              SPO2 <input type="text" class="tiny" [(ngModel)]="form.signosInicio.spo2"> %
+            </td>
+            <td>
+              Peso <input type="text" class="tiny" [(ngModel)]="form.signosInicio.peso">
+              <label class="chk"><input type="radio" name="pesoUnidad" [(ngModel)]="form.signosInicio.pesoUnidad" value="gramos"> Gramos</label>
+              <label class="chk"><input type="radio" name="pesoUnidad" [(ngModel)]="form.signosInicio.pesoUnidad" value="kg"> kilogramos (Kg)</label>
+            </td>
+            <td colspan="2" *ngIf="tipo === 'primario'">
+              Triage del paciente en escena:
+              <input type="text" class="short" [(ngModel)]="form.signosInicio.triage">
+            </td>
+            <td colspan="2" *ngIf="tipo === 'secundario'">
+              Tratamiento actual:
+              <input type="text" class="full" [(ngModel)]="form.tratamientoActual">
+            </td>
+          </tr>
+        </table>
+
+        <div class="glasgow-wrap">
+          <table class="glasgow-table">
+            <thead>
+              <tr><th colspan="2">Respuesta motora</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let o of glasgowMotora"
+                  [class.selected]="form.glasgow.motora === o.valor"
+                  (click)="setGlasgow('motora', o.valor)">
+                <td>{{ o.label }}</td>
+                <td class="score">{{ o.valor }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <table class="glasgow-table">
+            <thead>
+              <tr><th colspan="2">Respuesta verbal</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let o of glasgowVerbal"
+                  [class.selected]="form.glasgow.verbal === o.valor"
+                  (click)="setGlasgow('verbal', o.valor)">
+                <td>{{ o.label }}</td>
+                <td class="score">{{ o.valor }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <table class="glasgow-table">
+            <thead>
+              <tr><th colspan="2">Apertura ocular</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let o of glasgowOcular"
+                  [class.selected]="form.glasgow.ocular === o.valor"
+                  (click)="setGlasgow('ocular', o.valor)">
+                <td>{{ o.label }}</td>
+                <td class="score">{{ o.valor }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="glasgow-total">
+            <span>Total</span>
+            <strong>Glasgow: {{ glasgowInicioTotal || '____' }} / 15 puntos</strong>
+          </div>
+        </div>
+
+        <table class="form-table">
+          <tr *ngIf="tipo === 'primario'">
+            <th>Motivo de consulta:</th>
+            <td>
+              <textarea class="area-md" rows="3" [(ngModel)]="form.motivoConsulta"></textarea>
+            </td>
+          </tr>
+          <tr *ngIf="tipo === 'secundario'">
+            <th>Resumen clínico:</th>
+            <td>
+              <textarea class="area-md" rows="3" [(ngModel)]="form.resumenClinico"></textarea>
+            </td>
+          </tr>
+          <tr>
+            <th>Enfermedad actual:</th>
+            <td>
+              <textarea class="area-md" rows="3" [(ngModel)]="form.enfermedadActual"></textarea>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ===================== PÁGINA 2 ===================== -->
+      <div class="formato-sheet page-sheet" *ngIf="esFormatoCompleto">
+        <ng-container *ngTemplateOutlet="encabezado; context: { pagina: '2 de 2' }"></ng-container>
+
+        <div class="section-bar">ANTECEDENTES</div>
+        <table class="form-table">
+          <tr>
+            <th>Patológicos:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.antecedentesPatologicos"></td>
+            <th>Quirúrgicos:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.antecedentesQuirurgicos"></td>
+          </tr>
+          <tr>
+            <th>Tóxicos:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.antecedentesToxicos"></td>
+            <th>Alérgicos:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.antecedentesAlergicos"></td>
+          </tr>
+          <tr>
+            <th>Farmacológicos:</th>
+            <td colspan="3"><input type="text" class="full" [(ngModel)]="form.antecedentesFarmacologicos"></td>
+          </tr>
+          <tr>
+            <th>Gineco obstétricos:</th>
+            <td colspan="3" class="ob-row">
+              Gestaciones (G) <input type="text" class="tiny" [(ngModel)]="form.gestaciones">
+              Partos (P) <input type="text" class="tiny" [(ngModel)]="form.partos">
+              Abortos (A) <input type="text" class="tiny" [(ngModel)]="form.abortos">
+              Vivos (V) <input type="text" class="tiny" [(ngModel)]="form.vivos">
+              Mortinatos (M) <input type="text" class="tiny" [(ngModel)]="form.mortinatos">
+              Fecha última menstruación <input type="date" [(ngModel)]="form.fechaUltimaMenstruacion">
+            </td>
+          </tr>
+          <tr>
+            <th>Hospitalarios:</th>
+            <td colspan="3"><input type="text" class="full" [(ngModel)]="form.antecedentesHospitalarios"></td>
+          </tr>
+          <tr>
+            <th>Traumas:</th>
+            <td colspan="3"><input type="text" class="full" [(ngModel)]="form.antecedentesTraumas"></td>
+          </tr>
+          <tr>
+            <th>Otros:</th>
+            <td colspan="3"><input type="text" class="full" [(ngModel)]="form.antecedentesOtros"></td>
+          </tr>
+        </table>
+
+        <div class="section-bar">PARÁMETROS DE SOPORTE</div>
+        <table class="form-table">
+          <tr>
+            <th>Inmovilización cervical:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.inmovilizacionCervical"></td>
+            <th>Soporte de oxígeno:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.soporteOxigeno"></td>
+            <th>Tubo traqueal N°:</th>
+            <td>
+              <input type="text" class="tiny" [(ngModel)]="form.tuboTraqueal">
+              Fijado a <input type="text" class="tiny" [(ngModel)]="form.fijadoCm"> cm
+            </td>
+          </tr>
+          <tr>
+            <th>Parámetros ventilatorios:</th>
+            <td colspan="5" class="ob-row">
+              Tipo de ventilación <input type="text" class="short" [(ngModel)]="form.tipoVentilacion">
+              FR <input type="text" class="tiny" [(ngModel)]="form.frVentilacion"> rpm
+              PEEP <input type="text" class="tiny" [(ngModel)]="form.peep"> cmH₂O
+              PIP <input type="text" class="tiny" [(ngModel)]="form.pip"> cmH₂O
+              FiO₂ <input type="text" class="tiny" [(ngModel)]="form.fio2">
+              Relación I/E <input type="text" class="tiny" [(ngModel)]="form.relacionIE1"> :
+              <input type="text" class="tiny" [(ngModel)]="form.relacionIE2">
+              VT <input type="text" class="tiny" [(ngModel)]="form.volumenTidal">
+            </td>
+          </tr>
+          <tr>
+            <th>Líneas venosas:</th>
+            <td colspan="3"><input type="text" class="full" [(ngModel)]="form.lineasVenosas"></td>
+            <th>Permeables:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.permeables"></td>
+          </tr>
+        </table>
+
+        <div class="section-bar">Seguimiento a signos vitales</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Tensión arterial</th>
+              <th>Frecuencia cardíaca</th>
+              <th>Frecuencia respiratoria</th>
+              <th>Temperatura</th>
+              <th>SPO2</th>
+              <th>Glasgow</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of form.seguimientoVitales">
+              <td><input type="time" class="full" [(ngModel)]="fila.hora"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.tensionArterial"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.frecuenciaCardiaca"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.frecuenciaRespiratoria"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.temperatura"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.spo2"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.glasgow"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-bar">EXAMEN FÍSICO Y EVOLUCIÓN DEL TRASLADO</div>
+        <textarea class="area-lg" rows="5" [(ngModel)]="form.examenEvolucion"></textarea>
+
+        <div class="section-bar">RECOMENDACIONES, PROCEDIMIENTOS, PARACLÍNICOS, DURANTE EL TRASLADO</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>RECOMENDACIONES</th>
+              <th>PROCEDIMIENTOS</th>
+              <th>CÓDIGO CUPS</th>
+              <th>PARACLÍNICOS</th>
+              <th>CÓDIGO CUPS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of form.procedimientos">
+              <td><input type="text" class="full" [(ngModel)]="fila.recomendaciones"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.procedimientos"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.cupsProcedimientos"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.paraclinicos"></td>
+              <td><input type="text" class="full" [(ngModel)]="fila.cupsParaclinicos"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-bar">MEDICAMENTOS</div>
+        <table class="grid-table headers-plain">
+          <thead>
+            <tr>
+              <th>CÓDIGO CUM O IUM</th>
+              <th>NOMBRE DEL MEDICAMENTO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let med of form.medicamentos">
+              <td class="col-cum"><input type="text" class="full" [(ngModel)]="med.codigoCumIum"></td>
+              <td><input type="text" class="full" [(ngModel)]="med.nombre"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-bar">INSUMOS / DISPOSITIVOS MÉDICOS USADOS DURANTE EL TRASLADO</div>
+        <textarea class="area-md" rows="3" [(ngModel)]="form.insumos"></textarea>
+
+        <table class="form-table">
+          <tr>
+            <th>COMPLICACIONES:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.complicaciones"></td>
+          </tr>
+          <tr>
+            <th>MOTIVOS DE ESPERA:</th>
+            <td><input type="text" class="full" [(ngModel)]="form.motivosEspera"></td>
+          </tr>
+        </table>
+
+        <div class="section-bar">ENTREGA DEL PACIENTE</div>
+        <table class="form-table">
+          <tr>
+            <th>Estado del paciente al finalizar el traslado:</th>
+            <td colspan="5">
+              <label class="chk"><input type="radio" name="estadoFinal" [(ngModel)]="form.estadoFinal" value="vivo"> Vivo</label>
+              <label class="chk"><input type="radio" name="estadoFinal" [(ngModel)]="form.estadoFinal" value="muerto"> Muerto</label>
+            </td>
+          </tr>
+        </table>
+
+        <div class="sub-label">Signos vitales de entrega:</div>
+        <table class="form-table vitals-table">
+          <tr>
+            <td>Glasgow: <input type="text" class="tiny" [(ngModel)]="form.glasgowEntrega"> / 15 puntos</td>
+            <td>Pupila der. <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.pupilaDerecha"> mm</td>
+            <td>Pupila izq. <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.pupilaIzquierda"> mm</td>
+            <td>SPO2 <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.spo2"> %</td>
+          </tr>
+          <tr>
+            <td>
+              Tensión arterial
+              <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.taSistolica"> /
+              <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.taDiastolica"> mmHg
+            </td>
+            <td>Temperatura <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.temperatura"> °C</td>
+            <td>
+              TAM
+              <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.tamSistolica"> /
+              <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.tamDiastolica"> mmHg
+            </td>
+            <td>FC <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.fc"> lpm</td>
+          </tr>
+          <tr>
+            <td>FR <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.fr"> rpm</td>
+            <td>FCF <input type="text" class="tiny" [(ngModel)]="form.signosEntrega.fcf"> lpm</td>
+            <td colspan="2">
+              Motivo de traslado:
+              <input type="text" class="full" [(ngModel)]="form.motivoTraslado">
+            </td>
+          </tr>
+          <tr>
+            <th>Fecha y hora de entrega del paciente:</th>
+            <td colspan="5">
+              <input type="datetime-local" [(ngModel)]="form.fechaHoraEntrega">
+            </td>
+          </tr>
+        </table>
+
+        <div class="section-bar">TRIPULACIÓN</div>
+        <table class="grid-table firmas-table">
+          <tbody>
+            <tr class="rol-row">
+              <th>Médico 1</th>
+              <th>Auxiliar de Enfermería 1</th>
+              <th>Comandante 1</th>
+            </tr>
+            <tr>
+              <td>
+                <input type="text" class="full" placeholder="Nombre" [(ngModel)]="form.medico1.nombre">
+                <div class="doc-line">R.M. <input type="text" [(ngModel)]="form.medico1.documento"></div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombre" [(ngModel)]="form.auxiliar1.nombre">
+                <div class="doc-line">T.P. <input type="text" [(ngModel)]="form.auxiliar1.documento"></div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombre" [(ngModel)]="form.comandante1.nombre">
+                <div class="doc-line">C.C. <input type="text" [(ngModel)]="form.comandante1.documento"></div>
+              </td>
+            </tr>
+            <tr class="rol-row">
+              <th>Médico 2</th>
+              <th>Auxiliar de Enfermería 2</th>
+              <th>Comandante 2</th>
+            </tr>
+            <tr>
+              <td>
+                <input type="text" class="full" placeholder="Nombre" [(ngModel)]="form.medico2.nombre">
+                <div class="doc-line">R.M. <input type="text" [(ngModel)]="form.medico2.documento"></div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombre" [(ngModel)]="form.auxiliar2.nombre">
+                <div class="doc-line">T.P. <input type="text" [(ngModel)]="form.auxiliar2.documento"></div>
+              </td>
+              <td>
+                <input type="text" class="full" placeholder="Nombre" [(ngModel)]="form.comandante2.nombre">
+                <div class="doc-line">C.C. <input type="text" [(ngModel)]="form.comandante2.documento"></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="grid-table firmas-table entrega-firmas">
+          <thead>
+            <tr>
+              <th>ORIGEN</th>
+              <th>DESTINO 1</th>
+              <th>DESTINO 2</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="firma-label">Profesional que entrega el paciente</div>
+                <input type="text" class="full" [(ngModel)]="form.profesionalOrigen">
+                <div class="doc-line">CC: <input type="text" [(ngModel)]="form.profesionalOrigenCc" autocomplete="off"></div>
+              </td>
+              <td>
+                <div class="firma-label">Profesional que recibe el paciente</div>
+                <input type="text" class="full" [(ngModel)]="form.profesionalDestino1">
+                <div class="doc-line">CC: <input type="text" [(ngModel)]="form.profesionalDestino1Cc" autocomplete="off"></div>
+              </td>
+              <td>
+                <div class="firma-label">Profesional que recibe el paciente</div>
+                <input type="text" class="full" [(ngModel)]="form.profesionalDestino2">
+                <div class="doc-line">CC: <input type="text" [(ngModel)]="form.profesionalDestino2Cc" autocomplete="off"></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+  </div>
+</div>
+
+<ng-template #encabezado let-pagina="pagina">
+  <table class="formato-header-table">
+    <tr>
+      <td class="logo-cell">
+        <img *ngIf="logoUrl" [src]="logoUrl" [alt]="empresaNombre" class="empresa-logo" (error)="onLogoError()">
+        <div *ngIf="!logoUrl" class="logo-fallback"><strong>{{ empresaNombre }}</strong></div>
+      </td>
+      <td class="title-cell">
+        <div class="formato-title">{{ tituloFormulario }}</div>
+      </td>
+      <td class="meta-cell">
+        <table class="meta-grid">
+          <tr><th>VERSIÓN</th><td>4</td></tr>
+          <tr><th>VIGENCIA</th><td>mar-24</td></tr>
+          <tr><th>CÓDIGO</th><td>{{ codigoFormulario }}</td></tr>
+          <tr><th>PÁGINA</th><td>{{ pagina }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</ng-template>
