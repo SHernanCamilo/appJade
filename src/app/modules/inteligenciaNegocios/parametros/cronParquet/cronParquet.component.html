@@ -1,0 +1,178 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="cp-container">
+  <!-- Header -->
+  <header class="cp-header">
+    <div class="cp-header__left">
+      <i class="pi pi-clock cp-header__icon"></i>
+      <div>
+        <h2 class="cp-header__title">Cron Parquet</h2>
+        <p class="cp-header__sub">Configuracion de intervalos de regeneracion de datos por vista</p>
+      </div>
+    </div>
+    <div class="cp-header__actions">
+      <button pButton label="Sincronizar todo" icon="pi pi-sync" class="p-button-outlined p-button-sm"
+        [loading]="syncing()" (click)="syncAll()" pTooltip="Reenviar todas las configs a Graph-Fabric"></button>
+      <button pButton label="Actualizar estado" icon="pi pi-refresh" class="p-button-outlined p-button-sm"
+        (click)="loadStatus()"></button>
+      <button pButton label="Nueva configuracion" icon="pi pi-plus" class="p-button-success p-button-sm"
+        (click)="openNew()"></button>
+    </div>
+  </header>
+
+  <!-- Tabla principal -->
+  <p-table [value]="configs()" [loading]="loading()" responsiveLayout="scroll"
+    styleClass="p-datatable-sm p-datatable-striped" [rowHover]="true"
+    [globalFilterFields]="['schema_name', 'view_name', 'priority', 'group_name']">
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 3rem">Act</th>
+        <th pSortableColumn="schema_name">Schema <p-sortIcon field="schema_name"></p-sortIcon></th>
+        <th pSortableColumn="view_name">Vista <p-sortIcon field="view_name"></p-sortIcon></th>
+        <th pSortableColumn="refresh_interval_min">Intervalo <p-sortIcon field="refresh_interval_min"></p-sortIcon></th>
+        <th pSortableColumn="priority">Prioridad <p-sortIcon field="priority"></p-sortIcon></th>
+        <th>Grupo</th>
+        <th>Estado Parquet</th>
+        <th>Ultima sync</th>
+        <th style="width: 8rem">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-config>
+      <tr>
+        <!-- Toggle enabled -->
+        <td>
+          <button pButton [icon]="config.enabled ? 'pi pi-check-circle' : 'pi pi-circle'"
+            class="p-button-text p-button-sm"
+            [class.p-button-success]="config.enabled"
+            [class.p-button-secondary]="!config.enabled"
+            (click)="toggleEnabled(config)"
+            [pTooltip]="config.enabled ? 'Activo - clic para desactivar' : 'Inactivo - clic para activar'">
+          </button>
+        </td>
+
+        <!-- Schema -->
+        <td><code class="cp-schema">{{ config.schema_name }}</code></td>
+
+        <!-- Vista -->
+        <td>
+          <span class="cp-view">{{ config.view_name }}</span>
+          <small class="cp-rows" *ngIf="config.estimated_rows">
+            ~{{ config.estimated_rows | number:'1.0-0' }} filas
+          </small>
+        </td>
+
+        <!-- Intervalo -->
+        <td>
+          <span class="cp-interval">{{ config.refresh_interval_min }} min</span>
+        </td>
+
+        <!-- Prioridad -->
+        <td>
+          <p-tag [value]="config.priority" [severity]="$any(getPriorityTag(config.priority))"></p-tag>
+        </td>
+
+        <!-- Grupo -->
+        <td><span class="cp-group">{{ config.group_name }}</span></td>
+
+        <!-- Estado del parquet en Graph-Fabric -->
+        <td>
+          <ng-container *ngIf="getStatusForView(config.schema_name, config.view_name) as st">
+            <p-tag [value]="st.status ?? 'desconocido'" [severity]="$any(getStatusTag(st))"></p-tag>
+            <small class="cp-age" *ngIf="st.age_minutes != null">
+              {{ st.age_minutes }} min
+              <span *ngIf="st.config?.is_stale" class="cp-stale">(stale!)</span>
+            </small>
+          </ng-container>
+          <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
+            Sin datos
+          </span>
+        </td>
+
+        <!-- Ultima sync -->
+        <td>
+          <span class="cp-sync-time">{{ timeAgo(config.last_synced_at) }}</span>
+        </td>
+
+        <!-- Acciones -->
+        <td>
+          <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="editConfig(config)"
+            pTooltip="Editar"></button>
+          <button pButton icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm"
+            (click)="deleteConfig(config)" pTooltip="Eliminar"></button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 2rem;">
+          <i class="pi pi-inbox" style="font-size: 2rem; color: #ccc;"></i>
+          <p style="margin-top: 8px; color: #666;">No hay vistas configuradas. Agregue una con el boton "Nueva
+            configuracion".</p>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <!-- Leyenda -->
+  <div class="cp-legend">
+    <span><p-tag value="realtime" severity="danger"></p-tag> Cada 5 min (censos)</span>
+    <span><p-tag value="high" severity="warn"></p-tag> Cada 15 min (operativo)</span>
+    <span><p-tag value="medium" severity="info"></p-tag> Cada 1 hora</span>
+    <span><p-tag value="low" severity="secondary"></p-tag> Cada 2 horas</span>
+    <span><p-tag value="manual" severity="secondary"></p-tag> Solo al pulsar Actualizar</span>
+  </div>
+</div>
+
+<!-- Dialog crear/editar -->
+<p-dialog [header]="editMode() ? 'Editar configuracion' : 'Nueva configuracion'" [(visible)]="showDialog"
+  [style]="{width: '480px'}" [modal]="true">
+
+  <div class="cp-form">
+    <div class="cp-form__field">
+      <label>Schema</label>
+      <input pInputText [(ngModel)]="form.schema_name" placeholder="dc, hg, dt..." style="width: 100%;" />
+    </div>
+
+    <div class="cp-form__field">
+      <label>Nombre de la vista</label>
+      <input pInputText [(ngModel)]="form.view_name" placeholder="VW_Censo_Cmi" style="width: 100%;" />
+    </div>
+
+    <div class="cp-form__field">
+      <label>Intervalo de refresh (minutos)</label>
+      <input type="number" class="cp-form__select" [(ngModel)]="form.refresh_interval_min" min="1" max="1440" />
+    </div>
+
+    <div class="cp-form__field">
+      <label>Prioridad</label>
+      <select class="cp-form__select" [(ngModel)]="form.priority">
+        <option value="realtime">Realtime (5 min)</option>
+        <option value="high">Alta (15 min)</option>
+        <option value="medium">Media (1 hora)</option>
+        <option value="low">Baja (2 horas)</option>
+        <option value="manual">Manual</option>
+      </select>
+    </div>
+
+    <div class="cp-form__field">
+      <label>Grupo</label>
+      <select class="cp-form__select" [(ngModel)]="form.group_name">
+        <option value="censos">Censos</option>
+        <option value="operativo">Operativo</option>
+        <option value="financiero">Financiero</option>
+        <option value="analitico">Analitico</option>
+        <option value="general">General</option>
+      </select>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showDialog.set(false)"></button>
+    <button pButton label="Guardar y sincronizar" icon="pi pi-check" class="p-button-success"
+      (click)="saveConfig()"></button>
+  </ng-template>
+</p-dialog>
