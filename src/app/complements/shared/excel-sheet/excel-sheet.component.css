@@ -211,6 +211,19 @@
 }
 .xl-sheettab-add:hover { color: var(--xl-green); background: #eee; }
 
+/* X de cerrar hoja: aparece al pasar el mouse o si la pestana esta activa */
+.xl-sheettab-close {
+  margin-left: 6px; width: 16px; height: 16px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 3px; background: transparent;
+  color: #9e9e9e; font-size: 14px; cursor: pointer; opacity: 0;
+  transition: opacity .1s, background .1s, color .1s;
+}
+.xl-sheettab:hover .xl-sheettab-close,
+.xl-sheettab.active .xl-sheettab-close { opacity: 1; }
+.xl-sheettab-close:hover { background: #e53935; color: #fff; }
+.xl-sheettab-close:focus-visible { opacity: 1; outline: 2px solid var(--xl-green); outline-offset: 1px; }
+
 /* ═══════ Status Bar ═══════ */
 
 .xl-statusbar {
@@ -251,4 +264,104 @@
   .xl-tb-sub, .xl-tb-saved { display: none; }
   .xl-tb-btn span { display: none; }
   .xl-tb-btn { padding: 0 9px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Autocompletado de la barra de formulas
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.xl-formulabar {
+  position: relative; /* ancla del desplegable */
+}
+
+.xl-fx-suggest {
+  position: absolute;
+  top: 100%;
+  left: 120px;
+  z-index: 200;
+  min-width: 420px;
+  max-width: 620px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #b7b7b7;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+}
+
+.xl-fx-suggest__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.xl-fx-suggest__item--active {
+  background: #e2efda;
+}
+
+.xl-fx-suggest__icon {
+  font-size: 11px;
+  margin-top: 2px;
+  color: #217346;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.xl-fx-suggest__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.xl-fx-suggest__label {
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: 0.2px;
+}
+
+.xl-fx-suggest__detail {
+  color: #6b7280;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xl-fx-suggest__hint {
+  margin-top: 3px;
+  color: #374151;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-line;
+  border-left: 2px solid #a9d18e;
+  padding-left: 6px;
+}
+
+.xl-fx-suggest__footer {
+  padding: 5px 10px 2px;
+  margin-top: 2px;
+  border-top: 1px solid #eee;
+  color: #9ca3af;
+  font-size: 10.5px;
+}
+
+.xl-fx-suggest__footer kbd {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: inherit;
+  font-size: 10px;
+  margin: 0 1px;
 }

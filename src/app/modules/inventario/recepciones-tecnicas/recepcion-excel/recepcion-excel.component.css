@@ -46,9 +46,17 @@
 :host ::ng-deep .xl-grid .ag-header { background-color: #f0f0f0 !important; border-bottom: 1px solid #9e9e9e; }
 :host ::ng-deep .xl-grid .ag-header-row { background-color: #f0f0f0 !important; }
 :host ::ng-deep .xl-grid .ag-header-cell,
-:host ::ng-deep .xl-grid .ag-header-group-cell { background-color: #f0f0f0 !important; color: #212121 !important; border-right: 1px solid #bdbdbd; padding: 0 4px; }
+:host ::ng-deep .xl-grid .ag-header-group-cell { background-color: #f0f0f0 !important; color: #212121 !important; border-right: 1px solid #bdbdbd; padding: 0 4px; transition: background-color 0.15s ease; }
 :host ::ng-deep .xl-grid .ag-header-cell::after,
 :host ::ng-deep .xl-grid .ag-header-group-cell::after { display: none; }
+
+/* Header hover — subtle highlight like Excel */
+:host ::ng-deep .xl-grid .ag-header-cell:hover,
+:host ::ng-deep .xl-grid .ag-header-group-cell:hover { background-color: #e8e8e8 !important; cursor: pointer; }
+
+/* Sort indicator — more visible */
+:host ::ng-deep .xl-grid .ag-header-cell-sorted-asc::after { content: '▲'; position: absolute; right: 6px; font-size: 8px; color: #217346; }
+:host ::ng-deep .xl-grid .ag-header-cell-sorted-desc::after { content: '▼'; position: absolute; right: 6px; font-size: 8px; color: #217346; }
 
 /* Column letters */
 :host ::ng-deep .xl-grid .xl-collabel .ag-header-group-cell-label { justify-content: center; }
@@ -63,11 +71,23 @@
 :host ::ng-deep .xl-grid .xl-rownum { background-color: #f0f0f0; color: #424242; font-size: 10.5px; display: flex !important; align-items: center; justify-content: center; border-right: 1px solid #9e9e9e; font-variant-numeric: tabular-nums; user-select: none; }
 
 /* Cells */
-:host ::ng-deep .xl-grid .ag-cell { border-right: 1px solid #d0d0d0; line-height: 19px; padding: 0 4px; color: #212121; }
+:host ::ng-deep .xl-grid .ag-cell { border-right: 1px solid #d0d0d0; line-height: 19px; padding: 0 4px; color: #212121; transition: background-color 0.12s ease; }
 :host ::ng-deep .xl-grid .ag-row { border-bottom: 1px solid #d0d0d0; }
 
+/* Cell hover — subtle highlight */
+:host ::ng-deep .xl-grid .ag-cell:not(.xl-locked):not(.ag-cell-inline-editing):hover { background-color: #f5f5f5 !important; }
+
 /* Focus: green 2px border */
-:host ::ng-deep .xl-grid .ag-cell-focus:not(.ag-cell-range-selected) { border: 2px solid #217346 !important; outline: none; box-shadow: inset 0 0 0 1px #fff; }
+:host ::ng-deep .xl-grid .ag-cell-focus:not(.ag-cell-range-selected) { border: 2px solid #217346 !important; outline: none; box-shadow: inset 0 0 0 1px #fff; z-index: 1; }
+
+/* Range selection styling (Excel green theme) */
+:host ::ng-deep .xl-grid .ag-cell-range-selected:not(.ag-cell-focus) { background-color: rgba(33, 115, 70, 0.08) !important; border-color: #217346 !important; }
+
+/* Range selection border (the primary selected cell) */
+:host ::ng-deep .xl-grid .ag-cell-range-selected.ag-cell-range-single-cell { border: 2px solid #217346 !important; }
+
+/* Fill handle — green square for drag-to-fill */
+:host ::ng-deep .xl-grid .ag-fill-handle { width: 8px !important; height: 8px !important; background-color: #217346 !important; border: 1px solid #fff !important; border-radius: 0 !important; cursor: crosshair !important; }
 
 /* Locked cells (OC data — readonly) */
 :host ::ng-deep .xl-grid .xl-locked { background-color: #f9f9f9 !important; color: #424242; }
@@ -91,7 +111,7 @@
 :host ::ng-deep .xl-invima-icon { font-size: 12px; flex-shrink: 0; }
 
 /* Inline editor */
-:host ::ng-deep .xl-grid .ag-cell-inline-editing { border: 2px solid #217346 !important; border-radius: 0; box-shadow: none; height: 21px !important; padding: 0 !important; background: #fff; }
+:host ::ng-deep .xl-grid .ag-cell-inline-editing { border: 2px solid #217346 !important; border-radius: 0; box-shadow: 0 0 0 3px rgba(33, 115, 70, 0.1) !important; height: 21px !important; padding: 0 !important; background: #fff; z-index: 10; }
 :host ::ng-deep .xl-grid .ag-cell-inline-editing input,
 :host ::ng-deep .xl-grid .ag-cell-inline-editing select { font-family: 'Calibri', 'Segoe UI', sans-serif; font-size: 11.5px; height: 100%; border: none; outline: none; padding: 0 3px; background: transparent; }
 
@@ -103,3 +123,28 @@
 :host ::ng-deep .xl-grid ::-webkit-scrollbar-track { background: #f0f0f0; border-left: 1px solid #d4d4d4; }
 :host ::ng-deep .xl-grid ::-webkit-scrollbar-thumb { background: #c1c1c1; border: 3px solid #f0f0f0; border-radius: 7px; }
 :host ::ng-deep .xl-grid ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+/* ─── Column resize visual feedback ──────────────────────────────────────── */
+:host ::ng-deep .xl-grid .ag-header-cell-resize { width: 2px !important; background-color: transparent; }
+:host ::ng-deep .xl-grid .ag-header-cell-resize:hover { background-color: #217346 !important; cursor: col-resize; }
+:host ::ng-deep .xl-grid .ag-header-cell-resize::after { display: none; }
+
+/* ─── Pinned/Frozen columns separator ────────────────────────────────────── */
+:host ::ng-deep .xl-grid .ag-pinned-left-header,
+:host ::ng-deep .xl-grid .ag-pinned-left-cols-container { border-right: 2px solid #217346 !important; }
+
+/* ─── Context menu básico ────────────────────────────────────────────────── */
+:host ::ng-deep .ag-menu { border: 1px solid #d0d0d0; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border-radius: 2px; background: #fff; }
+:host ::ng-deep .ag-menu-option { padding: 6px 12px; font-size: 11.5px; color: #212121; }
+:host ::ng-deep .ag-menu-option:hover { background-color: #e8f4ed; }
+
+/* ─── Selection indicators ────────────────────────────────────────────────── */
+:host ::ng-deep .xl-grid .ag-row-selected { background-color: rgba(33, 115, 70, 0.05) !important; }
+:host ::ng-deep .xl-grid .ag-row-selected .ag-cell { background-color: inherit !important; }
+
+/* ─── Loading overlay ─────────────────────────────────────────────────────── */
+:host ::ng-deep .xl-grid .ag-overlay-loading-wrapper { background-color: rgba(255,255,255,0.9); }
+:host ::ng-deep .xl-grid .ag-overlay-loading-center { border: 1px solid #d0d0d0; background: #fff; padding: 16px; border-radius: 4px; }
+
+/* ─── Copy/paste visual feedback ──────────────────────────────────────────── */
+:host ::ng-deep .xl-grid .ag-cell-range-copy { border: 1px dashed #217346 !important; background-color: rgba(33, 115, 70, 0.05) !important; }

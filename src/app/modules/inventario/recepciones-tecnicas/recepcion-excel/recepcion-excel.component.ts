@@ -158,6 +158,17 @@ export class RecepcionExcelComponent implements OnInit {
     minWidth: 70,
     editable: true,
     cellClass: 'xl-cell',
+    suppressKeyboardEvent: (params) => {
+      // Allow Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+Y to work natively
+      const key = params.event.key;
+      const ctrlPressed = params.event.ctrlKey || params.event.metaKey;
+      
+      if (ctrlPressed && (key === 'c' || key === 'v' || key === 'z' || key === 'y')) {
+        return true; // Suppress AG Grid handling, let browser handle it
+      }
+      
+      return false;
+    },
   };
 
   readonly gridOptions: GridOptions<RecepcionRow> = {
@@ -174,9 +185,141 @@ export class RecepcionExcelComponent implements OnInit {
     animateRows: false,
     suppressCellFocus: false,
     rowSelection: 'multiple',
-    suppressRowClickSelection: true,
+    suppressRowClickSelection: false,
     suppressPaginationPanel: true,
     clipboardDelimiter: '\t',
+    
+    // ── Range selection (Excel-like) ──
+    enableRangeSelection: true,
+    enableRangeHandle: true,
+    fillHandleDirection: 'xy',
+    
+    // ── Copy/Paste improvements ──
+    enableFillHandle: true,
+    suppressCopySingleCellRanges: false,
+    suppressCopyRowsToClipboard: false,
+    processCellForClipboard: (params) => {
+      // Better clipboard formatting
+      return params.value ?? '';
+    },
+    processCellFromClipboard: (params) => {
+      // Handle pasted data
+      return params.value;
+    },
+    
+    // ── Cell click behavior ──
+    onCellClicked: (event) => {
+      // Single click behavior: focus the cell, ready for editing
+      // User can start typing to edit or press F2/Enter
+      const colDef = event.colDef;
+      
+      // If it's a boolean cell (checkbox), toggle immediately
+      if (colDef.cellDataType === 'boolean' && colDef.editable !== false) {
+        const currentValue = event.value;
+        event.node.setDataValue(event.colDef.field!, !currentValue);
+        return;
+      }
+      
+      // Otherwise, just focus (ready for typing)
+      if (event.rowIndex != null) {
+        this.gridApi?.setFocusedCell(event.rowIndex, event.column);
+      }
+    },
+    
+    onCellDoubleClicked: (event) => {
+      // Double click: start editing immediately
+      if (event.colDef.editable !== false && event.rowIndex != null) {
+        this.gridApi?.startEditingCell({
+          rowIndex: event.rowIndex,
+          colKey: event.column.getColId(),
+        });
+      }
+    },
+    
+    // ── Navigation improvements ──
+    navigateToNextCell: (params) => {
+      const key = params.key;
+      const prev = params.previousCellPosition;
+      if (!prev) return null;
+      
+      let nextRowIndex = prev.rowIndex;
+      let nextColumn = prev.column;
+      
+      // Arrow key navigation (handle both string and number key codes)
+      const keyStr = String(key);
+      if (keyStr === 'ArrowUp' || keyStr === '38') {
+        nextRowIndex = Math.max(0, prev.rowIndex - 1); // Up
+      } else if (keyStr === 'ArrowDown' || keyStr === '40') {
+        nextRowIndex = prev.rowIndex + 1; // Down
+      } else if (keyStr === 'ArrowLeft' || keyStr === '37') {
+        // Left
+        const allCols = params.api.getAllDisplayedColumns();
+        const idx = allCols.indexOf(prev.column);
+        if (idx > 0) nextColumn = allCols[idx - 1];
+      } else if (keyStr === 'ArrowRight' || keyStr === '39') {
+        // Right
+        const allCols = params.api.getAllDisplayedColumns();
+        const idx = allCols.indexOf(prev.column);
+        if (idx < allCols.length - 1) nextColumn = allCols[idx + 1];
+      }
+      
+      return { rowIndex: nextRowIndex, column: nextColumn, rowPinned: prev.rowPinned };
+    },
+    
+    // ── Context menu ──
+    getContextMenuItems: () => [
+      {
+        name: 'Copiar',
+        shortcut: 'Ctrl+C',
+        icon: '<i class="pi pi-copy"></i>',
+        action: () => {
+          this.gridApi?.copySelectedRangeToClipboard();
+          this.msg.add({ severity: 'success', summary: 'Copiado', detail: 'Datos copiados.' });
+        },
+      },
+      {
+        name: 'Copiar con encabezados',
+        icon: '<i class="pi pi-copy"></i>',
+        action: () => {
+          this.gridApi?.copySelectedRangeToClipboard({ includeHeaders: true });
+          this.msg.add({ severity: 'success', summary: 'Copiado', detail: 'Datos con encabezados copiados.' });
+        },
+      },
+      {
+        name: 'Pegar',
+        shortcut: 'Ctrl+V',
+        icon: '<i class="pi pi-clipboard"></i>',
+        action: () => {
+          this.msg.add({ severity: 'info', summary: 'Pegar', detail: 'Usa Ctrl+V para pegar.' });
+        },
+      },
+      'separator',
+      {
+        name: 'Exportar',
+        icon: '<i class="pi pi-download"></i>',
+        action: () => {
+          this.gridApi?.exportDataAsCsv({ fileName: `recepcion_${this.ordenInfo()?.numero ?? this.compraId}.csv` });
+          this.msg.add({ severity: 'success', summary: 'Exportado', detail: 'CSV descargado.' });
+        },
+      },
+      'separator',
+      {
+        name: 'Ajustar columnas',
+        icon: '<i class="pi pi-arrows-h"></i>',
+        action: () => {
+          this.gridApi?.autoSizeAllColumns();
+          this.msg.add({ severity: 'success', summary: 'Ajustado', detail: 'Columnas ajustadas.' });
+        },
+      },
+      {
+        name: 'Limpiar filtros',
+        icon: '<i class="pi pi-filter-slash"></i>',
+        action: () => {
+          this.gridApi?.setFilterModel(null);
+          this.msg.add({ severity: 'success', summary: 'Filtros', detail: 'Filtros limpiados.' });
+        },
+      },
+    ],
   };
 
   private readonly dataColumns: ColDef<RecepcionRow>[] = [
@@ -219,12 +362,16 @@ export class RecepcionExcelComponent implements OnInit {
       headerName: 'Fecha Vencimiento', field: 'fecha_vencimiento', width: 132,
       cellEditor: DateCellEditorComponent,
       cellEditorPopup: false,
+      singleClickEdit: true,
+      cellEditorParams: {
+        placeholder: 'dd/mm/yyyy',
+      },
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center';
         const s = p.data?._semaforo;
         return s ? `${base} xl-fill-${s}` : base;
       },
-      tooltipValueGetter: () => 'Clic para abrir calendario',
+      tooltipValueGetter: () => 'Clic para abrir calendario · F2 para editar',
     },
     { headerName: 'Cant. Recibida', field: 'cantidad_recibida', width: 104, cellEditor: 'agNumberCellEditor', cellEditorParams: { min: 0, precision: 0 }, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-strong' },
     { headerName: 'Muestra', field: 'muestra_poblacion', width: 80, editable: false, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-locked' },
@@ -307,7 +454,66 @@ export class RecepcionExcelComponent implements OnInit {
 
   // ─── Grid events ──────────────────────────────────────────────────────────
 
-  onGridReady(event: GridReadyEvent<RecepcionRow>): void { this.gridApi = event.api; }
+  onGridReady(event: GridReadyEvent<RecepcionRow>): void { 
+    this.gridApi = event.api;
+    
+    // Add keyboard shortcuts
+    this.setupKeyboardShortcuts();
+  }
+
+  private setupKeyboardShortcuts(): void {
+    document.addEventListener('keydown', (e) => {
+      const target = e.target as HTMLElement;
+      const isInGrid = target.closest('.xl-grid') !== null;
+      
+      if (!isInGrid) return;
+      
+      const ctrlPressed = e.ctrlKey || e.metaKey;
+      
+      // Ctrl+S: Save
+      if (ctrlPressed && e.key === 's') {
+        e.preventDefault();
+        this.guardar();
+      }
+      
+      // Ctrl+A: Select all cells
+      if (ctrlPressed && e.key === 'a' && !target.matches('input, select, textarea')) {
+        e.preventDefault();
+        this.gridApi?.selectAll();
+      }
+      
+      // Delete: Clear cell content
+      if (e.key === 'Delete' && !target.matches('input, select, textarea')) {
+        const focused = this.gridApi?.getFocusedCell();
+        if (focused) {
+          const node = this.gridApi?.getDisplayedRowAtIndex(focused.rowIndex);
+          if (node) {
+            const colDef = focused.column.getColDef();
+            if (colDef.editable !== false) {
+              node.setDataValue(focused.column.getColId(), '');
+            }
+          }
+        }
+      }
+      
+      // F2: Start editing (Excel-style)
+      if (e.key === 'F2' && !target.matches('input, select, textarea')) {
+        e.preventDefault();
+        const focused = this.gridApi?.getFocusedCell();
+        if (focused) {
+          this.gridApi?.startEditingCell({
+            rowIndex: focused.rowIndex,
+            colKey: focused.column.getColId(),
+          });
+        }
+      }
+      
+      // Escape: Stop editing
+      if (e.key === 'Escape') {
+        this.gridApi?.stopEditing(true); // Cancel = true
+      }
+    });
+  }
 
   onCellFocused(event: CellFocusedEvent): void {
     const colId = (event.column as any)?.getColId?.() ?? '';
@@ -342,29 +548,147 @@ export class RecepcionExcelComponent implements OnInit {
 
   onRibbonAction(event: RibbonActionEvent): void {
     switch (event.actionId) {
-      case 'select-all': this.rowData.forEach(r => r.recibido = true); this.gridApi?.refreshCells({ force: true }); this.recalcTotals(); break;
-      case 'select-none': this.rowData.forEach(r => r.recibido = false); this.gridApi?.refreshCells({ force: true }); this.recalcTotals(); break;
-      case 'autofit': this.gridApi?.autoSizeAllColumns(); break;
-      case 'export-csv': this.gridApi?.exportDataAsCsv({ fileName: `recepcion_${this.ordenInfo()?.numero ?? this.compraId}.csv` }); break;
+      case 'select-all': 
+        this.rowData.forEach(r => r.recibido = true); 
+        this.gridApi?.refreshCells({ force: true }); 
+        this.recalcTotals(); 
+        break;
+        
+      case 'select-none': 
+        this.rowData.forEach(r => r.recibido = false); 
+        this.gridApi?.refreshCells({ force: true }); 
+        this.recalcTotals(); 
+        break;
+        
+      case 'autofit': 
+        this.gridApi?.autoSizeAllColumns(); 
+        this.msg.add({ severity: 'success', summary: 'Ajuste', detail: 'Columnas ajustadas automáticamente.' });
+        break;
+        
+      case 'export-csv': 
+        this.gridApi?.exportDataAsCsv({ fileName: `recepcion_${this.ordenInfo()?.numero ?? this.compraId}.csv` }); 
+        this.msg.add({ severity: 'success', summary: 'Exportado', detail: 'Datos exportados a CSV.' });
+        break;
+        
       case 'align-left': this.applyTextAlign('left'); break;
       case 'align-center': this.applyTextAlign('center'); break;
       case 'align-right': this.applyTextAlign('right'); break;
-      case 'sort-asc': this.gridApi?.applyColumnState({ state: [{ colId: this.getFocusedColId(), sort: 'asc' }] }); break;
-      case 'sort-desc': this.gridApi?.applyColumnState({ state: [{ colId: this.getFocusedColId(), sort: 'desc' }] }); break;
-      case 'clear-filters': this.gridApi?.setFilterModel(null); break;
-      case 'freeze-cols': this.toggleFreeze(); break;
-      case 'zoom-fit': this.gridApi?.sizeColumnsToFit(); break;
-      case 'copy': this.gridApi?.copySelectedRangeToClipboard(); break;
+      
+      case 'sort-asc': 
+        const colAsc = this.getFocusedColId();
+        if (colAsc) {
+          this.gridApi?.applyColumnState({ state: [{ colId: colAsc, sort: 'asc' }] });
+          this.msg.add({ severity: 'success', summary: 'Ordenado', detail: 'Ordenado ascendente.' });
+        } else {
+          this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'Selecciona una columna primero.' });
+        }
+        break;
+        
+      case 'sort-desc': 
+        const colDesc = this.getFocusedColId();
+        if (colDesc) {
+          this.gridApi?.applyColumnState({ state: [{ colId: colDesc, sort: 'desc' }] });
+          this.msg.add({ severity: 'success', summary: 'Ordenado', detail: 'Ordenado descendente.' });
+        } else {
+          this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'Selecciona una columna primero.' });
+        }
+        break;
+        
+      case 'clear-filters': 
+        this.gridApi?.setFilterModel(null); 
+        this.msg.add({ severity: 'success', summary: 'Filtros', detail: 'Filtros limpiados.' });
+        break;
+        
+      case 'freeze-cols': 
+        this.toggleFreeze(); 
+        break;
+        
+      case 'zoom-fit': 
+        this.gridApi?.sizeColumnsToFit(); 
+        this.msg.add({ severity: 'success', summary: 'Zoom', detail: 'Columnas ajustadas a la ventana.' });
+        break;
+        
+      case 'copy':
+        // Copy selected range to clipboard
+        const ranges = this.gridApi?.getCellRanges();
+        if (ranges && ranges.length > 0) {
+          this.gridApi?.copySelectedRangeToClipboard();
+          this.msg.add({ severity: 'success', summary: 'Copiado', detail: 'Datos copiados al portapapeles.' });
+        } else {
+          // If no range, copy focused cell
+          const focused = this.gridApi?.getFocusedCell();
+          if (focused) {
+            this.gridApi?.copySelectedRangeToClipboard();
+            this.msg.add({ severity: 'success', summary: 'Copiado', detail: 'Celda copiada al portapapeles.' });
+          } else {
+            this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'Selecciona celdas para copiar.' });
+          }
+        }
+        break;
+        
+      case 'paste': 
+        // Focus on grid to enable paste
+        const gridElement = document.querySelector('.xl-grid .ag-root') as HTMLElement;
+        if (gridElement) {
+          gridElement.focus();
+          this.msg.add({ severity: 'info', summary: 'Pegar', detail: 'Usa Ctrl+V para pegar los datos copiados.' });
+        } else {
+          this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'Posiciona el cursor en una celda y usa Ctrl+V.' });
+        }
+        break;
+        
+      case 'cut':
+        // Copy and clear
+        const cutRanges = this.gridApi?.getCellRanges();
+        if (cutRanges && cutRanges.length > 0) {
+          this.gridApi?.copySelectedRangeToClipboard();
+          // Clear selected cells
+          cutRanges.forEach(range => {
+            const startRow = Math.min(range.startRow!.rowIndex, range.endRow!.rowIndex);
+            const endRow = Math.max(range.startRow!.rowIndex, range.endRow!.rowIndex);
+            const columns = range.columns;
+            
+            for (let rowIndex = startRow; rowIndex <= endRow; rowIndex++) {
+              const node = this.gridApi?.getDisplayedRowAtIndex(rowIndex);
+              if (node) {
+                columns.forEach(col => {
+                  const colDef = col.getColDef();
+                  if (colDef.editable !== false) {
+                    node.setDataValue(col.getColId(), '');
+                  }
+                });
+              }
+            }
+          });
+          this.msg.add({ severity: 'success', summary: 'Cortado', detail: 'Datos cortados. Usa Ctrl+V para pegar.' });
+        } else {
+          this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'Selecciona celdas para cortar.' });
+        }
+        break;
+        
+      case 'undo':
+        this.gridApi?.undoCellEditing();
+        this.msg.add({ severity: 'success', summary: 'Deshacer', detail: 'Última edición deshecha.' });
+        break;
+        
+      case 'redo':
+        this.gridApi?.redoCellEditing();
+        this.msg.add({ severity: 'success', summary: 'Rehacer', detail: 'Edición rehecha.' });
+        break;
+        
       case 'font-family':
         if (event.value) {
           this.gridFontFamily.set(event.value);
           this.applyGridFont();
+          this.msg.add({ severity: 'success', summary: 'Fuente', detail: `Fuente cambiada a ${event.value}.` });
         }
         break;
+        
       case 'font-size':
         if (event.value) {
           this.gridBaseFontSize.set(Number(event.value));
           this.applyGridFont();
+          this.msg.add({ severity: 'success', summary: 'Tamaño', detail: `Tamaño cambiado a ${event.value}px.` });
         }
         break;
     }

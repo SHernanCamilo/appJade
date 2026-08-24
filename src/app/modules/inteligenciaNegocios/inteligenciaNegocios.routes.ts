@@ -31,19 +31,19 @@ function vistasReporteRoutes(config: {
     {
       path: `${config.path}/viewVistas/fullscreen/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
+        import('./vistas/components/view-vistas-excel/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
       data: { listPath }
     },
     {
       path: `${config.path}/viewVistas/pivot/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
+        import('./vistas/components/view-vistas-pivot/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
       data: { listPath }
     },
     {
       path: `${config.path}/viewVistas/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
+        import('./vistas/components/view-vistas-grid/viewVistas.component').then(m => m.ViewVistasComponent),
       canActivate: [moduleGuard],
       data: routeData
     }
@@ -54,6 +54,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   {
     path: '',
     component: InteligenciaNegociosComponent
+  },
+  {
+    path: 'excelSheets',
+    loadComponent: () =>
+      import('./vistas/components/mis-excels/mis-excels.component').then(m => m.MisExcelsComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-VISTAS',
+      pageTitle: 'Excel Sheets',
+      pageSubtitle: 'Workbooks guardados con tus vistas, formulas y configuracion'
+    }
   },
   {
     path: 'vistas',
@@ -70,19 +81,19 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   {
     path: 'vistas/viewVistas/fullscreen/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
+      import('./vistas/components/view-vistas-excel/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
     data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {
     path: 'vistas/viewVistas/pivot/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
+      import('./vistas/components/view-vistas-pivot/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
     data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {
     path: 'vistas/viewVistas/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
+      import('./vistas/components/view-vistas-grid/viewVistas.component').then(m => m.ViewVistasComponent),
     canActivate: [moduleGuard],
     data: {
       moduleCode: 'BI-VISTAS',

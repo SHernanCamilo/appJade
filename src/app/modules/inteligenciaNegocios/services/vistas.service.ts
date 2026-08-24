@@ -404,7 +404,7 @@ export class VistasService {
       filters: options.filters ?? {},
       sort_col: options.sort_col ?? '',
       sort_dir: options.sort_dir ?? 'asc',
-      max_rows: options.max_rows ?? 50000,
+      max_rows: options.max_rows ?? 20000,
       format: options.format ?? 'gzip'
     }, { responseType: 'blob' });
   }
@@ -513,15 +513,12 @@ export class VistasService {
         // Si la API dice texto pero los valores parecen fechas → tratar como fecha
         const inferDate = colType === 'text' && sampleValues.some(v => looksLikeDate(v));
 
-        let filter: string;
         let valueFormatter: ((params: any) => string) | undefined;
         let cellDataType: string | undefined;
 
         if (forceText) {
-          filter = 'agTextColumnFilter';
           cellDataType = 'text';
         } else if (colType === 'date' || inferDate) {
-          filter = 'agDateColumnFilter';
           // Formatear fechas según el tipo:
           // - datetime/datetime2 con T → "YYYY-MM-DD HH:mm"
           // - date sin hora → "YYYY-MM-DD 00:00"
@@ -541,31 +538,17 @@ export class VistasService {
             const datePart = val.substring(0, 10);
             return isDatetime ? `${datePart} 00:00` : datePart;
           };
-        } else if (colType === 'number') {
-          filter = 'agNumberColumnFilter';
-        } else {
-          filter = 'agTextColumnFilter';
         }
 
         const colDef: ColDef = {
           field: col.name,
           headerName: col.name.replace(/_/g, ' '),
-          filter,
+          // NO definir filter aquí — lo hereda de defaultColDef
           minWidth: 120,
         };
 
         if (valueFormatter) colDef.valueFormatter = valueFormatter;
         if (cellDataType) colDef.cellDataType = cellDataType;
-
-        // Para filtro de fechas server-side: el comparator siempre retorna 0 (match)
-        // porque el filtrado real se hace en el backend. Esto evita que Ag-Grid
-        // oculte filas que ya vienen filtradas del servidor.
-        if (filter === 'agDateColumnFilter') {
-          colDef.filterParams = {
-            comparator: () => 0, // Siempre match — filtrado es server-side
-            inRangeInclusive: true,
-          };
-        }
 
         return colDef;
       });
@@ -593,13 +576,10 @@ export class VistasService {
       const sampleValues = rows.slice(0, 20).map(r => r[key]);
       const firstNonNull = sampleValues.find(v => v !== null && v !== undefined && v !== '');
 
-      let filter: string;
       let valueFormatter: ((params: any) => string) | undefined;
 
-      if (shouldBeText(key, sampleValues)) {
-        filter = 'agTextColumnFilter';
-      } else if (looksLikeDate(firstNonNull)) {
-        filter = 'agDateColumnFilter';
+      // Detectar fechas para formatearlas
+      if (looksLikeDate(firstNonNull)) {
         valueFormatter = (params: any) => {
           if (!params.value) return '';
           const val = String(params.value);
@@ -610,27 +590,16 @@ export class VistasService {
           }
           return val.substring(0, 10);
         };
-      } else if (typeof firstNonNull === 'number') {
-        filter = 'agNumberColumnFilter';
-      } else {
-        filter = 'agTextColumnFilter';
       }
 
       const colDef: ColDef = {
         field: key,
         headerName: key.replace(/_/g, ' '),
-        filter,
+        // NO definir filter aquí — lo hereda de defaultColDef
         minWidth: 120
       };
 
       if (valueFormatter) colDef.valueFormatter = valueFormatter;
-
-      if (filter === 'agDateColumnFilter') {
-        colDef.filterParams = {
-          comparator: () => 0,
-          inRangeInclusive: true,
-        };
-      }
 
       return colDef;
     });

@@ -9,13 +9,15 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
 
-import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../services/vistas.service';
-import { FabricExportService, ExportProgress } from '../../services/fabric-export.service';
-import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
-import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
-import { getColumnType, humanizeColumnName } from '../../helpers/column-type.helper';
-import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
+import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../../services/vistas.service';
+import { FabricExportService, ExportProgress } from '../../../services/fabric-export.service';
+import { AG_GRID_LOCALE } from '../../../../../core/config/ag-grid.config';
+import { GridLoaderComponent } from '../../../../../complements/shared/grid-loader/grid-loader.component';
+import { getColumnType, humanizeColumnName } from '../../../helpers/column-type.helper';
+import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../../helpers/fabric-error.helper';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ExcelColumnFilterComponent } from '../excel-column-filter/excel-column-filter.component';
+import { ExcelDateFilterComponent } from '../excel-date-filter/excel-date-filter.component';
 
 @Component({
   selector: 'app-view-vistas',
@@ -61,10 +63,11 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
 
   defaultColDef: ColDef = {
     sortable: true,
-    filter: true,
+    filter: ExcelColumnFilterComponent,
+    filterParams: { maxDisplayedValues: 50 },
     resizable: true,
     minWidth: 110,
-    floatingFilter: true,
+    floatingFilter: false, // sin floating filter, solo el menú desplegable
     cellClass: 'cell-copyable'
   };
 
@@ -194,6 +197,25 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Post-procesa columnDefs del servicio para asignar filtros específicos por tipo
+   */
+  private assignDateFiltersToColumns(columnDefs: ColDef[]): ColDef[] {
+    return columnDefs.map(colDef => {
+      // Detectar si es columna de fecha por el valueFormatter
+      // El servicio asigna un valueFormatter específico para fechas que contiene lógica de formato
+      const isDateCol = colDef.valueFormatter && 
+                       (String(colDef.valueFormatter).includes('T]') ||
+                        String(colDef.valueFormatter).includes('datePart'));
+      
+      return {
+        ...colDef,
+        filter: isDateCol ? ExcelDateFilterComponent : ExcelColumnFilterComponent,
+        filterParams: { maxDisplayedValues: 50 },
+      };
+    });
+  }
+
   cargarDatos(): void {
     if (!this.vista) return;
 
@@ -210,7 +232,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
       skip_count: usarSkipCount
     }).subscribe({
       next: (response) => {
-        this.columnDefs = response.columnDefs;
+        this.columnDefs = this.assignDateFiltersToColumns(response.columnDefs);
         this.rowData = response.rowData;
         this.meta = response.meta;
         this.isHeavyView = !!response.meta.heavy_view;
@@ -453,14 +475,16 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   volverAlListado(): void { this.router.navigate([this.listPath]); }
 
   abrirEnNuevaPestana(): void {
-    // Usar router.createUrlTree para generar la ruta relativa
-    const urlTree = this.router.createUrlTree([this.listPath, 'viewVistas', 'fullscreen', this.schema, this.viewName]);
+    // Abrir vista refresh en nueva pestaña sin layout usando ruta genérica con query params
+    const urlTree = this.router.createUrlTree(['/inteligenciaNegocios/viewVistaExcel'], {
+      queryParams: {
+        schema: this.schema,
+        viewName: this.viewName
+      }
+    });
     const url = this.router.serializeUrl(urlTree);
-    
-    // Usar location.prepareExternalUrl para respetar el base-href en producción
     const fullUrl = this.location.prepareExternalUrl(url);
-    
-    window.open(fullUrl, '_blank');
+    window.open(fullUrl, '_blank', 'noopener');
   }
 
   abrirPivot(): void {

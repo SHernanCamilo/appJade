@@ -18,16 +18,16 @@ import { HttpErrorResponse } from '@angular/common/http';
 
 import {
   FabricDataMeta, FabricColumn, VistasService, VistaBi,
-} from '../../services/vistas.service';
-import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
-import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
+} from '../../../services/vistas.service';
+import { AG_GRID_LOCALE } from '../../../../../core/config/ag-grid.config';
+import { GridLoaderComponent } from '../../../../../complements/shared/grid-loader/grid-loader.component';
 import {
   getColumnType, humanizeColumnName,
-} from '../../helpers/column-type.helper';
+} from '../../../helpers/column-type.helper';
 import {
   handleFabricError, isFiltersRequiredError, isMaintenanceError,
   isVistaEnMantenimiento, FabricFiltersRequiredError,
-} from '../../helpers/fabric-error.helper';
+} from '../../../helpers/fabric-error.helper';
 
 import {
   ExcelSheetComponent,
@@ -37,7 +37,9 @@ import {
   RibbonTab,
   FormulaCommitEvent,
   RIBBON_BI_VISTAS,
-} from '../../../../complements/shared/excel-sheet';
+} from '../../../../../complements/shared/excel-sheet';
+import { ExcelColumnFilterComponent } from '../excel-column-filter/excel-column-filter.component';
+import { ExcelDateFilterComponent } from '../excel-date-filter/excel-date-filter.component';
 
 // ─── Ribbon adicional para BI Vistas ──────────────────────────────────────
 
@@ -192,10 +194,11 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
   // ── Default col def for BI data ──
   readonly defaultColDef: ColDef = {
     sortable: true,
-    filter: true,
+    filter: ExcelColumnFilterComponent,
+    filterParams: { maxDisplayedValues: 50 },
     resizable: true,
     minWidth: 90,
-    floatingFilter: true,
+    floatingFilter: false, // sin floating filter, solo el menú con checkboxes
     cellClass: 'bi-cell',
   };
 
@@ -232,6 +235,25 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Post-procesa columnDefs del servicio para asignar filtros específicos por tipo
+   */
+  private assignDateFiltersToColumns(columnDefs: ColDef[]): ColDef[] {
+    return columnDefs.map(colDef => {
+      // Detectar si es columna de fecha por el valueFormatter
+      // El servicio asigna un valueFormatter específico para fechas que contiene lógica de formato
+      const isDateCol = colDef.valueFormatter && 
+                       String(colDef.valueFormatter).includes('T]') ||
+                       String(colDef.valueFormatter).includes('datePart');
+      
+      return {
+        ...colDef,
+        filter: isDateCol ? ExcelDateFilterComponent : ExcelColumnFilterComponent,
+        filterParams: { maxDisplayedValues: 50 },
+      };
+    });
+  }
+
   private cargarDatos(): void {
     if (!this.vista) return;
     this.isLoading.set(true);
@@ -245,7 +267,8 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
       filters: this.filters, skip_count: skipCount,
     }).subscribe({
       next: (res) => {
-        this.columnDefs.set(res.columnDefs);
+        // Aplicar filtros específicos por tipo de columna
+        this.columnDefs.set(this.assignDateFiltersToColumns(res.columnDefs));
         this.rowData.set(res.rowData);
         this.meta.set(res.meta);
         this.isHeavyView.set(!!res.meta.heavy_view);
@@ -288,6 +311,33 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
   onGridReady(event: GridReadyEvent): void {
     this.gridApi = event.api;
     this.refreshGrid();
+    // Auto-ajustar columnas al contenido después de renderizar
+    setTimeout(() => this.autoSizeColumns(), 100);
+  }
+
+  /** Auto-ajusta columnas al contenido con límites razonables */
+  private autoSizeColumns(): void {
+    if (!this.gridApi) return;
+    
+    // Ajustar todas las columnas al contenido
+    this.gridApi.autoSizeAllColumns(false);
+    
+    // Aplicar límites min/max para evitar columnas muy anchas o estrechas
+    const allColumns = this.gridApi.getColumns();
+    if (!allColumns) return;
+
+    allColumns.forEach(col => {
+      const currentWidth = col.getActualWidth();
+      let newWidth = currentWidth;
+      
+      // Mínimo 100px, máximo 400px
+      if (currentWidth < 100) newWidth = 100;
+      if (currentWidth > 400) newWidth = 400;
+      
+      if (newWidth !== currentWidth) {
+        this.gridApi!.setColumnWidths([{ key: col.getColId(), newWidth }]);
+      }
+    });
   }
 
   onSortChanged(): void {
@@ -341,8 +391,12 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
         this.paginaActual = 1;
         this.cargarDatos();
         break;
-      case 'autofit': this.gridApi?.autoSizeAllColumns(); break;
-      case 'zoom-fit': this.gridApi?.sizeColumnsToFit(); break;
+      case 'autofit': 
+        this.autoSizeColumns();
+        break;
+      case 'zoom-fit': 
+        this.gridApi?.sizeColumnsToFit();
+        break;
       case 'export-csv': this.gridApi?.exportDataAsCsv({ fileName: `${this.viewName}.csv` }); break;
       case 'export-excel': this.gridApi?.exportDataAsExcel?.({ fileName: `${this.viewName}.xlsx` }); break;
       case 'row-height':

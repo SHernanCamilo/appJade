@@ -5,8 +5,10 @@
 // Estados completos del ciclo de vida
 export type EstadoSolicitud =
   | 'borrador'
-  | 'pendiente_jefe' | 'rechazado_jefe'
+  | 'pendiente_jefe' | 'pendiente_jefe_inmediato' | 'rechazado_jefe' | 'rechazado_jefe_inmediato'
   | 'pendiente_financiero' | 'rechazado_financiero'
+  | 'pendiente_tesoreria'
+  | 'pendiente_vicepresidente'
   | 'autorizado' | 'en_viaje'
   | 'pendiente_legalizacion' | 'legalizado'
   | 'pendiente_reintegro' | 'reintegrado'
@@ -17,12 +19,16 @@ export type Cobertura = 'nacional' | 'internacional';
 export type TipoCiudad = 'A' | 'B' | 'C';
 
 // Acciones disponibles por estado
-export const ACCIONES_POR_ESTADO: Record<EstadoSolicitud, string[]> = {
+export const ACCIONES_POR_ESTADO: Record<string, string[]> = {
   borrador: ['enviar'],
   pendiente_jefe: ['aprobar', 'rechazar'],
+  pendiente_jefe_inmediato: ['aprobar', 'rechazar'],
   rechazado_jefe: [],
+  rechazado_jefe_inmediato: [],
   pendiente_financiero: ['aprobar', 'rechazar'],
   rechazado_financiero: [],
+  pendiente_tesoreria: ['aprobar', 'rechazar'],
+  pendiente_vicepresidente: ['aprobar', 'rechazar'],
   autorizado: ['desembolsar'],
   en_viaje: [],
   pendiente_legalizacion: ['legalizar'],
@@ -36,12 +42,16 @@ export const ACCIONES_POR_ESTADO: Record<EstadoSolicitud, string[]> = {
 };
 
 // Quién actúa en cada estado
-export const ROL_POR_ESTADO: Record<EstadoSolicitud, string> = {
+export const ROL_POR_ESTADO: Record<string, string> = {
   borrador: 'solicitante',
   pendiente_jefe: 'jefe_inmediato',
+  pendiente_jefe_inmediato: 'jefe_inmediato',
   rechazado_jefe: 'ninguno',
+  rechazado_jefe_inmediato: 'ninguno',
   pendiente_financiero: 'financiero',
   rechazado_financiero: 'ninguno',
+  pendiente_tesoreria: 'tesoreria',
+  pendiente_vicepresidente: 'vicepresidente',
   autorizado: 'tesoreria',
   en_viaje: 'sistema',
   pendiente_legalizacion: 'solicitante',

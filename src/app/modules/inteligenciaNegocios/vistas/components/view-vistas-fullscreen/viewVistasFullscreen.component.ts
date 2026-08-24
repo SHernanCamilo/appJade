@@ -5,11 +5,11 @@ import { ActivatedRoute } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 
-import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../services/vistas.service';
-import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
-import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
-import { getColumnType, humanizeColumnName } from '../../helpers/column-type.helper';
-import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
+import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../../services/vistas.service';
+import { AG_GRID_LOCALE } from '../../../../../core/config/ag-grid.config';
+import { GridLoaderComponent } from '../../../../../complements/shared/grid-loader/grid-loader.component';
+import { getColumnType, humanizeColumnName } from '../../../helpers/column-type.helper';
+import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../../helpers/fabric-error.helper';
 import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({

@@ -97,13 +97,17 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
 
   estadosOptions = [
     { label: 'Todos', value: null },
-    { label: 'Pendiente Jefe', value: 'pendiente_jefe' },
+    { label: 'Borrador', value: 'borrador' },
+    { label: 'Pendiente Jefe', value: 'pendiente_jefe_inmediato' },
     { label: 'Pendiente Financiero', value: 'pendiente_financiero' },
+    { label: 'Pendiente Tesorería', value: 'pendiente_tesoreria' },
+    { label: 'Pendiente VP', value: 'pendiente_vicepresidente' },
     { label: 'Autorizado', value: 'autorizado' },
     { label: 'En Viaje', value: 'en_viaje' },
     { label: 'Pendiente Legalización', value: 'pendiente_legalizacion' },
+    { label: 'Legalizado', value: 'legalizado' },
     { label: 'Cerrado', value: 'cerrado' },
-    { label: 'Rechazado', value: 'rechazado_jefe' }
+    { label: 'Rechazado', value: 'rechazado_jefe_inmediato' }
   ];
 
   constructor(
@@ -525,18 +529,25 @@ export class SolicitudesAnticiposComponent implements OnInit, OnDestroy {
 
   getSeverity(estado: string): 'success' | 'warn' | 'danger' | 'info' | 'secondary' {
     const map: Record<string, any> = {
-      autorizado: 'success', en_viaje: 'success', legalizado: 'success', cerrado: 'secondary',
-      pendiente_jefe: 'warn', pendiente_financiero: 'warn', pendiente_legalizacion: 'warn',
+      autorizado: 'success', en_viaje: 'success', legalizado: 'success', reintegrado: 'success',
+      aprobado_excedente: 'success', cerrado: 'secondary',
+      pendiente_jefe: 'warn', pendiente_jefe_inmediato: 'warn',
+      pendiente_financiero: 'warn', pendiente_tesoreria: 'warn',
+      pendiente_vicepresidente: 'warn', pendiente_legalizacion: 'warn',
       pendiente_reintegro: 'warn', pendiente_excedente: 'warn', borrador: 'info',
-      rechazado_jefe: 'danger', rechazado_financiero: 'danger', rechazado_excedente: 'danger'
+      rechazado_jefe: 'danger', rechazado_jefe_inmediato: 'danger',
+      rechazado_financiero: 'danger', rechazado_excedente: 'danger'
     };
     return map[estado] ?? 'info';
   }
 
   getEstadoLabel(estado: string): string {
     const map: Record<string, string> = {
-      borrador: 'Borrador', pendiente_jefe: 'Pendiente Jefe', rechazado_jefe: 'Rechazado Jefe',
+      borrador: 'Borrador',
+      pendiente_jefe: 'Pendiente Jefe', pendiente_jefe_inmediato: 'Pendiente Jefe',
+      rechazado_jefe: 'Rechazado Jefe', rechazado_jefe_inmediato: 'Rechazado Jefe',
       pendiente_financiero: 'Pendiente Financiero', rechazado_financiero: 'Rechazado Financiero',
+      pendiente_tesoreria: 'Pendiente Tesorería', pendiente_vicepresidente: 'Pendiente VP',
       autorizado: 'Autorizado', en_viaje: 'En Viaje', pendiente_legalizacion: 'Pend. Legalización',
       legalizado: 'Legalizado', pendiente_reintegro: 'Pend. Reintegro', reintegrado: 'Reintegrado',
       pendiente_excedente: 'Pend. Excedente', aprobado_excedente: 'Excedente Aprobado',

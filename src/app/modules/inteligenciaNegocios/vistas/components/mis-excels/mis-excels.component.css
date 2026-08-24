@@ -1,0 +1,107 @@
+/* ═══════ Layout ═══════ */
+.me-container {
+  padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+}
+
+/* ═══════ Header ═══════ */
+.me-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
+}
+.me-header__left { display: flex; align-items: center; gap: 12px; }
+.me-header__icon { font-size: 28px; color: #217346; }
+.me-header__title { margin: 0; font-size: 20px; font-weight: 700; color: #1f2937; }
+.me-header__sub { margin: 2px 0 0; font-size: 12.5px; color: #6b7280; }
+.me-header__right { display: flex; align-items: center; gap: 8px; }
+
+.me-search {
+  padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 13px; width: 260px; transition: border-color .15s;
+}
+.me-search:focus { outline: none; border-color: #217346; box-shadow: 0 0 0 2px rgba(33,115,70,.12); }
+
+.me-btn {
+  border: none; border-radius: 6px; cursor: pointer;
+  padding: 8px 12px; font-size: 14px; transition: background .15s;
+}
+.me-btn--refresh { background: #f3f4f6; color: #374151; }
+.me-btn--refresh:hover { background: #e5e7eb; }
+
+/* ═══════ Loading / Empty ═══════ */
+.me-loading {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 64px 0; color: #6b7280; font-size: 14px;
+}
+.me-empty {
+  text-align: center; padding: 80px 24px; color: #6b7280;
+}
+.me-empty__icon { font-size: 48px; color: #d1d5db; margin-bottom: 16px; }
+.me-empty__hint { font-size: 12.5px; color: #9ca3af; max-width: 400px; margin: 8px auto 0; }
+
+/* ═══════ Grid ═══════ */
+.me-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+/* ═══════ Card ═══════ */
+.me-card {
+  display: flex; gap: 14px; padding: 16px 18px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  position: relative;
+}
+.me-card:hover { border-color: #217346; box-shadow: 0 2px 8px rgba(33,115,70,.08); }
+.me-card--favorite { border-left: 3px solid #f59e0b; }
+
+.me-card__icon-wrap {
+  flex-shrink: 0; width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  background: #f0fdf4; border-radius: 8px; position: relative;
+}
+.me-card__icon-wrap i { font-size: 22px; color: #217346; }
+.me-card__view-count {
+  position: absolute; bottom: -2px; right: -2px;
+  background: #217346; color: #fff; font-size: 9px; font-weight: 700;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.me-card__body { flex: 1; min-width: 0; }
+.me-card__name {
+  margin: 0 0 4px; font-size: 14px; font-weight: 600; color: #111827;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.me-card__desc {
+  margin: 0 0 8px; font-size: 11.5px; color: #6b7280;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.me-card__views { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.me-card__view-tag {
+  padding: 2px 7px; font-size: 10px; color: #1e40af; background: #eff6ff;
+  border: 1px solid #bfdbfe; border-radius: 10px; white-space: nowrap;
+}
+
+.me-card__meta { display: flex; align-items: center; gap: 12px; font-size: 11px; color: #9ca3af; }
+.me-card__time { display: flex; align-items: center; gap: 4px; }
+
+.me-card__actions {
+  display: flex; flex-direction: column; gap: 6px;
+  opacity: 0; transition: opacity .15s;
+}
+.me-card:hover .me-card__actions { opacity: 1; }
+.me-card__action {
+  border: none; background: transparent; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #9ca3af; transition: background .1s, color .1s;
+}
+.me-card__action:hover { background: #f3f4f6; color: #374151; }
+.me-card__action--fav { color: #f59e0b; }
+.me-card__action--del:hover { background: #fef2f2; color: #dc2626; }
+.me-card__action:focus-visible { outline: 2px solid #217346; outline-offset: 1px; }

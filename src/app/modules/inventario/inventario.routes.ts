@@ -77,7 +77,7 @@ export const INVENTARIO_ROUTES: Routes = [
     ]
   },
   {
-    // Activo Fijos (padre) con su hijo Control Activo
+    // Activo Fijos (padre) con sus hijos
     path: 'activosFijos',
     children: [
       {
@@ -95,10 +95,22 @@ export const INVENTARIO_ROUTES: Routes = [
           pageTitle: 'Control de Activos Fijos',
           pageSubtitle: 'Registro de novedades y trazabilidad'
         }
+      },
+      {
+        path: 'tiposInventario',
+        loadComponent: () =>
+          import('./activosFijos/parametrosTiposInventario/parametrosTiposInventario.component')
+            .then(m => m.ParametrosTiposInventarioComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ACTIVOS-TIPOS',
+          pageTitle: 'Tipos de Inventario',
+          pageSubtitle: 'Parametrización de tipos y periodicidad'
+        }
       }
     ]
   },
   // Compatibilidad con los enlaces previos
   { path: 'activosFijos/tomaInventario', redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' },
-  { path: 'activosFijos/trazabilidad', redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' }
+  { path: 'activosFijos/trazabilidad',   redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' }
 ];
