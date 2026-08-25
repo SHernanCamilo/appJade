@@ -31,6 +31,7 @@ interface ParquetStatus {
   schema?: string;
   view?: string;
   status?: string;
+  age_hours?: number;
   age_minutes?: number;
   size_mb?: number;
   row_count?: number;
@@ -65,8 +66,13 @@ export class CronParquetComponent implements OnInit {
   readonly statuses    = signal<ParquetStatus[]>([]);
   readonly loading     = signal(true);
   readonly syncing     = signal(false);
+  readonly importing   = signal(false);
+  readonly runningCron = signal(false);
   readonly showDialog  = signal(false);
   readonly editMode    = signal(false);
+
+  // Busqueda / filtro
+  searchTerm = '';
 
   // Formulario
   form = this.emptyForm();
@@ -115,8 +121,21 @@ export class CronParquetComponent implements OnInit {
   loadStatus(): void {
     this.http.get<{ success: boolean; views: ParquetStatus[] }>(`${this.baseUrl}/status`).subscribe({
       next: res => this.statuses.set(res.views ?? []),
-      error: () => {},
+      error: () => this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'No se pudo obtener estado de Graph-Fabric' }),
     });
+  }
+
+  // ─── Filtro ────────────────────────────────────────────────────────────────
+
+  get filteredConfigs(): ParquetConfig[] {
+    if (!this.searchTerm.trim()) return this.configs();
+    const term = this.searchTerm.toLowerCase().trim();
+    return this.configs().filter(c =>
+      c.schema_name.toLowerCase().includes(term) ||
+      c.view_name.toLowerCase().includes(term) ||
+      c.priority.toLowerCase().includes(term) ||
+      (c.group_name || '').toLowerCase().includes(term)
+    );
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
@@ -221,6 +240,63 @@ export class CronParquetComponent implements OnInit {
     });
   }
 
+  // ─── Run Cron (ejecutar regeneración manual) ───────────────────────────
+
+  runCron(): void {
+    this.runningCron.set(true);
+    this.http.post<{ success: boolean; due_count: number; message: string }>(
+      `${this.baseUrl}/run-cron`, {}
+    ).subscribe({
+      next: res => {
+        this.runningCron.set(false);
+        this.msg.add({
+          severity: 'success',
+          summary: 'Cron ejecutado',
+          detail: res.message,
+          life: 6000,
+        });
+        // Recargar estado tras unos segundos
+        setTimeout(() => this.loadStatus(), 5000);
+      },
+      error: err => {
+        this.runningCron.set(false);
+        this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo ejecutar el cron' });
+      },
+    });
+  }
+
+  // ─── Import from Graph ──────────────────────────────────────────────────
+
+  importFromGraph(): void {
+    this.confirm.confirm({
+      message: 'Importar todas las vistas existentes en Graph-Fabric? Se asignaran intervalos por defecto segun el schema. Las ya configuradas no se sobreescriben.',
+      header: 'Importar desde Graph-Fabric',
+      icon: 'pi pi-cloud-download',
+      accept: () => {
+        this.importing.set(true);
+        this.http.post<{ success: boolean; imported: number; skipped: number; total: number; message: string }>(
+          `${this.baseUrl}/import-from-graph`, {}
+        ).subscribe({
+          next: res => {
+            this.importing.set(false);
+            this.msg.add({
+              severity: 'success',
+              summary: 'Importacion completada',
+              detail: res.message,
+              life: 8000,
+            });
+            this.loadConfigs();
+            this.loadStatus();
+          },
+          error: err => {
+            this.importing.set(false);
+            this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo importar' });
+          },
+        });
+      },
+    });
+  }
+
   // ─── Force Refresh (regenerar un solo parquet) ──────────────────────────
 
   forceRefresh(config: ParquetConfig): void {
@@ -264,7 +340,26 @@ export class CronParquetComponent implements OnInit {
     if (status.config?.is_stale) return 'danger';
     if (status.status === 'ready') return 'success';
     if (status.status === 'generating') return 'warn';
+    if (status.status === 'ok') return 'success';
+    if (status.status === 'stale') return 'danger';
+    if (status.status === 'missing') return 'info';
     return 'info';
+  }
+
+  /**
+   * Graph-Fabric devuelve age_hours, lo convertimos a display legible.
+   */
+  getAgeDisplay(st: ParquetStatus): string {
+    if (st.age_hours != null) {
+      if (st.age_hours < 1) return `${Math.round(st.age_hours * 60)} min`;
+      if (st.age_hours < 24) return `${st.age_hours.toFixed(1)}h`;
+      return `${Math.floor(st.age_hours / 24)}d ${Math.round(st.age_hours % 24)}h`;
+    }
+    if (st.age_minutes != null) {
+      if (st.age_minutes < 60) return `${st.age_minutes} min`;
+      return `${(st.age_minutes / 60).toFixed(1)}h`;
+    }
+    return '';
   }
 
   timeAgo(iso: string | null): string {

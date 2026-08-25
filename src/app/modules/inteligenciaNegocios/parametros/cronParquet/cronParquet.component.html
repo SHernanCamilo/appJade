@@ -12,6 +12,10 @@
       </div>
     </div>
     <div class="cp-header__actions">
+      <button pButton label="Ejecutar cron" icon="pi pi-play" class="p-button-outlined p-button-warning p-button-sm"
+        [loading]="runningCron()" (click)="runCron()" pTooltip="Forzar regeneracion de parquets pendientes en Graph-Fabric"></button>
+      <button pButton label="Importar desde Graph" icon="pi pi-cloud-download" class="p-button-outlined p-button-info p-button-sm"
+        [loading]="importing()" (click)="importFromGraph()" pTooltip="Importar las 766+ vistas desde Graph-Fabric con intervalos por defecto"></button>
       <button pButton label="Sincronizar todo" icon="pi pi-sync" class="p-button-outlined p-button-sm"
         [loading]="syncing()" (click)="syncAll()" pTooltip="Reenviar todas las configs a Graph-Fabric"></button>
       <button pButton label="Actualizar estado" icon="pi pi-refresh" class="p-button-outlined p-button-sm"
@@ -21,10 +25,22 @@
     </div>
   </header>
 
+  <!-- Buscador -->
+  <div class="cp-search">
+    <span class="p-input-icon-left" style="width: 100%; max-width: 400px;">
+      <i class="pi pi-search"></i>
+      <input pInputText [(ngModel)]="searchTerm" placeholder="Buscar por schema, vista, prioridad o grupo..."
+        style="width: 100%;" />
+    </span>
+    <span class="cp-search__count">{{ filteredConfigs.length }} de {{ configs().length }} vistas</span>
+  </div>
+
   <!-- Tabla principal -->
-  <p-table [value]="configs()" [loading]="loading()" responsiveLayout="scroll"
+  <p-table [value]="filteredConfigs" [loading]="loading()" responsiveLayout="scroll"
     styleClass="p-datatable-sm p-datatable-striped" [rowHover]="true"
-    [globalFilterFields]="['schema_name', 'view_name', 'priority', 'group_name']">
+    [paginator]="true" [rows]="25" [rowsPerPageOptions]="[25, 50, 100, 250]"
+    [showCurrentPageReport]="true" currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} vistas"
+    sortField="schema_name" [sortOrder]="1">
 
     <ng-template pTemplate="header">
       <tr>
@@ -36,7 +52,7 @@
         <th>Grupo</th>
         <th>Estado Parquet</th>
         <th>Ultima sync</th>
-        <th style="width: 8rem">Acciones</th>
+        <th style="width: 9rem">Acciones</th>
       </tr>
     </ng-template>
 
@@ -81,10 +97,11 @@
         <td>
           <ng-container *ngIf="getStatusForView(config.schema_name, config.view_name) as st">
             <p-tag [value]="st.status ?? 'desconocido'" [severity]="$any(getStatusTag(st))"></p-tag>
-            <small class="cp-age" *ngIf="st.age_minutes != null">
-              {{ st.age_minutes }} min
+            <small class="cp-age" *ngIf="st.age_hours != null || st.age_minutes != null">
+              {{ getAgeDisplay(st) }}
               <span *ngIf="st.config?.is_stale" class="cp-stale">(stale!)</span>
             </small>
+            <small class="cp-size" *ngIf="st.size_mb">{{ st.size_mb }} MB</small>
           </ng-container>
           <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
             Sin datos
@@ -97,7 +114,7 @@
         </td>
 
         <!-- Acciones -->
-        <td>
+        <td class="cp-actions">
           <button pButton icon="pi pi-bolt" class="p-button-text p-button-warning p-button-sm"
             (click)="forceRefresh(config)" pTooltip="Forzar regeneracion ahora"></button>
           <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="editConfig(config)"
@@ -112,8 +129,7 @@
       <tr>
         <td colspan="9" style="text-align: center; padding: 2rem;">
           <i class="pi pi-inbox" style="font-size: 2rem; color: #ccc;"></i>
-          <p style="margin-top: 8px; color: #666;">No hay vistas configuradas. Agregue una con el boton "Nueva
-            configuracion".</p>
+          <p style="margin-top: 8px; color: #666;">No hay vistas configuradas. Use "Importar desde Graph" para traer las 766+ vistas existentes, o agregue una con "Nueva configuracion".</p>
         </td>
       </tr>
     </ng-template>
