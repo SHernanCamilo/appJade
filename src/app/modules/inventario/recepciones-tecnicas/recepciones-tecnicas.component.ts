@@ -15,16 +15,20 @@ import { InventarioService } from '../../../core/services/inventario.service';
 import { OrdenCompra, RecepcionItem } from '../../../core/models/inventario.model';
 
 interface RecepcionFormData {
+  pedido_detalle_id?: number | null;
   codigo_producto: string;
   producto_nombre: string;
   cantidad_solicitada_compra: number;
+  cantidad_solicitada?: number;
   cantidad_recibida: number;
+  muestra_poblacion?: number | null;
   numero_lote: string;
   fecha_vencimiento: string;
-  codigo_sanitario: string; // CUM o Registro INVIMA
+  codigo_sanitario: string;
   concepto_recepcion: 'aceptado' | 'rechazado' | 'cuarentena' | '';
   es_medicamento_vital: boolean;
   observaciones: string;
+  recibido?: boolean | number;
 }
 
 @Component({
@@ -158,16 +162,20 @@ export class RecepcionesTecnicasComponent implements OnInit {
         this.isLoadingDetails.set(false);
         if (res.success && res.data) {
           const formItems: RecepcionFormData[] = res.data.map((item: any) => ({
+            pedido_detalle_id: item.pedido_detalle_id ?? null,
             codigo_producto: item.codigo_producto,
             producto_nombre: item.producto_nombre,
             cantidad_solicitada_compra: item.cantidad_solicitada_compra,
-            cantidad_recibida: item.cantidad_solicitada_compra, // Sugerimos la cantidad total por defecto
-            numero_lote: '',
-            fecha_vencimiento: '',
-            codigo_sanitario: '',
-            concepto_recepcion: 'aceptado', // Sugerimos aceptado por defecto
-            es_medicamento_vital: false,
-            observaciones: ''
+            cantidad_solicitada: item.cantidad_solicitada ?? item.cantidad_solicitada_compra,
+            cantidad_recibida: item.cantidad_solicitada_compra,
+            muestra_poblacion: item.muestra_poblacion ?? null,
+            numero_lote: item.numero_lote || '',
+            fecha_vencimiento: item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '',
+            codigo_sanitario: item.codigo_sanitario || '',
+            concepto_recepcion: 'aceptado',
+            es_medicamento_vital: Boolean(item.es_medicamento_vital),
+            observaciones: '',
+            recibido: true,
           }));
           this.currentReceptionForm.set(formItems);
         }
@@ -204,7 +212,9 @@ export class RecepcionesTecnicasComponent implements OnInit {
     const payload = {
       compra_id: orden.compra_id,
       observaciones: this.receptionGlobalObservations(),
-      items: formItems.filter(i => i.cantidad_recibida > 0) // Solo enviar los que se reciben
+      items: formItems
+        .filter(i => i.cantidad_recibida > 0)
+        .map(i => ({ ...i, recibido: 1 })),
     };
 
     // Usar cualquier mÃ©todo existente para enviar (ej: store)

@@ -91,6 +91,8 @@
 
 /* Locked cells (OC data — readonly) */
 :host ::ng-deep .xl-grid .xl-locked { background-color: #f9f9f9 !important; color: #424242; }
+:host ::ng-deep .xl-grid .xl-muted { background-color: #f3f4f6 !important; color: #9ca3af !important; }
+:host ::ng-deep .xl-grid .xl-mvd { background-color: #ede9fe !important; color: #4c1d95 !important; font-style: italic; }
 
 /* Alignments */
 :host ::ng-deep .xl-grid .xl-center { justify-content: center; text-align: center; }
