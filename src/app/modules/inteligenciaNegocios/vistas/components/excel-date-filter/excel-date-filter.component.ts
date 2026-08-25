@@ -735,30 +735,68 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
   }
 
   isFilterActive(): boolean {
-    return this.appliedSelected.size < this.allDateStrings.size;
+    // Range mode: active if from or to are set
+    if (this.filterMode() === 'range' && (this.rangeFrom() || this.rangeTo())) {
+      return true;
+    }
+    // Hierarchy mode: active if not all selected
+    return this.appliedSelected.size < this.allDateStrings.size && this.allDateStrings.size > 0;
   }
 
   doesFilterPass(params: IDoesFilterPassParams): boolean {
+    // En modo rango con paginacion server-side, el filtrado lo hace el backend.
+    // Si allDateStrings tiene pocas fechas (<=pageSize), es paginado → no filtrar local.
+    // Si tiene muchas (>pageSize), es client-side → filtrar local.
+    if (this.filterMode() === 'range') {
+      // En server-side solo hay 50 filas: dejar pasar todo, el backend filtra
+      if (this.allDateStrings.size <= 100) return true;
+      // En client-side (Excel viewer con todos los datos): filtrar por rango
+      const from = this.rangeFrom();
+      const to = this.rangeTo();
+      if (!from && !to) return true;
+      let value: unknown;
+      if (this.valueGetter) {
+        value = this.valueGetter({ node: params.node, data: params.data, column: this.params.column, colDef: this.params.colDef } as ValueGetterParams);
+      } else {
+        const field = this.params.colDef.field;
+        value = field ? params.data?.[field] : null;
+      }
+      const dateStr = value != null ? this.normalizeDateString(String(value)) : null;
+      if (!dateStr) return false;
+      if (from && dateStr < from) return false;
+      if (to && dateStr > to) return false;
+      return true;
+    }
+
+    // Hierarchy mode: check if date is in the selected set
     let value: unknown;
-    
     if (this.valueGetter) {
-      value = this.valueGetter({ 
-        node: params.node, 
-        data: params.data, 
-        column: this.params.column, 
-        colDef: this.params.colDef 
-      } as ValueGetterParams);
+      value = this.valueGetter({ node: params.node, data: params.data, column: this.params.column, colDef: this.params.colDef } as ValueGetterParams);
     } else {
       const field = this.params.colDef.field;
       value = field ? params.data?.[field] : null;
     }
-    
     const dateStr = value != null ? this.normalizeDateString(String(value)) : null;
+
+    // Server-side (few dates): don't filter locally
+    if (this.allDateStrings.size <= 100 && this.appliedSelected.size === 0) return true;
+
     return dateStr ? this.appliedSelected.has(dateStr) : false;
   }
 
-  getModel(): Set<string> | null {
-    return this.isFilterActive() ? this.appliedSelected : null;
+  getModel(): any {
+    if (this.filterMode() === 'range' && (this.rangeFrom() || this.rangeTo())) {
+      // Return range info for the grid component to read
+      return {
+        filterType: 'dateRange',
+        dateFrom: this.rangeFrom() || null,
+        dateTo: this.rangeTo() || null,
+      };
+    }
+    if (this.appliedSelected.size < this.allDateStrings.size && this.allDateStrings.size > 0) {
+      return this.appliedSelected;
+    }
+    return null;
   }
 
   setModel(model: Set<string> | null): void {

@@ -339,10 +339,22 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     const filters: Record<string, string> = {};
 
     for (const [col, model] of Object.entries(filterModel as Record<string, any>)) {
-      // ExcelDateFilterComponent devuelve un Set de strings seleccionados.
-      // Cuando usa modo rango, el Set contiene todas las fechas dentro del rango.
-      // Para enviarlo al backend como rango: tomamos min y max del set.
-      if (model instanceof Set || (model && typeof model === 'object' && model.size !== undefined)) {
+      // ExcelDateFilterComponent en modo rango: { filterType: 'dateRange', dateFrom, dateTo }
+      if (model && model.filterType === 'dateRange') {
+        const from = model.dateFrom || '';
+        const to = model.dateTo || '';
+        if (from && to) {
+          filters[col] = `${from}..${to}`;
+        } else if (from) {
+          filters[col] = `>${from}`;
+        } else if (to) {
+          filters[col] = `<${to}`;
+        }
+        continue;
+      }
+
+      // ExcelDateFilterComponent en modo jerarquia: Set de strings seleccionados.
+      if (model instanceof Set || (model && typeof model === 'object' && model.size !== undefined && !(model.filterType))) {
         const dates = [...model].sort();
         if (dates.length > 0) {
           const from = dates[0];
