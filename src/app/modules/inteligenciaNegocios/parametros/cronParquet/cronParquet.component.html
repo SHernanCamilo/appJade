@@ -98,6 +98,8 @@
 
         <!-- Acciones -->
         <td>
+          <button pButton icon="pi pi-bolt" class="p-button-text p-button-warning p-button-sm"
+            (click)="forceRefresh(config)" pTooltip="Forzar regeneracion ahora"></button>
           <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="editConfig(config)"
             pTooltip="Editar"></button>
           <button pButton icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm"

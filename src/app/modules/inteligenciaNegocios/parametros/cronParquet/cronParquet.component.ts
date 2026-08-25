@@ -221,6 +221,36 @@ export class CronParquetComponent implements OnInit {
     });
   }
 
+  // ─── Force Refresh (regenerar un solo parquet) ──────────────────────────
+
+  forceRefresh(config: ParquetConfig): void {
+    this.msg.add({ severity: 'info', summary: 'Regenerando...', detail: `Solicitando regeneracion de ${config.view_name}...` });
+
+    this.http.post<{ success: boolean; r2_status?: string; message?: string }>(
+      `${environment.URL_SERVICIOS}/fabric/viewer/export/start`,
+      {
+        schema_name: config.schema_name,
+        view: config.view_name,
+        format: 'xlsx',
+        max_rows: 1,
+        force_refresh: true,
+      }
+    ).subscribe({
+      next: res => {
+        const status = res.r2_status ?? 'enviado';
+        this.msg.add({
+          severity: status === 'generating' ? 'warn' : 'success',
+          summary: 'Force Refresh',
+          detail: res.message ?? `${config.view_name}: ${status}`,
+          life: 5000,
+        });
+      },
+      error: err => {
+        this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo forzar la regeneracion' });
+      },
+    });
+  }
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   getPriorityTag(priority: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
