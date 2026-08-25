@@ -163,7 +163,7 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
       import('./parametros/cronParquet/cronParquet.component').then(m => m.CronParquetComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'BI-FABRIC-METRICS',
+      moduleCode: 'BI-CRON-PARQUET',
       pageTitle: 'Cron Parquet',
       pageSubtitle: 'Configuración de intervalos de regeneración de parquets por vista'
     }
