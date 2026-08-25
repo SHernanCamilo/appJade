@@ -61,6 +61,7 @@ interface RecepcionRow {
   _semaforo: 'verde' | 'amarillo' | 'rojo' | '';
   pedido_detalle_id: number | null;
   recibido: boolean;
+  proveedor?: string;
 }
 
 const CUMPLE_VALUES = ['Cumple', 'No Cumple'];
@@ -428,23 +429,44 @@ export class RecepcionExcelComponent implements OnInit {
     this.inventarioService.getRecepcion(this.compraId).subscribe({
       next: (res: any) => {
         const items: RecepcionRow[] = (Array.isArray(res.data) ? res.data : []).map((item: any) => {
-          const cantidad = Number(item.cantidad_solicitada_compra ?? item.cantidad_solicitada ?? 0);
+          const cantidad = Number(item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? 0);
+          const aspectoDefault = item.aspecto_cumple === 0 || item.aspecto_cumple === false ? 'No Cumple' : 'Cumple';
           return {
-            codigo_producto: item.codigo_producto || '', producto_nombre: item.producto_nombre || '',
-            marca: item.marca || '', tipo_producto: item.tipo_producto || 'Medicamento',
-            forma_farmaceutica: item.forma_farmaceutica || '', concentracion: item.concentracion || '',
-            unidad_empaque: item.unidad_empaque || '', cantidad_solicitada: cantidad,
-            es_medicamento_vital: false, codigo_sanitario: '', estado_invima: '',
-            fabricante: '', vida_util: '', fecha_vencimiento: '',
-            cantidad_recibida: cantidad, muestra_poblacion: null, numero_lote: '',
-            aspecto_cumple: 'Cumple', embalaje_cumple: 'Cumple', contenido_cumple: 'Cumple',
-            cadena_frio_temperatura: null, concepto_recepcion: 'aceptado', observaciones_recepcion: '',
-            _validatingInvima: false, _invimaValid: null, _semaforo: '',
-            pedido_detalle_id: item.pedido_detalle_id ?? item.id ?? null, recibido: true,
+            codigo_producto: item.codigo_producto || '',
+            producto_nombre: item.producto_nombre || '',
+            marca: item.marca || '',
+            tipo_producto: item.tipo_producto || 'Medicamento',
+            forma_farmaceutica: item.forma_farmaceutica || '',
+            concentracion: item.concentracion || '',
+            unidad_empaque: item.unidad_empaque || '',
+            cantidad_solicitada: cantidad,
+            es_medicamento_vital: Boolean(item.es_medicamento_vital),
+            codigo_sanitario: item.codigo_sanitario || '',
+            estado_invima: item.estado_invima || '',
+            fabricante: item.fabricante || '',
+            vida_util: item.vida_util || '',
+            fecha_vencimiento: item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '',
+            cantidad_recibida: cantidad,
+            muestra_poblacion: item.muestra_poblacion ?? null,
+            numero_lote: item.numero_lote || '',
+            aspecto_cumple: typeof item.aspecto_cumple === 'string' ? item.aspecto_cumple : aspectoDefault,
+            embalaje_cumple: typeof item.embalaje_cumple === 'string' ? item.embalaje_cumple : aspectoDefault,
+            contenido_cumple: typeof item.contenido_cumple === 'string' ? item.contenido_cumple : aspectoDefault,
+            cadena_frio_temperatura: item.cadena_frio_temperatura ?? null,
+            concepto_recepcion: item.concepto_recepcion || 'aceptado',
+            observaciones_recepcion: item.observaciones_recepcion || item.observaciones_pedido || '',
+            _validatingInvima: false,
+            _invimaValid: null,
+            _semaforo: '',
+            pedido_detalle_id: item.pedido_detalle_id ?? null,
+            recibido: true,
           } as RecepcionRow;
         });
         this.rowData = items;
-        this.ordenInfo.set({ numero: res.orden_numero || `OC-${this.compraId}`, proveedor: res.proveedor || '' });
+        this.ordenInfo.set({
+          numero: res.orden_numero || `OC-${this.compraId}`,
+          proveedor: res.proveedor || items[0]?.proveedor || '',
+        });
         this.recalcTotals();
         this.isLoading.set(false);
       },
