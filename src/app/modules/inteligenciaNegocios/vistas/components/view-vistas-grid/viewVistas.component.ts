@@ -198,16 +198,14 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Post-procesa columnDefs del servicio para asignar filtros específicos por tipo
+   * Post-procesa columnDefs para asignar ExcelDateFilterComponent a columnas de fecha.
+   * Usa la marca __colType que buildColumnDefs del servicio deja en cada colDef.
    */
   private assignDateFiltersToColumns(columnDefs: ColDef[]): ColDef[] {
     return columnDefs.map(colDef => {
-      // Detectar si es columna de fecha por el valueFormatter
-      // El servicio asigna un valueFormatter específico para fechas que contiene lógica de formato
-      const isDateCol = colDef.valueFormatter && 
-                       (String(colDef.valueFormatter).includes('T]') ||
-                        String(colDef.valueFormatter).includes('datePart'));
-      
+      const colType = (colDef as any).__colType;
+      const isDateCol = colType === 'date';
+
       return {
         ...colDef,
         filter: isDateCol ? ExcelDateFilterComponent : ExcelColumnFilterComponent,
@@ -341,14 +339,26 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     const filters: Record<string, string> = {};
 
     for (const [col, model] of Object.entries(filterModel as Record<string, any>)) {
-      // Filtro de fecha (agDateColumnFilter) — usa dateFrom/dateTo
+      // ExcelDateFilterComponent devuelve un Set de strings seleccionados.
+      // Cuando usa modo rango, el Set contiene todas las fechas dentro del rango.
+      // Para enviarlo al backend como rango: tomamos min y max del set.
+      if (model instanceof Set || (model && typeof model === 'object' && model.size !== undefined)) {
+        const dates = [...model].sort();
+        if (dates.length > 0) {
+          const from = dates[0];
+          const to = dates[dates.length - 1];
+          filters[col] = from === to ? from : `${from}..${to}`;
+        }
+        continue;
+      }
+
+      // Filtro de fecha legacy (agDateColumnFilter) — usa dateFrom/dateTo
       if (model.dateFrom) {
         const tipo = model.type ?? 'equals';
-        const dateFrom = model.dateFrom.split(' ')[0]; // "2026-07-14 00:00:00" → "2026-07-14"
+        const dateFrom = model.dateFrom.split(' ')[0];
 
         switch (tipo) {
           case 'equals':
-            // Para datetime: buscar todo el día (rango inicio..fin del día)
             filters[col] = `${dateFrom}..${dateFrom}`;
             break;
           case 'greaterThan':
@@ -370,7 +380,20 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      // Filtro de texto/número — usa filter
+      // ExcelColumnFilterComponent devuelve { selectedValues: Set<string> }
+      if (model.selectedValues && model.selectedValues instanceof Set) {
+        // Para texto: enviar como contains del primer valor (o lista)
+        const values = [...model.selectedValues];
+        if (values.length === 1) {
+          filters[col] = values[0];
+        } else if (values.length > 0 && values.length < 20) {
+          // Multiples valores: enviar como OR (backend debe soportar lista)
+          filters[col] = `%${values[0]}%`;
+        }
+        continue;
+      }
+
+      // Filtro de texto/número genérico
       if (model.filter !== undefined && model.filter !== null && model.filter !== '') {
         const tipo = model.type ?? 'contains';
         const valor = this.formatGridFilterValue(model.filter);

@@ -543,12 +543,15 @@ export class VistasService {
         const colDef: ColDef = {
           field: col.name,
           headerName: col.name.replace(/_/g, ' '),
-          // NO definir filter aquí — lo hereda de defaultColDef
           minWidth: 120,
         };
 
         if (valueFormatter) colDef.valueFormatter = valueFormatter;
         if (cellDataType) colDef.cellDataType = cellDataType;
+
+        // Marcar el tipo de columna para que los componentes de grid
+        // puedan asignar el filtro correcto (ExcelDateFilter vs ExcelColumnFilter)
+        (colDef as any).__colType = forceText ? 'text' : (colType === 'date' || inferDate) ? 'date' : colType;
 
         return colDef;
       });
