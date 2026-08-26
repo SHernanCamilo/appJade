@@ -220,7 +220,7 @@ export class CronParquetComponent implements OnInit {
 
   syncAll(): void {
     this.syncing.set(true);
-    this.http.post<{ success: boolean; synced: number; failed: number; message: string }>(
+    this.http.post<{ success: boolean; synced: number; failed: number; pending: number; errors: string[]; message: string }>(
       `${this.baseUrl}/sync`, {}
     ).subscribe({
       next: res => {
@@ -229,9 +229,19 @@ export class CronParquetComponent implements OnInit {
           severity: res.failed === 0 ? 'success' : 'warn',
           summary: 'Sincronizacion',
           detail: res.message,
+          life: 8000,
         });
         this.loadConfigs();
         this.loadStatus();
+        // Si quedan pendientes, informar
+        if (res.pending > 0) {
+          this.msg.add({
+            severity: 'info',
+            summary: 'Pendientes',
+            detail: `Quedan ${res.pending} vistas sin sincronizar. Click "Sincronizar todo" de nuevo.`,
+            life: 10000,
+          });
+        }
       },
       error: () => {
         this.syncing.set(false);
