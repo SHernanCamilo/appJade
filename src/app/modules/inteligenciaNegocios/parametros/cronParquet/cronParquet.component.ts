@@ -35,6 +35,8 @@ interface ParquetStatus {
   age_minutes?: number;
   size_mb?: number;
   row_count?: number;
+  avg_generation_s?: number;
+  lane?: string;
   config?: {
     refresh_interval_min: number;
     priority: string;
@@ -385,5 +387,26 @@ export class CronParquetComponent implements OnInit {
 
   getStatusForView(schema: string, view: string): ParquetStatus | undefined {
     return this.statuses().find(s => s.schema === schema && s.view === view);
+  }
+
+  /**
+   * Determina el carril de Graph-Fabric segun avg_generation_s.
+   */
+  getLane(st: ParquetStatus): string {
+    const avg = st.avg_generation_s;
+    if (avg == null) return 'sprint (nueva)';
+    if (avg <= 30) return 'sprint';
+    if (avg <= 180) return 'standard';
+    if (avg <= 900) return 'heavy';
+    return 'marathon';
+  }
+
+  getLaneTag(st: ParquetStatus): 'success' | 'info' | 'warn' | 'danger' {
+    const avg = st.avg_generation_s;
+    if (avg == null) return 'success';
+    if (avg <= 30) return 'success';
+    if (avg <= 180) return 'info';
+    if (avg <= 900) return 'warn';
+    return 'danger';
   }
 }

@@ -102,6 +102,9 @@
               <span *ngIf="st.config?.is_stale" class="cp-stale">(stale!)</span>
             </small>
             <small class="cp-size" *ngIf="st.size_mb">{{ st.size_mb }} MB</small>
+            <small class="cp-lane">
+              <p-tag [value]="getLane(st)" [severity]="$any(getLaneTag(st))" [rounded]="true"></p-tag>
+            </small>
           </ng-container>
           <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
             Sin datos

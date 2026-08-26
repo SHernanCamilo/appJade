@@ -30,6 +30,7 @@
 .cp-stale { color: #dc2626; font-weight: 600; }
 .cp-no-status { font-size: 11px; color: #d1d5db; font-style: italic; }
 .cp-size { display: block; font-size: 10px; color: #9ca3af; }
+.cp-lane { display: block; margin-top: 3px; }
 .cp-sync-time { font-size: 12px; color: #6b7280; }
 .cp-actions { white-space: nowrap; }
 
