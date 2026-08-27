@@ -12,6 +12,8 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { ChartModule } from 'primeng/chart';
+import { TabViewModule } from 'primeng/tabview';
+import { TimelineModule } from 'primeng/timeline';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '../../../../environments/environment';
 
@@ -62,6 +64,21 @@ interface DashboardData {
   generated_at: string;
 }
 
+interface ParquetHistoryEntry {
+  id: number;
+  schema_name: string;
+  view_name: string;
+  status: string;
+  lane: string | null;
+  age_hours: number | null;
+  avg_generation_s: number | null;
+  size_mb: number | null;
+  row_count: number | null;
+  is_stale_by_config: boolean;
+  error_message: string | null;
+  captured_at: string;
+}
+
 type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
 
 @Component({
@@ -70,7 +87,7 @@ type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
   imports: [
     CommonModule, FormsModule, TableModule, TagModule, ButtonModule,
     InputTextModule, TooltipModule, ConfirmDialogModule, ToastModule, DialogModule,
-    ProgressBarModule, ChartModule,
+    ProgressBarModule, ChartModule, TabViewModule, TimelineModule,
   ],
   providers: [MessageService, ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,6 +112,12 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   readonly editMode    = signal(false);
   readonly autoRefresh = signal(false);
   readonly lastUpdate  = signal<Date | null>(null);
+
+  // Historial (trazabilidad por vista)
+  readonly showHistory     = signal(false);
+  readonly historyLoading  = signal(false);
+  readonly historyEntries  = signal<ParquetHistoryEntry[]>([]);
+  readonly historyView     = signal<{ schema: string; view: string } | null>(null);
 
   private autoTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -463,6 +486,49 @@ export class CronParquetComponent implements OnInit, OnDestroy {
         this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo forzar la regeneracion' });
       },
     });
+  }
+
+  // ─── Historial (trazabilidad por vista) ─────────────────────────────────
+
+  openHistory(config: ParquetConfig): void {
+    this.historyView.set({ schema: config.schema_name, view: config.view_name });
+    this.showHistory.set(true);
+    this.historyLoading.set(true);
+    this.historyEntries.set([]);
+
+    this.http.get<{ success: boolean; history: ParquetHistoryEntry[] }>(
+      `${this.baseUrl}/${config.schema_name}/${config.view_name}/history`
+    ).subscribe({
+      next: res => {
+        this.historyEntries.set(res.history ?? []);
+        this.historyLoading.set(false);
+      },
+      error: () => {
+        this.historyLoading.set(false);
+        this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'No hay historial disponible todavia para esta vista.' });
+      },
+    });
+  }
+
+  historyDotColor(status: string): string {
+    const map: Record<string, string> = {
+      ok: '#22c55e', stale: '#ef4444', pending: '#f59e0b',
+      generating: '#3b82f6', error: '#dc2626', missing: '#9ca3af',
+    };
+    return map[status] ?? '#c084fc';
+  }
+
+  historyDotIcon(status: string): string {
+    const map: Record<string, string> = {
+      ok: 'pi pi-check', stale: 'pi pi-clock', pending: 'pi pi-hourglass',
+      generating: 'pi pi-spin pi-spinner', error: 'pi pi-times', missing: 'pi pi-minus',
+    };
+    return map[status] ?? 'pi pi-circle';
+  }
+
+  formatDateTime(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

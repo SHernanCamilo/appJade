@@ -239,6 +239,8 @@
         <td class="cp-actions">
           <button pButton icon="pi pi-bolt" class="p-button-text p-button-warning p-button-sm"
             (click)="forceRefresh(config)" pTooltip="Forzar regeneracion ahora"></button>
+          <button pButton icon="pi pi-history" class="p-button-text p-button-info p-button-sm"
+            (click)="openHistory(config)" pTooltip="Ver historial / trazabilidad"></button>
           <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="editConfig(config)"
             pTooltip="Editar"></button>
           <button pButton icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm"
@@ -305,5 +307,47 @@
     <button pButton label="Cancelar" icon="pi pi-times" class="p-button-text" (click)="showDialog.set(false)"></button>
     <button pButton label="Guardar y sincronizar" icon="pi pi-check" class="p-button-success"
       (click)="saveConfig()"></button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal de historial / trazabilidad -->
+<p-dialog [(visible)]="showHistory" [modal]="true" [style]="{width: '560px'}"
+  [header]="'Historial: ' + (historyView()?.schema ?? '') + '.' + (historyView()?.view ?? '')">
+
+  <div class="cp-hist" *ngIf="!historyLoading(); else histLoading">
+    <div class="cp-hist__empty" *ngIf="historyEntries().length === 0">
+      <i class="pi pi-info-circle"></i>
+      <p>Aun no hay snapshots de esta vista. El historial se genera cada 15 min automaticamente.</p>
+    </div>
+
+    <p-timeline [value]="historyEntries()" *ngIf="historyEntries().length > 0" styleClass="cp-timeline">
+      <ng-template pTemplate="marker" let-entry>
+        <span class="cp-hist__dot" [style.background]="historyDotColor(entry.status)">
+          <i [class]="historyDotIcon(entry.status)"></i>
+        </span>
+      </ng-template>
+      <ng-template pTemplate="content" let-entry>
+        <div class="cp-hist__row">
+          <div class="cp-hist__top">
+            <span class="cp-hist__status" [style.color]="historyDotColor(entry.status)">{{ entry.status }}</span>
+            <span class="cp-hist__time">{{ formatDateTime(entry.captured_at) }}</span>
+          </div>
+          <div class="cp-hist__meta">
+            <span *ngIf="entry.lane"><i class="pi pi-flag"></i> {{ entry.lane }}</span>
+            <span *ngIf="entry.age_hours != null"><i class="pi pi-clock"></i> {{ entry.age_hours | number:'1.0-1' }}h</span>
+            <span *ngIf="entry.avg_generation_s != null"><i class="pi pi-stopwatch"></i> {{ entry.avg_generation_s | number:'1.0-0' }}s</span>
+            <span *ngIf="entry.size_mb != null"><i class="pi pi-file"></i> {{ entry.size_mb }} MB</span>
+            <span *ngIf="entry.is_stale_by_config" class="cp-stale">stale por config</span>
+          </div>
+          <div class="cp-hist__error" *ngIf="entry.error_message">
+            <i class="pi pi-exclamation-triangle"></i> {{ entry.error_message }}
+          </div>
+        </div>
+      </ng-template>
+    </p-timeline>
+  </div>
+
+  <ng-template #histLoading>
+    <div class="cp-hist__loading"><i class="pi pi-spin pi-spinner"></i> Cargando historial...</div>
   </ng-template>
 </p-dialog>
