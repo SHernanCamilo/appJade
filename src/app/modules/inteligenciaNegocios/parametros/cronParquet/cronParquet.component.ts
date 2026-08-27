@@ -108,6 +108,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   readonly syncing     = signal(false);
   readonly importing   = signal(false);
   readonly runningCron = signal(false);
+  readonly rebalancing = signal(false);
   readonly showDialog  = signal(false);
   readonly editMode    = signal(false);
   readonly autoRefresh = signal(false);
@@ -421,6 +422,37 @@ export class CronParquetComponent implements OnInit, OnDestroy {
       error: err => {
         this.runningCron.set(false);
         this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo ejecutar el cron' });
+      },
+    });
+  }
+
+  // ─── Rebalanceo inteligente ─────────────────────────────────────────────
+
+  rebalance(): void {
+    this.confirm.confirm({
+      message: 'Rebalancear el scheduler? Desactivara las vistas pequenas (<10K filas) para que se exporten al vuelo, y subira los intervalos de las historicas. Solo las criticas (censos/urgencias) quedan frecuentes. Esto reduce la carga sobre Fabric.',
+      header: 'Rebalanceo inteligente',
+      icon: 'pi pi-sliders-h',
+      accept: () => {
+        this.rebalancing.set(true);
+        this.http.post<{ success: boolean; message: string; output?: string }>(
+          `${this.baseUrl}/rebalance`, { dry_run: false }
+        ).subscribe({
+          next: res => {
+            this.rebalancing.set(false);
+            this.msg.add({
+              severity: res.success ? 'success' : 'warn',
+              summary: 'Rebalanceo',
+              detail: res.message,
+              life: 8000,
+            });
+            this.refreshAll();
+          },
+          error: err => {
+            this.rebalancing.set(false);
+            this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo rebalancear' });
+          },
+        });
       },
     });
   }

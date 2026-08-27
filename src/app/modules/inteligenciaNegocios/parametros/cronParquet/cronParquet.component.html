@@ -21,6 +21,8 @@
         [icon]="autoRefresh() ? 'pi pi-sync pi-spin' : 'pi pi-sync'"
         [class]="autoRefresh() ? 'p-button-sm p-button-success' : 'p-button-sm p-button-outlined p-button-secondary'"
         (click)="toggleAutoRefresh()" pTooltip="Refrescar estado cada 15s"></button>
+      <button pButton label="Rebalancear" icon="pi pi-sliders-h" class="p-button-outlined p-button-help p-button-sm"
+        [loading]="rebalancing()" (click)="rebalance()" pTooltip="Optimizar scheduler: desactiva pequenas, sube intervalos de historicas"></button>
       <button pButton label="Ejecutar cron" icon="pi pi-play" class="p-button-outlined p-button-warning p-button-sm"
         [loading]="runningCron()" (click)="runCron()" pTooltip="Forzar regeneracion de parquets pendientes en Graph-Fabric"></button>
       <button pButton label="Importar" icon="pi pi-cloud-download" class="p-button-outlined p-button-info p-button-sm"
