@@ -59,6 +59,15 @@ export interface FabricColumn {
   nullable: boolean;
 }
 
+export interface DesktopLaunchResponse {
+  success: boolean;
+  ticket?: string;
+  protocol_url?: string;
+  download_url?: string;
+  message?: string;
+  expires_in?: number;
+}
+
 export interface FabricDataMeta {
   total: number;
   limit: number;
@@ -184,6 +193,42 @@ export class VistasService {
   private readonly baseUrl = `${environment.URL_SERVICIOS}/fabric/viewer`;
 
   constructor(private http: HttpClient) {}
+
+  launchDesktop(schema: string, viewName: string, viewLabel?: string): Observable<DesktopLaunchResponse> {
+    return this.http.post<DesktopLaunchResponse>(`${this.baseUrl}/desktop/launch`, {
+      schema_name: schema,
+      view: viewName,
+      view_label: viewLabel ?? viewName
+    });
+  }
+
+  /**
+   * Abre jadeone-desktop:// sin navegar fuera de la SPA. Si el protocolo no está
+   * registrado, onNotInstalled se ejecuta a los ~2s.
+   */
+  openDesktopProtocol(protocolUrl: string, onNotInstalled: () => void): void {
+    let blurred = false;
+    const onBlur = (): void => { blurred = true; };
+    window.addEventListener('blur', onBlur, { once: true });
+
+    const anchor = document.createElement('a');
+    anchor.href = protocolUrl;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+
+    window.setTimeout(() => {
+      window.removeEventListener('blur', onBlur);
+      if (!blurred && document.hasFocus()) {
+        onNotInstalled();
+      }
+    }, 2000);
+  }
+
+  getDesktopDownloadUrl(): string {
+    return `${this.baseUrl}/desktop/download`;
+  }
 
   getContext(grupoTipo?: number): Observable<FabricViewerContext> {
     const params = grupoTipo != null ? { tipo: grupoTipo } : undefined;
