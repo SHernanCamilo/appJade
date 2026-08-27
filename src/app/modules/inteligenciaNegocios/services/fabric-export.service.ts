@@ -374,6 +374,9 @@ export class FabricExportService {
       throw new Error('Sin datos');
     }
 
+    // Normalizar fechas ISO: "1952-10-09T00:00:00" -> "1952-10-09" (o con hora si la tiene)
+    this.normalizarFechas(rows);
+
     // Armar columnas desde la primera fila
     const cols: ExcelColumn[] = Object.keys(rows[0]).map(k => ({
       header: k, key: k, width: 16,
@@ -385,6 +388,54 @@ export class FabricExportService {
       { headerBackgroundColor: 'FF1E6B45', headerFontColor: 'FFFFFFFF', applyBorders: true },
       { title: label, subtitle: `${rows.length.toLocaleString('es-CO')} registros` },
     );
+  }
+
+  /**
+   * Convierte valores de fecha ISO a formato legible antes de armar el Excel.
+   *   "1952-10-09T00:00:00"       -> "1952-10-09"        (medianoche = solo fecha)
+   *   "2026-08-27T14:30:00"       -> "2026-08-27 14:30"  (con hora real)
+   *   "2026-08-27T14:30:00.000Z"  -> "2026-08-27 14:30"
+   * No toca valores que no sean fechas ISO.
+   */
+  private normalizarFechas(rows: Record<string, unknown>[]): void {
+    if (rows.length === 0) return;
+
+    // Detectar columnas de fecha: revisar la primera fila con datos
+    const isoRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/;
+    const sample = rows[0];
+    const dateCols: string[] = [];
+    for (const [key, val] of Object.entries(sample)) {
+      if (typeof val === 'string' && isoRe.test(val)) {
+        dateCols.push(key);
+      }
+    }
+    if (dateCols.length === 0) return;
+
+    for (const row of rows) {
+      for (const col of dateCols) {
+        const v = row[col];
+        if (typeof v === 'string' && isoRe.test(v)) {
+          row[col] = this.formatIsoDate(v);
+        }
+      }
+    }
+  }
+
+  /** Formatea una fecha ISO: quita la T; si es medianoche deja solo la fecha. */
+  private formatIsoDate(iso: string): string {
+    // Separar fecha y hora
+    const [datePart, timePartRaw] = iso.split('T');
+    if (!timePartRaw) return datePart;
+
+    // Quitar milisegundos y zona horaria
+    const timePart = timePartRaw.replace(/(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/, '');
+    const hhmm = timePart.slice(0, 5); // HH:MM
+
+    // Medianoche -> solo fecha (típico de campos DATE sin hora)
+    if (hhmm === '00:00' || timePart === '00:00:00') {
+      return datePart;
+    }
+    return `${datePart} ${hhmm}`;
   }
 
   /** Parsea NDJSON (una fila JSON por linea). */
