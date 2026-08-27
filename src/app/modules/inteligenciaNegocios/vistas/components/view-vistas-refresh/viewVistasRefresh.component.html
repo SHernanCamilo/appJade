@@ -1,38 +1,29 @@
-﻿<app-excel-sheet
-  [config]="excelConfig()"
-  [cellInfo]="cellInfo()"
+﻿<app-excel-sheet [config]="excelConfig()" [cellInfo]="cellInfo()"
   [loading]="progress().status === 'processing' || progress().status === 'queuing'"
-  [formulaSuggestions]="formulaSuggestions"
-  (secondaryAction)="onSecondaryAction($event)"
-  (ribbonAction)="onRibbonAction($event)"
-  (formulaCommit)="onFormulaCommit($event)"
-  (formulaInput)="onFormulaInput($event)"
-  (sheetTabChange)="onSheetTabChange($event.tabId)"
-  (closeSheet)="onCloseSheet($event)"
-  (zoomChange)="onZoomChange($event)"
-  (addSheet)="addBlankSheet()">
+  [formulaSuggestions]="formulaSuggestions" (secondaryAction)="onSecondaryAction($event)"
+  (ribbonAction)="onRibbonAction($event)" (formulaCommit)="onFormulaCommit($event)"
+  (formulaInput)="onFormulaInput($event)" (sheetTabChange)="onSheetTabChange($event.tabId)"
+  (closeSheet)="onCloseSheet($event)" (zoomChange)="onZoomChange($event)" (addSheet)="addBlankSheet()">
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-       Ãrea principal: grilla + panel de progreso superpuesto
-  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+
   <div class="vr-workspace">
 
-    <!-- â”€â”€ Grilla principal (virtual scroll de AG Grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div class="vr-grid-wrap" [class.vr-grid-wrap--faded]="isLoading()" (contextmenu)="$event.preventDefault()">
 
       <!-- Estado vacio inicial -->
       <div *ngIf="progress().status === 'idle'" class="vr-empty">
         <svg class="vr-empty__icon" viewBox="0 0 64 64" fill="none">
-          <rect x="4" y="8" width="56" height="48" rx="3" stroke="#217346" stroke-width="2.5" fill="#f0fdf4"/>
-          <rect x="4" y="8" width="56" height="10" rx="3" fill="#217346"/>
-          <line x1="14" y1="26" x2="50" y2="26" stroke="#a7f3d0" stroke-width="1.5"/>
-          <line x1="14" y1="33" x2="50" y2="33" stroke="#a7f3d0" stroke-width="1.5"/>
-          <line x1="14" y1="40" x2="38" y2="40" stroke="#a7f3d0" stroke-width="1.5"/>
-          <circle cx="48" cy="48" r="10" fill="#217346"/>
-          <path d="M44 48l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="4" y="8" width="56" height="48" rx="3" stroke="#217346" stroke-width="2.5" fill="#f0fdf4" />
+          <rect x="4" y="8" width="56" height="10" rx="3" fill="#217346" />
+          <line x1="14" y1="26" x2="50" y2="26" stroke="#a7f3d0" stroke-width="1.5" />
+          <line x1="14" y1="33" x2="50" y2="33" stroke="#a7f3d0" stroke-width="1.5" />
+          <line x1="14" y1="40" x2="38" y2="40" stroke="#a7f3d0" stroke-width="1.5" />
+          <circle cx="48" cy="48" r="10" fill="#217346" />
+          <path d="M44 48l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
         <h3 class="vr-empty__title">{{ vista?.nombre || viewName }}</h3>
-        <p class="vr-empty__sub">Haga clic en <strong>Datos - Actualizar todo</strong> para cargar los datos desde Fabric.</p>
+        <p class="vr-empty__sub">Haga clic en <strong>Datos - Actualizar todo</strong> para cargar los datos desde
+          Fabric.</p>
         <button class="vr-btn vr-btn--green" (click)="startRefresh()">
           <i class="pi pi-refresh"></i>
           Actualizar todo
@@ -65,7 +56,8 @@
             <input type="date" class="vr-mandatory-filter__input" [(ngModel)]="mandatoryDateTo" />
           </div>
 
-          <button class="vr-btn vr-btn--green" (click)="applyMandatoryFilter()" [disabled]="!mandatoryDateCol || !mandatoryDateFrom">
+          <button class="vr-btn vr-btn--green" (click)="applyMandatoryFilter()"
+            [disabled]="!mandatoryDateCol || !mandatoryDateFrom">
             <i class="pi pi-filter"></i>
             Aplicar filtro y cargar datos
           </button>
@@ -88,44 +80,23 @@
       <!-- SIEMPRE visible con height 100% - los estados idle/error se superponen
            como overlays absolutos. Esto garantiza que AG Grid siempre conoce
            su tamano y renderiza las filas correctamente al recibir datos. -->
-      <ag-grid-angular
-        class="ag-theme-alpine vr-grid"
-        [rowData]="rowData"
-        [columnDefs]="gridColumnDefs"
-        [defaultColDef]="defaultColDef"
-        [localeText]="localeText"
-        [groupHeaderHeight]="20"
-        [headerHeight]="26"
-        [animateRows]="false"
-        [suppressColumnVirtualisation]="false"
-        [suppressNoRowsOverlay]="true"
-        [rowSelection]="{ mode: 'multiRow', enableClickSelection: true }"
-        [enableCellTextSelection]="true"
-        [enableRangeSelection]="false"
-        [suppressContextMenu]="true"
-        [singleClickEdit]="false"
-        [stopEditingWhenCellsLoseFocus]="true"
-        [enterNavigatesVertically]="true"
-        [enterNavigatesVerticallyAfterEdit]="true"
-        [tabToNextCell]="tabToNextCell"
-        (gridReady)="onGridReady($event)"
-        (cellFocused)="onCellFocused($event)"
-        (cellContextMenu)="onCellContextMenu($event)"
-        (cellDoubleClicked)="onCellDoubleClicked($event)"
-        (cellKeyDown)="onCellKeyDown($event)"
-        (sortChanged)="onSortChanged()"
-        (filterChanged)="onFilterChanged()"
-        (displayedColumnsChanged)="onDisplayedColumnsChanged()"
-        (bodyScrollEnd)="onBodyScrollEnd($event)"
+      <ag-grid-angular class="ag-theme-alpine vr-grid" [rowData]="rowData" [columnDefs]="gridColumnDefs"
+        [defaultColDef]="defaultColDef" [localeText]="localeText" [groupHeaderHeight]="20" [headerHeight]="26"
+        [animateRows]="false" [suppressColumnVirtualisation]="false" [suppressNoRowsOverlay]="true"
+        [rowSelection]="{ mode: 'multiRow', enableClickSelection: true }" [enableCellTextSelection]="true"
+        [enableRangeSelection]="false" [suppressContextMenu]="true" [singleClickEdit]="false"
+        [stopEditingWhenCellsLoseFocus]="true" [enterNavigatesVertically]="true"
+        [enterNavigatesVerticallyAfterEdit]="true" [tabToNextCell]="tabToNextCell" (gridReady)="onGridReady($event)"
+        (cellFocused)="onCellFocused($event)" (cellContextMenu)="onCellContextMenu($event)"
+        (cellDoubleClicked)="onCellDoubleClicked($event)" (cellKeyDown)="onCellKeyDown($event)"
+        (sortChanged)="onSortChanged()" (filterChanged)="onFilterChanged()"
+        (displayedColumnsChanged)="onDisplayedColumnsChanged()" (bodyScrollEnd)="onBodyScrollEnd($event)"
         (columnHeaderClicked)="onColumnHeaderClicked($event)">
       </ag-grid-angular>
 
       <!-- Menu contextual custom (clic derecho) -->
-      <div *ngIf="contextMenu().visible"
-           class="vr-context-menu"
-           [style.top.px]="contextMenu().y"
-           [style.left.px]="contextMenu().x"
-           (mouseleave)="closeContextMenu()">
+      <div *ngIf="contextMenu().visible" class="vr-context-menu" [style.top.px]="contextMenu().y"
+        [style.left.px]="contextMenu().x" (mouseleave)="closeContextMenu()">
         <button class="vr-context-menu__item" (click)="ctxCopyCells()">
           <i class="pi pi-copy"></i> Copiar
         </button>
@@ -169,23 +140,30 @@
       <div *ngIf="progress().status === 'parsing'" class="vr-parse-overlay">
         <i class="pi pi-spin pi-spinner"></i> Procesando datos...
       </div>
+
+      <!-- Aviso: parquet no coincide con la vista real (posible cache desactualizado) -->
+      <div *ngIf="parquetMismatch() as mm" class="vr-mismatch-banner">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>
+          Los datos cargados (<strong>{{ mm.loaded | number }}</strong>) difieren de la vista
+          (<strong>{{ mm.actual | number }}</strong>). El cache puede estar desactualizado.
+        </span>
+        <button class="vr-mismatch-banner__btn" (click)="startRefresh()">
+          <i class="pi pi-refresh"></i> Actualizar datos
+        </button>
+        <button class="vr-mismatch-banner__close" (click)="parquetMismatch.set(null)">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
     </div>
 
-    <!-- â”€â”€ Panel lateral derecho de progreso (como Excel Online "Actualizando") â”€ -->
-    <aside
-      class="vr-progress-panel"
-      [class.vr-progress-panel--visible]="isRefreshing()"
-      aria-live="polite">
+    <!-- Panel lateral derecho de progreso (como Excel Online "Actualizando") -->
+    <aside class="vr-progress-panel" [class.vr-progress-panel--visible]="isRefreshing()" aria-live="polite">
 
       <header class="vr-progress-panel__header">
-        <i class="pi pi-refresh vr-progress-panel__icon"
-           [class.vr-spin]="isRefreshing()"></i>
+        <i class="pi pi-refresh vr-progress-panel__icon" [class.vr-spin]="isRefreshing()"></i>
         <span class="vr-progress-panel__title">Actualizando datos</span>
-        <button
-          class="vr-progress-panel__close"
-          [disabled]="!canCancel()"
-          (click)="cancelRefresh()"
-          title="Cancelar">
+        <button class="vr-progress-panel__close" [disabled]="!canCancel()" (click)="cancelRefresh()" title="Cancelar">
           <i class="pi pi-times"></i>
         </button>
       </header>
@@ -200,9 +178,7 @@
 
         <!-- Barra de progreso -->
         <div class="vr-progress-bar">
-          <div
-            class="vr-progress-bar__fill"
-            [style.width.%]="progress().percent"
+          <div class="vr-progress-bar__fill" [style.width.%]="progress().percent"
             [class.vr-progress-bar__fill--pulse]="progress().status === 'processing'">
           </div>
         </div>
@@ -210,12 +186,14 @@
         <!-- Mensaje de estado -->
         <div class="vr-progress-panel__steps">
 
-          <div class="vr-step" [class.vr-step--active]="progress().status === 'queuing'" [class.vr-step--done]="stepDone('queuing')">
+          <div class="vr-step" [class.vr-step--active]="progress().status === 'queuing'"
+            [class.vr-step--done]="stepDone('queuing')">
             <span class="vr-step__dot"></span>
             <span class="vr-step__label">Iniciando conexion</span>
           </div>
 
-          <div class="vr-step" [class.vr-step--active]="progress().status === 'processing'" [class.vr-step--done]="stepDone('processing')">
+          <div class="vr-step" [class.vr-step--active]="progress().status === 'processing'"
+            [class.vr-step--done]="stepDone('processing')">
             <span class="vr-step__dot"></span>
             <span class="vr-step__label">
               Exportando desde Fabric
@@ -225,12 +203,14 @@
             </span>
           </div>
 
-          <div class="vr-step" [class.vr-step--active]="progress().status === 'downloading'" [class.vr-step--done]="stepDone('downloading')">
+          <div class="vr-step" [class.vr-step--active]="progress().status === 'downloading'"
+            [class.vr-step--done]="stepDone('downloading')">
             <span class="vr-step__dot"></span>
             <span class="vr-step__label">Descargando archivo</span>
           </div>
 
-          <div class="vr-step" [class.vr-step--active]="progress().status === 'parsing'" [class.vr-step--done]="stepDone('parsing')">
+          <div class="vr-step" [class.vr-step--active]="progress().status === 'parsing'"
+            [class.vr-step--done]="stepDone('parsing')">
             <span class="vr-step__dot"></span>
             <span class="vr-step__label">Procesando datos</span>
           </div>
@@ -253,14 +233,12 @@
       </div>
     </aside>
 
-    <!-- â”€â”€ Chips de filtros activos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- Chips de filtros activos -->
     <div class="vr-filter-chips" *ngIf="activeFilters().length > 0">
       <span class="vr-filter-chips__label">
         <i class="pi pi-filter"></i> Filtros:
       </span>
-      <span
-        class="vr-filter-chip"
-        *ngFor="let f of activeFilters(); let i = index">
+      <span class="vr-filter-chip" *ngFor="let f of activeFilters(); let i = index">
         {{ filterLabel(f) }}
         <button class="vr-filter-chip__remove" (click)="removeFilter(i)" title="Quitar filtro">
           <i class="pi pi-times"></i>
@@ -271,21 +249,13 @@
       </button>
     </div>
 
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-         Panel lateral "Agregar vista" - cargar otra vista como nueva pestana
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-    <aside
-      class="vr-add-panel"
-      [class.vr-add-panel--visible]="showAddViewPanel()"
-      aria-live="polite">
+    <!-- Panel lateral "Agregar vista" - cargar otra vista como nueva pestana -->
+    <aside class="vr-add-panel" [class.vr-add-panel--visible]="showAddViewPanel()" aria-live="polite">
 
       <header class="vr-add-panel__header">
         <i class="pi pi-plus-circle"></i>
         <span class="vr-add-panel__title">Agregar vista</span>
-        <button
-          class="vr-add-panel__close"
-          (click)="closeAddViewPanel()"
-          title="Cerrar">
+        <button class="vr-add-panel__close" (click)="closeAddViewPanel()" title="Cerrar">
           <i class="pi pi-times"></i>
         </button>
       </header>
@@ -298,16 +268,9 @@
         <!-- Buscador -->
         <div class="vr-add-search">
           <i class="pi pi-search vr-add-search__icon"></i>
-          <input
-            type="text"
-            class="vr-add-search__input"
-            placeholder="Buscar vistas..."
-            [ngModel]="searchVistas()"
+          <input type="text" class="vr-add-search__input" placeholder="Buscar vistas..." [ngModel]="searchVistas()"
             (ngModelChange)="searchVistas.set($event)" />
-          <button
-            *ngIf="searchVistas()"
-            class="vr-add-search__clear"
-            (click)="searchVistas.set('')"
+          <button *ngIf="searchVistas()" class="vr-add-search__clear" (click)="searchVistas.set('')"
             title="Limpiar busqueda">
             <i class="pi pi-times"></i>
           </button>
@@ -321,12 +284,8 @@
 
         <!-- Lista de vistas -->
         <div class="vr-add-list" *ngIf="!loadingViews()">
-          <button
-            *ngFor="let vista of availableViewsFiltradas"
-            type="button"
-            class="vr-add-item"
-            [disabled]="!vista.estado || vista.bi_estado === 'mantenimiento'"
-            (click)="addViewAsSheet(vista)">
+          <button *ngFor="let vista of availableViewsFiltradas" type="button" class="vr-add-item"
+            [disabled]="!vista.estado || vista.bi_estado === 'mantenimiento'" (click)="addViewAsSheet(vista)">
             <div class="vr-add-item__main">
               <span class="vr-add-item__name">{{ vista.nombre }}</span>
               <span class="vr-add-item__schema">{{ vista.schemaDisplay }}</span>
@@ -346,10 +305,7 @@
     </aside>
 
     <!-- Panel lateral: Filtros Dinamicos -->
-    <aside
-      class="vr-add-panel"
-      [class.vr-add-panel--visible]="showFilterPanel()"
-      aria-live="polite">
+    <aside class="vr-add-panel" [class.vr-add-panel--visible]="showFilterPanel()" aria-live="polite">
 
       <header class="vr-add-panel__header" style="background: #1e40af;">
         <i class="pi pi-filter"></i>
@@ -401,7 +357,8 @@
           </select>
           <div style="display: flex; gap: 8px;">
             <input type="number" class="vr-analysis-select" [(ngModel)]="filterBuilder.numFrom" placeholder="Desde">
-            <input *ngIf="filterBuilder.numMode === 'between'" type="number" class="vr-analysis-select" [(ngModel)]="filterBuilder.numTo" placeholder="Hasta">
+            <input *ngIf="filterBuilder.numMode === 'between'" type="number" class="vr-analysis-select"
+              [(ngModel)]="filterBuilder.numTo" placeholder="Hasta">
           </div>
         </div>
 
@@ -427,10 +384,7 @@
     </aside>
 
     <!-- Panel lateral: Columnas (mostrar/ocultar) -->
-    <aside
-      class="vr-add-panel"
-      [class.vr-add-panel--visible]="showColumnPanel()"
-      aria-live="polite">
+    <aside class="vr-add-panel" [class.vr-add-panel--visible]="showColumnPanel()" aria-live="polite">
 
       <header class="vr-add-panel__header" style="background: #374151;">
         <i class="pi pi-list"></i>
@@ -444,18 +398,15 @@
         <p class="vr-add-panel__help">
           Marque las columnas que desea ver. Desmarque para ocultar.
         </p>
-        
+
         <button class="vr-analysis-btn-secondary" (click)="ctxShowAllColumns()" style="margin-bottom: 12px;">
           <i class="pi pi-eye"></i> Mostrar todas
         </button>
 
         <div class="vr-column-list">
-          <label *ngFor="let col of getColumnVisibilityList()"
-                 class="vr-column-list__item"
-                 [class.vr-column-list__item--hidden]="!col.visible">
-            <input type="checkbox"
-                   [checked]="col.visible"
-                   (change)="toggleColumnVisibility(col.id)">
+          <label *ngFor="let col of getColumnVisibilityList()" class="vr-column-list__item"
+            [class.vr-column-list__item--hidden]="!col.visible">
+            <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.id)">
             <span class="vr-column-list__name">{{ col.name }}</span>
           </label>
         </div>
@@ -463,10 +414,7 @@
     </aside>
 
     <!-- Panel lateral: Guia de formulas -->
-    <aside
-      class="vr-add-panel"
-      [class.vr-add-panel--visible]="showFormulaHelp()"
-      aria-live="polite">
+    <aside class="vr-add-panel" [class.vr-add-panel--visible]="showFormulaHelp()" aria-live="polite">
 
       <header class="vr-add-panel__header" style="background: #1e40af;">
         <i class="pi pi-question-circle"></i>
@@ -482,9 +430,12 @@
         <div class="vr-fx-note">
           <strong>Como funciona</strong>
           <ol>
-            <li>Cree una hoja de calculo con el boton <b>+</b> de las pestanas (o Formulas &gt; Nueva hoja de calculo). Las hojas de datos son de solo lectura.</li>
-            <li>Escriba <b>=</b> en una celda: al teclear aparece el autocompletar. Flechas para moverse, <b>Tab</b> o <b>Enter</b> para aceptar, <b>Esc</b> para cerrar.</li>
-            <li>Dentro de las comillas de BUSCARVISTA el autocompletar sugiere primero las <b>vistas cargadas</b> y luego las <b>columnas</b> de esa vista.</li>
+            <li>Cree una hoja de calculo con el boton <b>+</b> de las pestanas (o Formulas &gt; Nueva hoja de calculo).
+              Las hojas de datos son de solo lectura.</li>
+            <li>Escriba <b>=</b> en una celda: al teclear aparece el autocompletar. Flechas para moverse, <b>Tab</b> o
+              <b>Enter</b> para aceptar, <b>Esc</b> para cerrar.</li>
+            <li>Dentro de las comillas de BUSCARVISTA el autocompletar sugiere primero las <b>vistas cargadas</b> y
+              luego las <b>columnas</b> de esa vista.</li>
             <li>El resultado aparece en la misma celda donde escribe la formula.</li>
           </ol>
           <p class="vr-fx-note__sep">
@@ -504,18 +455,15 @@
           </p>
           <div class="vr-fx-view" *ngFor="let v of formulaViews()">
             <code>{{ v.name }}</code>
-            <span class="vr-fx-view__meta">{{ v.rows | number:'1.0-0' }} filas &middot; {{ v.columns.length }} columnas</span>
+            <span class="vr-fx-view__meta">{{ v.rows | number:'1.0-0' }} filas &middot; {{ v.columns.length }}
+              columnas</span>
           </div>
         </div>
 
         <!-- Selector de categoria -->
         <div class="vr-fx-cats">
-          <button
-            type="button"
-            *ngFor="let cat of formulaCategories"
-            class="vr-fx-cat"
-            [class.vr-fx-cat--active]="helpCategory() === cat"
-            (click)="helpCategory.set(cat)">{{ cat }}</button>
+          <button type="button" *ngFor="let cat of formulaCategories" class="vr-fx-cat"
+            [class.vr-fx-cat--active]="helpCategory() === cat" (click)="helpCategory.set(cat)">{{ cat }}</button>
         </div>
 
         <!-- Lista de formulas de la categoria -->
@@ -529,19 +477,13 @@
       </div>
     </aside>
 
-    <!-- â”€â”€ Panel lateral: Analisis Rapido â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <aside
-      class="vr-add-panel"
-      [class.vr-add-panel--visible]="showAnalysisPanel()"
-      aria-live="polite">
+    <!-- Panel lateral: Analisis Rapido -->
+    <aside class="vr-add-panel" [class.vr-add-panel--visible]="showAnalysisPanel()" aria-live="polite">
 
       <header class="vr-add-panel__header">
         <i class="pi pi-chart-bar"></i>
         <span class="vr-add-panel__title">Analisis Rapido</span>
-        <button
-          class="vr-add-panel__close"
-          (click)="closeAnalysisPanel()"
-          title="Cerrar">
+        <button class="vr-add-panel__close" (click)="closeAnalysisPanel()" title="Cerrar">
           <i class="pi pi-times"></i>
         </button>
       </header>
@@ -557,9 +499,7 @@
             <i class="pi pi-sitemap"></i>
             Agrupar por
           </label>
-          <select
-            class="vr-analysis-select"
-            [(ngModel)]="analysisConfig().groupBy">
+          <select class="vr-analysis-select" [(ngModel)]="analysisConfig().groupBy">
             <option value="">-- Seleccionar columna --</option>
             <option *ngFor="let col of columns" [value]="col.name">
               {{ humanizeColumnName(col.name) }}
@@ -573,39 +513,31 @@
             <i class="pi pi-calculator"></i>
             Metricas
           </label>
-          
+
           <div class="vr-analysis-metrics">
             <div *ngFor="let metric of analysisConfig().metrics; let i = index" class="vr-analysis-metric">
-              <select
-                class="vr-analysis-select-sm"
-                [(ngModel)]="metric.column">
+              <select class="vr-analysis-select-sm" [(ngModel)]="metric.column">
                 <option value="">-- Columna --</option>
                 <option *ngFor="let col of columns" [value]="col.name">
                   {{ humanizeColumnName(col.name) }}
                 </option>
               </select>
-              
-              <select
-                class="vr-analysis-select-sm"
-                [(ngModel)]="metric.operation">
+
+              <select class="vr-analysis-select-sm" [(ngModel)]="metric.operation">
                 <option value="sum">Suma</option>
                 <option value="avg">Promedio</option>
                 <option value="count">Contar</option>
                 <option value="distinct">Distintos</option>
               </select>
-              
-              <button
-                class="vr-analysis-btn-remove"
-                (click)="analysisConfig().metrics.splice(i, 1)"
+
+              <button class="vr-analysis-btn-remove" (click)="analysisConfig().metrics.splice(i, 1)"
                 title="Eliminar metrica">
                 <i class="pi pi-trash"></i>
               </button>
             </div>
           </div>
 
-          <button
-            class="vr-analysis-btn-add"
-            (click)="analysisConfig().metrics.push({ column: '', operation: 'sum' })">
+          <button class="vr-analysis-btn-add" (click)="analysisConfig().metrics.push({ column: '', operation: 'sum' })">
             <i class="pi pi-plus"></i>
             Agregar metrica
           </button>
@@ -613,17 +545,13 @@
 
         <!-- Acciones -->
         <div class="vr-analysis-actions">
-          <button
-            class="vr-analysis-btn-primary"
-            (click)="performQuickAnalysis()"
+          <button class="vr-analysis-btn-primary" (click)="performQuickAnalysis()"
             [disabled]="!analysisConfig().groupBy || analysisConfig().metrics.length === 0">
             <i class="pi pi-play"></i>
             Generar analisis
           </button>
-          
-          <button
-            class="vr-analysis-btn-secondary"
-            (click)="closeAnalysisPanel()">
+
+          <button class="vr-analysis-btn-secondary" (click)="closeAnalysisPanel()">
             <i class="pi pi-times"></i>
             Cancelar
           </button>
@@ -633,13 +561,8 @@
 
     <!-- Panel lateral: Tabla Dinamica (componente separado) -->
     <aside class="vr-pivot-panel" [class.vr-pivot-panel--visible]="showPivotPanel()">
-      <app-pivot-panel
-        [availableColumns]="columns"
-        [sheets]="getPivotSheets()"
-        [sourceData]="pivotSourceData"
-        (pivotGenerated)="onPivotGenerated($event)"
-        (closed)="closePivotPanel()"
-        (cleared)="clearPivotConfigAuto()"
+      <app-pivot-panel [availableColumns]="columns" [sheets]="getPivotSheets()" [sourceData]="pivotSourceData"
+        (pivotGenerated)="onPivotGenerated($event)" (closed)="closePivotPanel()" (cleared)="clearPivotConfigAuto()"
         (sheetSelected)="onPivotSheetSelected($event)">
       </app-pivot-panel>
     </aside>
@@ -647,4 +570,3 @@
 
   </div>
 </app-excel-sheet>
-

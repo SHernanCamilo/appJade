@@ -1561,10 +1561,47 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         }
       }, 50);
 
+      // Validar que el parquet coincida con la vista real (detectar parquet stale/corrupto)
+      this.validateRowCountAgainstView(data.length);
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error procesando el archivo.';
       this.setError('Error al procesar los datos: ' + msg);
     }
+  }
+
+  /** Señal para avisar en la UI si el parquet no coincide con la vista real */
+  readonly parquetMismatch = signal<{ loaded: number; actual: number } | null>(null);
+
+  /**
+   * Compara las filas cargadas (del parquet) contra el conteo real de la vista SQL.
+   * Si difieren más del 10%, avisa que el parquet puede estar desactualizado.
+   * No bloquea: solo informa para que el usuario pueda "Actualizar todo".
+   */
+  private validateRowCountAgainstView(loadedRows: number): void {
+    // Solo para hojas de datos (no pivots ni hojas de calculo), y sin filtros activos
+    const activeSheet = this.sheets().find(s => s.active);
+    if ((activeSheet?.kind ?? 'view') !== 'view') return;
+    if (this.activeFilters().length > 0) return; // con filtros el conteo no debe coincidir
+
+    this.http.post<{ success: boolean; estimated_rows?: number; total?: number }>(
+      `${this.baseUrl}/estimate-rows`,
+      { schema_name: this.schema, view: this.viewName }
+    ).subscribe({
+      next: res => {
+        const actual = res.estimated_rows ?? res.total ?? 0;
+        if (actual <= 0) { this.parquetMismatch.set(null); return; }
+
+        const diff = Math.abs(loadedRows - actual) / actual;
+        if (diff > 0.10) {
+          console.warn('[Validacion] Parquet no coincide con vista:', { loaded: loadedRows, actual });
+          this.parquetMismatch.set({ loaded: loadedRows, actual });
+        } else {
+          this.parquetMismatch.set(null);
+        }
+      },
+      error: () => this.parquetMismatch.set(null),
+    });
   }
   /**
    * Parsea el blob descargado. Detecta automaticamente si es xlsx o CSV.
