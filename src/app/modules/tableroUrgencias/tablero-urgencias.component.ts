@@ -6,7 +6,7 @@ import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../environments/environment';
 import {
   loadCredentials, saveCredentials, getOrCreateDeviceId,
-  clearCredentials, requestPersistence
+  clearCredentials, requestPersistence, getDeviceFingerprint
 } from './device-persistence.service';
 
 interface UnidadUrgencias {
@@ -244,7 +244,11 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
    * El backend busca un dispositivo activo emparejado con ese deviceId.
    */
   private attemptReconnect(deviceId: string): void {
-    if (!deviceId) {
+    const fingerprint = getDeviceFingerprint();
+
+    // Aunque no haya deviceId (cache totalmente limpio), intentamos por
+    // fingerprint+IP. El backend decide si puede reconectar.
+    if (!deviceId && !fingerprint) {
       this.continueWithoutSecret();
       return;
     }
@@ -256,7 +260,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       device_secret?: string;
       name?: string;
       sede?: string;
-    }>(url, { device_id: deviceId }).subscribe({
+    }>(url, { device_id: deviceId, fingerprint }).subscribe({
       next: async (res) => {
         if (res.success && res.device_secret) {
           // Reconectado: guardar en las 3 capas

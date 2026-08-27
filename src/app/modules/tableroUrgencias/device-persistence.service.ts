@@ -267,3 +267,32 @@ function generateUUID(): string {
     return v.toString(16);
   });
 }
+
+/**
+ * Genera un fingerprint estable del dispositivo basado en caracteristicas
+ * del navegador/pantalla. NO es unico (varias TVs iguales dan el mismo hash),
+ * por eso el backend lo combina con la IP. Sirve como ultimo recurso de
+ * reconexion cuando la TV perdio device_id + secret de las 3 capas.
+ *
+ * Estable: sobrevive a limpieza de cache porque se recalcula igual cada vez.
+ */
+export function getDeviceFingerprint(): string {
+  try {
+    const parts = [
+      navigator.userAgent,
+      navigator.language,
+      `${screen.width}x${screen.height}x${screen.colorDepth}`,
+      `${new Date().getTimezoneOffset()}`,
+      `${navigator.hardwareConcurrency ?? 0}`,
+    ];
+    const str = parts.join('|');
+    // Hash simple (djb2) — no necesita ser criptografico
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash + str.charCodeAt(i)) & 0xffffffff;
+    }
+    return 'fp_' + (hash >>> 0).toString(16);
+  } catch {
+    return '';
+  }
+}
