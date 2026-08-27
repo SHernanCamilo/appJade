@@ -177,16 +177,30 @@ export class FabricExportService {
               fileSize: d.file_size_human
             });
 
-            // 3. Descargar — intentar con HttpClient, fallback a window.open
-            this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob' }).subscribe({
-              next: (blob) => {
-                this.triggerDownload(blob, d.filename ?? `${label}.xlsx`);
+            // 3. Descargar como blob y CONVERTIR a .xlsx si viene crudo (ndjson.gz/csv.gz).
+            //    Graph-Fabric devuelve DATOS comprimidos (ndjson/csv gzip), no un xlsx.
+            //    Debemos descomprimir, parsear y armar el Excel. Antes se descargaba
+            //    el .ndjson.gz crudo tal cual (usuario recibia un archivo inutil).
+            this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob', observe: 'response' }).subscribe({
+              next: async (resp) => {
+                const blob   = resp.body as Blob;
+                const fmt    = resp.headers.get('X-Export-Format') ?? d.format ?? '';
+                const fname  = d.filename ?? `${label}.xlsx`;
+
+                try {
+                  await this.entregarComoExcel(blob, fmt, fname, label, options => options);
+                  this.messageService.add({
+                    key: TOAST_KEY, severity: 'success', summary: 'Excel descargado',
+                    detail: `${(d.rows ?? 0).toLocaleString('es-CO')} filas`, life: 6000
+                  });
+                } catch (e) {
+                  this.messageService.add({
+                    key: TOAST_KEY, severity: 'error', summary: 'Error',
+                    detail: 'No se pudo generar el Excel a partir de los datos.', life: 6000
+                  });
+                }
                 setTimeout(() => this.exportProgressSubject.next(null), 3000);
                 this.decrementPending();
-                this.messageService.add({
-                  key: TOAST_KEY, severity: 'success', summary: 'Excel descargado',
-                  detail: `${(d.rows ?? 0).toLocaleString('es-CO')} filas · ${d.file_size_human ?? ''}`, life: 6000
-                });
               },
               error: () => {
                 // Fallback: abrir con token en query param (window.open no envía headers)
@@ -312,5 +326,111 @@ export class FabricExportService {
     anchor.download = filename;
     anchor.click();
     window.URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Entrega el archivo al usuario SIEMPRE como .xlsx.
+   *
+   * El backend puede devolver:
+   *   - xlsx (ZIP)           → descargar directo
+   *   - ndjson.gz / csv.gz   → descomprimir, parsear filas, armar .xlsx
+   *   - ndjson / csv (plano) → parsear filas, armar .xlsx
+   *
+   * Graph-Fabric NUNCA devuelve el parquet: siempre datos comprimidos.
+   * Esta funcion garantiza que el usuario reciba un Excel abrible, no un .gz crudo.
+   */
+  private async entregarComoExcel(
+    blob: Blob, format: string, filename: string, label: string,
+    _passthrough: (o: unknown) => unknown,
+  ): Promise<void> {
+    // Detectar por magic bytes (mas fiable que el header/extension)
+    const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+    const isZip  = head[0] === 0x50 && head[1] === 0x4B; // 'PK' = xlsx (ZIP)
+    const isGzip = head[0] === 0x1F && head[1] === 0x8B; // gzip
+
+    // Ya es un xlsx → descargar tal cual
+    if (isZip || format === 'xlsx' || format === 'excel') {
+      const safeName = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+      this.triggerDownload(blob, safeName);
+      return;
+    }
+
+    // Descomprimir si es gzip
+    let text: string;
+    if (isGzip || format.includes('gz')) {
+      const ds = new DecompressionStream('gzip');
+      const stream = blob.stream().pipeThrough(ds);
+      text = await new Response(stream).text();
+    } else {
+      text = await blob.text();
+    }
+
+    // Parsear a filas segun formato (ndjson o csv)
+    const rows = format.includes('ndjson') || text.trimStart().startsWith('{')
+      ? this.parseNdjson(text)
+      : this.parseCsv(text);
+
+    if (rows.length === 0) {
+      throw new Error('Sin datos');
+    }
+
+    // Armar columnas desde la primera fila
+    const cols: ExcelColumn[] = Object.keys(rows[0]).map(k => ({
+      header: k, key: k, width: 16,
+    }));
+
+    const baseName = filename.replace(/\.(ndjson|csv)(\.gz)?$/i, '');
+    await this.excelExportService.exportToExcel(
+      rows, cols, label.substring(0, 31), baseName,
+      { headerBackgroundColor: 'FF1E6B45', headerFontColor: 'FFFFFFFF', applyBorders: true },
+      { title: label, subtitle: `${rows.length.toLocaleString('es-CO')} registros` },
+    );
+  }
+
+  /** Parsea NDJSON (una fila JSON por linea). */
+  private parseNdjson(text: string): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const line of text.split('\n')) {
+      const t = line.trim();
+      if (!t) continue;
+      try { out.push(JSON.parse(t)); } catch { /* saltar linea corrupta */ }
+    }
+    return out;
+  }
+
+  /** Parsea CSV con soporte BOM, delimitador ; o , y comillas. */
+  private parseCsv(text: string): Record<string, unknown>[] {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    if (text.startsWith('sep=')) text = text.slice(text.indexOf('\n') + 1);
+
+    const lines = text.split('\n');
+    if (lines.length < 2) return [];
+
+    const firstLine = lines[0];
+    const delim = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+
+    const parseLine = (line: string): string[] => {
+      const res: string[] = []; let cur = ''; let q = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+        else if (ch === delim && !q) { res.push(cur); cur = ''; }
+        else cur += ch;
+      }
+      res.push(cur);
+      return res;
+    };
+
+    const headers = parseLine(lines[0]);
+    const out: Record<string, unknown>[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].replace(/\r$/, '');
+      if (!line.trim()) continue;
+      const vals = parseLine(line);
+      const row: Record<string, unknown> = {};
+      headers.forEach((h, j) => { row[h] = vals[j] ?? ''; });
+      out.push(row);
+    }
+    return out;
   }
 }
