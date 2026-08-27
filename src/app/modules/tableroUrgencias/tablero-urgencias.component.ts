@@ -85,8 +85,34 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
 
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private slideInterval: ReturnType<typeof setInterval> | null = null;
+  private watchdogInterval: ReturnType<typeof setInterval> | null = null;
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private readonly CACHE_KEY = 'tablero_urgencias_cache';
+
+  // ─── Resiliencia de conexión ───────────────────────────────────────────
+  /** URL activa de polling (para reconectar tras un fallo). */
+  private activePollUrl: string | null = null;
+  /** Intentos de reintento consecutivos (para backoff exponencial). */
+  private retryAttempts = 0;
+  /** Timestamp del último dato recibido con éxito (epoch ms). */
+  private lastSuccessAt = 0;
+  /** Intervalo normal de polling (ms). */
+  private readonly POLL_INTERVAL_MS = 15_000;
+  /** Si pasan más de estos ms sin datos, el watchdog fuerza reconexión. */
+  private readonly STALE_THRESHOLD_MS = 60_000;
+  /** Backoff máximo entre reintentos (ms). */
+  private readonly MAX_BACKOFF_MS = 60_000;
+
+  // Handlers enlazados (para poder removerlos en ngOnDestroy)
+  private readonly onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      // La TV despertó / la pestaña volvió a foco → forzar refresco inmediato
+      this.forceReconnect('visibility');
+    }
+  };
+  private readonly onOnline = () => this.forceReconnect('online');
+  private readonly onOffline = () => this.connected.set(false);
 
   ngOnInit(): void {
     // Solicitar almacenamiento persistente (Chrome kiosk lo concede automáticamente)
@@ -99,11 +125,74 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     this.slideInterval = setInterval(() => {
       this.currentSlide.set((this.currentSlide() + 1) % this.slides.length);
     }, 10_000);
+
+    // Listeners de recuperación: despertar de la TV, red que vuelve
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('online', this.onOnline);
+    window.addEventListener('offline', this.onOffline);
+
+    // Watchdog: cada 20s verifica que sigamos recibiendo datos
+    this.watchdogInterval = setInterval(() => this.checkWatchdog(), 20_000);
   }
 
   ngOnDestroy(): void {
     if (this.refreshInterval) clearInterval(this.refreshInterval);
     if (this.slideInterval) clearInterval(this.slideInterval);
+    if (this.watchdogInterval) clearInterval(this.watchdogInterval);
+    if (this.retryTimeout) clearTimeout(this.retryTimeout);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('online', this.onOnline);
+    window.removeEventListener('offline', this.onOffline);
+  }
+
+  /**
+   * Watchdog: si el navegador congeló el setInterval (kiosk en reposo) o la
+   * conexión murió sin lanzar error, detecta que hace mucho no llegan datos
+   * y fuerza una reconexión. Esta es la red de seguridad principal contra
+   * las TVs que quedan "pegadas".
+   */
+  private checkWatchdog(): void {
+    if (this.mode() === 'pairing') return;
+    if (!this.activePollUrl && this.mode() !== 'private') return;
+
+    const elapsed = Date.now() - this.lastSuccessAt;
+    if (this.lastSuccessAt > 0 && elapsed > this.STALE_THRESHOLD_MS) {
+      // Hace más de 60s que no recibimos datos → algo se congeló
+      this.connected.set(false);
+      this.forceReconnect('watchdog');
+    }
+  }
+
+  /**
+   * Fuerza una reconexión inmediata: reinicia el timer de polling y pide datos ya.
+   */
+  private forceReconnect(reason: string): void {
+    if (this.mode() === 'pairing') return;
+
+    // Modo privado: solo recargar
+    if (this.mode() === 'private') {
+      this.cargarDatos();
+      return;
+    }
+
+    if (!this.activePollUrl) return;
+
+    // Cancelar cualquier reintento pendiente y reiniciar el ciclo limpio
+    if (this.retryTimeout) { clearTimeout(this.retryTimeout); this.retryTimeout = null; }
+    this.retryAttempts = 0;
+    this.restartPolling();
+    this.fetchPublicData(this.activePollUrl);
+  }
+
+  /** Reinicia el setInterval de polling normal (15s). */
+  private restartPolling(): void {
+    if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
+    if (this.activePollUrl) {
+      this.refreshInterval = setInterval(
+        () => this.fetchPublicData(this.activePollUrl!),
+        this.POLL_INTERVAL_MS
+      );
+    }
   }
 
   // =========================================================================
@@ -264,8 +353,8 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
 
   private connectSSE(deviceSecret: string | null, legacyToken?: string): void {
     // Polling al endpoint /data cada 15 segundos.
-    // Apache + PHP-FPM bufferea SSE, así que mantenemos polling pero a 15s
-    // para que los cambios de la view se reflejen rápido.
+    // Apache + PHP-FPM bufferea SSE, así que usamos polling con reconexión
+    // resiliente (backoff, watchdog, recuperación al despertar la TV).
     let url: string;
     if (deviceSecret) {
       url = `${environment.URL_SERVICIOS}/public/tableros/urgencias/data?d=${deviceSecret}`;
@@ -275,11 +364,13 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.activePollUrl = url;
+
     // Cargar datos inmediatamente
     this.fetchPublicData(url);
 
     // Polling cada 15 segundos — cambios en la view se reflejan en <15s
-    this.refreshInterval = setInterval(() => this.fetchPublicData(url), 15_000);
+    this.restartPolling();
   }
 
   private fetchPublicData(url: string): void {
@@ -290,26 +381,56 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
           this.lastUpdate.set(new Date());
           this.connected.set(true);
           this.isLoading.set(false);
+          this.lastSuccessAt = Date.now();
+          this.retryAttempts = 0; // reset backoff al tener exito
           if (res.sede) this.sucursalUsuario.set(res.sede);
           this.saveToCache(res.data);
+        } else {
+          // Respuesta OK pero sin datos: mantener conexion viva, marcar timestamp
+          this.lastSuccessAt = Date.now();
+          this.connected.set(true);
         }
       },
       error: (err) => {
         if (err.status === 401) {
           // Dispositivo revocado: limpiar TODAS las capas y volver a pantalla de código
           clearCredentials();
-          if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-            this.refreshInterval = null;
-          }
+          this.stopAllTimers();
           this.mode.set('pairing');
           this.pairingError.set('El dispositivo fue desactivado. Solicite un nuevo código al administrador.');
           return;
         }
-        // Cualquier otro error: no mostrar nada, mantener último dato
+        // Error de red/servidor: marcar desconectado y reintentar con backoff
         this.connected.set(false);
+        this.scheduleRetryWithBackoff();
       }
     });
+  }
+
+  /**
+   * Reintento con backoff exponencial + jitter.
+   * En vez de esperar el ciclo normal de 15s (que puede estar congelado),
+   * programa un reintento activo que crece: 2s, 4s, 8s... hasta 60s max,
+   * con jitter aleatorio para no saturar el servidor si vuelve de golpe.
+   */
+  private scheduleRetryWithBackoff(): void {
+    if (this.retryTimeout || !this.activePollUrl) return;
+
+    this.retryAttempts++;
+    const base = Math.min(1000 * Math.pow(2, this.retryAttempts), this.MAX_BACKOFF_MS);
+    const jitter = Math.random() * 1000; // 0-1s aleatorio
+    const delay = base + jitter;
+
+    this.retryTimeout = setTimeout(() => {
+      this.retryTimeout = null;
+      if (this.activePollUrl) this.fetchPublicData(this.activePollUrl);
+    }, delay);
+  }
+
+  private stopAllTimers(): void {
+    if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
+    if (this.retryTimeout) { clearTimeout(this.retryTimeout); this.retryTimeout = null; }
+    this.activePollUrl = null;
   }
 
   private saveToCache(data: UnidadUrgencias[]): void {
@@ -349,11 +470,13 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
         if (res.success && res.data) {
           this.agruparPorSede(res.data);
           this.lastUpdate.set(new Date());
+          this.connected.set(true);
+          this.lastSuccessAt = Date.now();
           if (res.sucursal) this.sucursalUsuario.set(res.sucursal);
         }
         this.isLoading.set(false);
       },
-      error: () => { this.isLoading.set(false); }
+      error: () => { this.isLoading.set(false); this.connected.set(false); }
     });
   }
 
