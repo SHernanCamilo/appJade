@@ -283,11 +283,9 @@
     <div class="cp-form__field">
       <label>Prioridad</label>
       <select class="cp-form__select" [(ngModel)]="form.priority">
-        <option value="realtime">Realtime (5 min)</option>
-        <option value="high">Alta (15 min)</option>
-        <option value="medium">Media (1 hora)</option>
-        <option value="low">Baja (2 horas)</option>
-        <option value="manual">Manual</option>
+        <option value="realtime">Realtime (censos/urgencias)</option>
+        <option value="operativo">Operativo (15-60 min)</option>
+        <option value="analitico">Analitico (2-8 horas)</option>
       </select>
     </div>
 

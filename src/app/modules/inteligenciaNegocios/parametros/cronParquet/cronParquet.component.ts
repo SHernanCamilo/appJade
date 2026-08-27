@@ -535,7 +535,8 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   getPriorityTag(priority: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
     const map: Record<string, any> = {
-      realtime: 'danger', high: 'warn', medium: 'info', low: 'secondary', manual: 'secondary',
+      realtime: 'danger', high: 'warn', operativo: 'warn', medium: 'info',
+      analitico: 'info', low: 'secondary', manual: 'secondary',
     };
     return map[priority] ?? 'info';
   }
