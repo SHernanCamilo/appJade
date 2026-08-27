@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -10,6 +10,8 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { ChartModule } from 'primeng/chart';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { environment } from '../../../../environments/environment';
 
@@ -45,19 +47,37 @@ interface ParquetStatus {
   };
 }
 
+interface DashboardData {
+  success: boolean;
+  stats: {
+    total_active?: number;
+    due_for_refresh?: number;
+    by_status?: Record<string, number>;
+    by_priority?: Record<string, number>;
+    efficiency_pct?: number;
+  };
+  due_count: number;
+  lanes: Record<string, number>;
+  lane_stale: Record<string, number>;
+  generated_at: string;
+}
+
+type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
+
 @Component({
   selector: 'app-cron-parquet',
   standalone: true,
   imports: [
     CommonModule, FormsModule, TableModule, TagModule, ButtonModule,
     InputTextModule, TooltipModule, ConfirmDialogModule, ToastModule, DialogModule,
+    ProgressBarModule, ChartModule,
   ],
   providers: [MessageService, ConfirmationService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './cronParquet.component.html',
   styleUrl: './cronParquet.component.css',
 })
-export class CronParquetComponent implements OnInit {
+export class CronParquetComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly msg  = inject(MessageService);
   private readonly confirm = inject(ConfirmationService);
@@ -66,15 +86,76 @@ export class CronParquetComponent implements OnInit {
 
   readonly configs     = signal<ParquetConfig[]>([]);
   readonly statuses    = signal<ParquetStatus[]>([]);
+  readonly dashboard   = signal<DashboardData | null>(null);
   readonly loading     = signal(true);
   readonly syncing     = signal(false);
   readonly importing   = signal(false);
   readonly runningCron = signal(false);
   readonly showDialog  = signal(false);
   readonly editMode    = signal(false);
+  readonly autoRefresh = signal(false);
+  readonly lastUpdate  = signal<Date | null>(null);
+
+  private autoTimer: ReturnType<typeof setInterval> | null = null;
 
   // Busqueda / filtro
   searchTerm = '';
+  statusFilter = signal<string>('all');
+
+  // Chart data (donut de estados)
+  readonly statusChartData = computed(() => {
+    const d = this.dashboard();
+    const by = d?.stats?.by_status ?? {};
+    const labels = Object.keys(by);
+    const data = Object.values(by);
+    const colorMap: Record<string, string> = {
+      ok: '#22c55e', stale: '#ef4444', pending: '#f59e0b',
+      generating: '#3b82f6', error: '#dc2626', missing: '#9ca3af',
+    };
+    return {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: labels.map(l => colorMap[l] ?? '#c084fc'),
+        borderWidth: 0,
+      }],
+    };
+  });
+
+  readonly chartOptions = {
+    cutout: '65%',
+    plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+    },
+    responsive: true,
+    maintainAspectRatio: false,
+  };
+
+  // KPIs derivados
+  readonly kpiTotal    = computed(() => this.dashboard()?.stats?.total_active ?? this.configs().length);
+  readonly kpiOk       = computed(() => this.dashboard()?.stats?.by_status?.['ok'] ?? 0);
+  readonly kpiStale    = computed(() => this.dashboard()?.stats?.by_status?.['stale'] ?? 0);
+  readonly kpiPending  = computed(() => this.dashboard()?.stats?.by_status?.['pending'] ?? 0);
+  readonly kpiError    = computed(() => this.dashboard()?.stats?.by_status?.['error'] ?? 0);
+  readonly kpiGenerating = computed(() => this.dashboard()?.stats?.by_status?.['generating'] ?? 0);
+  readonly kpiEfficiency = computed(() => this.dashboard()?.stats?.efficiency_pct ?? 0);
+  readonly kpiDue      = computed(() => this.dashboard()?.due_count ?? 0);
+
+  readonly lanesList = computed<Array<{ key: LaneKey; label: string; total: number; stale: number; pct: number }>>(() => {
+    const d = this.dashboard();
+    if (!d) return [];
+    const lanes = d.lanes ?? {};
+    const stale = d.lane_stale ?? {};
+    const labels: Record<LaneKey, string> = {
+      sprint: 'Sprint (≤30s)', standard: 'Standard (30-180s)',
+      heavy: 'Heavy (3-15m)', marathon: 'Marathon (>15m)', nueva: 'Nuevas',
+    };
+    return (Object.keys(labels) as LaneKey[]).map(k => {
+      const total = lanes[k] ?? 0;
+      const st = stale[k] ?? 0;
+      return { key: k, label: labels[k], total, stale: st, pct: total > 0 ? Math.round((st / total) * 100) : 0 };
+    }).filter(l => l.total > 0);
+  });
 
   // Formulario
   form = this.emptyForm();
@@ -91,26 +172,36 @@ export class CronParquetComponent implements OnInit {
     };
   }
 
-  readonly priorities = [
-    { label: 'Realtime (5 min)', value: 'realtime' },
-    { label: 'Alta (15 min)',    value: 'high' },
-    { label: 'Media (1 hora)',   value: 'medium' },
-    { label: 'Baja (2 horas)',   value: 'low' },
-    { label: 'Manual',           value: 'manual' },
-  ];
-
-  readonly groups = [
-    { label: 'Censos',      value: 'censos' },
-    { label: 'Operativo',   value: 'operativo' },
-    { label: 'Financiero',  value: 'financiero' },
-    { label: 'Analitico',   value: 'analitico' },
-    { label: 'General',     value: 'general' },
-  ];
-
   ngOnInit(): void {
     this.loadConfigs();
     this.loadStatus();
+    this.loadDashboard();
   }
+
+  ngOnDestroy(): void {
+    this.stopAutoRefresh();
+  }
+
+  // ─── Auto-refresh ────────────────────────────────────────────────────────
+
+  toggleAutoRefresh(): void {
+    if (this.autoRefresh()) {
+      this.stopAutoRefresh();
+    } else {
+      this.autoRefresh.set(true);
+      this.autoTimer = setInterval(() => {
+        this.loadStatus();
+        this.loadDashboard();
+      }, 15000);
+    }
+  }
+
+  private stopAutoRefresh(): void {
+    this.autoRefresh.set(false);
+    if (this.autoTimer) { clearInterval(this.autoTimer); this.autoTimer = null; }
+  }
+
+  // ─── Data loading ──────────────────────────────────────────────────────────
 
   loadConfigs(): void {
     this.loading.set(true);
@@ -122,22 +213,58 @@ export class CronParquetComponent implements OnInit {
 
   loadStatus(): void {
     this.http.get<{ success: boolean; views: ParquetStatus[] }>(`${this.baseUrl}/status`).subscribe({
-      next: res => this.statuses.set(res.views ?? []),
+      next: res => { this.statuses.set(res.views ?? []); this.lastUpdate.set(new Date()); },
       error: () => this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'No se pudo obtener estado de Graph-Fabric' }),
     });
+  }
+
+  loadDashboard(): void {
+    this.http.get<DashboardData>(`${this.baseUrl}/dashboard`).subscribe({
+      next: res => this.dashboard.set(res),
+      error: () => {},
+    });
+  }
+
+  refreshAll(): void {
+    this.loadConfigs();
+    this.loadStatus();
+    this.loadDashboard();
   }
 
   // ─── Filtro ────────────────────────────────────────────────────────────────
 
   get filteredConfigs(): ParquetConfig[] {
-    if (!this.searchTerm.trim()) return this.configs();
-    const term = this.searchTerm.toLowerCase().trim();
-    return this.configs().filter(c =>
-      c.schema_name.toLowerCase().includes(term) ||
-      c.view_name.toLowerCase().includes(term) ||
-      c.priority.toLowerCase().includes(term) ||
-      (c.group_name || '').toLowerCase().includes(term)
-    );
+    let list = this.configs();
+
+    // Filtro por estado
+    const sf = this.statusFilter();
+    if (sf !== 'all') {
+      list = list.filter(c => {
+        const st = this.getStatusForView(c.schema_name, c.view_name);
+        if (sf === 'stale') return st?.status === 'stale' || st?.config?.is_stale;
+        if (sf === 'error') return st?.status === 'error';
+        if (sf === 'ok') return st?.status === 'ok' && !st?.config?.is_stale;
+        if (sf === 'pending') return st?.status === 'pending' || !st;
+        return true;
+      });
+    }
+
+    // Filtro por busqueda
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase().trim();
+      list = list.filter(c =>
+        c.schema_name.toLowerCase().includes(term) ||
+        c.view_name.toLowerCase().includes(term) ||
+        c.priority.toLowerCase().includes(term) ||
+        (c.group_name || '').toLowerCase().includes(term)
+      );
+    }
+
+    return list;
+  }
+
+  setStatusFilter(status: string): void {
+    this.statusFilter.set(this.statusFilter() === status ? 'all' : status);
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
@@ -235,7 +362,6 @@ export class CronParquetComponent implements OnInit {
         });
         this.loadConfigs();
         this.loadStatus();
-        // Si quedan pendientes, informar
         if (res.pending > 0) {
           this.msg.add({
             severity: 'info',
@@ -252,7 +378,7 @@ export class CronParquetComponent implements OnInit {
     });
   }
 
-  // ─── Run Cron (ejecutar regeneración manual) ───────────────────────────
+  // ─── Run Cron ────────────────────────────────────────────────────────────
 
   runCron(): void {
     this.runningCron.set(true);
@@ -267,8 +393,7 @@ export class CronParquetComponent implements OnInit {
           detail: res.message,
           life: 6000,
         });
-        // Recargar estado tras unos segundos
-        setTimeout(() => this.loadStatus(), 5000);
+        setTimeout(() => { this.loadStatus(); this.loadDashboard(); }, 5000);
       },
       error: err => {
         this.runningCron.set(false);
@@ -299,6 +424,7 @@ export class CronParquetComponent implements OnInit {
             });
             this.loadConfigs();
             this.loadStatus();
+            this.loadDashboard();
           },
           error: err => {
             this.importing.set(false);
@@ -309,7 +435,7 @@ export class CronParquetComponent implements OnInit {
     });
   }
 
-  // ─── Force Refresh (regenerar un solo parquet) ──────────────────────────
+  // ─── Force Refresh ──────────────────────────────────────────────────────
 
   forceRefresh(config: ParquetConfig): void {
     this.msg.add({ severity: 'info', summary: 'Regenerando...', detail: `Solicitando regeneracion de ${config.view_name}...` });
@@ -358,9 +484,6 @@ export class CronParquetComponent implements OnInit {
     return 'info';
   }
 
-  /**
-   * Graph-Fabric devuelve age_hours, lo convertimos a display legible.
-   */
   getAgeDisplay(st: ParquetStatus): string {
     if (st.age_hours != null) {
       if (st.age_hours < 1) return `${Math.round(st.age_hours * 60)} min`;
@@ -389,9 +512,6 @@ export class CronParquetComponent implements OnInit {
     return this.statuses().find(s => s.schema === schema && s.view === view);
   }
 
-  /**
-   * Determina el carril de Graph-Fabric segun avg_generation_s.
-   */
   getLane(st: ParquetStatus): string {
     const avg = st.avg_generation_s;
     if (avg == null) return 'sprint (nueva)';
@@ -408,5 +528,11 @@ export class CronParquetComponent implements OnInit {
     if (avg <= 180) return 'info';
     if (avg <= 900) return 'warn';
     return 'danger';
+  }
+
+  laneBarColor(pct: number): string {
+    if (pct >= 70) return '#ef4444';
+    if (pct >= 40) return '#f59e0b';
+    return '#22c55e';
   }
 }

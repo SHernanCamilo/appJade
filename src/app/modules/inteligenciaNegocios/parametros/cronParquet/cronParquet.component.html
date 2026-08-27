@@ -5,59 +5,181 @@
   <!-- Header -->
   <header class="cp-header">
     <div class="cp-header__left">
-      <i class="pi pi-clock cp-header__icon"></i>
+      <div class="cp-header__badge"><i class="pi pi-database"></i></div>
       <div>
-        <h2 class="cp-header__title">Cron Parquet</h2>
-        <p class="cp-header__sub">Configuracion de intervalos de regeneracion de datos por vista</p>
+        <h2 class="cp-header__title">Monitor de Parquets</h2>
+        <p class="cp-header__sub">
+          Trazabilidad y control de regeneracion de datos por vista
+          <span class="cp-header__update" *ngIf="lastUpdate()">
+            · Actualizado {{ timeAgo(lastUpdate()!.toISOString()) }}
+          </span>
+        </p>
       </div>
     </div>
     <div class="cp-header__actions">
+      <button pButton [label]="autoRefresh() ? 'Auto ON' : 'Auto OFF'"
+        [icon]="autoRefresh() ? 'pi pi-sync pi-spin' : 'pi pi-sync'"
+        [class]="autoRefresh() ? 'p-button-sm p-button-success' : 'p-button-sm p-button-outlined p-button-secondary'"
+        (click)="toggleAutoRefresh()" pTooltip="Refrescar estado cada 15s"></button>
       <button pButton label="Ejecutar cron" icon="pi pi-play" class="p-button-outlined p-button-warning p-button-sm"
         [loading]="runningCron()" (click)="runCron()" pTooltip="Forzar regeneracion de parquets pendientes en Graph-Fabric"></button>
-      <button pButton label="Importar desde Graph" icon="pi pi-cloud-download" class="p-button-outlined p-button-info p-button-sm"
-        [loading]="importing()" (click)="importFromGraph()" pTooltip="Importar las 766+ vistas desde Graph-Fabric con intervalos por defecto"></button>
-      <button pButton label="Sincronizar todo" icon="pi pi-sync" class="p-button-outlined p-button-sm"
-        [loading]="syncing()" (click)="syncAll()" pTooltip="Reenviar todas las configs a Graph-Fabric"></button>
-      <button pButton label="Actualizar estado" icon="pi pi-refresh" class="p-button-outlined p-button-sm"
-        (click)="loadStatus()"></button>
-      <button pButton label="Nueva configuracion" icon="pi pi-plus" class="p-button-success p-button-sm"
+      <button pButton label="Importar" icon="pi pi-cloud-download" class="p-button-outlined p-button-info p-button-sm"
+        [loading]="importing()" (click)="importFromGraph()" pTooltip="Importar vistas desde Graph-Fabric"></button>
+      <button pButton label="Sincronizar" icon="pi pi-sync" class="p-button-outlined p-button-sm"
+        [loading]="syncing()" (click)="syncAll()" pTooltip="Reenviar configs a Graph-Fabric"></button>
+      <button pButton label="Refrescar" icon="pi pi-refresh" class="p-button-outlined p-button-sm"
+        (click)="refreshAll()"></button>
+      <button pButton label="Nueva" icon="pi pi-plus" class="p-button-success p-button-sm"
         (click)="openNew()"></button>
     </div>
   </header>
 
-  <!-- Buscador -->
-  <div class="cp-search">
-    <span class="p-input-icon-left" style="width: 100%; max-width: 400px;">
+  <!-- KPI Cards (clickables para filtrar) -->
+  <section class="cp-kpis">
+    <button class="cp-kpi cp-kpi--total" [class.cp-kpi--active]="statusFilter() === 'all'"
+      (click)="setStatusFilter('all')">
+      <div class="cp-kpi__icon"><i class="pi pi-list"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiTotal() | number }}</span>
+        <span class="cp-kpi__label">Total vistas</span>
+      </div>
+    </button>
+
+    <button class="cp-kpi cp-kpi--ok" [class.cp-kpi--active]="statusFilter() === 'ok'"
+      (click)="setStatusFilter('ok')">
+      <div class="cp-kpi__icon"><i class="pi pi-check-circle"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiOk() | number }}</span>
+        <span class="cp-kpi__label">Frescas (ok)</span>
+      </div>
+    </button>
+
+    <button class="cp-kpi cp-kpi--generating">
+      <div class="cp-kpi__icon"><i class="pi pi-spin pi-spinner"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiGenerating() | number }}</span>
+        <span class="cp-kpi__label">Generando</span>
+      </div>
+    </button>
+
+    <button class="cp-kpi cp-kpi--stale" [class.cp-kpi--active]="statusFilter() === 'stale'"
+      (click)="setStatusFilter('stale')">
+      <div class="cp-kpi__icon"><i class="pi pi-clock"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiStale() | number }}</span>
+        <span class="cp-kpi__label">Desactualizadas</span>
+      </div>
+    </button>
+
+    <button class="cp-kpi cp-kpi--pending" [class.cp-kpi--active]="statusFilter() === 'pending'"
+      (click)="setStatusFilter('pending')">
+      <div class="cp-kpi__icon"><i class="pi pi-hourglass"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiPending() | number }}</span>
+        <span class="cp-kpi__label">En cola</span>
+      </div>
+    </button>
+
+    <button class="cp-kpi cp-kpi--error" [class.cp-kpi--active]="statusFilter() === 'error'"
+      (click)="setStatusFilter('error')">
+      <div class="cp-kpi__icon"><i class="pi pi-exclamation-triangle"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiError() | number }}</span>
+        <span class="cp-kpi__label">Con error</span>
+      </div>
+    </button>
+  </section>
+
+  <!-- Panel de graficos + carriles -->
+  <section class="cp-panels" *ngIf="dashboard()">
+    <!-- Donut de estados -->
+    <div class="cp-panel cp-panel--chart">
+      <div class="cp-panel__head">
+        <h3>Distribucion de estados</h3>
+        <span class="cp-panel__meta">{{ kpiDue() }} pendientes de regenerar</span>
+      </div>
+      <div class="cp-chart-wrap">
+        <p-chart type="doughnut" [data]="statusChartData()" [options]="chartOptions"
+          width="220" height="220"></p-chart>
+      </div>
+    </div>
+
+    <!-- Carriles (represamiento) -->
+    <div class="cp-panel cp-panel--lanes">
+      <div class="cp-panel__head">
+        <h3>Carriles de Graph-Fabric</h3>
+        <span class="cp-panel__meta">% represado por carril</span>
+      </div>
+      <div class="cp-lanes">
+        <div class="cp-lane-row" *ngFor="let lane of lanesList()">
+          <div class="cp-lane-row__info">
+            <span class="cp-lane-row__label">{{ lane.label }}</span>
+            <span class="cp-lane-row__count">
+              {{ lane.stale }} / {{ lane.total }}
+              <span class="cp-lane-row__pct" [style.color]="laneBarColor(lane.pct)">{{ lane.pct }}%</span>
+            </span>
+          </div>
+          <div class="cp-lane-bar">
+            <div class="cp-lane-bar__fill" [style.width.%]="lane.pct"
+              [style.background]="laneBarColor(lane.pct)"></div>
+          </div>
+        </div>
+        <div class="cp-lanes__hint" *ngIf="lanesList().length === 0">
+          <i class="pi pi-info-circle"></i> Sin datos de carriles todavia. Ejecute el cron.
+        </div>
+      </div>
+
+      <!-- Eficiencia -->
+      <div class="cp-efficiency" *ngIf="kpiEfficiency() > 0">
+        <span class="cp-efficiency__label">Eficiencia de generacion</span>
+        <div class="cp-efficiency__bar">
+          <div class="cp-efficiency__fill" [style.width.%]="kpiEfficiency()"></div>
+        </div>
+        <span class="cp-efficiency__val">{{ kpiEfficiency() }}%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Toolbar tabla -->
+  <div class="cp-toolbar">
+    <span class="p-input-icon-left cp-toolbar__search">
       <i class="pi pi-search"></i>
-      <input pInputText [(ngModel)]="searchTerm" placeholder="Buscar por schema, vista, prioridad o grupo..."
-        style="width: 100%;" />
+      <input pInputText [(ngModel)]="searchTerm" placeholder="Buscar por schema, vista, prioridad o grupo..." />
     </span>
-    <span class="cp-search__count">{{ filteredConfigs.length }} de {{ configs().length }} vistas</span>
+    <div class="cp-toolbar__right">
+      <span class="cp-toolbar__filter" *ngIf="statusFilter() !== 'all'">
+        <i class="pi pi-filter"></i> Filtro: <strong>{{ statusFilter() }}</strong>
+        <button pButton icon="pi pi-times" class="p-button-text p-button-rounded p-button-sm"
+          (click)="setStatusFilter('all')"></button>
+      </span>
+      <span class="cp-toolbar__count">{{ filteredConfigs.length }} de {{ configs().length }} vistas</span>
+    </div>
   </div>
 
   <!-- Tabla principal -->
   <p-table [value]="filteredConfigs" [loading]="loading()" responsiveLayout="scroll"
-    styleClass="p-datatable-sm p-datatable-striped" [rowHover]="true"
+    styleClass="cp-table p-datatable-sm" [rowHover]="true"
     [paginator]="true" [rows]="25" [rowsPerPageOptions]="[25, 50, 100, 250]"
     [showCurrentPageReport]="true" currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} vistas"
     sortField="schema_name" [sortOrder]="1">
 
     <ng-template pTemplate="header">
       <tr>
-        <th style="width: 3rem">Act</th>
+        <th style="width: 3rem"></th>
         <th pSortableColumn="schema_name">Schema <p-sortIcon field="schema_name"></p-sortIcon></th>
         <th pSortableColumn="view_name">Vista <p-sortIcon field="view_name"></p-sortIcon></th>
-        <th pSortableColumn="refresh_interval_min">Intervalo <p-sortIcon field="refresh_interval_min"></p-sortIcon></th>
-        <th pSortableColumn="priority">Prioridad <p-sortIcon field="priority"></p-sortIcon></th>
-        <th>Grupo</th>
-        <th>Estado Parquet</th>
-        <th>Ultima sync</th>
-        <th style="width: 9rem">Acciones</th>
+        <th pSortableColumn="refresh_interval_min" style="width: 7rem">Intervalo <p-sortIcon field="refresh_interval_min"></p-sortIcon></th>
+        <th pSortableColumn="priority" style="width: 8rem">Prioridad <p-sortIcon field="priority"></p-sortIcon></th>
+        <th style="width: 9rem">Grupo</th>
+        <th style="width: 12rem">Estado Parquet</th>
+        <th style="width: 7rem">Ult. sync</th>
+        <th style="width: 8rem">Acciones</th>
       </tr>
     </ng-template>
 
     <ng-template pTemplate="body" let-config>
-      <tr>
+      <tr [class.cp-row--error]="getStatusForView(config.schema_name, config.view_name)?.status === 'error'"
+          [class.cp-row--stale]="getStatusForView(config.schema_name, config.view_name)?.config?.is_stale">
         <!-- Toggle enabled -->
         <td>
           <button pButton [icon]="config.enabled ? 'pi pi-check-circle' : 'pi pi-circle'"
@@ -81,40 +203,37 @@
         </td>
 
         <!-- Intervalo -->
-        <td>
-          <span class="cp-interval">{{ config.refresh_interval_min }} min</span>
-        </td>
+        <td><span class="cp-interval">{{ config.refresh_interval_min }} min</span></td>
 
         <!-- Prioridad -->
-        <td>
-          <p-tag [value]="config.priority" [severity]="$any(getPriorityTag(config.priority))"></p-tag>
-        </td>
+        <td><p-tag [value]="config.priority" [severity]="$any(getPriorityTag(config.priority))"></p-tag></td>
 
         <!-- Grupo -->
         <td><span class="cp-group">{{ config.group_name }}</span></td>
 
-        <!-- Estado del parquet en Graph-Fabric -->
+        <!-- Estado del parquet -->
         <td>
           <ng-container *ngIf="getStatusForView(config.schema_name, config.view_name) as st">
-            <p-tag [value]="st.status ?? 'desconocido'" [severity]="$any(getStatusTag(st))"></p-tag>
-            <small class="cp-age" *ngIf="st.age_hours != null || st.age_minutes != null">
-              {{ getAgeDisplay(st) }}
-              <span *ngIf="st.config?.is_stale" class="cp-stale">(stale!)</span>
-            </small>
-            <small class="cp-size" *ngIf="st.size_mb">{{ st.size_mb }} MB</small>
-            <small class="cp-lane">
-              <p-tag [value]="getLane(st)" [severity]="$any(getLaneTag(st))" [rounded]="true"></p-tag>
-            </small>
+            <div class="cp-status">
+              <p-tag [value]="st.status ?? 'desconocido'" [severity]="$any(getStatusTag(st))"></p-tag>
+              <p-tag [value]="getLane(st)" [severity]="$any(getLaneTag(st))" [rounded]="true"
+                styleClass="cp-lane-tag"></p-tag>
+            </div>
+            <div class="cp-status__meta">
+              <span *ngIf="st.age_hours != null || st.age_minutes != null">
+                <i class="pi pi-clock"></i> {{ getAgeDisplay(st) }}
+                <span *ngIf="st.config?.is_stale" class="cp-stale">stale</span>
+              </span>
+              <span *ngIf="st.size_mb"><i class="pi pi-file"></i> {{ st.size_mb }} MB</span>
+            </div>
           </ng-container>
           <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
-            Sin datos
+            <i class="pi pi-minus-circle"></i> Sin datos
           </span>
         </td>
 
         <!-- Ultima sync -->
-        <td>
-          <span class="cp-sync-time">{{ timeAgo(config.last_synced_at) }}</span>
-        </td>
+        <td><span class="cp-sync-time">{{ timeAgo(config.last_synced_at) }}</span></td>
 
         <!-- Acciones -->
         <td class="cp-actions">
@@ -130,22 +249,13 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="9" style="text-align: center; padding: 2rem;">
-          <i class="pi pi-inbox" style="font-size: 2rem; color: #ccc;"></i>
-          <p style="margin-top: 8px; color: #666;">No hay vistas configuradas. Use "Importar desde Graph" para traer las 766+ vistas existentes, o agregue una con "Nueva configuracion".</p>
+        <td colspan="9" class="cp-empty">
+          <i class="pi pi-inbox"></i>
+          <p>No hay vistas que coincidan. Use "Importar" para traer las vistas de Graph-Fabric.</p>
         </td>
       </tr>
     </ng-template>
   </p-table>
-
-  <!-- Leyenda -->
-  <div class="cp-legend">
-    <span><p-tag value="realtime" severity="danger"></p-tag> Cada 5 min (censos)</span>
-    <span><p-tag value="high" severity="warn"></p-tag> Cada 15 min (operativo)</span>
-    <span><p-tag value="medium" severity="info"></p-tag> Cada 1 hora</span>
-    <span><p-tag value="low" severity="secondary"></p-tag> Cada 2 horas</span>
-    <span><p-tag value="manual" severity="secondary"></p-tag> Solo al pulsar Actualizar</span>
-  </div>
 </div>
 
 <!-- Dialog crear/editar -->
