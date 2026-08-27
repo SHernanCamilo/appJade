@@ -231,6 +231,12 @@ function buildRibbon(
             btn('export-xlsx', 'Excel', 'pi pi-file-excel',  'lg'),
           ],
         },
+        {
+          title: 'Pantalla',
+          items: [
+            btn('fullscreen', 'Pantalla\ncompleta', 'pi pi-window-maximize', 'lg', 'Ver en pantalla completa (F11)'),
+          ],
+        },
       ],
     },
     {
@@ -2637,6 +2643,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       case 'export-xlsx':
         this.gridApi?.exportDataAsExcel?.({ fileName: `${this.viewName}_${this.today()}.xlsx` });
         break;
+      case 'fullscreen':
+        this.toggleFullscreen();
+        break;
 
       case 'row-height': {
         const h = ({ compact: 21, normal: 28, comfortable: 36 } as Record<string, number>)[event.value ?? 'normal'] ?? 28;
@@ -4138,6 +4147,36 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   private today(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  /**
+   * Alterna pantalla completa usando la Fullscreen API del navegador.
+   * Entra en fullscreen todo el documento (la app Excel ocupa toda la pantalla).
+   */
+  private toggleFullscreen(): void {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element;
+      webkitExitFullscreen?: () => Promise<void>;
+    };
+    const el = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void>;
+    };
+
+    const isFullscreen = !!(document.fullscreenElement || doc.webkitFullscreenElement);
+
+    if (!isFullscreen) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(err => console.warn('[Fullscreen] Error:', err));
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (doc.webkitExitFullscreen) {
+        doc.webkitExitFullscreen();
+      }
+    }
   }
 
   filterLabel(f: DynamicFilter): string {
