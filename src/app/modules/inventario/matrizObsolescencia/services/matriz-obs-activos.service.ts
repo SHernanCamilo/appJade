@@ -78,6 +78,78 @@ export interface ActivoMatriz {
   };
 }
 
+export interface CampoDiferencia {
+  campo: string;
+  etiqueta: string;
+  excel: string;
+  bd: string;
+}
+
+export interface CoincidenciaComparador {
+  fila_excel: number;
+  id_activo: number;
+  id_activo_glpi: number | null;
+  nombre_equipo: string;
+  placa: string;
+  serial: string;
+  coincidencia_por: string;
+  total_diferencias?: number;
+  campos?: CampoDiferencia[];
+}
+
+export interface FilaExcelComparador {
+  fila_excel: number;
+  placa: string;
+  serial: string;
+  sucursal_sede?: string;
+  marca?: string;
+  tipo?: string;
+  referencia?: string;
+  ubicacion?: string;
+  [key: string]: string | number | undefined;
+}
+
+export interface FilaBdComparador {
+  id_activo: number;
+  id_activo_glpi: number | null;
+  nombre_equipo: string;
+  placa: string;
+  serial: string;
+  sucursal_sede: string;
+  marca: string;
+  tipo: string;
+  ubicacion: string;
+}
+
+export interface ResumenComparador {
+  filas_excel: number;
+  filas_validas: number;
+  sin_clave: number;
+  activos_bd: number;
+  iguales: number;
+  diferencias: number;
+  solo_excel: number;
+  solo_bd: number;
+}
+
+export interface ResultadoComparador {
+  resumen: ResumenComparador;
+  advertencias: string[];
+  encabezados_detectados: string[];
+  campos_mapeados: Record<string, string>;
+  iguales: CoincidenciaComparador[];
+  diferencias: CoincidenciaComparador[];
+  solo_excel: FilaExcelComparador[];
+  solo_bd: FilaBdComparador[];
+  sin_clave: FilaExcelComparador[];
+}
+
+export interface ComparadorResponse {
+  success: boolean;
+  message?: string;
+  data: ResultadoComparador;
+}
+
 export interface ActivosResponse {
   success: boolean;
   data: ActivoMatriz[];
@@ -393,6 +465,24 @@ export class MatrizObsActivosService {
     return this.http.get(`${this.apiUrl}/exportar-estadisticas`, { 
       responseType: 'blob' 
     }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  compararExcel(archivo: File, filtros?: FiltrosActivos): Observable<ComparadorResponse> {
+    const formData = new FormData();
+    formData.append('archivo', archivo, archivo.name);
+
+    let params = new HttpParams();
+    if (filtros?.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
+    if (filtros?.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
+    if (filtros?.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
+
+    return this.http.post<ComparadorResponse>(`${this.apiUrl}/comparador/excel`, formData, { params })
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
+  descargarPlantillaComparador(): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/comparador/plantilla`, { responseType: 'blob' })
+      .pipe(catchError(this.handleError.bind(this)));
   }
 
   /**

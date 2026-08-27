@@ -135,6 +135,25 @@
                        styleClass="tree-vista-tag">
                 </p-tag>
                 <i class="pi pi-external-link tree-vista-action" *ngIf="!esEnMantenimiento(vista)"></i>
+                <button
+                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
+                  type="button"
+                  class="btn-action-icon btn-action-excel tree-vista-btn"
+                  (click)="abrirVistaRefresh(vista, $event)"
+                  pTooltip="Vista tipo Excel en el navegador"
+                  tooltipPosition="left">
+                  <i class="pi pi-table"></i>
+                </button>
+                <button
+                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
+                  type="button"
+                  class="btn-action-icon btn-action-desktop tree-vista-btn"
+                  (click)="abrirVistaEscritorio(vista, $event)"
+                  [disabled]="isLaunchingDesktop"
+                  pTooltip="Abrir en JadeOne Desktop (recomendado +30.000 filas)"
+                  tooltipPosition="left">
+                  <i class="pi pi-desktop"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -154,7 +173,7 @@
               <th>Vista</th>
               <th style="width:140px">Categoría</th>
               <th style="width:90px">Estado</th>
-              <th style="width:70px"></th>
+              <th style="width:150px"></th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-vista>
@@ -196,6 +215,16 @@
                   tooltipPosition="left"
                   style="margin-left: 4px;">
                   <i class="pi pi-table"></i>
+                </button>
+                <button
+                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
+                  class="btn-action-icon btn-action-desktop"
+                  (click)="abrirVistaEscritorio(vista, $event)"
+                  [disabled]="isLaunchingDesktop"
+                  pTooltip="Abrir en JadeOne Desktop (recomendado +30.000 filas)"
+                  tooltipPosition="left"
+                  style="margin-left: 4px;">
+                  <i class="pi pi-desktop"></i>
                 </button>
               </td>
             </tr>

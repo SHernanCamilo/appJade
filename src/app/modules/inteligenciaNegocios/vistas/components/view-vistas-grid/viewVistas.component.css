@@ -229,6 +229,15 @@
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
 }
 
+.btn-toolbar-desktop {
+  background: #1e3a5f;
+}
+
+.btn-toolbar-desktop:hover:not(:disabled) {
+  background: #163056;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.35);
+}
+
 .grid-loading {
   display: inline-flex;
   align-items: center;

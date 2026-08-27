@@ -76,6 +76,11 @@
             title="Recargar datos">
             <i class="pi pi-refresh"></i> Recargar
           </button>
+          <button type="button" class="btn-toolbar btn-toolbar-desktop" (click)="abrirEnEscritorio()"
+            [disabled]="isLoadingVista || !vista || isLaunchingDesktop"
+            title="Abrir en JadeOne Desktop — recomendado para más de 30.000 filas">
+            <i class="pi pi-desktop"></i> Escritorio
+          </button>
           <button type="button" class="btn-toolbar btn-toolbar-secondary" (click)="abrirEnNuevaPestana()"
             [disabled]="isLoadingDatos || !hayDatosParaExportar" title="Pantalla completa">
             <i class="pi pi-external-link"></i> Pantalla completa

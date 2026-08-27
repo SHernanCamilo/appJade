@@ -59,6 +59,7 @@ export class ListadoVistasComponent implements OnInit {
   isLoadingContext = false;
   isLoadingVistas = false;
   isNavigating = false;
+  isLaunchingDesktop = false;
   searchTerm = '';
   vistas: VistaBi[] = [];
   departamento: string | null = null;
@@ -366,6 +367,51 @@ export class ListadoVistasComponent implements OnInit {
     const url      = this.router.serializeUrl(urlTree);
     const fullUrl  = this.location.prepareExternalUrl(url);
     window.open(fullUrl, '_blank', 'noopener');
+  }
+
+  abrirVistaEscritorio(vista: VistaBi, event: Event): void {
+    event.stopPropagation();
+
+    if (isVistaEnMantenimiento(vista) || !vista.estado || this.isLaunchingDesktop) {
+      return;
+    }
+
+    this.isLaunchingDesktop = true;
+    this.vistasService.launchDesktop(vista.schema, vista.view_name, vista.nombre).subscribe({
+      next: res => {
+        if (!res.success || !res.protocol_url) {
+          this.isLaunchingDesktop = false;
+          this.messageService.add({
+            severity: 'error',
+            summary: 'No se pudo abrir el escritorio',
+            detail: res.message ?? 'Intente de nuevo.',
+            life: 5000
+          });
+          return;
+        }
+
+        const downloadUrl = res.download_url ?? this.vistasService.getDesktopDownloadUrl();
+        this.vistasService.openDesktopProtocol(res.protocol_url, () => {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'JadeOne Desktop no está instalado',
+            detail: 'Se iniciará la descarga. Instale el .exe y vuelva a pulsar el botón.',
+            life: 8000
+          });
+          window.open(downloadUrl, '_blank', 'noopener');
+        });
+        window.setTimeout(() => { this.isLaunchingDesktop = false; }, 2500);
+      },
+      error: err => {
+        this.isLaunchingDesktop = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'No se pudo abrir el escritorio',
+          detail: err?.error?.message ?? 'Sin permiso o error de red.',
+          life: 5000
+        });
+      }
+    });
   }
 
   toggleGrupo(key: string): void {
