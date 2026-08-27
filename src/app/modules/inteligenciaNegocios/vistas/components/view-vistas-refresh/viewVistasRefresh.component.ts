@@ -1127,6 +1127,29 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return; // Ya esta en curso
     }
 
+    // Si hay un pivot abierto, cerrarlo: los datos van a cambiar y el pivot
+    // queda desactualizado. El usuario puede recrearlo despues.
+    const pivotSheet = this.sheets().find(s => (s.kind ?? 'view') === 'pivot');
+    if (pivotSheet) {
+      this.sheets.update(sheets => {
+        const idx = sheets.findIndex(s => s.id === pivotSheet.id);
+        if (idx >= 0) sheets.splice(idx, 1);
+        return [...sheets];
+      });
+      console.log('[startRefresh] Pivot cerrado: los datos se van a actualizar');
+    }
+
+    // Asegurarse de que la hoja de datos es la activa
+    const dataSheet = this.sheets().find(s => (s.kind ?? 'view') === 'view');
+    if (dataSheet && !dataSheet.active) {
+      this.sheets.update(sheets => {
+        sheets.forEach(s => s.active = s.id === dataSheet.id);
+        return [...sheets];
+      });
+      this.schema   = dataSheet.schema;
+      this.viewName = dataSheet.viewName;
+    }
+
     this.clearTimers();
     this.startTime = Date.now();
     this.startElapsedTimer();
@@ -1139,12 +1162,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       elapsed: 0,
     });
 
-    // Lanzar export: el backend ahora maneja R2 warm internamente.
-    // Si el parquet esta listo (~2s), devuelve ready + job_id inmediato.
-    // Si esta generandose, devuelve r2_status=generating → polling.
-    // Si es demasiado grande, devuelve r2_status=too_big → pide filtro.
-    // Si R2 no esta disponible, cae en stream clasico (30-130s).
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {});
+    // Lanzar export: el backend maneja R2 warm internamente.
+    // force_refresh=true le dice al backend que invalide el parquet y genere uno nuevo
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, true);
   }
 
   /**
@@ -1185,15 +1205,16 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     };
     this.activeFilters.update(fs => [...fs, newFilter]);
 
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, filters);
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, filters, false);
   }
 
   /**
    * Lanza el export asincrono a Fabric.
    * @param maxRows Limite de filas (0 = sin limite)
    * @param filters Filtros opcionales que el backend aplica en la query
+   * @param forceRefresh Si true, invalida el parquet y genera uno nuevo desde Fabric
    */
-  private doExport(maxRows: number, filters: Record<string, unknown>): void {
+  private doExport(maxRows: number, filters: Record<string, unknown>, forceRefresh = false): void {
     this.progress.update(p => ({ ...p, status: 'queuing', message: 'Verificando parquet en cache...', percent: 3 }));
 
     const body: Record<string, unknown> = {
@@ -1203,6 +1224,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       filters,
     };
     if (maxRows > 0) body['max_rows'] = maxRows;
+    if (forceRefresh) body['force_refresh'] = true;
 
     this.http.post<{
       success: boolean;
@@ -1301,10 +1323,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           console.log('[R2Poll]', status, res.message);
 
           if (status === 'ready' || status === 'ready_stale') {
-            // Parquet listo: detener polling, lanzar export real
             this.stopR2Polling();
             this.progress.update(p => ({ ...p, message: 'Parquet listo, descargando datos...', percent: 50 }));
-            this.doExport(maxRows, filters);
+            // No forzar: ya esta fresco
+            this.doExport(maxRows, filters, false);
           } else if (status === 'too_big') {
             this.stopR2Polling();
             this.estimatedRowCount.set(res.row_count ?? 1000000);
@@ -1316,10 +1338,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
             });
             this.releaseLoadSlot();
           } else if (status === 'unavailable') {
-            // R2 cayó: fallback directo a stream
             this.stopR2Polling();
             this.progress.update(p => ({ ...p, message: 'R2 no disponible, usando export stream...' }));
-            this.doExport(maxRows, filters);
+            this.doExport(maxRows, filters, false);
           } else {
             // Sigue generating: actualizar mensaje
             const est = res.estimated_s ?? 30;
@@ -1331,9 +1352,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           }
         },
         error: () => {
-          // Error de red: fallback a stream
           this.stopR2Polling();
-          this.doExport(maxRows, filters);
+          this.doExport(maxRows, filters, false);
         },
       });
     }, 5000);
@@ -1451,6 +1471,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   // -Parseo del archivo -
   private async parseAndLoad(blob: Blob, format: string, expectedRows: number): Promise<void> {
     try {
+      this.progress.update(p => ({ ...p, status: 'parsing', message: 'Procesando datos...', percent: 75 }));
+
+      // Ceder un frame para que el browser pinte el progreso antes del parseo pesado
+      await new Promise(r => setTimeout(r, 0));
+
       const data = await this.parseBlob(blob, format, expectedRows);
 
       if (data.length === 0) {
@@ -1458,82 +1483,83 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         return;
       }
 
-      // DIAGNOSTICO - eliminar cuando funcione
-      console.group('[ViewVistasRefresh] Diagnostico de datos');
-      console.log('Blob type:', blob.type, '| size:', blob.size, 'bytes');
-      console.log('Filas parseadas:', data.length);
-      console.log('Primera fila (keys):', Object.keys(data[0] ?? {}));
-      console.log('Primera fila (valores):', data[0]);
-      console.log('columnDefs actuales (fields):', this.columnDefs.map(c => c.field));
-      console.log('?Coinciden keys con fields?',
-        Object.keys(data[0] ?? {}).every(k => this.columnDefs.some(c => c.field === k))
-      );
-      console.groupEnd();
-      // -
+      console.log('[parseAndLoad] Filas:', data.length, '| Cols:', Object.keys(data[0] ?? {}).length);
       this.rawData = data;
 
-      // Inferir columnDefs desde los datos si no teniamos metadatos
       if (this.columnDefs.length === 0) {
-        console.warn('[parseAndLoad] No hay columnDefs - infiriendo desde datos');
         this.columnDefs = this.inferColumnDefs(data);
         this.applyColumnDefs();
-      } else {
-        console.log('[parseAndLoad] -… Usando columnDefs construidos desde metadatos (', this.columnDefs.length, 'columnas)');
       }
 
-      // Guardar datos en la hoja activa
+      // Registrar para BUSCARVISTA
+      this.registerActiveViewForFormulas(data);
+      this.totalRows.set(data.length);
+
+      // --- Carga progresiva: evita congelar el navegador con 64K+ filas ---
+      const FIRST_CHUNK = 1000;
+      const CHUNK_SIZE  = 10000;
+
+      // 1. Primer chunk rapido: el usuario ve datos en <1s
+      const firstSlice = data.slice(0, Math.min(FIRST_CHUNK, data.length));
+      this.rowData = firstSlice;
+      this.filteredRows.set(firstSlice.length);
       this.saveActiveSheetData(data, this.columnDefs);
 
-      // Publicar la vista para que BUSCARVISTA/CONTARVISTA/SUMARVISTA la vean.
-      // Se pasan las filas POR REFERENCIA: no se duplica el dataset en memoria.
-      this.registerActiveViewForFormulas(data);
+      if (this.gridApi) {
+        this.gridApi.setGridOption('rowData', firstSlice);
+        this.autoSizeColumns();
+      }
 
-      this.totalRows.set(data.length);
+      // 2. Chunks restantes con pausas de 30ms entre cada uno
+      if (data.length > FIRST_CHUNK) {
+        let offset = FIRST_CHUNK;
+        while (offset < data.length) {
+          await new Promise(r => setTimeout(r, 30));
+          offset = Math.min(offset + CHUNK_SIZE, data.length);
+          this.rowData = data.slice(0, offset);
+          this.filteredRows.set(offset);
+          if (this.gridApi) {
+            this.gridApi.setGridOption('rowData', this.rowData);
+          }
+          this.progress.update(p => ({
+            ...p,
+            message: 'Cargando ' + offset.toLocaleString() + ' / ' + data.length.toLocaleString() + ' filas...',
+            percent: 75 + Math.round((offset / data.length) * 20),
+          }));
+        }
+      }
+
+      // 3. Finalizar: aplicar filtros y marcar como listo
+      this.rowData = data;
+      this.filteredRows.set(data.length);
       this.applyFiltersToGrid();
-
-      // Actualizar metricas de performance
       this.updatePerformanceMetrics();
-
-      // Cargar estado guardado (columnas ocultas, zoom, etc.)
       this.loadWorkbookState();
 
       this.clearTimers();
       this.progress.set({
         status: 'ready',
-        message: `${data.length.toLocaleString('es-CO')} registros cargados`,
+        message: data.length.toLocaleString('es-CO') + ' registros cargados',
         percent: 100,
         rows: data.length,
         elapsed: this.elapsed(),
       });
 
-      // Turno liberado: si hay otra vista en cola, arranca ahora (una a la vez)
       this.releaseLoadSlot();
-
-      // Auto-save: la hoja recien cargada queda persistida
       this.saveWorkbookState();
 
-      // Ajustar columnas despues de que la grilla renderice.
-      // Dos ticks: primero Angular aplica el cambio de visibility/height,
-      // luego AG Grid recalcula el viewport y renderiza las filas.
       setTimeout(() => {
         if (this.gridApi) {
           this.gridApi.setGridOption('rowData', this.rowData);
           this.autoSizeColumns();
         }
-      }, 0);
-      setTimeout(() => {
-        if (this.gridApi) {
-          this.autoSizeColumns();
-          this.gridApi.refreshCells({ force: true });
-        }
-      }, 200);
+      }, 50);
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error procesando el archivo.';
-      this.setError(`Error al procesar los datos: ${msg}`);
+      this.setError('Error al procesar los datos: ' + msg);
     }
   }
-
   /**
    * Parsea el blob descargado. Detecta automaticamente si es xlsx o CSV.
    *

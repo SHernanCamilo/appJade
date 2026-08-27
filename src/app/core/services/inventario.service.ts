@@ -96,13 +96,22 @@ export class InventarioService {
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/buscar`, { params });
   }
 
-  validateInvima(code: string): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/validar/${encodeURIComponent(code)}`);
+  validateInvima(code: string, type = 'auto'): Observable<ApiResponse<any>> {
+    let params = new HttpParams();
+    if (type && type !== 'auto') {
+      params = params.set('type', type);
+    }
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/validar/${encodeURIComponent(code)}`, { params });
   }
 
   searchMvd(ium: string): Observable<ApiResponse<any>> {
     let params = new HttpParams().set('ium', ium);
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/invima/mvd`, { params });
+  }
+
+  validateCum(cum: string): Observable<ApiResponse<any>> {
+    const params = new HttpParams().set('cum', cum);
+    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/productos/cum/validar`, { params });
   }
 
 }

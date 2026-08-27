@@ -588,12 +588,15 @@ export class VistasService {
         const colDef: ColDef = {
           field: col.name,
           headerName: col.name.replace(/_/g, ' '),
-          // NO definir filter aquí — lo hereda de defaultColDef
           minWidth: 120,
         };
 
         if (valueFormatter) colDef.valueFormatter = valueFormatter;
         if (cellDataType) colDef.cellDataType = cellDataType;
+
+        // Marcar el tipo de columna para que los componentes de grid
+        // puedan asignar el filtro correcto (ExcelDateFilter vs ExcelColumnFilter)
+        (colDef as any).__colType = forceText ? 'text' : (colType === 'date' || inferDate) ? 'date' : colType;
 
         return colDef;
       });
@@ -622,9 +625,11 @@ export class VistasService {
       const firstNonNull = sampleValues.find(v => v !== null && v !== undefined && v !== '');
 
       let valueFormatter: ((params: any) => string) | undefined;
+      let colType = 'text';
 
       // Detectar fechas para formatearlas
       if (looksLikeDate(firstNonNull)) {
+        colType = 'date';
         valueFormatter = (params: any) => {
           if (!params.value) return '';
           const val = String(params.value);
@@ -635,16 +640,22 @@ export class VistasService {
           }
           return val.substring(0, 10);
         };
+      } else {
+        // Detectar numérico
+        const isNumeric = sampleValues.filter(v => v != null).every(v => typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(String(v)));
+        if (isNumeric && sampleValues.some(v => v != null)) colType = 'number';
       }
 
       const colDef: ColDef = {
         field: key,
         headerName: key.replace(/_/g, ' '),
-        // NO definir filter aquí — lo hereda de defaultColDef
         minWidth: 120
       };
 
       if (valueFormatter) colDef.valueFormatter = valueFormatter;
+
+      // Marcar tipo para que assignDateFiltersToColumns asigne el filtro correcto
+      (colDef as any).__colType = colType;
 
       return colDef;
     });

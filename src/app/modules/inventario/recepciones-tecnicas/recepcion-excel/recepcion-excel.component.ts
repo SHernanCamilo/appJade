@@ -13,9 +13,11 @@ import type {
   ValueGetterParams,
   CellClassParams,
   GridOptions,
+  EditableCallbackParams,
 } from 'ag-grid-community';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { InventarioService } from '../../../../core/services/inventario.service';
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 
@@ -41,14 +43,18 @@ interface RecepcionRow {
   concentracion: string;
   unidad_empaque: string;
   cantidad_solicitada: number;
+  cum_recibido: string;
+  cum_producto_nombre: string;
   es_medicamento_vital: boolean;
   codigo_sanitario: string;
   estado_invima: string;
   fabricante: string;
   vida_util: string;
+  estado_vencimiento: string;
   fecha_vencimiento: string;
   cantidad_recibida: number;
   muestra_poblacion: number | null;
+  muestra_exclusion: boolean;
   numero_lote: string;
   aspecto_cumple: string;
   embalaje_cumple: string;
@@ -56,15 +62,73 @@ interface RecepcionRow {
   cadena_frio_temperatura: number | null;
   concepto_recepcion: string;
   observaciones_recepcion: string;
+  mvd_solicitante: string;
+  mvd_principio_activo: string;
+  mvd_forma_farmaceutica: string;
+  mvd_presentacion: string;
+  mvd_ium: string;
+  mvd_fecha_autorizacion: string;
+  invima_override_manual: boolean;
   _validatingInvima: boolean;
   _invimaValid: boolean | null;
   _semaforo: 'verde' | 'amarillo' | 'rojo' | '';
   pedido_detalle_id: number | null;
   recibido: boolean;
+  proveedor?: string;
 }
 
 const CUMPLE_VALUES = ['Cumple', 'No Cumple'];
-const CONCEPTO_VALUES = ['', 'aceptado', 'cuarentena', 'rechazado'];
+const CONCEPTO_VALUES = ['', 'aceptado', 'rechazado'];
+
+function isMedicamento(tipo: string): boolean {
+  return String(tipo || '').toLowerCase().includes('medicamento');
+}
+
+function isDispositivoMedico(tipo: string): boolean {
+  const t = String(tipo || '').toLowerCase();
+  return t.includes('dispositivo') || t.includes('device');
+}
+
+function calcularDiasVencimiento(fechaStr: string): number | null {
+  if (!fechaStr) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const venc = new Date(fechaStr);
+  if (Number.isNaN(venc.getTime())) return null;
+  return Math.floor((venc.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getEstadoVencimiento(dias: number | null): string {
+  if (dias === null) return '';
+  if (dias >= 365) return 'Vigente';
+  if (dias >= 180) return 'Por vencer';
+  return 'Critico';
+}
+
+function calculateSamplePopulation(quantity: number, forceFull: boolean): number {
+  const qty = Math.floor(Number(quantity) || 0);
+  if (!qty || qty <= 0) return 0;
+  if (forceFull) return qty;
+  const rules = [
+    { min: 2, max: 8, sample: 2 },
+    { min: 9, max: 15, sample: 3 },
+    { min: 16, max: 25, sample: 5 },
+    { min: 26, max: 50, sample: 8 },
+    { min: 51, max: 90, sample: 13 },
+    { min: 91, max: 150, sample: 20 },
+    { min: 151, max: 280, sample: 32 },
+    { min: 281, max: 500, sample: 50 },
+    { min: 501, max: 1200, sample: 80 },
+    { min: 1201, max: 3200, sample: 125 },
+    { min: 3201, max: 10000, sample: 200 },
+    { min: 10001, max: 35000, sample: 315 },
+    { min: 35001, max: 150000, sample: 500 },
+    { min: 150001, max: 500000, sample: 800 },
+    { min: 500001, max: 2147483647, sample: 1250 },
+  ];
+  const rule = rules.find(r => qty >= r.min && qty <= r.max);
+  return rule ? rule.sample : qty;
+}
 
 function toColumnLetter(index: number): string {
   let letter = '';
@@ -79,8 +143,8 @@ function toColumnLetter(index: number): string {
 @Component({
   selector: 'app-recepcion-excel',
   standalone: true,
-  imports: [CommonModule, FormsModule, AgGridAngular, ToastModule, ExcelSheetComponent, DateCellEditorComponent],
-  providers: [MessageService],
+  imports: [CommonModule, FormsModule, AgGridAngular, ToastModule, ConfirmDialogModule, ExcelSheetComponent, DateCellEditorComponent],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './recepcion-excel.component.html',
   styleUrl: './recepcion-excel.component.css',
 })
@@ -89,6 +153,7 @@ export class RecepcionExcelComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly inventarioService = inject(InventarioService);
   private readonly msg = inject(MessageService);
+  private readonly confirm = inject(ConfirmationService);
 
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
@@ -149,6 +214,9 @@ export class RecepcionExcelComponent implements OnInit {
   private compraId = 0;
   private colLetters = new Map<string, string>();
   private ordenInfo = signal<{ numero: string; proveedor: string } | null>(null);
+  private invimaCache = new Map<string, any>();
+  private mvdCache = new Map<string, any>();
+  private cumCache = new Map<string, string>();
 
   // ─── Grid config ──────────────────────────────────────────────────────────
 
@@ -156,8 +224,8 @@ export class RecepcionExcelComponent implements OnInit {
     resizable: true,
     sortable: true,
     minWidth: 70,
-    editable: true,
-    cellClass: 'xl-cell',
+    editable: (params) => this.canEditField(params),
+    cellClass: (params) => this.getCellClass(params),
     suppressKeyboardEvent: (params) => {
       // Allow Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+Y to work natively
       const key = params.event.key;
@@ -323,19 +391,20 @@ export class RecepcionExcelComponent implements OnInit {
   };
 
   private readonly dataColumns: ColDef<RecepcionRow>[] = [
-    { headerName: '✓', field: 'recibido', width: 42, cellDataType: 'boolean', cellClass: 'xl-cell xl-center' },
-    // A–H: Datos de OC (NO editables)
-    { headerName: 'Código', field: 'codigo_producto', width: 120, editable: false, cellClass: 'xl-cell xl-locked' },
-    { headerName: 'Producto', field: 'producto_nombre', width: 300, editable: false, cellClass: 'xl-cell xl-locked', tooltipField: 'producto_nombre' },
-    { headerName: 'Tipo', field: 'tipo_producto', width: 110, editable: false, cellClass: 'xl-cell xl-locked' },
-    { headerName: 'Forma Farm.', field: 'forma_farmaceutica', width: 130, editable: false, cellClass: 'xl-cell xl-locked' },
-    { headerName: 'Concentración', field: 'concentracion', width: 120, editable: false, cellClass: 'xl-cell xl-locked' },
-    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 110, editable: false, cellClass: 'xl-cell xl-locked' },
-    { headerName: 'Cant. Solic.', field: 'cantidad_solicitada', width: 92, editable: false, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-locked' },
-    // I en adelante: Editables (recepción técnica)
+    { headerName: '✓', field: 'recibido', width: 42, cellDataType: 'boolean', editable: true, cellClass: 'xl-cell xl-center' },
+    { headerName: 'Código', field: 'codigo_producto', width: 110, editable: false },
+    { headerName: 'Producto', field: 'producto_nombre', width: 260, editable: false, tooltipField: 'producto_nombre' },
+    { headerName: 'Tipo', field: 'tipo_producto', width: 100, editable: false },
+    { headerName: 'Forma Farm. / Serie', field: 'forma_farmaceutica', width: 140, editable: false },
+    { headerName: 'Concentración / Riesgo', field: 'concentracion', width: 130, editable: false },
+    { headerName: 'Unid. Empaque', field: 'unidad_empaque', width: 110, editable: false },
+    { headerName: 'Marca', field: 'marca', width: 100, editable: false },
+    { headerName: 'Cant. Solic.', field: 'cantidad_solicitada', width: 88, editable: false, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-locked' },
+    { headerName: 'CUM Recibido', field: 'cum_recibido', width: 120 },
+    { headerName: 'Nombre CUM', field: 'cum_producto_nombre', width: 180, editable: false, hide: true },
     { headerName: 'Med. Vital', field: 'es_medicamento_vital', width: 78, cellDataType: 'boolean', cellClass: 'xl-cell xl-center' },
     {
-      headerName: 'Cód. Sanitario / CUM', field: 'codigo_sanitario', width: 165,
+      headerName: 'Cód. Sanitario / IUM', field: 'codigo_sanitario', width: 155,
       cellRenderer: (p: any) => {
         const val = p.value ?? '';
         const row = p.data as RecepcionRow;
@@ -350,48 +419,64 @@ export class RecepcionExcelComponent implements OnInit {
       headerName: 'Estado INVIMA', field: 'estado_invima', width: 112, editable: false,
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center xl-locked';
-        if (p.value === 'Vigente') return `${base} xl-fill-ok`;
-        if (p.value === 'Vencido') return `${base} xl-fill-bad`;
-        if (p.value) return `${base} xl-fill-warn`;
+        const v = p.value;
+        if (v === 'Vigente' || v === 'Override Manual') return `${base} xl-fill-ok`;
+        if (v === 'Vencido' || v === 'Rechazado' || v === 'Cancelado') return `${base} xl-fill-bad`;
+        if (v) return `${base} xl-fill-warn`;
         return base;
       },
     },
-    { headerName: 'Fabricante', field: 'fabricante', width: 190 },
-    { headerName: 'Vida Útil', field: 'vida_util', width: 88 },
+    { headerName: 'Fabricante', field: 'fabricante', width: 170, editable: false },
     {
-      headerName: 'Fecha Vencimiento', field: 'fecha_vencimiento', width: 132,
+      headerName: 'Vida Útil', field: 'vida_util', width: 88, editable: false,
+      cellClass: (p: CellClassParams<RecepcionRow>) => {
+        const base = 'xl-cell xl-center xl-locked';
+        return isDispositivoMedico(p.data?.tipo_producto ?? '') ? base : `${base} xl-muted`;
+      },
+    },
+    {
+      headerName: 'Estado Venc.', field: 'estado_vencimiento', width: 100, editable: false,
+      cellClass: (p: CellClassParams<RecepcionRow>) => {
+        const base = 'xl-cell xl-center xl-locked';
+        if (p.value === 'Vigente') return `${base} xl-fill-ok`;
+        if (p.value === 'Por vencer') return `${base} xl-fill-warn`;
+        if (p.value === 'Critico') return `${base} xl-fill-bad`;
+        return base;
+      },
+    },
+    {
+      headerName: 'Fecha Vencimiento', field: 'fecha_vencimiento', width: 128,
       cellEditor: DateCellEditorComponent,
       cellEditorPopup: false,
       singleClickEdit: true,
-      cellEditorParams: {
-        placeholder: 'dd/mm/yyyy',
-      },
+      cellEditorParams: { placeholder: 'dd/mm/yyyy' },
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center';
         const s = p.data?._semaforo;
         return s ? `${base} xl-fill-${s}` : base;
       },
-      tooltipValueGetter: () => 'Clic para abrir calendario · F2 para editar',
     },
-    { headerName: 'Cant. Recibida', field: 'cantidad_recibida', width: 104, cellEditor: 'agNumberCellEditor', cellEditorParams: { min: 0, precision: 0 }, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-strong' },
-    { headerName: 'Muestra', field: 'muestra_poblacion', width: 80, editable: false, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-locked' },
-    { headerName: 'N. Lote', field: 'numero_lote', width: 118 },
-    { headerName: 'Aspecto', field: 'aspecto_cumple', width: 100, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
-    { headerName: 'Embalaje', field: 'embalaje_cumple', width: 100, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
-    { headerName: 'Contenido', field: 'contenido_cumple', width: 100, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
-    { headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 82, cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 }, type: 'numericColumn', cellClass: 'xl-cell xl-num' },
+    { headerName: 'Cant. Recibida', field: 'cantidad_recibida', width: 100, cellEditor: 'agNumberCellEditor', cellEditorParams: { min: 0, precision: 0 }, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-strong' },
+    { headerName: 'Muestra', field: 'muestra_poblacion', width: 78, editable: false, type: 'numericColumn', cellClass: 'xl-cell xl-num xl-locked' },
+    { headerName: 'N. Lote', field: 'numero_lote', width: 110 },
+    { headerName: 'Aspecto', field: 'aspecto_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
+    { headerName: 'Embalaje', field: 'embalaje_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
+    { headerName: 'Contenido', field: 'contenido_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
+    { headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 78, cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 }, type: 'numericColumn', cellClass: 'xl-cell xl-num' },
     {
-      headerName: 'Concepto', field: 'concepto_recepcion', width: 118,
-      cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CONCEPTO_VALUES },
+      headerName: 'Concepto', field: 'concepto_recepcion', width: 110, editable: false,
       cellClass: (p: CellClassParams<RecepcionRow>) => {
-        const base = 'xl-cell xl-center';
+        const base = 'xl-cell xl-center xl-locked';
         if (p.value === 'aceptado') return `${base} xl-fill-ok`;
         if (p.value === 'rechazado') return `${base} xl-fill-bad`;
-        if (p.value === 'cuarentena') return `${base} xl-fill-warn`;
         return base;
       },
     },
-    { headerName: 'Observaciones', field: 'observaciones_recepcion', width: 230 },
+    { headerName: 'Observaciones', field: 'observaciones_recepcion', width: 200 },
+    { headerName: 'MVD Solicitante', field: 'mvd_solicitante', width: 160, editable: false, hide: true, cellClass: 'xl-cell xl-mvd' },
+    { headerName: 'MVD Principio Act.', field: 'mvd_principio_activo', width: 160, editable: false, hide: true, cellClass: 'xl-cell xl-mvd' },
+    { headerName: 'MVD Forma Farm.', field: 'mvd_forma_farmaceutica', width: 130, editable: false, hide: true, cellClass: 'xl-cell xl-mvd' },
+    { headerName: 'MVD Presentación', field: 'mvd_presentacion', width: 160, editable: false, hide: true, cellClass: 'xl-cell xl-mvd' },
   ];
 
   readonly columnDefs: (ColDef<RecepcionRow> | ColGroupDef<RecepcionRow>)[] = [
@@ -428,25 +513,61 @@ export class RecepcionExcelComponent implements OnInit {
     this.inventarioService.getRecepcion(this.compraId).subscribe({
       next: (res: any) => {
         const items: RecepcionRow[] = (Array.isArray(res.data) ? res.data : []).map((item: any) => {
-          const cantidad = Number(item.cantidad_solicitada_compra ?? item.cantidad_solicitada ?? 0);
+          const cantidad = Number(item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? 0);
+          const aspectoDefault = item.aspecto_cumple === 0 || item.aspecto_cumple === false ? 'No Cumple' : 'Cumple';
+          const fechaVenc = item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '';
+          const diasVenc = calcularDiasVencimiento(fechaVenc);
           return {
-            codigo_producto: item.codigo_producto || '', producto_nombre: item.producto_nombre || '',
-            marca: item.marca || '', tipo_producto: item.tipo_producto || 'Medicamento',
-            forma_farmaceutica: item.forma_farmaceutica || '', concentracion: item.concentracion || '',
-            unidad_empaque: item.unidad_empaque || '', cantidad_solicitada: cantidad,
-            es_medicamento_vital: false, codigo_sanitario: '', estado_invima: '',
-            fabricante: '', vida_util: '', fecha_vencimiento: '',
-            cantidad_recibida: cantidad, muestra_poblacion: null, numero_lote: '',
-            aspecto_cumple: 'Cumple', embalaje_cumple: 'Cumple', contenido_cumple: 'Cumple',
-            cadena_frio_temperatura: null, concepto_recepcion: 'aceptado', observaciones_recepcion: '',
-            _validatingInvima: false, _invimaValid: null, _semaforo: '',
-            pedido_detalle_id: item.pedido_detalle_id ?? item.id ?? null, recibido: true,
+            codigo_producto: item.codigo_producto || '',
+            producto_nombre: item.producto_nombre || '',
+            marca: item.marca || '',
+            tipo_producto: item.tipo_producto || item.producto_tipo || 'Medicamento',
+            forma_farmaceutica: item.forma_farmaceutica || '',
+            concentracion: item.concentracion || '',
+            unidad_empaque: item.unidad_empaque || '',
+            cantidad_solicitada: cantidad,
+            cum_recibido: item.cum_recibido || '',
+            cum_producto_nombre: '',
+            es_medicamento_vital: Boolean(item.es_medicamento_vital),
+            codigo_sanitario: item.codigo_sanitario || '',
+            estado_invima: '',
+            fabricante: item.fabricante || '',
+            vida_util: item.vida_util || '',
+            estado_vencimiento: getEstadoVencimiento(diasVenc),
+            fecha_vencimiento: fechaVenc,
+            cantidad_recibida: cantidad,
+            muestra_poblacion: item.muestra_poblacion ?? null,
+            muestra_exclusion: Boolean(item.muestra_exclusion),
+            numero_lote: item.numero_lote || '',
+            aspecto_cumple: typeof item.aspecto_cumple === 'string' ? item.aspecto_cumple : aspectoDefault,
+            embalaje_cumple: typeof item.embalaje_cumple === 'string' ? item.embalaje_cumple : aspectoDefault,
+            contenido_cumple: typeof item.contenido_cumple === 'string' ? item.contenido_cumple : aspectoDefault,
+            cadena_frio_temperatura: item.cadena_frio_temperatura ?? null,
+            concepto_recepcion: '',
+            observaciones_recepcion: item.observaciones_recepcion || item.observaciones_pedido || '',
+            mvd_solicitante: '',
+            mvd_principio_activo: '',
+            mvd_forma_farmaceutica: '',
+            mvd_presentacion: '',
+            mvd_ium: '',
+            mvd_fecha_autorizacion: '',
+            invima_override_manual: false,
+            _validatingInvima: false,
+            _invimaValid: null,
+            _semaforo: '',
+            pedido_detalle_id: item.pedido_detalle_id ?? null,
+            recibido: true,
           } as RecepcionRow;
         });
         this.rowData = items;
-        this.ordenInfo.set({ numero: res.orden_numero || `OC-${this.compraId}`, proveedor: res.proveedor || '' });
+        items.forEach(r => { if (r.fecha_vencimiento) this.calcularSemaforo(r); });
+        this.ordenInfo.set({
+          numero: res.orden_numero || `OC-${this.compraId}`,
+          proveedor: res.proveedor || items[0]?.proveedor || '',
+        });
         this.recalcTotals();
         this.isLoading.set(false);
+        setTimeout(() => this.updateDynamicColumns(), 100);
       },
       error: () => { this.isLoading.set(false); this.msg.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la orden.' }); },
     });
@@ -533,10 +654,24 @@ export class RecepcionExcelComponent implements OnInit {
   onCellValueChanged(event: CellValueChangedEvent<RecepcionRow>): void {
     const field = event.colDef.field;
     const row = event.data;
-    if (field === 'codigo_sanitario') this.validarInvima(row, event.rowIndex ?? 0);
-    if (field === 'fecha_vencimiento') { this.calcularSemaforo(row); this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, force: true }); }
+    const rowIndex = event.rowIndex ?? 0;
+
+    if (field === 'codigo_sanitario') {
+      if (row.es_medicamento_vital) this.validarMvdIum(row, rowIndex);
+      else this.validarInvima(row, rowIndex);
+    }
+    if (field === 'cum_recibido') this.validarCum(row, rowIndex);
+    if (field === 'es_medicamento_vital') this.onMedicamentoVitalChanged(row, rowIndex, !!event.newValue);
+    if (field === 'fecha_vencimiento') {
+      row.estado_vencimiento = getEstadoVencimiento(calcularDiasVencimiento(String(event.newValue ?? '')));
+      this.calcularSemaforo(row);
+      this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, force: true });
+    }
+    if (field === 'cantidad_recibida') {
+      row.muestra_poblacion = calculateSamplePopulation(Number(event.newValue ?? 0), row.muestra_exclusion);
+      this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, columns: ['muestra_poblacion'], force: true });
+    }
     if (field === 'cantidad_recibida' || field === 'recibido' || field === 'concepto_recepcion') this.recalcTotals();
-    // Update formula bar
     this.cellInfo.update(c => ({ ...c, value: event.newValue === null || event.newValue === undefined ? '' : String(event.newValue) }));
   }
 
@@ -715,23 +850,279 @@ export class RecepcionExcelComponent implements OnInit {
     this.totalRechazados.set(this.rowData.filter(r => r.concepto_recepcion === 'rechazado').length);
   }
 
+  private canEditField(params: EditableCallbackParams<RecepcionRow>): boolean {
+    const field = params.colDef.field;
+    const row = params.data;
+    if (!field || !row) return false;
+
+    const locked = new Set([
+      'codigo_producto', 'producto_nombre', 'tipo_producto', 'forma_farmaceutica', 'concentracion',
+      'unidad_empaque', 'marca', 'cantidad_solicitada', 'muestra_poblacion', 'estado_invima',
+      'estado_vencimiento', 'cum_producto_nombre', 'fabricante', 'vida_util', 'concepto_recepcion',
+      'mvd_solicitante', 'mvd_principio_activo', 'mvd_forma_farmaceutica', 'mvd_presentacion',
+    ]);
+    if (locked.has(field)) return false;
+
+    if (field === 'es_medicamento_vital') return isMedicamento(row.tipo_producto);
+
+    const receptionFields = new Set([
+      'cantidad_recibida', 'numero_lote', 'fecha_vencimiento', 'aspecto_cumple', 'embalaje_cumple',
+      'contenido_cumple', 'cadena_frio_temperatura', 'observaciones_recepcion',
+    ]);
+    if (receptionFields.has(field)) {
+      return row.estado_invima === 'Vigente' || row.estado_invima === 'Override Manual';
+    }
+
+    return true;
+  }
+
+  private getCellClass(params: CellClassParams<RecepcionRow>): string {
+    const field = params.colDef.field ?? '';
+    const row = params.data;
+    let base = 'xl-cell';
+    if (!row || !this.canEditField({ colDef: params.colDef, data: row } as EditableCallbackParams<RecepcionRow>)) {
+      base += ' xl-locked';
+    }
+    if (field === 'cantidad_solicitada' || field === 'muestra_poblacion' || field === 'cadena_frio_temperatura') {
+      base += ' xl-num';
+    }
+    if (field === 'cantidad_recibida') base += ' xl-num xl-strong';
+    if (field.startsWith('mvd_') && row?.es_medicamento_vital) base += ' xl-mvd';
+    return base;
+  }
+
+  private updateDynamicColumns(): void {
+    if (!this.gridApi) return;
+    let showCum = false;
+    let showMvd = false;
+    for (const r of this.rowData) {
+      if (this.shouldShowCumName(r)) showCum = true;
+      if (r.es_medicamento_vital) showMvd = true;
+    }
+    this.gridApi.setColumnsVisible(['cum_producto_nombre'], showCum);
+    this.gridApi.setColumnsVisible(['mvd_solicitante', 'mvd_principio_activo', 'mvd_forma_farmaceutica', 'mvd_presentacion'], showMvd);
+  }
+
+  private shouldShowCumName(row: RecepcionRow): boolean {
+    const cum = (row.cum_recibido ?? '').trim().toUpperCase();
+    const code = (row.codigo_producto ?? '').trim().toUpperCase();
+    return cum !== '' && code !== '' && cum !== code;
+  }
+
+  private onMedicamentoVitalChanged(row: RecepcionRow, rowIndex: number, enabled: boolean): void {
+    if (!enabled) {
+      row.mvd_solicitante = '';
+      row.mvd_principio_activo = '';
+      row.mvd_forma_farmaceutica = '';
+      row.mvd_presentacion = '';
+      row.mvd_ium = '';
+      row.mvd_fecha_autorizacion = '';
+      if (row.codigo_sanitario) this.validarInvima(row, rowIndex);
+    } else {
+      row.estado_invima = 'Ingrese IUM';
+      row.fabricante = '';
+      row.concepto_recepcion = 'aceptado';
+      row._invimaValid = null;
+    }
+    this.updateDynamicColumns();
+    this.refreshRow(rowIndex);
+  }
+
+  private validarCum(row: RecepcionRow, rowIndex: number): void {
+    const raw = (row.cum_recibido ?? '').trim().toUpperCase();
+    if (!raw) { row.cum_producto_nombre = ''; this.updateDynamicColumns(); return; }
+    const code = (row.codigo_producto ?? '').trim().toUpperCase();
+    if (code && raw === code) { row.cum_producto_nombre = ''; this.updateDynamicColumns(); return; }
+    if (this.cumCache.has(raw)) {
+      row.cum_producto_nombre = this.cumCache.get(raw)!;
+      this.updateDynamicColumns();
+      this.refreshRow(rowIndex);
+      return;
+    }
+    this.inventarioService.validateCum(raw).subscribe({
+      next: (res: any) => {
+        const name = res.success && res.exists && res.data
+          ? (res.data.nombre || res.data.product_name || res.data.producto_nombre || 'Producto no encontrado')
+          : 'Producto no encontrado';
+        this.cumCache.set(raw, name);
+        row.cum_producto_nombre = name;
+        this.updateDynamicColumns();
+        this.refreshRow(rowIndex);
+      },
+      error: () => {
+        row.cum_producto_nombre = 'Error';
+        this.refreshRow(rowIndex);
+      },
+    });
+  }
+
   private validarInvima(row: RecepcionRow, rowIndex: number): void {
     const code = (row.codigo_sanitario ?? '').trim();
-    if (!code || code.length < 5) { row.estado_invima = ''; row._invimaValid = null; this.refreshRow(rowIndex); return; }
-    row._validatingInvima = true; this.refreshRow(rowIndex);
-    this.inventarioService.validateInvima(code).subscribe({
+    if (!code || code.length < 5) {
+      row.estado_invima = '';
+      row._invimaValid = null;
+      row.concepto_recepcion = '';
+      this.refreshRow(rowIndex);
+      return;
+    }
+    if (this.invimaCache.has(code)) {
+      this.applyInvimaValidation(row, rowIndex, this.invimaCache.get(code));
+      return;
+    }
+    row._validatingInvima = true;
+    row.estado_invima = 'Validando...';
+    this.refreshRow(rowIndex);
+    const type = isDispositivoMedico(row.tipo_producto) ? 'medical_device' : isMedicamento(row.tipo_producto) ? 'medicine' : 'auto';
+    this.inventarioService.validateInvima(code, type).subscribe({
       next: (res: any) => {
         row._validatingInvima = false;
         if (res.success && res.data) {
-          row.estado_invima = res.data.status === 'active' ? 'Vigente' : res.data.status === 'expired' ? 'Vencido' : 'No encontrado';
-          row._invimaValid = res.data.valid;
-          if (res.data.laboratory) row.fabricante = res.data.laboratory;
-          if (res.data.vida_util) row.vida_util = res.data.vida_util;
-        } else { row.estado_invima = 'No encontrado'; row._invimaValid = false; }
+          this.invimaCache.set(code, res.data);
+          this.applyInvimaValidation(row, rowIndex, res.data);
+        } else {
+          row.estado_invima = 'No encontrado';
+          row._invimaValid = false;
+          row.concepto_recepcion = '';
+          this.refreshRow(rowIndex);
+          this.offerManualOverride(row, rowIndex, code, 'Código sanitario no encontrado en INVIMA');
+        }
+      },
+      error: (err) => {
+        row._validatingInvima = false;
+        row.estado_invima = 'Error';
+        row._invimaValid = null;
+        this.refreshRow(rowIndex);
+        this.offerManualOverride(row, rowIndex, code, 'Error al consultar INVIMA: ' + (err?.message || 'conexión'));
+      },
+    });
+  }
+
+  private applyInvimaValidation(row: RecepcionRow, rowIndex: number, data: any): void {
+    const isValid = data.valid === true;
+    const status = data.status || 'unknown';
+
+    if (isValid && status === 'active') {
+      row.estado_invima = 'Vigente';
+      row.concepto_recepcion = 'aceptado';
+      row._invimaValid = true;
+      if (data.laboratory) row.fabricante = data.laboratory;
+      if (isDispositivoMedico(row.tipo_producto)) {
+        row.vida_util = data.vida_util || data.vida_util_texto || 'No aplica';
+      } else {
+        row.vida_util = '';
+      }
+      if (!row.fecha_vencimiento && data.expires_at) {
+        row.fecha_vencimiento = String(data.expires_at).split('T')[0];
+        row.estado_vencimiento = getEstadoVencimiento(calcularDiasVencimiento(row.fecha_vencimiento));
+        this.calcularSemaforo(row);
+      }
+      if (!row.cantidad_recibida) {
+        row.cantidad_recibida = row.cantidad_solicitada;
+        row.muestra_poblacion = calculateSamplePopulation(row.cantidad_recibida, row.muestra_exclusion);
+      }
+      this.msg.add({ severity: 'success', summary: 'INVIMA vigente', detail: data.name || data.laboratory || row.codigo_sanitario });
+    } else if (!isValid && status === 'not_found') {
+      row.estado_invima = 'No encontrado';
+      row._invimaValid = false;
+      row.fabricante = '';
+      row.vida_util = '';
+      row.concepto_recepcion = '';
+      this.refreshRow(rowIndex);
+      this.offerManualOverride(row, rowIndex, row.codigo_sanitario, 'Código sanitario no encontrado en INVIMA');
+      return;
+    } else {
+      const statusText = status === 'expired' ? 'Vencido' : status === 'cancelled' ? 'Cancelado' : 'Rechazado';
+      row.estado_invima = statusText;
+      row._invimaValid = false;
+      row.fabricante = data.laboratory || '';
+      row.vida_util = '';
+      row.concepto_recepcion = 'rechazado';
+      const note = `Código sanitario ${statusText.toLowerCase()} según INVIMA`;
+      row.observaciones_recepcion = row.observaciones_recepcion ? `${row.observaciones_recepcion}; ${note}` : note;
+      this.msg.add({ severity: 'error', summary: statusText, detail: data.name || 'Producto no vigente' });
+    }
+    this.refreshRow(rowIndex);
+  }
+
+  private validarMvdIum(row: RecepcionRow, rowIndex: number): void {
+    const ium = (row.codigo_sanitario ?? '').trim();
+    if (!ium) return;
+    const key = ium.toUpperCase();
+    row.estado_invima = 'Buscando MVD...';
+    this.refreshRow(rowIndex);
+    if (this.mvdCache.has(key)) {
+      this.applyMvdData(row, rowIndex, this.mvdCache.get(key));
+      return;
+    }
+    this.inventarioService.searchMvd(ium).subscribe({
+      next: (res: any) => {
+        if (res.success && res.found && res.data) {
+          this.mvdCache.set(key, res.data);
+          this.applyMvdData(row, rowIndex, res.data);
+        } else {
+          row.estado_invima = 'IUM no encontrado';
+          row.fabricante = '';
+          row.concepto_recepcion = 'rechazado';
+          row._invimaValid = false;
+          this.refreshRow(rowIndex);
+          this.msg.add({ severity: 'error', summary: 'MVD', detail: 'IUM no encontrado en Medicamentos Vitales No Disponibles' });
+        }
+      },
+      error: () => {
+        row.estado_invima = 'Error';
         this.refreshRow(rowIndex);
       },
-      error: () => { row._validatingInvima = false; row.estado_invima = 'Error'; row._invimaValid = null; this.refreshRow(rowIndex); },
     });
+  }
+
+  private applyMvdData(row: RecepcionRow, rowIndex: number, data: any): void {
+    row.estado_invima = 'Vigente';
+    row._invimaValid = true;
+    row.fabricante = data.solicitante || '';
+    row.mvd_solicitante = data.solicitante || '';
+    row.mvd_principio_activo = data.principio_activo || '';
+    row.mvd_forma_farmaceutica = data.forma_farmaceutica || '';
+    row.mvd_presentacion = data.presentacion_comercial || '';
+    row.mvd_ium = data.ium || row.codigo_sanitario;
+    row.mvd_fecha_autorizacion = data.fecha_autorizacion || '';
+    row.concepto_recepcion = 'aceptado';
+    if (!row.cantidad_recibida) {
+      row.cantidad_recibida = row.cantidad_solicitada;
+    }
+    row.muestra_poblacion = calculateSamplePopulation(row.cantidad_recibida, row.muestra_exclusion);
+    this.updateDynamicColumns();
+    const nombre = data.nombre_comercial && data.nombre_comercial !== 'NO REPORTADO'
+      ? data.nombre_comercial : (data.principio_activo || 'Medicamento vital');
+    this.msg.add({ severity: 'success', summary: 'MVD autorizado', detail: nombre });
+    this.refreshRow(rowIndex);
+  }
+
+  private offerManualOverride(row: RecepcionRow, rowIndex: number, code: string, reason: string): void {
+    this.confirm.confirm({
+      header: 'Validación INVIMA no exitosa',
+      message: `${reason}. ¿Desea recepcionar manualmente este producto? Se habilitarán los campos y quedará registrado en observaciones.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, recepcionar manualmente',
+      rejectLabel: 'No, mantener bloqueado',
+      accept: () => this.applyManualOverride(row, rowIndex, code, reason),
+      reject: () => this.msg.add({ severity: 'warn', summary: 'Bloqueado', detail: 'Ingrese un código sanitario válido para habilitar los campos.' }),
+    });
+  }
+
+  private applyManualOverride(row: RecepcionRow, rowIndex: number, _code: string, reason: string): void {
+    const timestamp = new Date().toLocaleString('es-CO');
+    const note = `[OVERRIDE MANUAL ${timestamp}] ${reason}. Recepción manual autorizada por el usuario.`;
+    row.estado_invima = 'Override Manual';
+    row.invima_override_manual = true;
+    row.concepto_recepcion = 'aceptado';
+    row._invimaValid = true;
+    row.observaciones_recepcion = row.observaciones_recepcion ? `${row.observaciones_recepcion}; ${note}` : note;
+    if (!row.cantidad_recibida) {
+      row.cantidad_recibida = row.cantidad_solicitada;
+      row.muestra_poblacion = calculateSamplePopulation(row.cantidad_recibida, row.muestra_exclusion);
+    }
+    this.msg.add({ severity: 'success', summary: 'Override manual', detail: 'Campos habilitados para recepción manual.' });
+    this.refreshRow(rowIndex);
   }
 
   private calcularSemaforo(row: RecepcionRow): void {
@@ -798,7 +1189,41 @@ export class RecepcionExcelComponent implements OnInit {
     const payload = {
       compra_id: this.compraId,
       observaciones: '',
-      items: items.map(r => ({ ...r, recibido: 1, _validatingInvima: undefined, _invimaValid: undefined, _semaforo: undefined })),
+      items: items.map(r => ({
+        pedido_detalle_id: r.pedido_detalle_id,
+        codigo_producto: r.codigo_producto,
+        producto_nombre: r.producto_nombre,
+        marca: r.marca,
+        tipo_producto: r.tipo_producto,
+        forma_farmaceutica: r.forma_farmaceutica,
+        concentracion: r.concentracion,
+        unidad_empaque: r.unidad_empaque,
+        cantidad_solicitada: r.cantidad_solicitada,
+        cantidad_recibida: r.cantidad_recibida,
+        muestra_poblacion: r.muestra_poblacion,
+        cum_recibido: r.cum_recibido,
+        numero_lote: r.numero_lote,
+        fecha_vencimiento: r.fecha_vencimiento,
+        codigo_sanitario: r.codigo_sanitario,
+        fabricante: r.fabricante,
+        vida_util: r.vida_util,
+        estado_invima: r.estado_invima,
+        invima_override_manual: r.invima_override_manual ? 1 : 0,
+        aspecto_cumple: r.aspecto_cumple,
+        embalaje_cumple: r.embalaje_cumple,
+        contenido_cumple: r.contenido_cumple,
+        cadena_frio_temperatura: r.cadena_frio_temperatura,
+        concepto_recepcion: r.concepto_recepcion,
+        observaciones_recepcion: r.observaciones_recepcion,
+        es_medicamento_vital: r.es_medicamento_vital,
+        mvd_ium: r.es_medicamento_vital ? (r.mvd_ium || r.codigo_sanitario) : null,
+        mvd_solicitante: r.mvd_solicitante,
+        mvd_principio_activo: r.mvd_principio_activo,
+        mvd_forma_farmaceutica: r.mvd_forma_farmaceutica,
+        mvd_presentacion_comercial: r.mvd_presentacion,
+        mvd_fecha_autorizacion: r.mvd_fecha_autorizacion || null,
+        recibido: 1,
+      })),
     };
 
     this.inventarioService.createRecepcion(payload).subscribe({
