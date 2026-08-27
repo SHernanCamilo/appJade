@@ -136,16 +136,7 @@
                 </p-tag>
                 <i class="pi pi-external-link tree-vista-action" *ngIf="!esEnMantenimiento(vista)"></i>
                 <button
-                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
-                  type="button"
-                  class="btn-action-icon btn-action-excel tree-vista-btn"
-                  (click)="abrirVistaRefresh(vista, $event)"
-                  pTooltip="Vista tipo Excel en el navegador"
-                  tooltipPosition="left">
-                  <i class="pi pi-table"></i>
-                </button>
-                <button
-                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
+                  *ngIf="!esEnMantenimiento(vista) && vista.estado && permissionDesktop()"
                   type="button"
                   class="btn-action-icon btn-action-desktop tree-vista-btn"
                   (click)="abrirVistaEscritorio(vista, $event)"

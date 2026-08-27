@@ -19,10 +19,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ExcelColumnFilterComponent } from '../excel-column-filter/excel-column-filter.component';
 import { ExcelDateFilterComponent } from '../excel-date-filter/excel-date-filter.component';
 
+import { PermissionService } from '../../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../../core/directives/has-permission.directive';
+
 @Component({
   selector: 'app-view-vistas',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, AgGridAngular, ToastModule, TooltipModule, GridLoaderComponent],
+  imports: [CommonModule, FormsModule, RouterModule, AgGridAngular, ToastModule, TooltipModule, GridLoaderComponent, HasPermissionDirective],
   providers: [MessageService],
   templateUrl: './viewVistas.component.html',
   styleUrl: './viewVistas.component.css',
@@ -105,7 +108,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     private location: Location,
     private vistasService: VistasService,
     private fabricExportService: FabricExportService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    public permissionService: PermissionService
   ) {}
 
   ngOnInit(): void {
@@ -132,6 +136,10 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.exportSub?.unsubscribe();
     if (this.filterDebounce) clearTimeout(this.filterDebounce);
+  }
+
+  permissionDesktop(): boolean {
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP'); 
   }
 
   get totalRegistros(): number {

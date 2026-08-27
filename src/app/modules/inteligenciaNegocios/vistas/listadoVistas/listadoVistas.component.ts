@@ -18,6 +18,9 @@ import { MultiSelectModule } from 'primeng/multiselect';
 import { EsquemaCatalogo, VistasService, VistaBi } from '../../services/vistas.service';
 import { isVistaEnMantenimiento } from '../../helpers/fabric-error.helper';
 
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
+
 export interface EsquemaOption {
   code: string;
   label: string;
@@ -49,7 +52,8 @@ export interface GrupoVistas {
     InputTextModule,
     TooltipModule,
     DropdownModule,
-    MultiSelectModule
+    MultiSelectModule,
+    HasPermissionDirective
   ],
   providers: [MessageService],
   templateUrl: './listadoVistas.component.html',
@@ -81,7 +85,8 @@ export class ListadoVistasComponent implements OnInit {
     private router: Router,
     private location: Location,
     private vistasService: VistasService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    public permissionService: PermissionService
   ) {}
 
   ngOnInit(): void {
@@ -92,6 +97,10 @@ export class ListadoVistasComponent implements OnInit {
     this.pageTitle = (data['pageTitle'] as string) ?? this.pageTitle;
     this.pageSubtitle = (data['pageSubtitle'] as string) ?? this.pageSubtitle;
     this.cargarContexto();
+  }
+
+  permissionDesktop(): boolean {
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP'); 
   }
 
   get isLoading(): boolean {

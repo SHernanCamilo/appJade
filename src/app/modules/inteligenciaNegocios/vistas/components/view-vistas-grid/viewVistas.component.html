@@ -78,6 +78,7 @@
           </button>
           <button type="button" class="btn-toolbar btn-toolbar-desktop" (click)="abrirEnEscritorio()"
             [disabled]="isLoadingVista || !vista || isLaunchingDesktop"
+            *hasPermission="'BI-VISTAS-DESKTOP'"
             title="Abrir en JadeOne Desktop — recomendado para más de 30.000 filas">
             <i class="pi pi-desktop"></i> Escritorio
           </button>
