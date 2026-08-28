@@ -229,7 +229,16 @@ export class FabricExportService {
             //    Graph-Fabric devuelve DATOS comprimidos (ndjson/csv gzip), no un xlsx.
             //    Debemos descomprimir, parsear y armar el Excel. Antes se descargaba
             //    el .ndjson.gz crudo tal cual (usuario recibia un archivo inutil).
-            this.http.get(`${baseUrl}/download/${jobId}`, { responseType: 'blob', observe: 'response' }).subscribe({
+            // as=file: el backend ya genero el xlsx en cola. Aqui solo se baja
+            // el archivo y se guarda; el navegador NO lo parsea (un xlsx de
+            // 200+ MB en SheetJS congela la pagina). Antes, cuando el backend
+            // mandaba el ndjson.gz crudo, este servicio lo convertia en el
+            // navegador; ahora esa conversion vive en el job del servidor.
+            const token = localStorage.getItem('token') ?? '';
+            this.http.get(
+              `${baseUrl}/download/${jobId}?as=file&token=${encodeURIComponent(token)}`,
+              { responseType: 'blob', observe: 'response' }
+            ).subscribe({
               next: async (resp) => {
                 const blob   = resp.body as Blob;
                 const fmt    = resp.headers.get('X-Export-Format') ?? d.format ?? '';

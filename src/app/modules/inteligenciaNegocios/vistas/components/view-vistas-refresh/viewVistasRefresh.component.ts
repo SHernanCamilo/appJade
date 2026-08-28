@@ -1440,10 +1440,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       jobId,
     });
 
-    // Descargar el archivo - como blob para procesarlo en memoria
+    // Para pintar la grilla se descarga el NDJSON crudo (~12 MB), NO el xlsx
+    // de 200+ MB. Parsear ese xlsx en el navegador con SheetJS consumia varios
+    // GB de RAM y congelaba la pagina. El xlsx queda en el servidor y se baja
+    // solo cuando el usuario pulsa "Descargar Excel" (as=file, sin parsear).
     const token = localStorage.getItem('token') ?? '';
     this.http.get(
-      `${this.baseUrl}/export/download/${jobId}?token=${encodeURIComponent(token)}`,
+      `${this.baseUrl}/export/download/${jobId}?as=data&token=${encodeURIComponent(token)}`,
       { responseType: 'blob', observe: 'response' }
     ).subscribe({
       next: response => {
