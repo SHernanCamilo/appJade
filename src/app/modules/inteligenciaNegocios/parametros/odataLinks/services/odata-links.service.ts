@@ -12,6 +12,8 @@ export interface OdataLink {
   schema: string;
   view: string;
   url: string;
+  /** URL del carril rápido (parquet paginado por Graph). Recomendada para vistas grandes. */
+  parquet_url?: string;
   active: boolean;
   expires_at: string | null;
   access_count: number;
@@ -43,6 +45,7 @@ export interface OdataLinkCreateResponse {
     visibility: string;
     url: string;
     excel_url: string;
+    parquet_url?: string;
     expires_at: string | null;
     public_token?: string;
     full_url?: string;

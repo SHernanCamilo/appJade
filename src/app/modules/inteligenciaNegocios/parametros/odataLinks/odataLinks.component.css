@@ -197,6 +197,16 @@
   border-color: #a5b4fc;
 }
 
+/* Botón de URL rápida (parquet): ámbar para distinguirlo de la copia estándar */
+.btn-icon-fast {
+  color: #d97706;
+}
+
+.btn-icon-fast:hover {
+  background: #fffbeb;
+  border-color: #fbbf24;
+}
+
 .btn-icon-danger {
   flex-shrink: 0;
   width: 2rem;

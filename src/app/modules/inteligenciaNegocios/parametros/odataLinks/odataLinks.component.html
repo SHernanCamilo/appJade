@@ -91,8 +91,12 @@
                     <td>
                       <div class="url-cell">
                         <code class="url-code">{{ link.url }}</code>
-                        <button class="btn-icon-copy" (click)="copyUrl(link.url)" pTooltip="Copiar URL" tooltipPosition="top">
+                        <button class="btn-icon-copy" (click)="copyUrl(link.url)" pTooltip="Copiar URL estándar" tooltipPosition="top">
                           <i class="pi pi-copy"></i>
+                        </button>
+                        <button class="btn-icon-copy btn-icon-fast" (click)="copyUrl(parquetUrlOf(link))"
+                          pTooltip="Copiar URL rápida (parquet) — recomendada para vistas grandes" tooltipPosition="top">
+                          <i class="pi pi-bolt"></i>
                         </button>
                       </div>
                     </td>
@@ -576,8 +580,22 @@
         <span>{{ resultWarning }}</span>
       </div>
 
+      <div class="result-item" *ngIf="resultParquetUrl">
+        <label class="param-label">
+          <i class="pi pi-bolt" style="color:#f59e0b"></i>
+          URL r&aacute;pida (recomendada para vistas grandes)
+        </label>
+        <div class="result-value-row">
+          <code class="result-code">{{ resultParquetUrl }}</code>
+          <button class="btn-icon-copy" (click)="copyToClipboard(resultParquetUrl)" pTooltip="Copiar" tooltipPosition="top">
+            <i class="pi pi-copy"></i>
+          </button>
+        </div>
+        <small class="form-hint">Pagina el parquet directo, sin l&iacute;mite de filas. &Uacute;sela en Excel &rarr; Fuente OData.</small>
+      </div>
+
       <div class="result-item" *ngIf="resultUrl">
-        <label class="param-label">URL OData</label>
+        <label class="param-label">URL OData est&aacute;ndar</label>
         <div class="result-value-row">
           <code class="result-code">{{ resultUrl }}</code>
           <button class="btn-icon-copy" (click)="copyToClipboard(resultUrl)" pTooltip="Copiar" tooltipPosition="top">
