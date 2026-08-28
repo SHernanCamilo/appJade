@@ -165,7 +165,9 @@ export class FabricExportService {
     // anterior respondio. Antes con setInterval se disparaba cada 3s sin esperar,
     // acumulando decenas de requests simultaneos que saturaban el backend.
     const POLL_MS  = 3000;
-    const MAX_POLLS = 300; // ~15 min de techo duro
+    // ~20 min: cubre la ejecucion en Fabric + la conversion a xlsx de vistas
+    // de medio millon de filas (que puede sumar 1-2 min extra).
+    const MAX_POLLS = 400;
     let polls = 0;
 
     // Guarda para poder cancelar desde cancelExport()
@@ -248,10 +250,20 @@ export class FabricExportService {
                 setTimeout(() => this.exportProgressSubject.next(null), 3000);
                 this.decrementPending();
               },
-              error: () => {
-                // Fallback: abrir con token en query param (window.open no envía headers)
-                const token = localStorage.getItem('token') ?? '';
-                window.open(`${baseUrl}/download/${jobId}?token=${encodeURIComponent(token)}`, '_blank');
+              error: (err) => {
+                // NO usar window.open como fallback: abria una pestaña que
+                // terminaba en /auth/login con 405 porque el token en query
+                // param no autentica igual. Mejor informar y dejar reintentar.
+                const detail = err?.status === 409
+                  ? 'El Excel aun se esta generando. Espere unos segundos y reintente.'
+                  : err?.status === 410
+                    ? 'El archivo expiro. Vuelva a exportar.'
+                    : 'No se pudo descargar el archivo. Reintente la exportacion.';
+
+                this.messageService.add({
+                  key: TOAST_KEY, severity: 'error', summary: 'Descarga fallida',
+                  detail, life: 8000
+                });
                 setTimeout(() => this.exportProgressSubject.next(null), 3000);
                 this.decrementPending();
               }
