@@ -58,6 +58,8 @@ export class FabricExportService {
   /** Referencia activa para poder cancelar */
   private activePollInterval: ReturnType<typeof setInterval> | null = null;
   private activeJobId: string | null = null;
+  /** Detiene el polling secuencial en curso (lo define pollExportStatusLegacy). */
+  private stopActivePoll: (() => void) | null = null;
 
   constructor(
     private http: HttpClient,
@@ -89,6 +91,11 @@ export class FabricExportService {
    * - No detiene el job en el server (se completará solo en background)
    */
   cancelExport(): void {
+    // Detener el polling secuencial (setTimeout recursivo)
+    if (this.stopActivePoll) {
+      this.stopActivePoll();
+      this.stopActivePoll = null;
+    }
     if (this.activePollInterval) {
       clearInterval(this.activePollInterval);
       this.activePollInterval = null;
@@ -153,7 +160,42 @@ export class FabricExportService {
    */
   private pollExportStatusLegacy(jobId: string, label: string, baseUrl: string): void {
     this.activeJobId = jobId;
-    const poll = setInterval(() => {
+
+    // POLLING SECUENCIAL (no solapado): cada consulta se agenda SOLO cuando la
+    // anterior respondio. Antes con setInterval se disparaba cada 3s sin esperar,
+    // acumulando decenas de requests simultaneos que saturaban el backend.
+    const POLL_MS  = 3000;
+    const MAX_POLLS = 300; // ~15 min de techo duro
+    let polls = 0;
+
+    // Guarda para poder cancelar desde cancelExport()
+    let cancelled = false;
+    const timeoutRef = { id: null as ReturnType<typeof setTimeout> | null };
+
+    const stop = (): void => {
+      cancelled = true;
+      if (timeoutRef.id) { clearTimeout(timeoutRef.id); timeoutRef.id = null; }
+    };
+    this.stopActivePoll = stop;
+
+    const scheduleNext = (): void => {
+      if (cancelled) return;
+      if (++polls >= MAX_POLLS) {
+        stop();
+        this.exportProgressSubject.next(null);
+        this.decrementPending();
+        this.messageService.add({
+          key: TOAST_KEY, severity: 'warn', summary: 'Exportacion muy lenta',
+          detail: 'El servidor tardo demasiado. Intente con filtros para reducir los datos.', life: 8000
+        });
+        return;
+      }
+      timeoutRef.id = setTimeout(() => doPoll(), POLL_MS);
+    };
+
+    const doPoll = (): void => {
+      if (cancelled) return;
+
       this.http.get<{ success: boolean; data: any }>(`${baseUrl}/status/${jobId}`).subscribe({
         next: (res) => {
           const d = res.data;
@@ -166,11 +208,12 @@ export class FabricExportService {
               message: d.message ?? 'Procesando...',
               runningS: d.running_s ?? undefined
             });
+            scheduleNext(); // agendar la siguiente SOLO ahora
             return;
           }
 
           if (d.status === 'completed') {
-            clearInterval(poll);
+            stop();
             this.exportProgressSubject.next({
               status: 'completed',
               progress: 100,
@@ -217,23 +260,38 @@ export class FabricExportService {
           }
 
           if (d.status === 'failed') {
-            clearInterval(poll);
+            stop();
             this.exportProgressSubject.next(null);
             this.decrementPending();
             this.messageService.add({
               key: TOAST_KEY, severity: 'error', summary: 'Exportación fallida',
               detail: d.message ?? 'Error generando el Excel', life: 8000
             });
+            return;
           }
+
+          // Estado desconocido: seguir consultando
+          scheduleNext();
         },
         error: () => {
-          clearInterval(poll);
+          // Error de red puntual: reintentar unas veces antes de rendirse
+          if (polls < 5) {
+            scheduleNext();
+            return;
+          }
+          stop();
           this.exportProgressSubject.next(null);
           this.decrementPending();
+          this.messageService.add({
+            key: TOAST_KEY, severity: 'error', summary: 'Error de conexion',
+            detail: 'Se perdio la conexion con el servidor durante la exportacion.', life: 6000
+          });
         }
       });
-    }, 3000); // Poll cada 3 segundos (ligero: ~5ms por request)
-    this.activePollInterval = poll;
+    };
+
+    // Primera consulta inmediata (no esperar 3s)
+    doPoll();
   }
 
   private async exportarExcelLocal(options: FabricExportDesdeGrillaOptions): Promise<void> {
