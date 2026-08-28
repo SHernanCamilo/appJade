@@ -259,49 +259,81 @@ export class ListadoVistasComponent implements OnInit {
     }
 
     this.isLoadingVistas = true;
-    const promises: Promise<VistaBi[]>[] = [];
 
+    // Separar los esquemas que ya estan en cache de los que hay que pedir a Graph
+    const pendientes: string[] = [];
     for (const schema of this.esquemasSeleccionados) {
       if (forceReload) this.vistasPorEsquema.delete(schema);
-
-      const cached = this.vistasPorEsquema.get(schema);
-      if (cached) {
-        promises.push(Promise.resolve(cached));
-      } else {
-        promises.push(new Promise((resolve, reject) => {
-          this.vistasService.getVistasPorEsquema(schema, forceReload, this.grupoTipo).subscribe({
-            next: response => {
-              const nombreEsquema = this.esquemasCatalogo.find(
-                e => e.schema.toLowerCase() === schema.toLowerCase()
-              )?.nombre;
-
-              const vistas = (response.data ?? []).map(v => ({
-                ...v,
-                schemaDisplay: nombreEsquema ?? v.schemaDisplay
-              }));
-
-              this.vistasPorEsquema.set(schema, vistas);
-              resolve(vistas);
-            },
-            error: err => reject(err)
-          });
-        }));
-      }
+      if (!this.vistasPorEsquema.has(schema)) pendientes.push(schema);
     }
 
-    Promise.all(promises).then(results => {
-      this.vistas = results.flat();
-      this.isLoadingVistas = false;
-    }).catch(() => {
-      this.vistas = [];
-      this.isLoadingVistas = false;
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'No se pudieron cargar las vistas.',
-        life: 6000
+    // CONCURRENCIA LIMITADA: en vez de disparar N requests /views a la vez
+    // (que represaba Graph con 90+ requests), cargar de a MAX_CONCURRENT.
+    // Los esquemas ya cacheados no cuentan (resuelven al instante).
+    const MAX_CONCURRENT = 3;
+
+    const cargarUno = (schema: string): Promise<void> => {
+      return new Promise((resolve) => {
+        this.vistasService.getVistasPorEsquema(schema, forceReload, this.grupoTipo).subscribe({
+          next: response => {
+            const nombreEsquema = this.esquemasCatalogo.find(
+              e => e.schema.toLowerCase() === schema.toLowerCase()
+            )?.nombre;
+            const vistas = (response.data ?? []).map(v => ({
+              ...v,
+              schemaDisplay: nombreEsquema ?? v.schemaDisplay
+            }));
+            this.vistasPorEsquema.set(schema, vistas);
+            // Actualizar la grilla de forma incremental (el usuario ve vistas
+            // apareciendo por esquema, no espera a que TODOS terminen)
+            this.recomputarVistasVisibles();
+            resolve();
+          },
+          error: () => {
+            // Un esquema que falla no debe tumbar los demas
+            this.vistasPorEsquema.set(schema, []);
+            resolve();
+          }
+        });
       });
+    };
+
+    // Worker pool: procesa la cola de pendientes de a MAX_CONCURRENT
+    const cola = [...pendientes];
+    const workers: Promise<void>[] = [];
+
+    const trabajar = async (): Promise<void> => {
+      while (cola.length > 0) {
+        const schema = cola.shift()!;
+        await cargarUno(schema);
+      }
+    };
+
+    for (let i = 0; i < Math.min(MAX_CONCURRENT, cola.length); i++) {
+      workers.push(trabajar());
+    }
+
+    // Si todo estaba cacheado, mostrar de una
+    if (pendientes.length === 0) {
+      this.recomputarVistasVisibles();
+      this.isLoadingVistas = false;
+      return;
+    }
+
+    Promise.all(workers).then(() => {
+      this.recomputarVistasVisibles();
+      this.isLoadingVistas = false;
     });
+  }
+
+  /** Reconstruye this.vistas desde el cache por esquema (para render incremental). */
+  private recomputarVistasVisibles(): void {
+    const todas: VistaBi[] = [];
+    for (const schema of this.esquemasSeleccionados) {
+      const cached = this.vistasPorEsquema.get(schema);
+      if (cached) todas.push(...cached);
+    }
+    this.vistas = todas;
   }
 
   actualizar(): void {
