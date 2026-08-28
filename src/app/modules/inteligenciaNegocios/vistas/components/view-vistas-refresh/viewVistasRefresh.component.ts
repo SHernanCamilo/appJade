@@ -1728,6 +1728,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Quitar BOM UTF-8
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
+    // NDJSON: el export async de Graph devuelve una fila JSON por linea.
+    // Se detecta porque el contenido arranca con '{' (no es CSV).
+    if (text.trimStart().startsWith('{')) {
+      return this.parseNdjsonText(text);
+    }
+
     // Saltar linea "sep=X" que algunos CSV incluyen para Excel
     if (text.startsWith('sep=')) {
       text = text.slice(text.indexOf('\n') + 1);
@@ -1738,6 +1744,23 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const delim     = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
 
     return this.parseCsvText(text, delim);
+  }
+
+  /**
+   * Parser NDJSON: una fila JSON por linea (formato del export async de Graph).
+   * Las lineas corruptas se saltan para no perder todo el dataset.
+   */
+  private parseNdjsonText(text: string): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = [];
+    for (const line of text.split('\n')) {
+      const t = line.trim();
+      if (!t) continue;
+      try {
+        const obj = JSON.parse(t);
+        if (obj && typeof obj === 'object') out.push(obj as Record<string, unknown>);
+      } catch { /* saltar linea corrupta */ }
+    }
+    return out;
   }
 
   /** Parser CSV manual, sin librerias externas */

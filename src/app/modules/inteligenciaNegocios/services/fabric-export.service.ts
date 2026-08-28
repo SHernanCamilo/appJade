@@ -21,6 +21,8 @@ export interface ExportProgress {
   message: string;
   filename?: string;
   fileSize?: string;
+  /** Segundos que lleva ejecutando el job en Graph-Fabric (para la barra). */
+  runningS?: number;
 }
 
 export interface FabricExportOptions {
@@ -161,7 +163,8 @@ export class FabricExportService {
               status: d.status,
               progress: d.progress ?? 0,
               rows: d.rows ?? 0,
-              message: d.message ?? 'Procesando...'
+              message: d.message ?? 'Procesando...',
+              runningS: d.running_s ?? undefined
             });
             return;
           }
