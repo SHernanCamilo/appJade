@@ -1492,10 +1492,29 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         return;
       }
 
+      // Guarda: si las filas llegaron pero SIN campos, el parseo fallo (por
+      // ejemplo el gzip no se descomprimio bien). Antes esto pintaba la grilla
+      // con encabezados y todas las celdas vacias, sin ningun aviso.
+      const primeraFilaCampos = Object.keys(data[0] ?? {}).length;
+      if (primeraFilaCampos === 0) {
+        this.setError(
+          'Los datos llegaron pero no se pudieron interpretar (0 campos por fila). ' +
+          'Reintente con "Actualizar todo".'
+        );
+        return;
+      }
+
       console.log('[parseAndLoad] Filas:', data.length, '| Cols:', Object.keys(data[0] ?? {}).length);
       this.rawData = data;
 
       if (this.columnDefs.length === 0) {
+        this.columnDefs = this.inferColumnDefs(data);
+        this.applyColumnDefs();
+      } else if (!this.columnDefsMatchData(data)) {
+        // Las columnas venian del endpoint /columns pero sus `field` no coinciden
+        // con las claves reales de los datos: AG Grid pintaba los encabezados y
+        // dejaba TODAS las celdas vacias. Se reconstruyen desde los datos.
+        console.warn('[parseAndLoad] Los campos de las columnas no coinciden con los datos; se reconstruyen desde el dataset');
         this.columnDefs = this.inferColumnDefs(data);
         this.applyColumnDefs();
       }
@@ -1978,12 +1997,71 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.gridApi?.setGridOption('columnDefs', this.gridColumnDefs);
   }
 
+  /**
+   * ¿Los `field` de las columnas actuales existen de verdad en los datos?
+   *
+   * Las columnas se construyen con los metadatos de /columns, pero los datos
+   * llegan del NDJSON del export. Si los nombres no coinciden (mayusculas,
+   * alias, columnas renombradas en la vista), AG Grid pinta los encabezados y
+   * deja TODAS las celdas vacias, que es justo el sintoma que veiamos.
+   *
+   * Se considera que coinciden si al menos la mitad de las columnas de datos
+   * aparecen como clave en la primera fila.
+   */
+  private columnDefsMatchData(data: Record<string, unknown>[]): boolean {
+    if (data.length === 0) return true;
+
+    const keys = new Set(Object.keys(data[0]));
+    const dataFields = this.columnDefs
+      .map(c => c.field)
+      .filter((f): f is string => !!f && f !== '__ROW_NUMBER__');
+
+    if (dataFields.length === 0) return false;
+
+    const matches = dataFields.filter(f => keys.has(f)).length;
+    const ratio   = matches / dataFields.length;
+
+    if (ratio < 0.5) {
+      console.warn('[columnDefsMatchData] Coincidencia baja:', {
+        columnas: dataFields.slice(0, 5),
+        clavesDatos: Object.keys(data[0]).slice(0, 5),
+        coinciden: matches,
+        de: dataFields.length,
+      });
+    }
+
+    return ratio >= 0.5;
+  }
+
   private inferColumnDefs(data: Record<string, unknown>[]): ColDef[] {
     console.warn('[inferColumnDefs] Infiriendo columnas desde datos - NO se usaron metadatos del backend');
-    
+
     if (!data.length) return [];
     const sample = data.slice(0, 20);
-    return Object.keys(data[0]).map(key => {
+
+    // La columna de numeros de fila (como Excel) tiene que ir siempre primero.
+    // Antes se perdia al inferir columnas desde los datos.
+    const out: ColDef[] = [{
+      headerName: '',
+      field: '__ROW_NUMBER__',
+      width: 60, minWidth: 60, maxWidth: 60,
+      resizable: false, sortable: false, filter: false,
+      pinned: 'left', lockPinned: true,
+      cellClass: 'bi-cell-row-number',
+      headerClass: 'excel-corner-header',
+      valueGetter: (params) => params.node?.rowIndex != null ? params.node.rowIndex + 1 : '',
+      cellStyle: {
+        fontWeight: 'bold',
+        color: '#666',
+        textAlign: 'center',
+        backgroundColor: '#f9fafb',
+        borderRight: '1px solid #d1d5db',
+      },
+    }];
+
+    const dataCols = Object.keys(data[0])
+      .filter(key => key !== '__ROW_NUMBER__')
+      .map(key => {
       const vals  = sample.map(r => r[key]).filter(v => v != null);
       const isNum = vals.length > 0 && vals.every(v => typeof v === 'number');
       
@@ -2020,6 +2098,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
       return colDef;
     });
+
+    out.push(...dataCols);
+
+    return out;
   }
 
   // -Filtros dinamicos -
