@@ -132,6 +132,7 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     window.addEventListener('offline', this.onOffline);
 
     // Watchdog: cada 20s verifica que sigamos recibiendo datos
+    this.watchdogStartedAt = Date.now();
     this.watchdogInterval = setInterval(() => this.checkWatchdog(), 20_000);
   }
 
@@ -155,13 +156,23 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     if (this.mode() === 'pairing') return;
     if (!this.activePollUrl && this.mode() !== 'private') return;
 
-    const elapsed = Date.now() - this.lastSuccessAt;
-    if (this.lastSuccessAt > 0 && elapsed > this.STALE_THRESHOLD_MS) {
-      // Hace más de 60s que no recibimos datos → algo se congeló
+    // Referencia de tiempo: el último éxito o, si nunca hubo, el arranque del
+    // watchdog. Sin esto, una TV que arrancó con el servidor caído (lastSuccessAt
+    // sigue en 0) nunca era rescatada porque el watchdog solo actuaba con
+    // lastSuccessAt > 0. Ahora también recupera del arranque en frío.
+    const reference = this.lastSuccessAt > 0 ? this.lastSuccessAt : this.watchdogStartedAt;
+    const elapsed = Date.now() - reference;
+
+    if (elapsed > this.STALE_THRESHOLD_MS) {
+      // Hace más del umbral que no recibimos datos → algo se congeló o el
+      // servidor estuvo caído. Forzar reconexión limpia.
       this.connected.set(false);
       this.forceReconnect('watchdog');
     }
   }
+
+  /** Momento en que arrancó el watchdog, para el rescate en arranque en frío. */
+  private watchdogStartedAt = 0;
 
   /**
    * Fuerza una reconexión inmediata: reinicia el timer de polling y pide datos ya.
@@ -175,13 +186,32 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.activePollUrl) return;
+    // Sin URL de polling (p. ej. el reconnect inicial nunca logró el secret):
+    // reintentar la inicialización en vez de quedarse muerta.
+    if (!this.activePollUrl) {
+      this.retryInitialize();
+      return;
+    }
 
-    // Cancelar cualquier reintento pendiente y reiniciar el ciclo limpio
+    // Reinicio limpio: matar el intervalo Y el reintento pendiente antes de
+    // relanzar. Antes el refreshInterval seguía vivo en paralelo al retry, y se
+    // acumulaban fetches solapados que saturaban al servidor cuando volvia.
     if (this.retryTimeout) { clearTimeout(this.retryTimeout); this.retryTimeout = null; }
     this.retryAttempts = 0;
     this.restartPolling();
     this.fetchPublicData(this.activePollUrl);
+  }
+
+  /**
+   * Reintenta la deteccion de dispositivo cuando la TV quedó sin sesión activa
+   * (por ejemplo el reconnect inicial falló porque el servidor estaba caído).
+   * Evita que la TV se quede clavada en "pantalla de código" tras un corte.
+   */
+  private retryInitialize(): void {
+    if (this.mode() === 'pairing') {
+      // Si mostramos la pantalla de código, reintentar por si ya tiene secret
+      void this.initializeDevice();
+    }
   }
 
   /** Reinicia el setInterval de polling normal (15s). */
@@ -269,18 +299,38 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
             deviceName: res.name ?? '',
             deviceId: deviceId,
           });
+          this.reconnectAttempts = 0;
           this.deviceName.set(res.name ?? '');
           this.mode.set('active');
           this.loadFromCache();
           this.connectSSE(res.device_secret);
           this.cargarLogoEmpresa();
         } else {
+          // 404 real (dispositivo no reconocido) → pedir código
           this.continueWithoutSecret();
         }
       },
-      error: () => this.continueWithoutSecret()
+      error: (err) => {
+        // Un 404 es "no te reconozco" → pantalla de código.
+        // Pero un error de RED (servidor caído al arrancar, status 0/5xx) NO
+        // debe tirar la sesión: se reintenta unas veces antes de rendirse.
+        // Antes, un corte de 1 segundo al encender la TV la mandaba a pedir
+        // código aunque tuviera el device guardado en el backend.
+        const esNoReconocido = err?.status === 404;
+        if (!esNoReconocido && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+          this.reconnectAttempts++;
+          const delay = Math.min(2000 * this.reconnectAttempts, 15_000);
+          setTimeout(() => this.attemptReconnect(deviceId), delay);
+          return;
+        }
+        this.continueWithoutSecret();
+      }
     });
   }
+
+  /** Reintentos de la reconexión inicial ante fallos de red (no de 404). */
+  private reconnectAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 5;
 
   /** Flujo si no hay device_secret ni se pudo reconectar. */
   private continueWithoutSecret(): void {
@@ -380,20 +430,30 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   private fetchPublicData(url: string): void {
     this.http.get<{ success: boolean; data: UnidadUrgencias[]; sede?: string; timestamp?: string; error?: string }>(url).subscribe({
       next: (res) => {
-        if (res.success && res.data?.length > 0) {
+        // El backend devuelve HTTP 200 con success:false cuando la API Python
+        // (LH_INTEGRATIONS) falla. Eso NO es un éxito: si se contara como tal,
+        // lastSuccessAt se renueva y el watchdog cree que todo está bien mientras
+        // los datos llevan minutos sin actualizarse. Se trata como fallo.
+        if (res.success === false) {
+          this.connected.set(false);
+          if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
+          this.scheduleRetryWithBackoff();
+          return;
+        }
+
+        if (res.data?.length > 0) {
           this.agruparPorSede(res.data);
           this.lastUpdate.set(new Date());
-          this.connected.set(true);
-          this.isLoading.set(false);
-          this.lastSuccessAt = Date.now();
-          this.retryAttempts = 0; // reset backoff al tener exito
-          if (res.sede) this.sucursalUsuario.set(res.sede);
           this.saveToCache(res.data);
-        } else {
-          // Respuesta OK pero sin datos: mantener conexion viva, marcar timestamp
-          this.lastSuccessAt = Date.now();
-          this.connected.set(true);
+          if (res.sede) this.sucursalUsuario.set(res.sede);
         }
+
+        // Éxito real (con datos, o vacío legítimo porque no hay pacientes):
+        // marcar viva la conexión y volver al ciclo normal de 15s.
+        this.connected.set(true);
+        this.isLoading.set(false);
+        this.lastSuccessAt = Date.now();
+        this.recoverFromError();
       },
       error: (err) => {
         if (err.status === 401) {
@@ -404,11 +464,26 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
           this.pairingError.set('El dispositivo fue desactivado. Solicite un nuevo código al administrador.');
           return;
         }
-        // Error de red/servidor: marcar desconectado y reintentar con backoff
+        // Error de red/servidor: marcar desconectado y reintentar con backoff.
+        // Se pausa el intervalo de 15s para que NO dispare fetches en paralelo
+        // al reintento; el backoff es el único que reintenta mientras dure el fallo.
         this.connected.set(false);
+        if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
         this.scheduleRetryWithBackoff();
       }
     });
+  }
+
+  /**
+   * Vuelve al ciclo normal tras recuperarse de un fallo: resetea el backoff y
+   * reactiva el intervalo de 15s si estaba pausado.
+   */
+  private recoverFromError(): void {
+    if (this.retryAttempts === 0 && this.refreshInterval) return; // ya estaba normal
+
+    this.retryAttempts = 0;
+    if (this.retryTimeout) { clearTimeout(this.retryTimeout); this.retryTimeout = null; }
+    if (!this.refreshInterval) this.restartPolling();
   }
 
   /**
@@ -421,7 +496,10 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
     if (this.retryTimeout || !this.activePollUrl) return;
 
     this.retryAttempts++;
-    const base = Math.min(1000 * Math.pow(2, this.retryAttempts), this.MAX_BACKOFF_MS);
+    // Tope del exponente a 6 (2^6 = 64s ya supera el MAX_BACKOFF): evita que un
+    // corte largo lleve retryAttempts a cientos y Math.pow(2, N) desborde.
+    const exp = Math.min(this.retryAttempts, 6);
+    const base = Math.min(1000 * Math.pow(2, exp), this.MAX_BACKOFF_MS);
     const jitter = Math.random() * 1000; // 0-1s aleatorio
     const delay = base + jitter;
 
