@@ -9,16 +9,28 @@
                 <p class="page-subtitle text-muted mt-1 mb-0" style="font-size: 0.9rem;">Crea y gestiona órdenes de compra a partir de pedidos confirmados</p>
             </div>
             <div class="page-actions d-flex gap-3 align-items-center">
-                <!-- Search & Filter Placeholders -->
+                <!-- Search & Filter en header principal -->
                 <div class="d-flex align-items-center gap-2">
                     <div class="d-flex flex-column">
                         <label class="text-muted mb-1" style="font-size: 0.75rem;">Buscar</label>
-                        <input type="text" class="form-control form-control-sm" placeholder="Número de pedido" style="width: 180px;">
+                        <input type="text" class="form-control form-control-sm"
+                               placeholder="Número OC o proveedor"
+                               style="width: 200px;"
+                               [ngModel]="filterNumeroOC()"
+                               (ngModelChange)="filterNumeroOC.set($event)">
                     </div>
                     <div class="d-flex flex-column">
                         <label class="text-muted mb-1" style="font-size: 0.75rem;">Estado</label>
-                        <select class="form-select form-select-sm" style="width: 180px;">
+                        <select class="form-select form-select-sm" style="width: 160px;"
+                                [ngModel]="statusFilterOrdenes()"
+                                (change)="onStatusFilterChange($event)">
                             <option value="">Todos los estados</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="en_transito">En tránsito</option>
+                            <option value="confirmado">Confirmado</option>
+                            <option value="en_sitio">En sitio</option>
+                            <option value="recibida">Recibida</option>
+                            <option value="cancelada">Cancelada</option>
                         </select>
                     </div>
                 </div>
@@ -30,13 +42,21 @@
             </div>
         </div>
 
-        <!-- Pills Navigation -->
-        <div class="pills-nav d-flex gap-2">
-            <button class="btn btn-pill" [class.active]="activeTab() === 'pedidos'" (click)="setTab('pedidos')">
-                Pedidos Confirmados
-            </button>
-            <button class="btn btn-pill" [class.active]="activeTab() === 'ordenes'" (click)="setTab('ordenes')">
-                Órdenes de Compra
+        <!-- Pills Navigation + botón limpiar filtros -->
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="pills-nav d-flex gap-2">
+                <button class="btn btn-pill" [class.active]="activeTab() === 'pedidos'" (click)="setTab('pedidos')">
+                    Pedidos Confirmados
+                </button>
+                <button class="btn btn-pill" [class.active]="activeTab() === 'ordenes'" (click)="setTab('ordenes')">
+                    Órdenes de Compra
+                </button>
+            </div>
+            <button *ngIf="activeTab() === 'ordenes' && hayFiltrosActivos()"
+                    class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                    (click)="limpiarFiltros()"
+                    style="font-size:0.8rem;">
+                <i class="bi bi-x-circle"></i> Limpiar filtros
             </button>
         </div>
     </header>
@@ -144,7 +164,7 @@
                 </div>
                 <div class="card-body p-0">
                     <p-table 
-                        [value]="ordenes()" 
+                        [value]="ordenesFiltradas()" 
                         [loading]="isLoadingOrdenes()"
                         styleClass="p-datatable-sm p-datatable-gridlines-none custom-grid-table"
                         [paginator]="true"
@@ -165,16 +185,39 @@
                                 <th style="width:12%">CREADO POR</th>
                                 <th style="width:12%" class="text-center">ACCIONES</th>
                             </tr>
-                            <!-- Search inputs below headers -->
-                            <tr>
+                            <!-- Fila de filtros de columna – conectada a los signals client-side -->
+                            <tr class="filter-row">
                                 <th></th>
-                                <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Número de orden"></th>
-                                <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Proveedor"></th>
-                                <th></th>
-                                <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Fecha (dd/mm/aaaa)"></th>
                                 <th>
-                                    <select class="form-select form-select-sm p-1" [ngModel]="statusFilterOrdenes()" (change)="onStatusFilterChange($event)">
-                                        <option value="">Todos los estados</option>
+                                    <span class="p-input-icon-left w-100">
+                                        <i class="bi bi-search" style="font-size:0.7rem;left:8px;"></i>
+                                        <input pInputText type="text" class="w-100 p-inputtext-sm ps-4"
+                                               placeholder="# OC o Indigo"
+                                               [ngModel]="filterNumeroOC()"
+                                               (ngModelChange)="filterNumeroOC.set($event)">
+                                    </span>
+                                </th>
+                                <th>
+                                    <span class="p-input-icon-left w-100">
+                                        <i class="bi bi-search" style="font-size:0.7rem;left:8px;"></i>
+                                        <input pInputText type="text" class="w-100 p-inputtext-sm ps-4"
+                                               placeholder="Proveedor"
+                                               [ngModel]="filterProveedor()"
+                                               (ngModelChange)="filterProveedor.set($event)">
+                                    </span>
+                                </th>
+                                <th></th>
+                                <th>
+                                    <input pInputText type="text" class="w-100 p-inputtext-sm"
+                                           placeholder="dd/mm/aaaa"
+                                           [ngModel]="filterFecha()"
+                                           (ngModelChange)="filterFecha.set($event)">
+                                </th>
+                                <th>
+                                    <select class="form-select form-select-sm p-1"
+                                            [ngModel]="statusFilterOrdenes()"
+                                            (change)="onStatusFilterChange($event)">
+                                        <option value="">Todos</option>
                                         <option value="pendiente">Pendiente</option>
                                         <option value="en_transito">En tránsito</option>
                                         <option value="confirmado">Confirmado</option>
@@ -184,7 +227,15 @@
                                     </select>
                                 </th>
                                 <th></th>
-                                <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Creado por"></th>
+                                <th>
+                                    <span class="p-input-icon-left w-100">
+                                        <i class="bi bi-search" style="font-size:0.7rem;left:8px;"></i>
+                                        <input pInputText type="text" class="w-100 p-inputtext-sm ps-4"
+                                               placeholder="Creado por"
+                                               [ngModel]="filterCreadoPor()"
+                                               (ngModelChange)="filterCreadoPor.set($event)">
+                                    </span>
+                                </th>
                                 <th></th>
                             </tr>
                         </ng-template>
