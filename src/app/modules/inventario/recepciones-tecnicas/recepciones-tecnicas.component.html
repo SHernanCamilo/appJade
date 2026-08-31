@@ -48,12 +48,17 @@
 
                 <ng-template pTemplate="body" let-p>
                     <tr>
-                        <td><strong>{{ p.numero_orden_compra }}</strong></td>
+                        <td>
+                            <strong>{{ p.numero_orden_compra }}</strong>
+                            <div *ngIf="currentView() === 'completed' && p.numero_recepcion" class="text-muted small">
+                                {{ p.numero_recepcion }}
+                            </div>
+                        </td>
                         <td>
                             <p-tag *ngIf="p.oc_indigo" [value]="p.oc_indigo" severity="secondary"></p-tag>
                             <span *ngIf="!p.oc_indigo" class="text-muted">-</span>
                         </td>
-                        <td>{{ p.fecha_orden | date:'shortDate' }}</td>
+                        <td>{{ (p.fecha_recepcion || p.fecha_orden) | date:'shortDate' }}</td>
                         <td>{{ p.creado_por_nombre }}</td>
                         <td class="text-center">
                             <p-tag [value]="p.estado | uppercase" [severity]="getSeverityTag(p.estado)"></p-tag>
@@ -193,6 +198,7 @@
                     <th class="text-center" style="width: 50px;"></th>
                     <th>Producto</th>
                     <th class="text-center">Cant. Recibida</th>
+                    <th>Muestra</th>
                     <th>Lote</th>
                     <th>Vencimiento</th>
                     <th>Reg. Sanitario</th>
@@ -211,6 +217,7 @@
                         </div>
                     </td>
                     <td class="text-center fw-bold">{{ item.cantidad_recibida || 0 }}</td>
+                    <td>{{ calculateSampleFallback(item) }}</td>
                     <td>{{ item.numero_lote || '-' }}</td>
                     <td>{{ item.fecha_vencimiento | date:'shortDate' }}</td>
                     <td>{{ item.codigo_sanitario || '-' }}</td>
@@ -222,7 +229,7 @@
             </ng-template>
             <ng-template pTemplate="emptymessage">
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No se encontraron ítems recibidos</td>
+                    <td colspan="8" class="text-center text-muted py-4">No se encontraron ítems recibidos</td>
                 </tr>
             </ng-template>
         </p-table>

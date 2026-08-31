@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { SkeletonModule } from 'primeng/skeleton';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
@@ -9,7 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
 import { TooltipModule } from 'primeng/tooltip';
 import { InventarioService } from '../../../core/services/inventario.service';
-import { OrdenCompra, Pedido, PedidoDetalle } from '../../../core/models/inventario.model';
+import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption } from '../../../core/models/inventario.model';
 
 @Component({
   selector: 'app-ordenes-compra',
@@ -46,6 +47,13 @@ export class OrdenesCompraComponent implements OnInit {
   isSyncing = signal<boolean>(false);
   numeroOrdenSync = signal<string>('');
 
+  // Sucursales (para el selector y para preguntar destino al sincronizar)
+  sucursales = signal<SucursalOption[]>([]);
+  selectedSucursalId = signal<number | null>(null);
+
+  // Acciones sobre una OC
+  isProcessingAction = signal<boolean>(false);
+
   // Modal Ver Detalles Orden
   showDetailsModal = signal<boolean>(false);
   currentOrden = signal<OrdenCompra | null>(null);
@@ -66,12 +74,41 @@ export class OrdenesCompraComponent implements OnInit {
     return pedido ? (pedido.total_articulos || 0) : 0;
   });
 
-  constructor(private inventarioService: InventarioService) { }
+  constructor(private inventarioService: InventarioService, private route: ActivatedRoute) { }
 
   ngOnInit(): void {
-    // Cargar ambas listas al inicio para tenerlas listas
+    const qpStatus = this.route.snapshot.queryParamMap.get('status');
+    if (qpStatus) this.statusFilterOrdenes.set(qpStatus);
+    this.loadSucursales();
     this.loadOrdenes();
     this.loadPedidos();
+  }
+
+  // ==========================================
+  // SUCURSALES
+  // ==========================================
+  loadSucursales(): void {
+    this.inventarioService.getSucursalesDisponibles().subscribe({
+      next: (res) => {
+        if (res.success && Array.isArray(res.data)) {
+          this.sucursales.set(res.data as SucursalOption[]);
+          // Preseleccionar la sucursal principal del usuario si existe.
+          const principal = (res.data as SucursalOption[]).find(s => s.principal);
+          if (principal) this.selectedSucursalId.set(principal.id);
+        } else {
+          this.sucursales.set([]);
+        }
+      },
+      error: (err) => {
+        console.error('Error cargando sucursales:', err);
+        this.sucursales.set([]);
+      }
+    });
+  }
+
+  onSucursalChange(event: any): void {
+    const val = event?.target?.value ?? event;
+    this.selectedSucursalId.set(val ? Number(val) : null);
   }
 
   // ==========================================
@@ -90,7 +127,7 @@ export class OrdenesCompraComponent implements OnInit {
   loadOrdenes(): void {
     this.isLoadingOrdenes.set(true);
     const filter = this.statusFilterOrdenes();
-    const params = filter ? { status: filter } : {};
+    const params = filter ? { estado: filter } : {};
 
     this.inventarioService.getOrdenesCompra(params).subscribe({
       next: (res) => {
@@ -142,8 +179,19 @@ export class OrdenesCompraComponent implements OnInit {
       return;
     }
 
+    // Preguntar/exigir la sucursal destino para que el consecutivo sea el correcto.
+    const sucursalId = this.selectedSucursalId();
+    if (!sucursalId) {
+      alert('Seleccione la sucursal hacia la que se sincroniza la orden. El consecutivo se genera según la sucursal.');
+      return;
+    }
+
+    const suc = this.sucursales().find(s => s.id === sucursalId);
+    const confirmMsg = `Se sincronizará la orden ${num} hacia la sucursal "${suc?.nombre ?? sucursalId}". ¿Continuar?`;
+    if (!confirm(confirmMsg)) return;
+
     this.isSyncing.set(true);
-    this.inventarioService.syncOrdenCompra(num).subscribe({
+    this.inventarioService.syncOrdenCompra(num, sucursalId).subscribe({
       next: (res) => {
         this.isSyncing.set(false);
         if (res.success) {
@@ -158,6 +206,91 @@ export class OrdenesCompraComponent implements OnInit {
         this.isSyncing.set(false);
         console.error('Error syncing:', err);
         alert('Ocurrió un error al sincronizar con INDIGO.');
+      }
+    });
+  }
+
+  // ==========================================
+  // ACCIONES SOBRE UNA OC (confirmar / editar / eliminar)
+  // ==========================================
+
+  /** Una OC solo puede editarse/eliminarse si el backend lo permite (propia, aplicativo, pendiente). */
+  canEdit(oc: OrdenCompra): boolean {
+    return !!oc?.puede_editar && !oc?.es_sincronizada;
+  }
+
+  /** Confirmar es válido mientras esté pendiente (aplica también a sincronizadas). */
+  canConfirm(oc: OrdenCompra): boolean {
+    return (oc?.estado?.toLowerCase() === 'pendiente');
+  }
+
+  isSincronizada(oc: OrdenCompra): boolean {
+    return !!oc?.es_sincronizada || !!oc?.oc_indigo;
+  }
+
+  origenLabel(oc: OrdenCompra): string {
+    return this.isSincronizada(oc) ? 'Indigo' : 'Aplicativo';
+  }
+
+  origenBadgeClass(oc: OrdenCompra): string {
+    return this.isSincronizada(oc) ? 'bg-primary-subtle text-primary' : 'bg-success-subtle text-success';
+  }
+
+  /** Marca si a la OC le faltan datos clave (proveedor o ítems). */
+  tieneDatosIncompletos(oc: OrdenCompra): boolean {
+    const sinProveedor = !(oc?.proveedor_nombre || oc?.proveedor);
+    const sinItems = !((oc?.items_count ?? oc?.total_items ?? 0) > 0);
+    return sinProveedor || sinItems;
+  }
+
+  confirmarOrden(oc: OrdenCompra): void {
+    if (!this.canConfirm(oc)) {
+      alert('Solo se pueden confirmar órdenes en estado pendiente.');
+      return;
+    }
+    if (!confirm(`¿Confirmar la orden ${oc.numero_orden_compra}? Esto actualizará los pedidos vinculados.`)) return;
+
+    this.isProcessingAction.set(true);
+    this.inventarioService.changeOrdenEstado(oc.id, 'CONFIRMADO').subscribe({
+      next: (res) => {
+        this.isProcessingAction.set(false);
+        if (res.success) {
+          alert('Orden confirmada.');
+          this.loadOrdenes();
+        } else {
+          alert('Error: ' + (res.message || 'No se pudo confirmar la orden.'));
+        }
+      },
+      error: (err) => {
+        this.isProcessingAction.set(false);
+        console.error('Error confirmando OC:', err);
+        alert(err?.error?.message || 'Ocurrió un error al confirmar la orden.');
+      }
+    });
+  }
+
+  eliminarOrden(oc: OrdenCompra): void {
+    if (!this.canEdit(oc)) {
+      alert('Solo puedes eliminar órdenes creadas desde el aplicativo, propias y en estado pendiente.');
+      return;
+    }
+    if (!confirm(`¿Eliminar la orden ${oc.numero_orden_compra}? Esta acción no se puede deshacer.`)) return;
+
+    this.isProcessingAction.set(true);
+    this.inventarioService.deleteOrdenCompra(oc.id).subscribe({
+      next: (res) => {
+        this.isProcessingAction.set(false);
+        if (res.success) {
+          alert('Orden eliminada.');
+          this.loadOrdenes();
+        } else {
+          alert('Error: ' + (res.message || 'No se pudo eliminar la orden.'));
+        }
+      },
+      error: (err) => {
+        this.isProcessingAction.set(false);
+        console.error('Error eliminando OC:', err);
+        alert(err?.error?.message || 'Ocurrió un error al eliminar la orden.');
       }
     });
   }
@@ -252,20 +385,47 @@ export class OrdenesCompraComponent implements OnInit {
       return;
     }
 
-    // Aquí se conectaría con un endpoint real como createOrdenCompra()
-    // Por el momento simulamos la acción como lo solicitó el usuario para establecer la UI
-    this.isCreating.set(true);
+    const sucursalId = this.selectedSucursalId();
+    if (!sucursalId) {
+      alert('Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.');
+      return;
+    }
 
-    // Simulación de delay
-    setTimeout(() => {
-      this.isCreating.set(false);
-      alert(`Orden de compra enviada para procesar el pedido: ${pedido.numero_pedido}.`);
-      this.closeCreateModal();
-      // Opcionalmente recargar órdenes y cambiar a la pestaña de órdenes
-      this.loadOrdenes();
-      this.setTab('ordenes');
-      this.selectedPedido.set(null); // Limpiar selección
-    }, 1000);
+    // Construir los detalles a partir de los ítems del pedido cargados en el modal.
+    const detalles = (this.newOrdenDetalles() || []).map((d: any) => ({
+      pedido_detalle_id: d.id ?? d.pedido_detalle_id ?? null,
+      codigo_producto: d.codigo_producto,
+      producto_nombre: d.producto_nombre,
+      cantidad_solicitada_compra: d.cantidad_a_comprar ?? d.cantidad_solicitada ?? 0,
+    }));
+
+    const payload = {
+      pedido_id: pedido.id,
+      sucursal_id: sucursalId,
+      fecha_orden: new Date().toISOString().substring(0, 10),
+      detalles,
+    };
+
+    this.isCreating.set(true);
+    this.inventarioService.createOrdenCompra(payload).subscribe({
+      next: (res) => {
+        this.isCreating.set(false);
+        if (res.success) {
+          alert(`Orden de compra creada para el pedido: ${pedido.numero_pedido}.`);
+          this.closeCreateModal();
+          this.loadOrdenes();
+          this.setTab('ordenes');
+          this.selectedPedido.set(null);
+        } else {
+          alert('Error: ' + (res.message || 'No se pudo crear la orden.'));
+        }
+      },
+      error: (err) => {
+        this.isCreating.set(false);
+        console.error('Error creando OC:', err);
+        alert(err?.error?.message || 'Ocurrió un error al crear la orden de compra.');
+      }
+    });
   }
 
   // ==========================================

@@ -54,8 +54,32 @@ export class InventarioService {
     return this.http.get<ApiResponse<OrdenCompra>>(`${this.baseUrl}/ordenes-compra/${id}`);
   }
 
-  syncOrdenCompra(numeroOrden: string): Observable<ApiResponse<OrdenCompra>> {
-    return this.http.post<ApiResponse<OrdenCompra>>(`${this.baseUrl}/ordenes-compra/sync`, { numero_orden: numeroOrden });
+  // Sucursales disponibles para el usuario (para el selector y la sincronización).
+  getSucursalesDisponibles(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/ordenes-compra/sucursales-disponibles`);
+  }
+
+  // Sincroniza desde Indigo hacia la sucursal indicada (para que el consecutivo/prefijo sea correcto).
+  syncOrdenCompra(numeroOrden: string, sucursalId?: number): Observable<ApiResponse<OrdenCompra>> {
+    const body: any = { numero_orden: numeroOrden };
+    if (sucursalId) body.sucursal_id = sucursalId;
+    return this.http.post<ApiResponse<OrdenCompra>>(`${this.baseUrl}/ordenes-compra/sync`, body);
+  }
+
+  createOrdenCompra(data: any): Observable<ApiResponse<OrdenCompra>> {
+    return this.http.post<ApiResponse<OrdenCompra>>(`${this.baseUrl}/ordenes-compra`, data);
+  }
+
+  updateOrdenCompra(id: number | string, data: any): Observable<ApiResponse<OrdenCompra>> {
+    return this.http.put<ApiResponse<OrdenCompra>>(`${this.baseUrl}/ordenes-compra/${id}`, data);
+  }
+
+  deleteOrdenCompra(id: number | string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.baseUrl}/ordenes-compra/${id}`);
+  }
+
+  changeOrdenEstado(id: number | string, estado: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/ordenes-compra/${id}/estado`, { estado });
   }
 
   // ==========================================
@@ -67,6 +91,11 @@ export class InventarioService {
 
   getRecepcion(id: number | string): Observable<ApiResponse<RecepcionItem[]>> {
     return this.http.get<ApiResponse<RecepcionItem[]>>(`${this.baseUrl}/recepciones/${id}`);
+  }
+
+  getRecepcionByCompra(compraId: number | string): Observable<ApiResponse<RecepcionItem[]>> {
+    const params = new HttpParams().set('source', 'compra');
+    return this.http.get<ApiResponse<RecepcionItem[]>>(`${this.baseUrl}/recepciones/${compraId}`, { params });
   }
 
   createRecepcion(data: any): Observable<ApiResponse<any>> {

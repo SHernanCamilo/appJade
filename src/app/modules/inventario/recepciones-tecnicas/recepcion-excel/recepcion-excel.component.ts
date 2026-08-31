@@ -510,13 +510,16 @@ export class RecepcionExcelComponent implements OnInit {
 
   private loadData(): void {
     this.isLoading.set(true);
-    this.inventarioService.getRecepcion(this.compraId).subscribe({
+    this.inventarioService.getRecepcionByCompra(this.compraId).subscribe({
       next: (res: any) => {
         const items: RecepcionRow[] = (Array.isArray(res.data) ? res.data : []).map((item: any) => {
           const cantidad = Number(item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? 0);
           const aspectoDefault = item.aspecto_cumple === 0 || item.aspecto_cumple === false ? 'No Cumple' : 'Cumple';
           const fechaVenc = item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '';
           const diasVenc = calcularDiasVencimiento(fechaVenc);
+          const muestraPoblacion = (item.muestra_poblacion && item.muestra_poblacion > 0)
+            ? item.muestra_poblacion
+            : calculateSamplePopulation(Math.max(cantidad ?? item.cantidad_recibida ?? 0, 0), Boolean(item.muestra_exclusion));
           return {
             codigo_producto: item.codigo_producto || '',
             producto_nombre: item.producto_nombre || '',
@@ -536,7 +539,7 @@ export class RecepcionExcelComponent implements OnInit {
             estado_vencimiento: getEstadoVencimiento(diasVenc),
             fecha_vencimiento: fechaVenc,
             cantidad_recibida: cantidad,
-            muestra_poblacion: item.muestra_poblacion ?? null,
+            muestra_poblacion: muestraPoblacion,
             muestra_exclusion: Boolean(item.muestra_exclusion),
             numero_lote: item.numero_lote || '',
             aspecto_cumple: typeof item.aspecto_cumple === 'string' ? item.aspecto_cumple : aspectoDefault,
@@ -668,7 +671,9 @@ export class RecepcionExcelComponent implements OnInit {
       this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, force: true });
     }
     if (field === 'cantidad_recibida') {
-      row.muestra_poblacion = calculateSamplePopulation(Number(event.newValue ?? 0), row.muestra_exclusion);
+      row.muestra_poblacion = (row.muestra_poblacion && row.muestra_poblacion > 0)
+        ? row.muestra_poblacion
+        : calculateSamplePopulation(Number(event.newValue ?? 0), row.muestra_exclusion);
       this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, columns: ['muestra_poblacion'], force: true });
     }
     if (field === 'cantidad_recibida' || field === 'recibido' || field === 'concepto_recepcion') this.recalcTotals();

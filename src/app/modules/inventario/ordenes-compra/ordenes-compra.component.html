@@ -127,8 +127,14 @@
                 <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="m-0 fw-bold" style="color: #0f172a;">Órdenes de Compra</h5>
                     
-                    <!-- Sincronizador Indigo temporal aquí para no perder la funcionalidad -->
+                    <!-- Sincronizador Indigo: exige elegir la sucursal destino para el consecutivo correcto -->
                     <div class="d-flex align-items-center gap-2">
+                        <select class="form-select form-select-sm" [ngModel]="selectedSucursalId()" (change)="onSucursalChange($event)" style="width: 170px;" pTooltip="Sucursal destino de la sincronización">
+                            <option [ngValue]="null">Sucursal destino...</option>
+                            <option *ngFor="let s of sucursales()" [value]="s.id">
+                                {{ s.nombre }}{{ s.prefijo ? ' (' + s.prefijo + ')' : '' }}
+                            </option>
+                        </select>
                         <input type="text" [ngModel]="numeroOrdenSync()" (ngModelChange)="numeroOrdenSync.set($event)" class="form-control form-control-sm" placeholder="Número OC Indigo..." style="width: 150px;">
                         <button class="btn btn-outline-primary btn-sm px-3 d-flex align-items-center gap-2" (click)="syncFromIndigo()" [disabled]="isSyncing()">
                             <i class="bi" [ngClass]="{'bi-arrow-repeat spin': isSyncing(), 'bi-cloud-download': !isSyncing()}"></i>
@@ -150,29 +156,29 @@
                         <ng-template pTemplate="header">
                             <tr>
                                 <th style="width: 3rem"></th>
-                                <th style="width:15%"># OC</th>
-                                <th style="width:25%">PROVEEDOR</th>
-                                <th style="width:15%">FECHA</th>
+                                <th style="width:14%"># OC</th>
+                                <th style="width:22%">PROVEEDOR</th>
+                                <th style="width:10%">ORIGEN</th>
+                                <th style="width:12%">FECHA</th>
                                 <th style="width:10%">ESTADO</th>
-                                <th style="width:10%" class="text-center">ÍTEMS</th>
-                                <th style="width:15%">CREADO POR</th>
-                                <th style="width:10%" class="text-center">ACCIONES</th>
+                                <th style="width:8%" class="text-center">ÍTEMS</th>
+                                <th style="width:12%">CREADO POR</th>
+                                <th style="width:12%" class="text-center">ACCIONES</th>
                             </tr>
                             <!-- Search inputs below headers -->
                             <tr>
                                 <th></th>
                                 <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Número de orden"></th>
                                 <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Proveedor"></th>
+                                <th></th>
                                 <th><input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Fecha (dd/mm/aaaa)"></th>
                                 <th>
                                     <select class="form-select form-select-sm p-1" [ngModel]="statusFilterOrdenes()" (change)="onStatusFilterChange($event)">
-                                        <option value="">Estado</option>
-                                        <option value="borrador">Borrador</option>
-                                        <option value="solicitado">Solicitado</option>
-                                        <option value="confirmado">Confirmado</option>
-                                        <option value="en_sitio">En Sitio</option>
-                                        <option value="parcial">Parcial</option>
+                                        <option value="">Todos los estados</option>
+                                        <option value="pendiente">Pendiente</option>
                                         <option value="en_transito">En tránsito</option>
+                                        <option value="confirmado">Confirmado</option>
+                                        <option value="en_sitio">En sitio</option>
                                         <option value="recibida">Recibida</option>
                                         <option value="cancelada">Cancelada</option>
                                     </select>
@@ -189,8 +195,17 @@
                                 <td>
                                     <strong>{{ oc.numero_orden_compra }}</strong>
                                     <div *ngIf="oc.oc_indigo" class="text-muted" style="font-size: 0.7rem;">Indigo: {{ oc.oc_indigo }}</div>
+                                    <span *ngIf="tieneDatosIncompletos(oc)" class="badge bg-warning-subtle text-warning d-inline-flex align-items-center gap-1 mt-1" style="font-size: 0.65rem;" pTooltip="Faltan datos (proveedor o ítems). Revisar sincronización.">
+                                        <i class="bi bi-exclamation-triangle"></i> Datos incompletos
+                                    </span>
                                 </td>
                                 <td class="text-truncate" style="max-width:250px">{{ oc.proveedor_nombre || oc.proveedor || 'Sin proveedor' }}</td>
+                                <td>
+                                    <span class="badge" [ngClass]="origenBadgeClass(oc)" style="font-size: 0.7rem;">
+                                        <i class="bi" [ngClass]="isSincronizada(oc) ? 'bi-cloud-download' : 'bi-pencil-square'"></i>
+                                        {{ origenLabel(oc) }}
+                                    </span>
+                                </td>
                                 <td>{{ oc.fecha_orden | date:'dd/MM/yyyy' }}</td>
                                 <td>
                                     <span class="badge badge-status" [ngClass]="getStatusBadge(oc.estado)">
@@ -201,13 +216,17 @@
                                 <td>{{ oc.creado_por_nombre || 'Administrador del Sistema' }}</td>
                                 <td class="text-center">
                                     <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrden(oc.id)" pTooltip="Ver detalles"></button>
+                                    <button *ngIf="canConfirm(oc)" pButton icon="bi bi-check2-circle" class="p-button-rounded p-button-text p-button-sm p-button-success" (click)="confirmarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Confirmar orden"></button>
+                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openCreateModal()" pTooltip="Editar orden (propia y pendiente)"></button>
+                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger" (click)="eliminarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Eliminar orden"></button>
+                                    <i *ngIf="isSincronizada(oc)" class="bi bi-lock-fill text-muted ms-1" style="font-size: 0.75rem;" pTooltip="Orden de Indigo: solo se modifica por sincronización"></i>
                                 </td>
                             </tr>
                         </ng-template>
 
                         <ng-template pTemplate="emptymessage">
                             <tr>
-                                <td colspan="8" class="text-center py-5 text-muted">
+                                <td colspan="9" class="text-center py-5 text-muted">
                                     <i class="bi bi-lock fs-2 d-block mb-2 text-secondary" style="opacity: 0.5;"></i>
                                     No se encontraron Órdenes de Compra
                                 </td>
@@ -219,11 +238,12 @@
                                 <td></td>
                                 <td><p-skeleton width="80px"></p-skeleton></td>
                                 <td><p-skeleton width="150px"></p-skeleton></td>
+                                <td><p-skeleton width="70px" height="20px" borderRadius="10px"></p-skeleton></td>
                                 <td><p-skeleton width="100px"></p-skeleton></td>
                                 <td><p-skeleton width="100px" height="24px" borderRadius="12px"></p-skeleton></td>
                                 <td><p-skeleton width="40px"></p-skeleton></td>
                                 <td><p-skeleton width="120px"></p-skeleton></td>
-                                <td><p-skeleton width="40px"></p-skeleton></td>
+                                <td><p-skeleton width="60px"></p-skeleton></td>
                             </tr>
                         </ng-template>
                     </p-table>
