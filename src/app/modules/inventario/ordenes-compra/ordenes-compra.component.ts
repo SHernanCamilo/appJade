@@ -106,11 +106,6 @@ export class OrdenesCompraComponent implements OnInit {
     });
   }
 
-  onSucursalChange(event: any): void {
-    const val = event?.target?.value ?? event;
-    this.selectedSucursalId.set(val ? Number(val) : null);
-  }
-
   // ==========================================
   // NAVEGACIÓN Y TABS
   // ==========================================

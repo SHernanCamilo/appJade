@@ -129,9 +129,9 @@
                     
                     <!-- Sincronizador Indigo: exige elegir la sucursal destino para el consecutivo correcto -->
                     <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" [ngModel]="selectedSucursalId()" (change)="onSucursalChange($event)" style="width: 170px;" pTooltip="Sucursal destino de la sincronización">
+                        <select class="form-select form-select-sm" [ngModel]="selectedSucursalId()" (ngModelChange)="selectedSucursalId.set($event)" style="width: 190px;" pTooltip="Sucursal destino de la sincronización">
                             <option [ngValue]="null">Sucursal destino...</option>
-                            <option *ngFor="let s of sucursales()" [value]="s.id">
+                            <option *ngFor="let s of sucursales()" [ngValue]="s.id">
                                 {{ s.nombre }}{{ s.prefijo ? ' (' + s.prefijo + ')' : '' }}
                             </option>
                         </select>
