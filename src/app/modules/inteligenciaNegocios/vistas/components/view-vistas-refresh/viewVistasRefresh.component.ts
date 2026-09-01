@@ -728,7 +728,22 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         ],
       },
       ribbonTabs: buildRibbon(this.colOptions(), this.showTotalsRow()),
-      sheets: this.sheets().length > 0 ? this.sheets() : [{ id: 'datos', label: this.vista?.nombre || 'Datos', active: true }],
+
+      // Se le entregan COPIAS de las pestañas, no nuestros objetos.
+      //
+      // ExcelSheetComponent.onSheetTab() hace
+      //   this.config.sheets.forEach(s => s.active = false); tab.active = true;
+      // ANTES de emitir sheetTabChange. Como antes le pasabamos this.sheets()
+      // directo, el shell reescribia el `active` de nuestro estado y, cuando
+      // llegaba nuestro handler, "la hoja activa" ya era la nueva: guardabamos
+      // los datos de la hoja vieja dentro de la nueva. De ahi que Treasury
+      // acabara mostrando Censo y que Censo se llenara con columnas del pivot.
+      //
+      // Con copias el shell pinta su seleccion y nuestro signal sigue siendo la
+      // unica fuente de verdad.
+      sheets: this.sheets().length > 0
+        ? this.sheets().map(s => ({ id: s.id, label: s.label, active: s.active }))
+        : [{ id: 'datos', label: this.vista?.nombre || 'Datos', active: true }],
       statusBar: {
         readyText: this.statusLabel(),
         items: this.buildStatusBarItems(tr, af.length, p.elapsed),
@@ -1083,6 +1098,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           console.log('[loadColumns] Primera carga - Inicializando hoja');
           const firstId = 'sheet-' + this.schema + '-' + this.viewName;
           this.loadTargetSheetId = firstId;
+          this.currentSheetId    = firstId;
           this.sheets.set([{
             id: firstId,
             // El nombre original de la vista, igual que en Excel: la pestaña
@@ -1189,6 +1205,17 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.schema   = target.schema;
       this.viewName = target.viewName;
       this.loadTargetSheetId = target.id;
+
+      // Veniamos de un pivot u hoja de calculo: guardar esos datos en SU hoja y
+      // dejar la grilla en la hoja de datos, que es la que se va a refrescar.
+      if (this.currentSheetId && this.currentSheetId !== target.id) {
+        this.saveSheetData(this.currentSheetId, this.rawData, this.columnDefs);
+      }
+      this.currentSheetId = target.id;
+      this.rawData    = [];
+      this.rowData    = [];
+      this.columnDefs = [];
+      this.gridApi?.setGridOption('rowData', []);
     }
 
     // Cerrar SOLO los pivots que salieron de esta vista: sus datos van a
@@ -1597,9 +1624,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       // pestaña mientras cargaba, los datos se guardan en su hoja pero NO se
       // pintan, para no sobreescribir lo que esta viendo.
       const targetId = this.loadTargetSheetId
+        || this.currentSheetId
         || this.sheets().find(s => s.active)?.id
         || '';
-      const targetIsActive = () => this.sheets().find(s => s.active)?.id === targetId;
+      // Se compara contra la hoja HIDRATADA, no contra `active`: el shell mueve
+      // `active` al instante y nos haria creer que seguimos en la hoja destino.
+      const targetIsActive = () => this.currentSheetId === targetId;
 
       // Guardar de una en la hoja destino: aunque el usuario se vaya a otra
       // pestaña, al volver los datos ya estan ahi.
@@ -3698,7 +3728,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Guardar los datos de la hoja de datos activa como fuente del pivot.
     // IMPORTANTE: guardamos una referencia directa a los datos de la hoja de DATOS
     // (no a this.rawData que puede ser de otra hoja si ya hay un pivot activo).
-    const activeSheet = this.sheets().find(s => s.active);
+    // La hoja fuente es la que esta HIDRATADA en la grilla (currentSheetId).
+    // Antes se leia la hoja activa, y como el shell la movia por su cuenta el
+    // pivot podia nacer atado a una hoja distinta de la que el usuario veia: de
+    // ahi que una tabla dinamica hecha sobre Censo saliera etiquetada
+    // "Pivot · VW_Treasury_ComprobantesEgresoTesoreria".
+    const activeSheet = this.sheets().find(s => s.id === this.currentSheetId)
+      ?? this.sheets().find(s => s.active);
+
     const dataSheet   = (activeSheet?.kind ?? 'view') === 'view'
       ? activeSheet
       : this.sheets().find(s => (s.kind ?? 'view') === 'view' && (s.rowData?.length ?? 0) > 0);
@@ -3869,21 +3906,30 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Si el usuario ve la hoja de datos y el pivot se auto-genera al arrastrar
     // un campo, NO tocar la grilla. Los datos ya estan en sheet.rowData.
     // El usuario vera los resultados al hacer clic en la pestana Pivot.
-    const nowActive = this.sheets().find(s => s.active);
-    if (nowActive && (nowActive.kind ?? 'view') === 'pivot') {
-      this.rawData    = result.rows;
-      this.rowData    = result.rows;
-      this.columnDefs = pivotCols;
-      this.columns    = [];
-      this.applyColumnDefs();
-      this.totalRows.set(result.rows.length);
-      this.filteredRows.set(result.rows.length);
+    // Hidratar la grilla con el pivot: acabamos de marcarlo activo arriba.
+    // currentSheetId pasa a ser el del pivot, asi que si el usuario vuelve a la
+    // hoja de datos, estos resultados se guardan en la hoja del PIVOT y no
+    // encima de la vista. Ese era el cruce que mezclaba las dos.
+    this.currentSheetId = pivotSheetId;
 
-      if (this.gridApi) {
-        this.gridApi.setGridOption('rowData', result.rows);
-        setTimeout(() => this.autoSizeColumns(), 50);
-      }
+    this.rawData    = result.rows;
+    this.rowData    = result.rows;
+    this.columnDefs = [...pivotCols];
+    this.columns    = [];
+    this.activeFilters.set([]);
+    this.colOptions.set([]);
+    this.applyColumnDefs();
+    this.totalRows.set(result.rows.length);
+    this.filteredRows.set(result.rows.length);
+
+    if (this.gridApi) {
+      this.gridApi.setFilterModel(null);
+      this.gridApi.setGridOption('pinnedBottomRowData', []);
+      this.gridApi.setGridOption('rowData', result.rows);
+      setTimeout(() => this.autoSizeColumns(), 50);
     }
+
+    console.log('[Pivot] Generado sobre', sourceLabel, '->', result.rows.length, 'filas |', pivotSheetId);
   }
 
   // -Metricas de Performance -
@@ -4075,6 +4121,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (activeSheet && activeSheet.viewName) {
       this.schema   = activeSheet.schema;
       this.viewName = activeSheet.viewName;
+      this.loadTargetSheetId = activeSheet.id;
+      this.currentSheetId    = activeSheet.id;
       this.loadMeta();
     } else {
       this.loadInFlight = false;
@@ -4148,6 +4196,19 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    */
   private loadTargetSheetId = '';
 
+  /**
+   * Hoja a la que pertenecen los datos que hay AHORA en memoria y en la grilla
+   * (rawData, rowData, columnDefs, columns).
+   *
+   * Es distinto de "la hoja activa": el shell marca `active` en cuanto el
+   * usuario pulsa la pestaña, antes de que nosotros hayamos guardado nada. Si
+   * al guardar preguntamos por la hoja activa, escribimos los datos de la hoja
+   * que estabamos viendo dentro de la hoja a la que acabamos de entrar.
+   *
+   * Este campo solo cambia cuando de verdad hidratamos la grilla con otra hoja.
+   */
+  private currentSheetId = '';
+
   readonly queuedViewCount = signal(0);
 
   private enqueueViewLoad(vista: VistaBi): void {
@@ -4178,8 +4239,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Guardar lo que hay en la hoja activa antes de cederle el turno a la nueva
     this.saveActiveSheetData(this.rawData, this.columnDefs);
 
-    // Fijar el destino de esta carga: startRefresh y parseAndLoad lo respetan
+    // Fijar el destino de esta carga: startRefresh y parseAndLoad lo respetan.
+    // La grilla se vacia justo abajo, asi que a partir de aqui lo que hay en
+    // pantalla pertenece a la hoja nueva.
     this.loadTargetSheetId = targetId;
+    this.currentSheetId    = targetId;
 
     this.sheets.update(sheets => {
       sheets.forEach(s => s.active = s.id === targetId);
@@ -4230,8 +4294,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.formulaEngine.removeSheet(sheet.id);
     }
 
-    const wasActive = sheet.active;
+    // Se cierra la hoja que estamos viendo si es la hidratada, no solo si el
+    // shell la marco activa.
+    const wasActive = sheet.active || sheet.id === this.currentSheetId;
     let nextActiveId = '';
+
+    // Al cerrar la hoja hidratada, la grilla queda sin dueño hasta que
+    // loadSheetData hidrate la siguiente: evita que un guardado intermedio
+    // escriba estos datos en la hoja equivocada.
+    if (sheet.id === this.currentSheetId) this.currentSheetId = '';
 
     this.sheets.update(sheets => {
       const idx = sheets.findIndex(s => s.id === sheetId);
@@ -4258,8 +4329,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * Guarda los datos cargados en la hoja activa actual
    */
   private saveActiveSheetData(data: Record<string, unknown>[], columnDefs: ColDef[]): void {
-    const activeId = this.sheets().find(s => s.active)?.id;
-    if (activeId) this.saveSheetData(activeId, data, columnDefs);
+    // Se guarda en la hoja de la que SALIERON estos datos (currentSheetId), no
+    // en la que este marcada como activa: cuando el usuario cambia de pestaña el
+    // shell ya movio `active` y guardariamos en la hoja equivocada.
+    const ownerId = this.currentSheetId || this.sheets().find(s => s.active)?.id;
+    if (ownerId) this.saveSheetData(ownerId, data, columnDefs);
   }
 
   /**
@@ -4290,9 +4364,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         }
       }
 
-      activeSheet.rowData    = data;
-      activeSheet.columnDefs = columnDefs;
-      activeSheet.columns    = this.columns;
+      activeSheet.rowData = data;
+      // Copia del array: si se guardara la referencia, this.columnDefs y
+      // sheet.columnDefs serian el MISMO array y cualquier mutacion in-place
+      // (insertar columna, pivot) contaminaria la otra hoja. Asi se veia la
+      // columna "Clase Cama" del pivot dentro de la grilla de la vista.
+      activeSheet.columnDefs = [...columnDefs];
+      activeSheet.columns    = [...this.columns];
       return [...sheets];
     });
   }
@@ -4316,12 +4394,28 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     // Si la hoja ya tiene datos cargados, restaurarlos
     if (sheet.rowData && sheet.rowData.length > 0 && sheet.columnDefs && sheet.columnDefs.length > 0) {
-      console.log('[loadSheetData] Restaurando datos existentes:', sheet.rowData.length, 'registros');
+      console.log('[loadSheetData] Restaurando datos existentes:', sheet.rowData.length, 'registros',
+        '|', sheet.columnDefs.length, 'columnas');
 
-      // Restaurar datos de la hoja: cada hoja es independiente.
+      // A partir de aqui los datos en memoria son de ESTA hoja
+      this.currentSheetId = sheet.id;
+
+      // AG Grid conserva el estado de columna (orden, ancho, sort, filtro) entre
+      // cambios de columnDefs, emparejando por colId. Al saltar a una vista
+      // distinta ese estado no aplica y arrastraba orden y filtros de la vista
+      // anterior, asi que se limpia antes de entregar el dataset nuevo.
+      // Ref: https://www.ag-grid.com/javascript-data-grid/column-updating-definitions/
+      if (this.gridApi) {
+        this.gridApi.setFilterModel(null);
+        this.gridApi.setGridOption('pinnedBottomRowData', []);
+      }
+
+      // Restaurar datos de la hoja: cada hoja es independiente. Se copian los
+      // arrays de columnas para que la hoja guardada no comparta referencia con
+      // lo que este editando la grilla.
       this.rawData    = sheet.rowData;
-      this.columnDefs = sheet.columnDefs;
-      this.columns    = sheet.columns ?? [];
+      this.columnDefs = [...sheet.columnDefs];
+      this.columns    = [...(sheet.columns ?? [])];
       this.rowData    = [...sheet.rowData];
 
       // Los desplegables del ribbon (Filtros y Formato) se alimentan de
@@ -4369,8 +4463,19 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         console.log('[loadSheetData] Hay otra carga en curso, se respeta el turno');
         return;
       }
-      this.loadInFlight = true;
+      this.loadInFlight      = true;
       this.loadTargetSheetId = sheet.id;
+      this.currentSheetId    = sheet.id;
+
+      // Vaciar la grilla: si no, mientras carga se siguen viendo los datos de la
+      // hoja anterior y parece que la pestaña nueva ya tiene informacion.
+      this.rawData    = [];
+      this.rowData    = [];
+      this.columnDefs = [];
+      this.totalRows.set(0);
+      this.filteredRows.set(0);
+      this.gridApi?.setGridOption('rowData', []);
+
       this.loadMeta();
     }
   }
@@ -4379,18 +4484,28 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * Maneja el evento de cambio de hoja desde el ExcelSheetComponent
    */
   onSheetTabChange(sheetId: string): void {
-    console.log('[onSheetTabChange] Cambiando a hoja:', sheetId);
-    
-    // Guardar datos de la hoja actual antes de cambiar
-    this.saveActiveSheetData(this.rawData, this.columnDefs);
+    if (sheetId === this.currentSheetId) {
+      // Ya estamos en esa hoja: el shell reemite al repintar las pestañas
+      return;
+    }
 
-    // Cambiar hoja activa (modificar in-place, no copiar)
+    const saliendo = this.currentSheetId;
+    console.log('[onSheetTabChange]', saliendo || '(ninguna)', '->', sheetId);
+
+    // 1. Guardar lo que hay en pantalla en SU hoja (la que estabamos viendo).
+    //    Se usa currentSheetId y no la hoja activa: el shell ya marco `active`
+    //    en la pestaña nueva antes de emitir este evento.
+    if (saliendo) {
+      this.saveSheetData(saliendo, this.rawData, this.columnDefs);
+    }
+
+    // 2. Marcar la nueva como activa en NUESTRO estado
     this.sheets.update(sheets => {
       sheets.forEach(s => s.active = s.id === sheetId);
       return [...sheets];
     });
 
-    // Cargar datos de la nueva hoja
+    // 3. Hidratar la grilla con la hoja nueva
     this.loadSheetData(sheetId);
   }
 
@@ -4465,6 +4580,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const analysisCount = this.sheets().filter(s => (s.kind ?? 'view') === 'blank').length;
     const newSheetId = `sheet-blank-${Date.now()}`;
     const label = `Analisis ${analysisCount + 1}`;
+
+    // La grilla va a mostrar la hoja nueva: pasa a ser la hidratada
+    this.currentSheetId = newSheetId;
 
     this.sheets.update(sheets => {
       sheets.forEach(s => s.active = false);
