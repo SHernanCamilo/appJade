@@ -1,0 +1,136 @@
+<div class="page-container form-params-page">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" type="button" routerLink="/inteligenciaNegocios/formularios/trasladoAsistencial">
+        <i class="pi pi-arrow-left"></i>
+        Volver a Traslado Asistencial
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-cog me-2"></i>
+          Parámetros de formularios
+        </h1>
+        <p class="page-subtitle-modern">
+          Configure visibilidad, obligatoriedad y etiqueta de cada campo
+        </p>
+      </div>
+
+      <div class="header-actions" *ngIf="formulario">
+        <button type="button" class="btn-action btn-action-outline" (click)="restaurarDefecto()" [disabled]="isSaving || isLoading">
+          <i class="pi pi-replay"></i>
+          Restaurar
+        </button>
+        <button type="button" class="btn-action btn-action-primary" (click)="guardar()" [disabled]="isSaving || isLoading">
+          <i class="pi" [class.pi-spin]="isSaving" [class.pi-spinner]="isSaving" [class.pi-save]="!isSaving"></i>
+          {{ isSaving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="selector-panel">
+      <label class="selector-label" for="formularioParam">Formulario a parametrizar</label>
+      <p-dropdown
+        inputId="formularioParam"
+        [(ngModel)]="codigoSeleccionado"
+        [options]="formularioOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Seleccione el formulario"
+        styleClass="w-full formulario-dropdown"
+        appendTo="body"
+        [filter]="true"
+        filterBy="label"
+        (onChange)="onFormularioChange($event.value)">
+      </p-dropdown>
+      <p class="selector-hint" *ngIf="formulario">{{ formulario.descripcion }}</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!formulario">
+      <i class="pi pi-sliders-h"></i>
+      <p>Seleccione un formulario para parametrizar sus campos.</p>
+    </div>
+
+    <div class="campos-panel" *ngIf="formulario">
+      <div class="campos-toolbar">
+        <div class="campos-meta">
+          <h2>{{ formulario.titulo }}</h2>
+          <div class="campos-chips">
+            <p-tag [value]="campos.length + ' campos'" severity="info"></p-tag>
+            <p-tag [value]="totalVisibles + ' visibles'" severity="success"></p-tag>
+            <p-tag [value]="totalRequeridos + ' requeridos'" severity="warn"></p-tag>
+          </div>
+        </div>
+        <div class="filtro-wrap">
+          <i class="pi pi-search"></i>
+          <input pInputText type="text" [(ngModel)]="filtro" placeholder="Buscar campo o sección" />
+        </div>
+      </div>
+
+      <p-table
+        [value]="camposVisibles"
+        [loading]="isLoading"
+        dataKey="key"
+        rowGroupMode="subheader"
+        groupRowsBy="seccion"
+        styleClass="campos-table"
+        [tableStyle]="{ 'min-width': '48rem' }">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Campo</th>
+            <th style="width: 8rem" class="col-center">Visible</th>
+            <th style="width: 8rem" class="col-center">Requerido</th>
+            <th>Etiqueta</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="groupheader" let-row>
+          <tr class="seccion-row">
+            <td colspan="4">
+              <i class="pi pi-folder"></i>
+              {{ row.seccion }}
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            <td>
+              <div class="campo-nombre">{{ row.label }}</div>
+              <small class="campo-key">{{ row.key }}</small>
+            </td>
+            <td class="col-center">
+              <p-inputSwitch
+                [(ngModel)]="row.visible"
+                (ngModelChange)="onVisibleChange(row)"
+                [pTooltip]="row.visible ? 'El campo se muestra en el formulario' : 'El campo queda oculto'">
+              </p-inputSwitch>
+            </td>
+            <td class="col-center">
+              <p-inputSwitch
+                [(ngModel)]="row.requerido"
+                [disabled]="!row.visible"
+                (ngModelChange)="onRequeridoChange(row)"
+                [pTooltip]="row.requerido ? 'Obligatorio al guardar o confirmar' : 'Opcional'">
+              </p-inputSwitch>
+            </td>
+            <td>
+              <input pInputText type="text" class="w-full" [(ngModel)]="row.label" />
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="4" class="empty-table">
+              No hay campos que coincidan con la búsqueda.
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</div>

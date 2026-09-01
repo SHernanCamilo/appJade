@@ -230,6 +230,19 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     }
   },
   {
+    path: 'formularios/parametros',
+    loadComponent: () =>
+      import('./formularios/parametros/parametros.component').then(
+        m => m.FormulariosParametrosComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORM-TRASLADO-ASI',
+      pageTitle: 'Parámetros de formularios',
+      pageSubtitle: 'Configuración de campos por formulario'
+    }
+  },
+  {
     path: 'tableros/Egresos',
     loadComponent: () =>
       import('./tableros/egresos/egresos.component').then(m => m.EgresosTableroComponent),

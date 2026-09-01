@@ -153,14 +153,26 @@
             type="text"
             [(ngModel)]="busquedaCategoria"
             [ngModelOptions]="{standalone: true}"
-            placeholder="Buscar categoría…">
+            placeholder="Buscar categoría o ANS…">
           <i
             class="pi pi-times buscador-clear"
             *ngIf="busquedaCategoria"
             (click)="busquedaCategoria = ''">
           </i>
         </span>
-        <span class="buscador-cats-count" *ngIf="busquedaCategoria.trim()">
+        <p-dropdown
+          class="buscador-cats-ans"
+          [options]="opcionesFiltroAns"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Filtrar por ANS"
+          [showClear]="true"
+          appendTo="body"
+          [style]="{ width: '220px' }"
+          [(ngModel)]="busquedaAns"
+          [ngModelOptions]="{standalone: true}">
+        </p-dropdown>
+        <span class="buscador-cats-count" *ngIf="hayFiltroCategoria">
           {{ coincidenciasCategoria }} coincidencia{{ coincidenciasCategoria === 1 ? '' : 's' }}
         </span>
       </div>
@@ -169,8 +181,8 @@
         Aún no hay categorías. Agrega una categoría padre para comenzar.
       </div>
 
-      <div class="empty-cats" *ngIf="categoriasPadre.length > 0 && busquedaCategoria.trim() && coincidenciasCategoria === 0">
-        No hay categorías que coincidan con «{{ busquedaCategoria.trim() }}».
+      <div class="empty-cats" *ngIf="categoriasPadre.length > 0 && hayFiltroCategoria && coincidenciasCategoria === 0">
+        No hay categorías que coincidan con el filtro.
       </div>
 
       <div class="cat-tree" *ngIf="categoriasPadre.length > 0">

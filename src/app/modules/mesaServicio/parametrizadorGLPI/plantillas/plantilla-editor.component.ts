@@ -77,6 +77,29 @@ export class GlpiPlantillaEditorComponent implements OnInit {
     this.busquedaState.texto = valor;
   }
 
+  get busquedaAns(): string {
+    return this.busquedaState.ans;
+  }
+
+  set busquedaAns(valor: string) {
+    this.busquedaState.ans = valor || '';
+  }
+
+  get opcionesFiltroAns(): GlpiAnsOpcion[] {
+    return this.ansOpciones.opciones;
+  }
+
+  get hayFiltroCategoria(): boolean {
+    return this.busquedaState.hayFiltro;
+  }
+
+  get coincidenciasCategoria(): number {
+    if (!this.hayFiltroCategoria) {
+      return 0;
+    }
+    return this.contarCoincidencias(this.categoriasPadre);
+  }
+
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
@@ -122,14 +145,6 @@ export class GlpiPlantillaEditorComponent implements OnInit {
 
   get categoriasPadre(): FormArray {
     return this.form.get('categoriasPadre') as FormArray;
-  }
-
-  get coincidenciasCategoria(): number {
-    const q = this.normalizarBusqueda(this.busquedaCategoria);
-    if (!q) {
-      return 0;
-    }
-    return this.contarCoincidencias(this.categoriasPadre, q);
   }
 
   etiquetaPrioridad(prioridad: string): string {
@@ -303,6 +318,7 @@ export class GlpiPlantillaEditorComponent implements OnInit {
 
     if (!ans.length) {
       this.buildAnsControls(prefijo).forEach((group) => this.ans.push(group));
+      this.refrescarOpcionesAns();
       return;
     }
 
@@ -328,7 +344,8 @@ export class GlpiPlantillaEditorComponent implements OnInit {
       opciones.push({
         label: nombre,
         value: nombre,
-        prioridad
+        prioridad,
+        alias: String(control.get('nombre_sla_solucion')?.value || '').trim()
       });
     });
 
@@ -336,13 +353,59 @@ export class GlpiPlantillaEditorComponent implements OnInit {
   }
 
   private inferirAnsNombre(nodo?: GlpiCategoriaNodo): string {
+    const opciones = this.ansOpciones.opciones;
     const actual = String(nodo?.ans_nombre || '').trim();
+    const prioridadNodo = String(nodo?.prioridad || '').trim().toLowerCase() as GlpiPrioridad;
+
     if (actual) {
-      return actual;
+      const exacta = opciones.find((item) => item.value === actual);
+      if (exacta) {
+        return exacta.value;
+      }
+
+      const normalizado = this.normalizarAnsNombre(actual);
+      const porNombre = opciones.find((item) => {
+        return this.normalizarAnsNombre(item.value) === normalizado
+          || this.normalizarAnsNombre(item.label) === normalizado
+          || this.normalizarAnsNombre(item.alias || '') === normalizado;
+      });
+      if (porNombre) {
+        return porNombre.value;
+      }
     }
-    const prioridad = (nodo?.prioridad || 'baja') as GlpiPrioridad;
-    const porPrioridad = this.ansOpciones.opciones.find((item) => item.prioridad === prioridad);
-    return porPrioridad?.value ?? this.ansOpciones.opciones[0]?.value ?? '';
+
+    const prioridad = this.prioridadDesdeNombreAns(actual) || prioridadNodo;
+    const porPrioridad = opciones.find((item) => item.prioridad === prioridad);
+    return porPrioridad?.value ?? opciones[0]?.value ?? actual;
+  }
+
+  private prioridadDesdeNombreAns(nombre: string): GlpiPrioridad | null {
+    const n = this.normalizarAnsNombre(nombre);
+    if (!n) {
+      return null;
+    }
+    if (n.startsWith('muy alta')) {
+      return 'muy_alta';
+    }
+    if (n.startsWith('alta')) {
+      return 'alta';
+    }
+    if (n.startsWith('media')) {
+      return 'media';
+    }
+    if (n.startsWith('baja')) {
+      return 'baja';
+    }
+    return null;
+  }
+
+  private normalizarAnsNombre(valor: string): string {
+    return valor
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   }
 
   private esNombreAnsPorDefecto(valor: string, prefijo: string): boolean {
@@ -401,27 +464,18 @@ export class GlpiPlantillaEditorComponent implements OnInit {
     return !!control && control.invalid && (control.touched || this.submitted);
   }
 
-  private contarCoincidencias(nodos: FormArray, q: string): number {
+  private contarCoincidencias(nodos: FormArray): number {
     let total = 0;
     for (const control of nodos.controls) {
       const grupo = control as FormGroup;
-      if (this.normalizarBusqueda(grupo.get('nombre')?.value).includes(q)) {
+      if (this.busquedaState.nodoCoincide(grupo.get('nombre')?.value, grupo.get('ans_nombre')?.value)) {
         total++;
       }
       const hijas = grupo.get('hijas') as FormArray | null;
       if (hijas?.length) {
-        total += this.contarCoincidencias(hijas, q);
+        total += this.contarCoincidencias(hijas);
       }
     }
     return total;
-  }
-
-  private normalizarBusqueda(valor: unknown): string {
-    return String(valor || '')
-      .normalize('NFD')
-      .replace(/\p{M}/gu, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
   }
 }

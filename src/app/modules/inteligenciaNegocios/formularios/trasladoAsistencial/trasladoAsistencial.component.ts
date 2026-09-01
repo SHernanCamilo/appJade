@@ -10,7 +10,17 @@ import { MessageService } from 'primeng/api';
 import { firstValueFrom } from 'rxjs';
 
 import { EmpresaService } from '../../../organizacion/empresa/services/empresa.service';
+import { SinDatoDirective } from './sin-dato.directive';
 import { TrasladoAsistencialService } from './services/traslado-asistencial.service';
+import { FormParametrosService } from '../parametros/services/form-parametros.service';
+import {
+  catalogoPorTipoTraslado
+} from '../parametros/catalogs/formularios-parametrizables.catalog';
+import {
+  CampoParametro,
+  camposAMapa,
+  mergeCamposCatalogo
+} from '../parametros/models/form-parametros.model';
 import {
   CAUSAS_ATENCION,
   crearHistoriaVacia,
@@ -26,7 +36,7 @@ import {
 @Component({
   selector: 'app-traslado-asistencial',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ToastModule, TooltipModule, TableModule, TagModule],
+  imports: [CommonModule, FormsModule, RouterModule, ToastModule, TooltipModule, TableModule, TagModule, SinDatoDirective],
   providers: [MessageService],
   templateUrl: './trasladoAsistencial.component.html',
   styleUrl: './trasladoAsistencial.component.css',
@@ -75,16 +85,23 @@ export class TrasladoAsistencialComponent implements OnInit {
   isSaving = false;
   isConfirming = false;
   isLoadingRegistros = false;
+  private paramsPrimario = new Map<string, CampoParametro>();
+  private paramsSecundario = new Map<string, CampoParametro>();
 
   constructor(
     private readonly empresaService: EmpresaService,
     private readonly trasladoService: TrasladoAsistencialService,
+    private readonly formParametros: FormParametrosService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
-  ) {}
+  ) {
+    this.paramsPrimario = camposAMapa(mergeCamposCatalogo(catalogoPorTipoTraslado('primario'), null));
+    this.paramsSecundario = camposAMapa(mergeCamposCatalogo(catalogoPorTipoTraslado('secundario'), null));
+  }
 
   ngOnInit(): void {
     this.cargarRegistros();
+    this.cargarParametros();
   }
 
   get tituloFormulario(): string {
@@ -114,12 +131,47 @@ export class TrasladoAsistencialComponent implements OnInit {
     return this.tipo === 'primarioCompleto' || this.tipo === 'secundarioCompleto';
   }
 
+  get esPrimario(): boolean {
+    return this.tipo === 'primario' || this.tipo === 'primarioCompleto';
+  }
+
+  get esSecundario(): boolean {
+    return this.tipo === 'secundario' || this.tipo === 'secundarioCompleto';
+  }
+
+  esRegistroCompleto(row: RegistroTrasladoLista): boolean {
+    return row.formato === 'primarioCompleto' || row.formato === 'secundarioCompleto';
+  }
+
   get glasgowInicioTotal(): number | '' {
     return glasgowTotal(this.form.glasgow);
   }
 
   get esConfirmado(): boolean {
     return this.estadoRegistro === 'confirmado';
+  }
+
+  campoVisible(key: string): boolean {
+    return this.paramsActuales().get(key)?.visible !== false;
+  }
+
+  campoRequerido(key: string): boolean {
+    const cfg = this.paramsActuales().get(key);
+    return !!cfg?.visible && !!cfg?.requerido;
+  }
+
+  campoLabel(key: string, fallback: string): string {
+    return this.paramsActuales().get(key)?.label || fallback;
+  }
+
+  seccionVisible(seccion: string): boolean {
+    return catalogoPorTipoTraslado(this.tipo)
+      .filter(c => c.seccion === seccion)
+      .some(c => this.campoVisible(c.key));
+  }
+
+  algunoVisible(...keys: string[]): boolean {
+    return keys.some(key => this.campoVisible(key));
   }
 
   seleccionarTipo(tipo: TipoTrasladoAsistencial): void {
@@ -175,6 +227,9 @@ export class TrasladoAsistencialComponent implements OnInit {
     if (!this.tipo || this.isSaving || this.esConfirmado) {
       return;
     }
+    if (!this.validarRequeridos()) {
+      return;
+    }
 
     this.isSaving = true;
     try {
@@ -205,6 +260,9 @@ export class TrasladoAsistencialComponent implements OnInit {
 
   async confirmar(): Promise<void> {
     if (!this.tipo || this.isConfirming || this.esConfirmado) {
+      return;
+    }
+    if (!this.validarRequeridos()) {
       return;
     }
 
@@ -260,6 +318,69 @@ export class TrasladoAsistencialComponent implements OnInit {
         });
       }
     });
+  }
+
+  private cargarParametros(): void {
+    this.formParametros.obtener('traslado-primario').subscribe(campos => {
+      this.paramsPrimario = camposAMapa(mergeCamposCatalogo(catalogoPorTipoTraslado('primario'), campos));
+      this.cdr.detectChanges();
+    });
+    this.formParametros.obtener('traslado-secundario').subscribe(campos => {
+      this.paramsSecundario = camposAMapa(mergeCamposCatalogo(catalogoPorTipoTraslado('secundario'), campos));
+      this.cdr.detectChanges();
+    });
+  }
+
+  private paramsActuales(): Map<string, CampoParametro> {
+    return this.tipo === 'secundario' ? this.paramsSecundario : this.paramsPrimario;
+  }
+
+  private validarRequeridos(): boolean {
+    if (this.tipo !== 'primario' && this.tipo !== 'secundario') {
+      return true;
+    }
+
+    const faltantes = catalogoPorTipoTraslado(this.tipo)
+      .filter(c => this.campoRequerido(c.key) && this.estaVacio(this.valorPorKey(c.key)))
+      .map(c => this.campoLabel(c.key, c.label));
+
+    if (!faltantes.length) {
+      return true;
+    }
+
+    const preview = faltantes.slice(0, 4).join(', ');
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Campos requeridos',
+      detail: faltantes.length > 4 ? `${preview} y ${faltantes.length - 4} más.` : preview,
+      life: 6000
+    });
+    return false;
+  }
+
+  private valorPorKey(key: string): unknown {
+    return key.split('.').reduce((acc: unknown, part) => {
+      if (acc == null || typeof acc !== 'object') {
+        return undefined;
+      }
+      return (acc as Record<string, unknown>)[part];
+    }, this.form);
+  }
+
+  private estaVacio(valor: unknown): boolean {
+    if (valor == null) {
+      return true;
+    }
+    if (typeof valor === 'string') {
+      return valor.trim() === '';
+    }
+    if (Array.isArray(valor)) {
+      return valor.length === 0 || valor.every(item => this.estaVacio(item));
+    }
+    if (typeof valor === 'object') {
+      return Object.values(valor as Record<string, unknown>).every(item => this.estaVacio(item));
+    }
+    return false;
   }
 
   private cargarRegistros(): void {

@@ -53,6 +53,43 @@
   margin: 0;
 }
 
+.traslado-page .header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.traslado-page .header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.traslado-page .btn-action {
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.traslado-page .btn-action-outline {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.traslado-page .btn-action-outline:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
 .traslado-page .search-panel {
   background: white;
   border-radius: 12px;
@@ -213,12 +250,11 @@
 }
 
 .traslado-page .req-num {
-  display: inline-block;
-  font-size: 0.65rem;
+  display: inline;
+  font-size: 0.85rem;
   font-weight: 800;
-  color: #1d4ed8;
-  margin-right: 0.3rem;
-  letter-spacing: 0.02em;
+  color: #dc2626;
+  margin-right: 0.15rem;
 }
 
 .traslado-page .registros-panel {
@@ -273,6 +309,13 @@
 
 .traslado-page .registro-row {
   cursor: pointer;
+}
+
+.traslado-page .tipo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .traslado-page .registro-row:hover {
@@ -717,10 +760,28 @@
   margin-top: 0;
 }
 
-.traslado-page .is-readonly .formato-sheet input,
-.traslado-page .is-readonly .formato-sheet textarea {
+.traslado-page .sin-dato-parent {
+  position: relative;
+}
+
+.traslado-page .sin-dato-overlay {
+  position: absolute;
+  font-style: italic;
+  color: #6b7280;
   pointer-events: none;
-  background: #f8fafc;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.traslado-page .sin-dato-overlay.is-hidden {
+  display: none;
+}
+
+.traslado-page .formato-sheet input::placeholder,
+.traslado-page .formato-sheet textarea::placeholder {
+  color: #6b7280;
+  font-style: italic;
+  opacity: 1;
 }
 
 @media (max-width: 980px) {
@@ -772,5 +833,17 @@
   textarea {
     border-bottom-color: #111 !important;
     background: transparent !important;
+  }
+
+  .traslado-page .formato-sheet input::placeholder,
+  .traslado-page .formato-sheet textarea::placeholder {
+    color: #111 !important;
+    opacity: 1 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .traslado-page .sin-dato-overlay {
+    color: #111 !important;
   }
 }
