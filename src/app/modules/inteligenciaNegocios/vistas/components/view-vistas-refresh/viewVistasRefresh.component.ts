@@ -1676,39 +1676,79 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     if (rawRows.length < 2) return [];
 
-    // Encontrar la fila de encabezados reales: es la primera fila donde
-    // la mayoria de las celdas tienen valores string no vacios y que
-    // coinciden con los nombres de columna que ya tenemos del backend.
+    // ── Estructura conocida del backend ─────────────────────────────────────
+    // Todos los escritores del backend (FastXlsxWriter, StreamingExportWriter,
+    // SpoutXlsxWriter) generan una portada corporativa:
+    //
+    //   Fila 1 → "JadeOne — schema.VW_..."    (título)
+    //   Fila 2 → "Exportado: dd/mm/yyyy HH:mm" (info)
+    //   Fila 3 → headers reales               ← FastXlsxWriter / SpoutXlsxWriter
+    //   Fila 4 → headers reales               ← StreamingExportWriter (PhpSpreadsheet)
+    //   Fila 3+ → datos
+    //
+    // El algoritmo anterior usaba un umbral de coincidencias que fallaba cuando
+    // knownCols estaba vacío o el título coincidía antes de la fila real.
+    // Ahora buscamos la fila con el MAYOR número de coincidencias con los
+    // nombres de columna del backend entre las primeras MAX_SCAN filas.
+    // ────────────────────────────────────────────────────────────────────────
+
     const knownCols = new Set(this.columns.map(c => c.name.toLowerCase().trim()));
+    const MAX_SCAN  = 10;
+
+    // Palabras que solo aparecen en filas de portada — nunca en headers reales
+    const COVER_MARKERS = ['jadejone', 'jadeone', 'exportado:', 'registros:'];
+
+    const isCoverRow = (row: (string | null)[]): boolean => {
+      const text = row.filter(v => v != null).map(v => String(v).toLowerCase()).join(' ');
+      return COVER_MARKERS.some(m => text.includes(m));
+    };
 
     let headerRowIdx = -1;
 
-    for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
-      const row = rawRows[i] as (string | null)[];
-      const nonEmpty = row.filter(v => v !== null && String(v).trim() !== '');
+    if (knownCols.size > 0) {
+      // Con columnas conocidas: elegir la fila con más coincidencias exactas
+      // (no la primera que alcanza un umbral — eso fallaba con el título).
+      let bestIdx     = -1;
+      let bestMatches = 0;
 
-      if (nonEmpty.length === 0) continue;
+      for (let i = 0; i < Math.min(rawRows.length, MAX_SCAN); i++) {
+        const row      = rawRows[i] as (string | null)[];
+        const nonEmpty = row.filter(v => v !== null && String(v).trim() !== '');
+        if (nonEmpty.length === 0 || isCoverRow(row)) continue;
 
-      // Si tenemos columnas conocidas, buscar coincidencia
-      if (knownCols.size > 0) {
-        const matches = nonEmpty.filter(v => knownCols.has(String(v).toLowerCase().trim())).length;
-        if (matches >= Math.min(3, knownCols.size)) {
-          headerRowIdx = i;
-          break;
+        const matches = nonEmpty.filter(v =>
+          knownCols.has(String(v).toLowerCase().trim())
+        ).length;
+
+        if (matches > bestMatches) {
+          bestMatches = matches;
+          bestIdx     = i;
         }
-      } else {
-        // Sin columnas conocidas: la primera fila con -3 valores no vacios
-        // y sin caracteres especiales de titulo (- ) es la de headers
-        const looksLikeHeader = nonEmpty.every(v => !String(v).includes('-') && !String(v).includes('Exportado'));
-        if (nonEmpty.length >= 3 && looksLikeHeader) {
-          headerRowIdx = i;
-          break;
-        }
+      }
+
+      // Exigir al menos 1 coincidencia para aceptar la fila candidata
+      if (bestMatches >= 1) headerRowIdx = bestIdx;
+
+    } else {
+      // Sin columnas conocidas: primera fila con ≥3 celdas no vacías que
+      // no sea portada corporativa y no parezca metadato.
+      for (let i = 0; i < Math.min(rawRows.length, MAX_SCAN); i++) {
+        const row      = rawRows[i] as (string | null)[];
+        const nonEmpty = row.filter(v => v !== null && String(v).trim() !== '');
+        if (nonEmpty.length < 3 || isCoverRow(row)) continue;
+
+        headerRowIdx = i;
+        break;
       }
     }
 
-    // Fallback: usar primera fila como header
-    if (headerRowIdx === -1) headerRowIdx = 0;
+    // Último recurso: si no encontramos nada válido, saltar las 3 primeras
+    // filas de portada y usar la fila 3 (índice 2), que es donde FastXlsxWriter
+    // y SpoutXlsxWriter escriben los headers reales.
+    if (headerRowIdx === -1) {
+      headerRowIdx = Math.min(2, rawRows.length - 1);
+      console.warn('[parseXlsxBlob] No se detectó fila de headers; usando fallback fila', headerRowIdx);
+    }
 
     const headers = (rawRows[headerRowIdx] as (string | null)[])
       .map(h => (h !== null ? String(h).trim() : ''));
@@ -1717,7 +1757,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
       const row = rawRows[i] as unknown[];
-      // Saltar filas completamente vacias
+      // Saltar filas completamente vacías
       if (row.every(v => v === null || v === '')) continue;
 
       const obj: Record<string, unknown> = {};
@@ -1728,7 +1768,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       result.push(obj);
     }
 
-    console.log('[parseXlsxBlob] headerRowIdx:', headerRowIdx, '| headers:', headers.slice(0, 5), '| filas:', result.length);
+    console.log('[parseXlsxBlob] headerRowIdx:', headerRowIdx,
+      '| headers:', headers.slice(0, 5),
+      '| totalHeaders:', headers.filter(h => h).length,
+      '| filas:', result.length);
 
     return result;
   }
@@ -2023,14 +2066,16 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   private columnDefsMatchData(data: Record<string, unknown>[]): boolean {
     if (data.length === 0) return true;
 
-    const keys = new Set(Object.keys(data[0]));
+    // Comparar case-insensitive: el xlsx puede capitalizar diferente a los
+    // metadatos del backend (ej. "FechaComprobante" vs "fechacomprobante").
+    const dataKeysLower = new Set(Object.keys(data[0]).map(k => k.toLowerCase()));
     const dataFields = this.columnDefs
       .map(c => c.field)
       .filter((f): f is string => !!f && f !== '__ROW_NUMBER__');
 
     if (dataFields.length === 0) return false;
 
-    const matches = dataFields.filter(f => keys.has(f)).length;
+    const matches = dataFields.filter(f => dataKeysLower.has(f.toLowerCase())).length;
     const ratio   = matches / dataFields.length;
 
     if (ratio < 0.5) {
@@ -2039,6 +2084,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         clavesDatos: Object.keys(data[0]).slice(0, 5),
         coinciden: matches,
         de: dataFields.length,
+        ratio: ratio.toFixed(2),
       });
     }
 
@@ -2046,9 +2092,45 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   private inferColumnDefs(data: Record<string, unknown>[]): ColDef[] {
+    if (!data.length) return [];
+
+    // ── Caso 1: tenemos metadatos del backend (this.columns) pero los nombres
+    //    del xlsx difieren en capitalización (ej. "FECHACOMPROBANTE" vs "FechaComprobante").
+    //    Remap las claves del primer row para que coincidan con los nombres exactos
+    //    del backend, y reusar buildColumnDefs que ya tiene la lógica de tipos/filtros.
+    if (this.columns.length > 0) {
+      const dataKeys   = Object.keys(data[0]);
+      const dataLower  = new Map(dataKeys.map(k => [k.toLowerCase(), k]));
+      const colLower   = new Map(this.columns.map(c => [c.name.toLowerCase(), c.name]));
+
+      // ¿Cuántos nombres del backend aparecen en el xlsx (ignorando caso)?
+      const remapCount = this.columns.filter(c => dataLower.has(c.name.toLowerCase())).length;
+
+      if (remapCount >= Math.ceil(this.columns.length * 0.5)) {
+        // Hay suficiente superposición: renombrar las filas para que las claves
+        // coincidan exactamente con los nombres del backend y usar buildColumnDefs.
+        console.log('[inferColumnDefs] Remapeando claves del xlsx a nombres exactos del backend',
+          { columnas: this.columns.length, remapeadas: remapCount });
+
+        // Renombrar in-place en todos los rows
+        for (const row of data) {
+          for (const dataKey of dataKeys) {
+            const backendName = colLower.get(dataKey.toLowerCase());
+            if (backendName && backendName !== dataKey) {
+              row[backendName] = row[dataKey];
+              delete row[dataKey];
+            }
+          }
+        }
+
+        // Ahora los datos tienen las claves exactas del backend → buildColumnDefs funciona
+        return this.buildColumnDefs(this.columns);
+      }
+    }
+
+    // ── Caso 2: no hay metadatos del backend, inferir todo desde los datos ──
     console.warn('[inferColumnDefs] Infiriendo columnas desde datos - NO se usaron metadatos del backend');
 
-    if (!data.length) return [];
     const sample = data.slice(0, 20);
 
     // La columna de numeros de fila (como Excel) tiene que ir siempre primero.
