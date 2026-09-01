@@ -1450,8 +1450,16 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       { responseType: 'blob', observe: 'response' }
     ).subscribe({
       next: response => {
-        const format = response.headers.get('X-Export-Format') ?? 'xlsx';
+        // El header puede venir null si CORS no lo expone: no se asume 'xlsx'.
+        // parseBlob decide por magic bytes; esto es solo una pista para el log.
+        const format = response.headers.get('X-Export-Format') ?? '';
         const blob   = response.body!;
+
+        console.log('[Download] blob recibido', {
+          bytes: blob.size,
+          contentType: blob.type,
+          formatHeader: format || '(no expuesto por CORS)',
+        });
 
         this.progress.set({
           status: 'parsing',
@@ -1499,6 +1507,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       if (primeraFilaCampos === 0) {
         this.setError(
           'Los datos llegaron pero no se pudieron interpretar (0 campos por fila). ' +
+          'Reintente con "Actualizar todo".'
+        );
+        return;
+      }
+
+      // Guarda anti-binario: si los nombres de campo traen caracteres de control
+      // es que se parseo un stream comprimido como si fuera texto. Antes esto
+      // pintaba la grilla con columnas tipo "Õÿù¯?þí/ðjõ" y 19.000 filas de
+      // basura, sin ningun aviso al usuario.
+      const clavesBinarias = Object.keys(data[0]).filter(k => /[\x00-\x08\x0E-\x1F\x7F]/.test(k));
+      if (clavesBinarias.length > 0) {
+        console.error('[parseAndLoad] Claves binarias detectadas:', clavesBinarias.slice(0, 3));
+        this.setError(
+          'El archivo descargado no se pudo decodificar (contenido binario sin descomprimir). ' +
           'Reintente con "Actualizar todo".'
         );
         return;
@@ -1637,17 +1659,44 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    *   -> Parser manual con soporte BOM UTF-8 y delimitador auto-detectado.
    */
   private async parseBlob(blob: Blob, format: string, expectedRows: number): Promise<Record<string, unknown>[]> {
-    // Detectar formato real por magic bytes (no confiar solo en el header HTTP)
+    // ── El formato se decide por MAGIC BYTES, nunca por el header HTTP ───────
+    //
+    // Por qué: el frontend (jade.medilaser.com.co) y la API
+    // (jade-api.medilaser.com.co) son origenes distintos, asi que aplica CORS.
+    // Los headers de respuesta personalizados solo son legibles desde JS si el
+    // servidor los declara en Access-Control-Expose-Headers. Como no lo hacia,
+    // `X-Export-Format` llegaba como null y el `?? 'xlsx'` del llamador daba
+    // 'xlsx' SIEMPRE — incluso cuando el body era el NDJSON.gz que sirve
+    // `?as=data`. Resultado: se le pasaba un gzip a SheetJS, que lo interpretaba
+    // como texto plano y lo partia por los saltos de linea que aparecen dentro
+    // del binario. De ahi salian ~19.000 "filas" con 2 "columnas" cuyos nombres
+    // eran bytes comprimidos (Õÿù¯?þí/ðjõ...).
+    //
+    // Los magic bytes no dependen de CORS ni de proxies, asi que mandan ellos.
     const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
-    const isZip  = header[0] === 0x50 && header[1] === 0x4B; // PK -> xlsx es un ZIP
-    const isGzip = header[0] === 0x1F && header[1] === 0x8B; // gzip magic bytes
+    const isZip  = header[0] === 0x50 && header[1] === 0x4B; // 'PK' -> xlsx (ZIP)
+    const isGzip = header[0] === 0x1F && header[1] === 0x8B; // gzip
 
-    if (isZip || format === 'xlsx') {
+    if (isZip) {
+      // xlsx real (el `?as=file` del backend, o un R2 que devuelve xlsx)
       return this.parseXlsxBlob(blob);
     }
 
-    // CSV posiblemente gzipeado
-    return this.parseCsvBlob(blob, isGzip);
+    if (isGzip) {
+      // Lo normal en la grilla: NDJSON.gz de `?as=data`. parseCsvBlob descomprime
+      // y detecta NDJSON vs CSV por el primer caracter del texto.
+      return this.parseCsvBlob(blob, true);
+    }
+
+    // Ni ZIP ni gzip: texto plano (NDJSON o CSV, posiblemente ya descomprimido
+    // por el navegador si el proxy mando Content-Encoding: gzip).
+    if (format === 'xlsx') {
+      console.warn(
+        '[parseBlob] El header decia xlsx pero el body no es un ZIP; se procesa como texto. ' +
+        'Primeros bytes:', Array.from(header).map(b => b.toString(16).padStart(2, '0')).join(' ')
+      );
+    }
+    return this.parseCsvBlob(blob, false);
   }
 
   /** Parsea xlsx usando SheetJS - maneja correctamente fechas, numeros y strings.
@@ -1742,12 +1791,24 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       }
     }
 
-    // Último recurso: si no encontramos nada válido, saltar las 3 primeras
-    // filas de portada y usar la fila 3 (índice 2), que es donde FastXlsxWriter
-    // y SpoutXlsxWriter escriben los headers reales.
+    // Último recurso: la posición de los headers depende del writer del backend
+    //   generateXlsxFromCsv (OpenSpout)   → fila 1  (índice 0, SIN portada)
+    //   FastXlsxWriter con portada        → fila 3  (índice 2)
+    //   writeXlsx (PhpSpreadsheet)        → fila 4  (índice 3)
+    // Por eso no se puede fijar un índice: se toma la primera fila no-portada
+    // con más celdas no vacías.
     if (headerRowIdx === -1) {
-      headerRowIdx = Math.min(2, rawRows.length - 1);
-      console.warn('[parseXlsxBlob] No se detectó fila de headers; usando fallback fila', headerRowIdx);
+      let bestIdx = 0;
+      let bestLen = -1;
+      for (let i = 0; i < Math.min(rawRows.length, MAX_SCAN); i++) {
+        const row = rawRows[i] as (string | null)[];
+        if (isCoverRow(row)) continue;
+        const len = row.filter(v => v !== null && String(v).trim() !== '').length;
+        if (len > bestLen) { bestLen = len; bestIdx = i; }
+      }
+      headerRowIdx = bestIdx;
+      console.warn('[parseXlsxBlob] No se detectó fila de headers; usando fila con más celdas:',
+        headerRowIdx, `(${bestLen} celdas)`);
     }
 
     const headers = (rawRows[headerRowIdx] as (string | null)[])
