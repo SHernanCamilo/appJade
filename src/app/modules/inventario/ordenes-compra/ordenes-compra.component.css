@@ -228,3 +228,46 @@
 @keyframes spin {
     100% { transform: rotate(360deg); }
 }
+
+/* ============================================ */
+/* FILA DE FILTROS DE COLUMNA                   */
+/* ============================================ */
+.filter-row th {
+    background-color: #f8fafc;
+    padding: 0.35rem 0.5rem !important;
+}
+
+.filter-row .p-inputtext {
+    font-size: 0.78rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    transition: border-color 0.15s ease;
+}
+
+.filter-row .p-inputtext:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.12);
+    outline: none;
+}
+
+.filter-row .form-select {
+    font-size: 0.78rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 0.2rem 0.5rem;
+}
+
+.filter-row .p-input-icon-left i {
+    top: 50%;
+    transform: translateY(-50%);
+    position: absolute;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.filter-row .p-input-icon-left {
+    position: relative;
+    display: block;
+}

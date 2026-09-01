@@ -51,6 +51,52 @@ export class OrdenesCompraComponent implements OnInit {
   sucursales = signal<SucursalOption[]>([]);
   selectedSucursalId = signal<number | null>(null);
 
+  // Filtros client-side para la tabla de OC (los inputs de columna filtran sobre los datos ya cargados)
+  filterNumeroOC   = signal<string>('');
+  filterProveedor  = signal<string>('');
+  filterCreadoPor  = signal<string>('');
+  filterFecha      = signal<string>('');
+
+  // Computed: aplica todos los filtros de columna sobre las OC ya cargadas del backend.
+  ordenesFiltradas = computed(() => {
+    let lista = this.ordenes();
+    const numOC    = this.filterNumeroOC().trim().toLowerCase();
+    const prov     = this.filterProveedor().trim().toLowerCase();
+    const creado   = this.filterCreadoPor().trim().toLowerCase();
+    const fecha    = this.filterFecha().trim();
+
+    if (numOC)  lista = lista.filter(o =>
+      (o.numero_orden_compra ?? '').toLowerCase().includes(numOC) ||
+      (o.oc_indigo ?? '').toLowerCase().includes(numOC));
+    if (prov)   lista = lista.filter(o =>
+      (o.proveedor_nombre ?? o.proveedor ?? '').toLowerCase().includes(prov));
+    if (creado) lista = lista.filter(o =>
+      (o.creado_por_nombre ?? '').toLowerCase().includes(creado));
+    if (fecha)  lista = lista.filter(o => {
+      const f = (o.fecha_orden ?? '').replace('T', ' ').substring(0, 10);
+      return f.includes(fecha.replace(/\//g, '-'));
+    });
+    return lista;
+  });
+
+  // Computed: hay algún filtro de columna activo (para mostrar botón "Limpiar filtros")
+  hayFiltrosActivos = computed(() =>
+    this.filterNumeroOC().trim() !== '' ||
+    this.filterProveedor().trim() !== '' ||
+    this.filterCreadoPor().trim() !== '' ||
+    this.filterFecha().trim() !== '' ||
+    this.statusFilterOrdenes() !== ''
+  );
+
+  limpiarFiltros(): void {
+    this.filterNumeroOC.set('');
+    this.filterProveedor.set('');
+    this.filterCreadoPor.set('');
+    this.filterFecha.set('');
+    this.statusFilterOrdenes.set('');
+    this.loadOrdenes();
+  }
+
   // Acciones sobre una OC
   isProcessingAction = signal<boolean>(false);
 
@@ -187,20 +233,25 @@ export class OrdenesCompraComponent implements OnInit {
 
     this.isSyncing.set(true);
     this.inventarioService.syncOrdenCompra(num, sucursalId).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.isSyncing.set(false);
         if (res.success) {
-          alert('Sincronización exitosa.');
+          if (res.ya_existia) {
+            // La OC ya estaba en el sistema: no crea nueva, informa al usuario.
+            alert(`ℹ️ La orden ${num} ya está registrada en el sistema.\n\n${res.message}`);
+          } else {
+            alert(`✅ ${res.message}`);
+          }
           this.numeroOrdenSync.set('');
           this.loadOrdenes();
         } else {
-          alert('Error: ' + res.message);
+          alert('Error: ' + (res.message || 'No se pudo sincronizar.'));
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.isSyncing.set(false);
         console.error('Error syncing:', err);
-        alert('Ocurrió un error al sincronizar con INDIGO.');
+        alert(err?.error?.message || 'Ocurrió un error al sincronizar con INDIGO.');
       }
     });
   }

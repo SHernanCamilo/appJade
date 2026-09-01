@@ -1611,7 +1611,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       { schema_name: this.schema, view: this.viewName }
     ).subscribe({
       next: res => {
-        const actual = res.estimated_rows ?? res.total ?? 0;
+        // El endpoint devuelve `count` (no `estimated_rows` ni `total`)
+        const actual = (res as any).count ?? res.estimated_rows ?? res.total ?? 0;
         if (actual <= 0) { this.parquetMismatch.set(null); return; }
 
         const diff = Math.abs(loadedRows - actual) / actual;
@@ -1622,6 +1623,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           this.parquetMismatch.set(null);
         }
       },
+      // El endpoint es opcional: si no existe (404) o falla, no interrumpir nada.
       error: () => this.parquetMismatch.set(null),
     });
   }
@@ -1739,10 +1741,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     let text: string;
 
     if (isGzip) {
-      const ds = new DecompressionStream('gzip');
-      const stream = blob.stream().pipeThrough(ds);
-      const decompressed = await new Response(stream).blob();
-      text = await decompressed.text();
+      // Descomprimir el gzip y leer como texto UTF-8 explícito.
+      // new Response(stream).blob().then(.text()) usaba la codificación por defecto
+      // del blob, que en algunos navegadores no es UTF-8: resultaba en ÃƒÂ¡ en vez
+      // de á (UTF-8 interpretado como Latin-1 / doble encoding).
+      try {
+        const ds     = new DecompressionStream('gzip');
+        const stream = blob.stream().pipeThrough(ds);
+        text = await new Response(stream).text();
+      } catch {
+        // El navegador o el proxy ya descomprimió el gzip antes de entregarlo a
+        // Angular: el blob ya es texto plano. Leer directamente.
+        console.warn('[parseCsvBlob] DecompressionStream falló, el gzip ya estaba descomprimido');
+        text = await blob.text();
+      }
     } else {
       text = await blob.text();
     }
@@ -4362,6 +4374,3 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     return current > target && this.progress().status !== 'error';
   }
 }
-
-
-
