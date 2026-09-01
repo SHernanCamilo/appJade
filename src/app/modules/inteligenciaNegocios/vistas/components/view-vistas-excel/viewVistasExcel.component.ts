@@ -218,12 +218,27 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
   // ─── Data loading ─────────────────────────────────────────────────────────
 
   private loadVista(): void {
+    console.log('[ViewVistasExcel] Iniciando carga de vista:', {
+      schema: this.schema,
+      viewName: this.viewName
+    });
+
     this.isLoading.set(true);
     this.vistasService.getVista(this.schema, this.viewName).subscribe({
       next: (res) => {
+        console.log('[ViewVistasExcel] Vista obtenida:', {
+          success: res.success,
+          vista: res.data
+        });
+
         this.vista = res.data;
-        if (!this.vista) { window.close(); return; }
+        if (!this.vista) {
+          console.error('[ViewVistasExcel] Vista no encontrada');
+          window.close();
+          return;
+        }
         if (isVistaEnMantenimiento(this.vista)) {
+          console.warn('[ViewVistasExcel] Vista en mantenimiento');
           this.isMaintenanceMode.set(true);
           this.maintenanceMessage.set(`La vista '${this.vista.nombre}' está en mantenimiento.`);
           this.isLoading.set(false);
@@ -231,7 +246,10 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
         }
         this.cargarDatos();
       },
-      error: () => window.close(),
+      error: (err) => {
+        console.error('[ViewVistasExcel] Error al obtener vista:', err);
+        window.close();
+      },
     });
   }
 
@@ -261,12 +279,46 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
     const offset = (this.paginaActual - 1) * this.pageSize;
     const skipCount = this.pageSize > 1000 || this.meta().total === -1 || this.isHeavyView();
 
+    console.log('[ViewVistasExcel] Cargando datos:', {
+      schema: this.schema,
+      viewName: this.viewName,
+      offset,
+      limit: this.pageSize,
+      skipCount,
+      filters: this.filters,
+      url: `${this.vistasService['baseUrl']}/data`
+    });
+
     this.vistasService.getVistaDatos(this.schema, this.viewName, {
       limit: this.pageSize, offset,
       sort_col: this.sortCol, sort_dir: this.sortDir,
       filters: this.filters, skip_count: skipCount,
     }).subscribe({
       next: (res) => {
+        console.log('[ViewVistasExcel] Respuesta recibida:', {
+          success: res.success,
+          rowsCount: res.rowData?.length ?? 0,
+          columnsCount: res.columnDefs?.length ?? 0,
+          meta: res.meta,
+          firstRow: res.rowData?.[0]
+        });
+
+        // Validar que haya datos
+        if (!res.rowData || res.rowData.length === 0) {
+          console.warn('[ViewVistasExcel] No hay datos en la respuesta');
+          this.errorMessage.set('No se encontraron datos para esta vista.');
+          this.isLoading.set(false);
+          return;
+        }
+
+        // Validar que haya columnas
+        if (!res.columnDefs || res.columnDefs.length === 0) {
+          console.warn('[ViewVistasExcel] No hay columnDefs en la respuesta');
+          this.errorMessage.set('Error: La vista no tiene columnas definidas.');
+          this.isLoading.set(false);
+          return;
+        }
+
         // Aplicar filtros específicos por tipo de columna
         this.columnDefs.set(this.assignDateFiltersToColumns(res.columnDefs));
         this.rowData.set(res.rowData);
@@ -274,13 +326,29 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
         this.isHeavyView.set(!!res.meta.heavy_view);
         this.showFilterRequired.set(false);
         this.isLoading.set(false);
+
+        console.log('[ViewVistasExcel] Estado actualizado:', {
+          columnDefs: this.columnDefs().length,
+          rowData: this.rowData().length,
+          meta: this.meta()
+        });
+
         this.refreshGrid();
       },
       error: (err) => {
+        console.error('[ViewVistasExcel] Error al cargar datos:', {
+          status: err.status,
+          statusText: err.statusText,
+          error: err.error,
+          message: err.message,
+          url: err.url
+        });
+
         this.rowData.set([]);
         this.isLoading.set(false);
 
         if (isFiltersRequiredError(err)) {
+          console.log('[ViewVistasExcel] Filtros requeridos');
           this.showFilterRequired.set(true);
           this.isHeavyView.set(true);
           this.filterRequiredMessage.set(err.error.message);
@@ -290,6 +358,7 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
           return;
         }
         if (isMaintenanceError(err)) {
+          console.log('[ViewVistasExcel] Vista en mantenimiento');
           this.isMaintenanceMode.set(true);
           this.maintenanceMessage.set(err.error.message ?? this.maintenanceMessage());
           return;
@@ -300,7 +369,14 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
   }
 
   private refreshGrid(): void {
-    if (!this.gridApi) return;
+    if (!this.gridApi) {
+      console.warn('[ViewVistasExcel] refreshGrid llamado pero gridApi no está inicializado');
+      return;
+    }
+    console.log('[ViewVistasExcel] Refrescando grid con:', {
+      columnas: this.columnDefs().length,
+      filas: this.rowData().length
+    });
     this.gridApi.setGridOption('columnDefs', this.columnDefs());
     this.gridApi.setGridOption('rowData', this.rowData());
     this.gridApi.sizeColumnsToFit();

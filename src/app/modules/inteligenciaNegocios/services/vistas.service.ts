@@ -290,13 +290,48 @@ export class VistasService {
     viewName: string,
     options: FabricDataQueryOptions = {}
   ): Observable<VistaDatosResponse> {
-    return this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, this.buildDataPayload(schema, viewName, options)).pipe(
-      map(response => ({
-        success: response.success,
-        columnDefs: this.buildColumnDefsFromRows(response.data),
-        rowData: response.data ?? [],
-        meta: response.meta ?? { total: 0, limit: 50, offset: 0, has_next: false }
-      }))
+    const payload = this.buildDataPayload(schema, viewName, options);
+    const url = `${this.baseUrl}/data`;
+
+    console.log('[VistasService] getVistaDatos llamado:', {
+      url,
+      schema,
+      viewName,
+      payload
+    });
+
+    return this.http.post<FabricDataResponse>(url, payload).pipe(
+      map(response => {
+        console.log('[VistasService] getVistaDatos respuesta:', {
+          success: response.success,
+          dataLength: response.data?.length ?? 0,
+          meta: response.meta,
+          firstRow: response.data?.[0],
+          keys: response.data?.[0] ? Object.keys(response.data[0]) : []
+        });
+
+        const columnDefs = this.buildColumnDefsFromRows(response.data);
+        console.log('[VistasService] columnDefs generadas:', {
+          count: columnDefs.length,
+          columns: columnDefs.map(c => c.field)
+        });
+
+        const result = {
+          success: response.success,
+          columnDefs,
+          rowData: response.data ?? [],
+          meta: response.meta ?? { total: 0, limit: 50, offset: 0, has_next: false }
+        };
+
+        console.log('[VistasService] Retornando:', {
+          success: result.success,
+          columnDefs: result.columnDefs.length,
+          rowData: result.rowData.length,
+          meta: result.meta
+        });
+
+        return result;
+      })
     );
   }
 
@@ -615,12 +650,21 @@ export class VistasService {
   }
 
   private buildColumnDefsFromRows(rows: Record<string, unknown>[]): ColDef[] {
+    console.log('[VistasService] buildColumnDefsFromRows llamado con:', {
+      rowsLength: rows?.length ?? 0,
+      firstRow: rows?.[0]
+    });
+
     const sample = rows[0];
     if (!sample) {
+      console.warn('[VistasService] buildColumnDefsFromRows: No hay filas para inferir columnas');
       return [];
     }
 
-    return Object.keys(sample).map(key => {
+    const keys = Object.keys(sample);
+    console.log('[VistasService] Generando columnDefs para keys:', keys);
+
+    return keys.map(key => {
       const sampleValues = rows.slice(0, 20).map(r => r[key]);
       const firstNonNull = sampleValues.find(v => v !== null && v !== undefined && v !== '');
 
