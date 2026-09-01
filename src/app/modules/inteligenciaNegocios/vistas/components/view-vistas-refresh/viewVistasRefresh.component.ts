@@ -1701,17 +1701,59 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return this.parseCsvBlob(blob, true);
     }
 
-    // Ni ZIP, ni gzip, ni texto. Esto es lo que pasaba en produccion: un filtro
-    // intermedio comprimia la respuesta (brotli/deflate) y el `Header unset
-    // Content-Encoding` del .htaccess borraba el aviso, asi que el navegador
-    // entregaba bytes comprimidos sin decodificar. Se intenta de todos modos y,
-    // si sale basura, la guarda de parseAndLoad lo corta con un error claro.
+    // Ni ZIP, ni gzip, ni texto plano. Esto ocurre cuando una capa fuera de
+    // nuestro control (Cloudflare, un proxy inverso) recomprime la respuesta y
+    // borra el Content-Encoding: el navegador entrega bytes comprimidos que no
+    // supo decodificar. No podemos arreglar esa capa desde aqui, asi que se
+    // intenta descomprimir manualmente por deflate (raw e zlib) antes de rendir.
     console.error(
-      '[parseBlob] Formato no reconocido. El body no es ZIP, gzip ni texto: ' +
-      'probablemente venga comprimido (brotli/deflate) sin Content-Encoding. ' +
-      'Primeros 16 bytes:', hex
+      '[parseBlob] Formato no reconocido (ni ZIP, ni gzip, ni texto). ' +
+      'Probable recompresion sin Content-Encoding. Primeros 16 bytes:', hex,
+      '- intentando descompresion manual...'
     );
+
+    const recuperado = await this.tryDecompressUnknown(blob);
+    if (recuperado !== null) {
+      console.warn('[parseBlob] Recuperado con descompresion manual:', recuperado.encoding);
+      return this.parseCsvBlob(new Blob([recuperado.text]), false);
+    }
+
+    // No se pudo recuperar: se procesa como texto y la guarda de parseAndLoad
+    // corta con un error claro si sale basura.
     return this.parseCsvBlob(blob, false);
+  }
+
+  /**
+   * Ultimo recurso cuando el body llega comprimido sin Content-Encoding.
+   *
+   * Un proxy puede comprimir con gzip o deflate y "olvidar" declararlo. El
+   * navegador no lo decodifica y nos entrega bytes crudos. Se prueba cada
+   * formato que DecompressionStream soporta; el primero que produzca texto que
+   * empiece por '{' o BOM es el bueno. Brotli no se puede: los navegadores no
+   * exponen su descompresion a JS, asi que ese caso solo se arregla en Apache.
+   *
+   * @returns el texto y el encoding acertado, o null si ninguno funciono.
+   */
+  private async tryDecompressUnknown(blob: Blob): Promise<{ text: string; encoding: string } | null> {
+    const formatos: Array<'gzip' | 'deflate' | 'deflate-raw'> = ['gzip', 'deflate', 'deflate-raw'];
+
+    for (const encoding of formatos) {
+      try {
+        const ds     = new DecompressionStream(encoding);
+        const stream = blob.stream().pipeThrough(ds);
+        const text   = await new Response(stream).text();
+
+        // Validar que el resultado sea NDJSON/JSON real, no basura casual
+        const head = text.trimStart();
+        if (head.startsWith('{') || head.charCodeAt(0) === 0xFEFF) {
+          return { text, encoding };
+        }
+      } catch {
+        // Este formato no aplica: probar el siguiente
+      }
+    }
+
+    return null;
   }
 
   /** Parsea xlsx usando SheetJS - maneja correctamente fechas, numeros y strings.
