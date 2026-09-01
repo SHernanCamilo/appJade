@@ -1673,29 +1673,44 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // eran bytes comprimidos (Õÿù¯?þí/ðjõ...).
     //
     // Los magic bytes no dependen de CORS ni de proxies, asi que mandan ellos.
-    const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+    const header = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+    const hex    = Array.from(header).map(b => b.toString(16).padStart(2, '0')).join(' ');
+
     const isZip  = header[0] === 0x50 && header[1] === 0x4B; // 'PK' -> xlsx (ZIP)
     const isGzip = header[0] === 0x1F && header[1] === 0x8B; // gzip
+    // NDJSON/JSON plano: '{' o, si trae BOM UTF-8, EF BB BF seguido de '{'
+    const isText = header[0] === 0x7B
+      || (header[0] === 0xEF && header[1] === 0xBB && header[2] === 0xBF);
+
+    console.log('[parseBlob] primeros bytes:', hex, '| formatHeader:', format || '(vacio)',
+      '|', isZip ? 'ZIP/xlsx' : isGzip ? 'gzip' : isText ? 'texto' : 'DESCONOCIDO');
 
     if (isZip) {
-      // xlsx real (el `?as=file` del backend, o un R2 que devuelve xlsx)
+      // xlsx real: el `?as=file` del backend, o un R2 que devuelva xlsx.
       return this.parseXlsxBlob(blob);
     }
 
+    if (isText) {
+      // Camino normal desde el fix del backend: NDJSON plano. Si Apache lo
+      // comprimio con Content-Encoding: gzip, el navegador ya lo decodifico.
+      return this.parseCsvBlob(blob, false);
+    }
+
     if (isGzip) {
-      // Lo normal en la grilla: NDJSON.gz de `?as=data`. parseCsvBlob descomprime
-      // y detecta NDJSON vs CSV por el primer caracter del texto.
+      // Backend anterior (o R2 directo): NDJSON.gz que toca descomprimir aqui.
       return this.parseCsvBlob(blob, true);
     }
 
-    // Ni ZIP ni gzip: texto plano (NDJSON o CSV, posiblemente ya descomprimido
-    // por el navegador si el proxy mando Content-Encoding: gzip).
-    if (format === 'xlsx') {
-      console.warn(
-        '[parseBlob] El header decia xlsx pero el body no es un ZIP; se procesa como texto. ' +
-        'Primeros bytes:', Array.from(header).map(b => b.toString(16).padStart(2, '0')).join(' ')
-      );
-    }
+    // Ni ZIP, ni gzip, ni texto. Esto es lo que pasaba en produccion: un filtro
+    // intermedio comprimia la respuesta (brotli/deflate) y el `Header unset
+    // Content-Encoding` del .htaccess borraba el aviso, asi que el navegador
+    // entregaba bytes comprimidos sin decodificar. Se intenta de todos modos y,
+    // si sale basura, la guarda de parseAndLoad lo corta con un error claro.
+    console.error(
+      '[parseBlob] Formato no reconocido. El body no es ZIP, gzip ni texto: ' +
+      'probablemente venga comprimido (brotli/deflate) sin Content-Encoding. ' +
+      'Primeros 16 bytes:', hex
+    );
     return this.parseCsvBlob(blob, false);
   }
 
