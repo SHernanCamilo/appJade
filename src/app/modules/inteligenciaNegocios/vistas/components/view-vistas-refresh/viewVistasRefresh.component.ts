@@ -709,10 +709,19 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const tr = this.totalRows();
     const af = this.activeFilters();
 
+    // El encabezado se toma de la HOJA ACTIVA, no de this.vista.
+    //
+    // this.vista se actualiza al arrancar una carga, pero schema/viewName podian
+    // quedar apuntando a otra hoja: se veia el nombre de una vista con el conteo
+    // de otra ("VW Censo · 30.308 registros" cuando esas filas eran de
+    // Treasury). Leyendo de la hoja activa, encabezado y pestaña no se pueden
+    // desincronizar.
+    const active = this.sheets().find(s => s.active);
+
     return {
       title: {
-        documentName: this.vista?.nombre || this.viewName,
-        subtitle:     `${this.schema}  ${tr > 0 ? tr.toLocaleString('es-CO') + ' registros' : ''}${af.length > 0 ? `  ${af.length} filtro(s)` : ''}`,
+        documentName: active?.label || this.vista?.nombre || this.viewName,
+        subtitle:     `${active?.schema || this.schema}  ${tr > 0 ? tr.toLocaleString('es-CO') + ' registros' : ''}${af.length > 0 ? `  ${af.length} filtro(s)` : ''}`,
         saveState:    p.status === 'processing' ? 'saving' : 'saved',
         secondaryActions: [
           { label: 'Cerrar', icon: 'pi pi-times', action: 'close' },
@@ -1072,9 +1081,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         // Solo inicializar las hojas si no hay ninguna (primer load)
         if (this.sheets().length === 0) {
           console.log('[loadColumns] Primera carga - Inicializando hoja');
+          const firstId = 'sheet-' + this.schema + '-' + this.viewName;
+          this.loadTargetSheetId = firstId;
           this.sheets.set([{
-            id: 'sheet-' + this.schema + '-' + this.viewName,
-            label: this.vista?.nombre || this.viewName,
+            id: firstId,
+            // El nombre original de la vista, igual que en Excel: la pestaña
+            // dice VW_Treasury_ComprobantesEgresoTesoreria, no una version
+            // recortada que no se puede rastrear en Fabric.
+            label: this.viewName,
             schema: this.schema,
             viewName: this.viewName,
             active: true,
@@ -1082,12 +1096,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
             columns: this.columns,
           }]);
         } else {
-          // Si ya hay hojas, actualizar la hoja activa
+          // Escribir en la hoja DESTINO de esta carga, no en "la activa": si el
+          // usuario cambio de pestaña mientras /columns respondia, las columnas
+          // se guardaban en la hoja equivocada.
+          const targetId = this.loadTargetSheetId
+            || this.sheets().find(s => s.active)?.id
+            || '';
+
           this.sheets.update(sheets => {
-            const activeSheet = sheets.find(s => s.active);
-            if (activeSheet) {
-              activeSheet.columns = this.columns;
-              activeSheet.columnDefs = this.columnDefs;
+            const target = sheets.find(s => s.id === targetId);
+            if (target) {
+              target.columns = this.columns;
+              target.columnDefs = this.columnDefs;
             }
             // Nueva referencia: los signals comparan con Object.is, y devolver
             // el mismo array no notifica a los consumidores.
@@ -1133,27 +1153,54 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return; // Ya esta en curso
     }
 
-    // Si hay un pivot abierto, cerrarlo: los datos van a cambiar y el pivot
-    // queda desactualizado. El usuario puede recrearlo despues.
-    const pivotSheet = this.sheets().find(s => (s.kind ?? 'view') === 'pivot');
-    if (pivotSheet) {
+    // ── Sobre qué hoja se refresca ──────────────────────────────────────────
+    //
+    // Si la hoja activa YA es de datos, se refresca esa y nada más.
+    //
+    // Antes esto hacía `find(kind === 'view')`, que devuelve la PRIMERA hoja de
+    // datos. Al cargar una segunda vista, pumpLoadQueue activaba la hoja nueva
+    // y acto seguido startRefresh la devolvía a la primera, reescribiendo
+    // schema y viewName. Resultado: la pestaña nueva quedaba seleccionada pero
+    // con los datos y el conteo de la vista anterior. El mismo error hacía que
+    // "Actualizar todo" sobre la segunda pestaña recargara siempre la primera.
+    const activeSheet  = this.sheets().find(s => s.active);
+    const activeIsData = (activeSheet?.kind ?? 'view') === 'view' && !!activeSheet;
+
+    if (this.sheets().length === 0) {
+      // Primera carga y /columns fallo antes de crear la hoja: se refresca con
+      // el schema/viewName de la ruta, que es lo unico que tenemos.
+      console.warn('[startRefresh] Sin hojas todavia; se usa la vista de la ruta', this.viewName);
+    } else if (activeSheet && activeIsData) {
+      // Respetar la hoja activa: es la que eligió el usuario o la cola
+      this.schema   = activeSheet.schema;
+      this.viewName = activeSheet.viewName;
+    } else {
+      // Estamos en un pivot o una hoja de cálculo: saltar a la hoja de datos de
+      // la vista en curso, o a la primera que haya.
+      const target = this.sheets().find(s => (s.kind ?? 'view') === 'view' && s.viewName === this.viewName)
+        ?? this.sheets().find(s => (s.kind ?? 'view') === 'view');
+
+      if (!target) return; // no hay ninguna hoja de datos que refrescar
+
       this.sheets.update(sheets => {
-        const idx = sheets.findIndex(s => s.id === pivotSheet.id);
-        if (idx >= 0) sheets.splice(idx, 1);
+        sheets.forEach(s => s.active = s.id === target.id);
         return [...sheets];
       });
-      console.log('[startRefresh] Pivot cerrado: los datos se van a actualizar');
+      this.schema   = target.schema;
+      this.viewName = target.viewName;
+      this.loadTargetSheetId = target.id;
     }
 
-    // Asegurarse de que la hoja de datos es la activa
-    const dataSheet = this.sheets().find(s => (s.kind ?? 'view') === 'view');
-    if (dataSheet && !dataSheet.active) {
-      this.sheets.update(sheets => {
-        sheets.forEach(s => s.active = s.id === dataSheet.id);
-        return [...sheets];
-      });
-      this.schema   = dataSheet.schema;
-      this.viewName = dataSheet.viewName;
+    // Cerrar SOLO los pivots que salieron de esta vista: sus datos van a
+    // cambiar. Antes se cerraba cualquier pivot, así que abrir una segunda
+    // vista destruía la tabla dinámica de la primera sin avisar.
+    const stalePivots = this.sheets().filter(s =>
+      (s.kind ?? 'view') === 'pivot' && s.viewName.includes(this.viewName)
+    );
+    if (stalePivots.length > 0) {
+      const staleIds = new Set(stalePivots.map(s => s.id));
+      this.sheets.update(sheets => sheets.filter(s => !staleIds.has(s.id)));
+      console.log('[startRefresh] Pivots cerrados por refresco de', this.viewName, '->', staleIds.size);
     }
 
     this.clearTimers();
@@ -1545,6 +1592,36 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.registerActiveViewForFormulas(data);
       this.totalRows.set(data.length);
 
+      // ── Destino de estos datos ────────────────────────────────────────────
+      // Se fija la hoja a la que pertenece la carga. Si el usuario cambio de
+      // pestaña mientras cargaba, los datos se guardan en su hoja pero NO se
+      // pintan, para no sobreescribir lo que esta viendo.
+      const targetId = this.loadTargetSheetId
+        || this.sheets().find(s => s.active)?.id
+        || '';
+      const targetIsActive = () => this.sheets().find(s => s.active)?.id === targetId;
+
+      // Guardar de una en la hoja destino: aunque el usuario se vaya a otra
+      // pestaña, al volver los datos ya estan ahi.
+      this.saveSheetData(targetId, data, this.columnDefs);
+
+      if (!targetIsActive()) {
+        console.log('[parseAndLoad] La hoja destino ya no esta activa; datos guardados sin pintar la grilla',
+          { targetId, activa: this.sheets().find(s => s.active)?.id });
+
+        this.registerActiveViewForFormulas(data);
+        this.clearTimers();
+        this.progress.set({
+          status: 'ready',
+          message: data.length.toLocaleString('es-CO') + ' registros cargados',
+          percent: 100,
+          rows: data.length,
+          elapsed: this.elapsed(),
+        });
+        this.releaseLoadSlot();
+        return;
+      }
+
       // --- Carga progresiva: evita congelar el navegador con 64K+ filas ---
       const FIRST_CHUNK = 1000;
       const CHUNK_SIZE  = 10000;
@@ -1553,7 +1630,6 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       const firstSlice = data.slice(0, Math.min(FIRST_CHUNK, data.length));
       this.rowData = firstSlice;
       this.filteredRows.set(firstSlice.length);
-      this.saveActiveSheetData(data, this.columnDefs);
 
       if (this.gridApi) {
         this.gridApi.setGridOption('rowData', firstSlice);
@@ -1565,6 +1641,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         let offset = FIRST_CHUNK;
         while (offset < data.length) {
           await new Promise(r => setTimeout(r, 30));
+
+          // El usuario pudo cambiar de pestaña a mitad del troceado: dejar de
+          // pintar en la grilla de otra hoja.
+          if (!targetIsActive()) {
+            console.log('[parseAndLoad] Cambio de pestaña durante la carga; se deja de pintar');
+            break;
+          }
+
           offset = Math.min(offset + CHUNK_SIZE, data.length);
           this.rowData = data.slice(0, offset);
           this.filteredRows.set(offset);
@@ -3173,38 +3257,29 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   // -Panel "Agregar vista" -
   openAddViewPanel(): void {
     this.showAddViewPanel.set(true);
-    if (this.availableViews().length === 0) {
-      this.loadingViews.set(true);
-      // Reutilizar el endpoint de vistas del usuario
-      this.http.post<{ success: boolean; data: unknown }>(
-        `${this.baseUrl.replace('/viewer', '')}/viewer/views`, {}
-      ).subscribe({
-        next: (res: unknown) => {
-          this.loadingViews.set(false);
-          // Aplanar la respuesta (misma estructura que VistasService.flattenViews)
-          const body = res as { success: boolean; data: { schemas?: Array<{ schema: string; display: string; views: Array<{ view_name: string; qualified_name: string; column_count: number; bi_estado?: string }> }> } };
-          const views: VistaBi[] = [];
-          for (const schema of body?.data?.schemas ?? []) {
-            for (const v of schema.views ?? []) {
-              views.push({
-                schema:       schema.schema,
-                schemaDisplay: schema.display,
-                view_name:    v.view_name,
-                nombre:       v.view_name.replace(/^VW_[A-Za-z]+_/, '').replace(/_/g, ' '),
-                codigo:       v.view_name,
-                estado:       true,
-                bi_estado:    (v.bi_estado as 'activo' | 'mantenimiento' | 'inactivo' | undefined),
-                column_count: v.column_count,
-              });
-            }
-          }
-          this.availableViews.set(views);
-        },
-        error: () => {
-          this.loadingViews.set(false);
-        }
-      });
-    }
+    if (this.availableViews().length > 0) return;
+
+    this.loadingViews.set(true);
+
+    // Se usa VistasService.getVistas() en vez de llamar el endpoint a mano.
+    //
+    // Antes este panel repetia el aplanado de la respuesta y en el camino
+    // recortaba el nombre: `view_name.replace(/^VW_[A-Za-z]+_/, '').replace(/_/g,' ')`
+    // convertia VW_Censo_Trazabilidad_NvaEal en "Censo Trazabilidad NvaEal", un
+    // nombre que no existe en Fabric y no se puede rastrear. El servicio ya
+    // conserva el nombre original, respeta los esquemas permitidos del usuario
+    // y trae column_count y bi_estado.
+    this.vistasService.getVistas().subscribe({
+      next: res => {
+        this.loadingViews.set(false);
+        this.availableViews.set(res.data ?? []);
+        console.log('[openAddViewPanel] Vistas disponibles:', res.data?.length ?? 0);
+      },
+      error: err => {
+        this.loadingViews.set(false);
+        console.error('[openAddViewPanel] No se pudieron cargar las vistas', err);
+      },
+    });
   }
 
   closeAddViewPanel(): void {
@@ -3604,6 +3679,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   /** Datos fuente de la tabla dinamica (se guardan al abrir el panel) */
   pivotSourceData: Record<string, unknown>[] = [];
 
+  /**
+   * Columnas que ofrece el panel de tabla dinamica para arrastrar.
+   *
+   * Va aparte de `this.columns` a proposito: el panel puede dinamizar CUALQUIER
+   * hoja de datos abierta, no solo la activa. Antes el template usaba
+   * `this.columns`, asi que al elegir otra hoja como fuente los datos cambiaban
+   * pero la lista de campos seguia siendo la de la vista anterior: se
+   * arrastraban columnas que no existian en el dataset y el pivot salia vacio.
+   */
+  readonly pivotColumns = signal<FabricColumn[]>([]);
+
+  /** Hoja de datos que alimenta el pivot (para nombrar su hoja de resultados) */
+  private pivotSourceSheetId = '';
+
   /** Al abrir el panel, guardar referencia a los datos actuales */
   openPivotPanel(): void {
     // Guardar los datos de la hoja de datos activa como fuente del pivot.
@@ -3615,11 +3704,42 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       : this.sheets().find(s => (s.kind ?? 'view') === 'view' && (s.rowData?.length ?? 0) > 0);
 
     if (dataSheet?.rowData && dataSheet.rowData.length > 0) {
-      this.pivotSourceData = dataSheet.rowData;
+      this.pivotSourceData    = dataSheet.rowData;
+      this.pivotSourceSheetId = dataSheet.id;
+      this.pivotColumns.set(this.columnsForSheet(dataSheet));
     } else {
-      this.pivotSourceData = this.rawData.length > 0 ? this.rawData : this.rowData;
+      this.pivotSourceData    = this.rawData.length > 0 ? this.rawData : this.rowData;
+      this.pivotSourceSheetId = activeSheet?.id ?? '';
+      this.pivotColumns.set(this.columns);
     }
+
+    if (this.pivotSourceData.length === 0) {
+      alert(
+        'No hay datos cargados para dinamizar.\n\n' +
+        'Cargue primero una vista con "Actualizar todo" y vuelva a abrir la tabla dinamica.'
+      );
+      return;
+    }
+
     this.showPivotPanel.set(true);
+  }
+
+  /**
+   * Columnas de una hoja para el panel de pivot.
+   *
+   * Si la hoja no guardo los metadatos del backend (por ejemplo se cargo antes
+   * de que /columns respondiera), se derivan de las claves de la primera fila
+   * para que el panel nunca quede sin campos que arrastrar.
+   */
+  private columnsForSheet(sheet: { columns?: FabricColumn[]; rowData?: Record<string, unknown>[] }): FabricColumn[] {
+    if (sheet.columns && sheet.columns.length > 0) return sheet.columns;
+
+    const first = sheet.rowData?.[0];
+    if (!first) return [];
+
+    return Object.keys(first)
+      .filter(k => k !== '__ROW_NUMBER__')
+      .map(name => ({ name, type: 'varchar', nullable: true } as FabricColumn));
   }
 
   /**
@@ -3639,10 +3759,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   /** Cuando el usuario selecciona una hoja fuente en el pivot */
   onPivotSheetSelected(sheetId: string): void {
     const sheet = this.sheets().find(s => s.id === sheetId);
-    if (sheet && sheet.rowData && sheet.rowData.length > 0) {
-      this.pivotSourceData = sheet.rowData;
-      console.log('[Pivot] Fuente cambiada a:', sheet.label, '-', sheet.rowData.length, 'registros');
+    if (!sheet || !sheet.rowData || sheet.rowData.length === 0) {
+      console.warn('[Pivot] La hoja elegida no tiene datos cargados:', sheetId);
+      return;
     }
+
+    this.pivotSourceData    = sheet.rowData;
+    this.pivotSourceSheetId = sheet.id;
+
+    // Cambiar tambien los campos disponibles: son los de ESTA hoja, no los de
+    // la vista activa. Sin esto se arrastraban columnas de otra vista.
+    this.pivotColumns.set(this.columnsForSheet(sheet));
+
+    console.log('[Pivot] Fuente cambiada a:', sheet.label,
+      '-', sheet.rowData.length, 'registros,', this.pivotColumns().length, 'columnas');
   }
 
   /** Cuando el componente pivot genera resultados */
@@ -3679,37 +3809,41 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Antes esto llamaba saveActiveSheetData antes de crear el pivot, pero eso
     // sobreescribia la hoja de datos con pivot data si se llamaba mas de una vez.
 
-    const existingPivot = this.sheets().find(s => s.label === 'Pivot');
-    const pivotSheetId  = existingPivot?.id ?? `sheet-pivot-${Date.now()}`;
+    // La hoja de pivot se identifica por su HOJA FUENTE, no por la etiqueta.
+    //
+    // Antes se buscaba `label === 'Pivot'`, asi que con varias vistas abiertas
+    // todos los pivots colisionaban en una sola hoja: dinamizar la segunda vista
+    // sobreescribia el pivot de la primera. Ahora cada hoja de datos tiene su
+    // propio pivot y ambos conviven, como en Excel.
+    const sourceSheet   = this.sheets().find(s => s.id === this.pivotSourceSheetId);
+    const sourceLabel   = sourceSheet?.label ?? this.viewName;
+    const sourceView    = sourceSheet?.viewName ?? this.viewName;
+    const pivotSheetId  = `sheet-pivot-${this.pivotSourceSheetId || sourceView}`;
+    const existingPivot = this.sheets().find(s => s.id === pivotSheetId);
+
+    // Devolver a la hoja fuente sus datos originales, por si el pivot anterior
+    // los habia dejado a medias. Se escribe en SU id, nunca en "la activa".
+    if (this.pivotSourceSheetId && this.pivotSourceData.length > 0) {
+      this.sheets.update(sheets => {
+        const ds = sheets.find(s => s.id === this.pivotSourceSheetId);
+        if (ds && (ds.kind ?? 'view') === 'view') {
+          ds.rowData = this.pivotSourceData;
+          if (!ds.columnDefs || ds.columnDefs.length === 0) {
+            ds.columnDefs = this.columnDefs;
+          }
+        }
+        return [...sheets];
+      });
+    }
 
     if (!existingPivot) {
-      // Primera vez: guardar la hoja de datos ANTES de crear pivot.
-      // Pero solo si la hoja activa NO es ya un pivot (proteccion contra re-entradas).
-      const activeSheet = this.sheets().find(s => s.active);
-      if (activeSheet && (activeSheet.kind ?? 'view') !== 'pivot') {
-        // Guardar los datos originales de la hoja de datos en su slot
-        this.sheets.update(sheets => {
-          const ds = sheets.find(s => s.active);
-          if (ds && this.pivotSourceData.length > 0) {
-            ds.rowData    = this.pivotSourceData;
-            // Solo si tiene columnDefs originales (no los del pivot)
-            if (!ds.columnDefs || ds.columnDefs.length === 0 || ds.columnDefs === this.columnDefs) {
-              // columnDefs actuales son las originales de la data sheet
-              ds.columnDefs = this.columnDefs;
-            }
-          }
-          return [...sheets];
-        });
-      }
-
-      // Crear la hoja pivot
       this.sheets.update(sheets => {
         sheets.forEach(s => s.active = false);
         sheets.push({
           id: pivotSheetId,
-          label: 'Pivot',
-          schema: this.schema,
-          viewName: `Pivot - ${this.viewName}`,
+          label: `Pivot · ${sourceLabel}`,
+          schema: sourceSheet?.schema ?? this.schema,
+          viewName: `Pivot - ${sourceView}`,
           active: true,
           kind: 'pivot',
           rowData: result.rows,
@@ -3721,13 +3855,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     } else {
       // Actualizar la hoja pivot existente — NO tocar otras hojas
       this.sheets.update(sheets => {
-        const pivot = sheets.find(s => s.id === existingPivot.id);
+        const pivot = sheets.find(s => s.id === pivotSheetId);
         if (pivot) {
           pivot.rowData    = result.rows;
           pivot.columnDefs = pivotCols;
         }
-        // Activar la hoja pivot (puede que el usuario este en ella o no)
-        sheets.forEach(s => s.active = s.id === existingPivot.id);
+        sheets.forEach(s => s.active = s.id === pivotSheetId);
         return [...sheets];
       });
     }
@@ -4003,6 +4136,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   /** Hay una carga en curso ocupando el turno */
   private loadInFlight = false;
 
+  /**
+   * Hoja a la que pertenece la carga en curso.
+   *
+   * Toda la cadena de carga es asincrona (columns -> export -> polling ->
+   * download -> parse), y puede tardar minutos. Si durante ese rato el usuario
+   * cambia de pestaña, "la hoja activa" ya no es la que pidio los datos: al
+   * llegar, se guardaban en la hoja equivocada y quedaba "pegada" con los datos
+   * de otra vista. Por eso el destino se fija AL INICIAR la carga y no se
+   * vuelve a consultar.
+   */
+  private loadTargetSheetId = '';
+
   readonly queuedViewCount = signal(0);
 
   private enqueueViewLoad(vista: VistaBi): void {
@@ -4032,6 +4177,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     // Guardar lo que hay en la hoja activa antes de cederle el turno a la nueva
     this.saveActiveSheetData(this.rawData, this.columnDefs);
+
+    // Fijar el destino de esta carga: startRefresh y parseAndLoad lo respetan
+    this.loadTargetSheetId = targetId;
 
     this.sheets.update(sheets => {
       sheets.forEach(s => s.active = s.id === targetId);
@@ -4110,10 +4258,22 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * Guarda los datos cargados en la hoja activa actual
    */
   private saveActiveSheetData(data: Record<string, unknown>[], columnDefs: ColDef[]): void {
+    const activeId = this.sheets().find(s => s.active)?.id;
+    if (activeId) this.saveSheetData(activeId, data, columnDefs);
+  }
+
+  /**
+   * Guarda datos en UNA hoja concreta, identificada por id.
+   *
+   * Se usa al terminar una carga: el destino es la hoja que la pidio
+   * (loadTargetSheetId), no la que este activa en ese momento. Si el usuario
+   * cambio de pestaña mientras cargaba, los datos igual caen donde deben.
+   */
+  private saveSheetData(sheetId: string, data: Record<string, unknown>[], columnDefs: ColDef[]): void {
     if (data.length === 0 || columnDefs.length === 0) return;
 
     this.sheets.update(sheets => {
-      const activeSheet = sheets.find(s => s.active);
+      const activeSheet = sheets.find(s => s.id === sheetId);
       if (!activeSheet) return [...sheets];
 
       const kind = activeSheet.kind ?? 'view';
@@ -4164,6 +4324,19 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.columns    = sheet.columns ?? [];
       this.rowData    = [...sheet.rowData];
 
+      // Los desplegables del ribbon (Filtros y Formato) se alimentan de
+      // colOptions. Sin refrescarlo aqui, al cambiar de pestaña seguian
+      // ofreciendo las columnas de la vista anterior y filtrar no hacia nada.
+      this.colOptions.set(this.columns.map(c => ({
+        label: humanizeColumnName(c.name),
+        value: c.name,
+      })));
+
+      // El builder de filtros apuntaba a una columna que ya no existe
+      this.filterBuilder = { col: '' };
+      this.selectedColType.set(null);
+      this.columnStats.set(null);
+
       this.applyColumnDefs();
 
       this.totalRows.set(sheet.rowData.length);
@@ -4197,6 +4370,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         return;
       }
       this.loadInFlight = true;
+      this.loadTargetSheetId = sheet.id;
       this.loadMeta();
     }
   }
@@ -4257,7 +4431,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.sheets.update(sheets => {
       sheets.push({
         id: newSheetId,
-        label: vista.nombre,
+        // Nombre original de la vista: es el que se puede buscar en Fabric y el
+        // que usan las formulas (BUSCARVISTA lee viewName, no una etiqueta).
+        label: vista.view_name,
         schema: vista.schema,
         viewName: vista.view_name,
         active: false,

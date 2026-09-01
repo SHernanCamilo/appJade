@@ -262,7 +262,8 @@
 
       <div class="vr-add-panel__body">
         <p class="vr-add-panel__help">
-          Seleccione una vista para abrirla en una nueva pestana del navegador (como crear una nueva hoja en Excel).
+          Seleccione una vista para abrirla como una hoja mas de este libro. Las vistas se cargan
+          de una en una: si elige varias, las siguientes esperan turno.
         </p>
 
         <!-- Buscador -->
@@ -285,13 +286,17 @@
         <!-- Lista de vistas -->
         <div class="vr-add-list" *ngIf="!loadingViews()">
           <button *ngFor="let vista of availableViewsFiltradas" type="button" class="vr-add-item"
-            [disabled]="!vista.estado || vista.bi_estado === 'mantenimiento'" (click)="addViewAsSheet(vista)">
+            [disabled]="!vista.estado || vista.bi_estado === 'mantenimiento'" (click)="addViewAsSheet(vista)"
+            [title]="vista.view_name">
             <div class="vr-add-item__main">
-              <span class="vr-add-item__name">{{ vista.nombre }}</span>
+              <!-- Nombre original de la vista (VW_...): es el que existe en Fabric -->
+              <span class="vr-add-item__name">{{ vista.view_name }}</span>
               <span class="vr-add-item__schema">{{ vista.schemaDisplay }}</span>
             </div>
             <div class="vr-add-item__meta">
-              <span class="vr-add-item__cols">{{ vista.column_count }} cols</span>
+              <!-- El conteo solo se muestra si el backend lo envia: antes salia
+                   "0 cols" en todas las vistas y parecia que estaban vacias -->
+              <span class="vr-add-item__cols" *ngIf="vista.column_count > 0">{{ vista.column_count }} cols</span>
               <i class="pi pi-external-link vr-add-item__icon"></i>
             </div>
           </button>
@@ -561,7 +566,7 @@
 
     <!-- Panel lateral: Tabla Dinamica (componente separado) -->
     <aside class="vr-pivot-panel" [class.vr-pivot-panel--visible]="showPivotPanel()">
-      <app-pivot-panel [availableColumns]="columns" [sheets]="getPivotSheets()" [sourceData]="pivotSourceData"
+      <app-pivot-panel [availableColumns]="pivotColumns()" [sheets]="getPivotSheets()" [sourceData]="pivotSourceData"
         (pivotGenerated)="onPivotGenerated($event)" (closed)="closePivotPanel()" (cleared)="clearPivotConfigAuto()"
         (sheetSelected)="onPivotSheetSelected($event)">
       </app-pivot-panel>
