@@ -14,29 +14,18 @@ import { ModuleDashboardCard, ModuleDashboardService } from '../../core/services
   templateUrl: './talentoHumano.component.html',
   styleUrl: './talentoHumano.component.css'
 })
-export class talentoHumanoComponent {
-  dashboardCards = [
-    {
-      title: 'Eventos',
-      icon: 'bi-calendar-event',
-      description: 'Gestión de eventos y novedades',
-      color: 'primary',
-      items: [
-        { name: 'Dashboard', route: '/talentoHumano/eventos/dashboard', icon: 'bi-speedometer2' },
-        { name: 'Cargue', route: '/talentoHumano/eventos/cargue', icon: 'bi-upload' },
-        { name: 'Parámetros', route: '/talentoHumano/eventos/parametros', icon: 'bi-gear' }
-      ]
-    },
-    {
-      title: 'Cuadro de Turnos',
-      icon: 'bi-calendar-week',
-      description: 'Gestión de horarios y turnos',
-      color: 'secondary',
-      items: [
-        { name: 'Cuadro por Empleado', route: '/talentoHumano/turnos/cuadro-empleado', icon: 'bi-calendar3' },
-        { name: 'Dashboard', route: '/talentoHumano/turnos/dashboard', icon: 'bi-speedometer2' },
-        { name: 'Plantillas', route: '/talentoHumano/turnos/plantillas', icon: 'bi-clock' }
-      ]
-    }
-  ];
+export class talentoHumanoComponent implements OnInit {
+  private readonly sidebarService = inject(SidebarService);
+  private readonly moduleDashboardService = inject(ModuleDashboardService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  dashboardCards: ModuleDashboardCard[] = [];
+
+  ngOnInit(): void {
+    this.sidebarService.modulos$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.dashboardCards = this.moduleDashboardService.buildDashboardCards('/talentoHumano');
+      });
+  }
 }

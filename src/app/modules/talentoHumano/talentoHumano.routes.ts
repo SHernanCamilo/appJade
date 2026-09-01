@@ -23,7 +23,14 @@ export const TALENTOHUMANO_ROUTES: Routes = [
         loadComponent: () => import('./eventos/parametros/parametros.component').then(m => m.ParametrosEventosComponent),
           canActivate: [moduleGuard],
         data: {moduleCode: 'TALHUM-EVENT-PARAM' }
-      }
+      },
+      {
+        path: 'digitalizacion',
+        loadComponent: () => import('./eventos/digitalizacion/digitalizacion.component').then(m => m.DigitalizacionEventosComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'TALHUM-EVENT-DIGIT', title: 'Digitalización de Eventos' }
+      },
+      { path: 'cargue', redirectTo: 'digitalizacion', pathMatch: 'full' }
     ]
   },
 

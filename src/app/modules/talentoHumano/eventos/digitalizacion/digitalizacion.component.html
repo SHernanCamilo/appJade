@@ -1,0 +1,247 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" *ngIf="vista === 'selector'" routerLink="/talentoHumano">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+      <button class="btn-back-modern" *ngIf="vista === 'cola'" type="button" (click)="volverAlSelector()">
+        <i class="pi pi-arrow-left"></i>
+        Cambiar sucursal
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-upload me-2"></i>
+          Digitalización
+        </h1>
+        <p class="page-subtitle-modern" *ngIf="vista === 'selector'">
+          Elige la empresa o sucursal para ver los eventos autorizados pendientes de cargue a nómina.
+        </p>
+        <p class="page-subtitle-modern" *ngIf="vista === 'cola'">
+          {{ etiquetaAmbito }}. Al digitalizar, nómina guarda el evento para realizar el pago.
+        </p>
+      </div>
+      <button class="btn-action btn-action-secondary" *ngIf="vista === 'selector'" (click)="showExcelDialog = true">
+        <i class="pi pi-upload"></i>
+        Cargue masivo
+      </button>
+    </div>
+  </div>
+
+  <div class="dashboard-content" *ngIf="vista === 'selector'">
+    <div class="ambito-search">
+      <i class="pi pi-search"></i>
+      <input type="text" pInputText [(ngModel)]="filtroAmbito" (ngModelChange)="aplicarFiltroAmbito()"
+        placeholder="Buscar empresa o sucursal...">
+    </div>
+
+    <div *ngIf="isLoadingAmbitos" class="ambito-loading">
+      <p-skeleton width="220px" height="28px" styleClass="mb-3"></p-skeleton>
+      <div class="ambito-grid">
+        <p-skeleton *ngFor="let i of [1,2,3,4]" height="110px" borderRadius="16px"></p-skeleton>
+      </div>
+    </div>
+
+    <div class="ambito-empty" *ngIf="!isLoadingAmbitos && empresasFiltradas.length === 0">
+      <i class="pi pi-building"></i>
+      <p>No hay empresas o sucursales disponibles</p>
+    </div>
+
+    <section class="ambito-empresa" *ngFor="let empresa of empresasFiltradas">
+      <div class="ambito-empresa-head">
+        <i class="pi pi-building"></i>
+        <div>
+          <h2>{{ empresa.nombre }}</h2>
+          <small *ngIf="empresa.prefijo">{{ empresa.prefijo }}</small>
+        </div>
+      </div>
+      <div class="ambito-grid">
+        <button type="button" class="ambito-card ambito-card-all" (click)="entrarAmbito(empresa, null)">
+          <span class="ambito-icon"><i class="pi pi-th-large"></i></span>
+          <span class="ambito-name">Toda la empresa</span>
+          <span class="ambito-meta">{{ empresa.sucursales.length }} sucursal(es)</span>
+        </button>
+        <button type="button" class="ambito-card"
+          *ngFor="let sucursal of empresa.sucursales; let i = index"
+          [ngClass]="'color-' + colorCard(i)"
+          (click)="entrarAmbito(empresa, sucursal)">
+          <span class="ambito-icon"><i class="pi pi-map-marker"></i></span>
+          <span class="ambito-name">{{ sucursal.nombre }}</span>
+          <span class="ambito-meta">Entrar a la cola</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="dashboard-content" *ngIf="vista === 'cola'">
+    <div class="section-card mb-3">
+      <div class="section-card-header">
+        <h2 class="section-card-title">
+          <i class="pi pi-inbox me-2"></i>
+          Pendientes de digitalizar
+          <span class="count-badge" *ngIf="!isLoading">{{ pendientes.length }}</span>
+        </h2>
+        <div class="header-actions">
+          <button class="btn-action btn-action-secondary" (click)="exportarPendientes()"
+            [disabled]="pendientes.length === 0 || isExportando">
+            <i class="pi" [ngClass]="isExportando ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+            Exportar Excel
+          </button>
+          <button class="btn-action btn-action-secondary" (click)="showExcelDialog = true">
+            <i class="pi pi-upload"></i>
+            Cargue masivo
+          </button>
+          <button class="btn-action btn-action-success"
+            [disabled]="seleccion.length === 0 || isProcesando"
+            (click)="digitalizarSeleccionados()">
+            <i class="pi" [ngClass]="isProcesando ? 'pi-spin pi-spinner' : 'pi-check'"></i>
+            Digitalizar seleccionados ({{ seleccion.length }})
+          </button>
+        </div>
+      </div>
+
+      <div class="section-card-body">
+        <div class="d-flex gap-2">
+          <input type="text" pInputText [(ngModel)]="searchTerm"
+            (keyup.enter)="aplicarBusqueda()"
+            placeholder="Buscar por consecutivo o empleado..."
+            class="flex-grow-1">
+          <button class="btn-action btn-action-primary" (click)="aplicarBusqueda()">
+            <i class="pi pi-search"></i>Buscar
+          </button>
+          <button class="btn-action btn-action-secondary" (click)="limpiarBusqueda()" *ngIf="searchTerm">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="modern-table-container" *ngIf="isLoading && pendientes.length === 0">
+        <div class="p-4">
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="50px"></p-skeleton>
+        </div>
+      </div>
+
+      <div class="modern-table-container" *ngIf="!isLoading || pendientes.length > 0">
+        <app-data-table
+          [value]="pendientes"
+          [columns]="columns"
+          [loading]="isLoading"
+          [selectable]="true"
+          [(selection)]="seleccion"
+          dataKey="id"
+          selectionMode="multiple"
+          [showCaption]="false"
+          [showGlobalSearch]="false"
+          [paginator]="pendientes.length > 10"
+          [rows]="25"
+          styleClass="modern-table"
+          emptyMessage="No hay eventos autorizados pendientes de digitalizar"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} eventos"
+          actionsWidth="140px"
+          [tableStyle]="{ 'min-width': '100%' }">
+
+          <ng-template pTemplate="cell-empleado" let-row>
+            {{ nombreEmpleado(row) }}
+          </ng-template>
+          <ng-template pTemplate="cell-documento" let-row>
+            {{ documentoEmpleado(row) }}
+          </ng-template>
+          <ng-template pTemplate="cell-unidad_funcional" let-row>
+            {{ row.unidad_funcional || '—' }}
+          </ng-template>
+          <ng-template pTemplate="cell-novedad" let-row>
+            {{ novedadLabel(row) }}
+          </ng-template>
+          <ng-template pTemplate="cell-fecha_nov_ini" let-row>
+            {{ formatearFecha(row.fecha_nov_ini) }}
+          </ng-template>
+          <ng-template pTemplate="cell-fecha_nov_fin" let-row>
+            {{ formatearFecha(row.fecha_nov_fin) }}
+          </ng-template>
+          <ng-template pTemplate="cell-horas" let-row>
+            {{ calcularHoras(row.fecha_nov_ini, row.fecha_nov_fin) }}
+          </ng-template>
+          <ng-template pTemplate="cell-estado" let-row>
+            <p-tag [value]="getEstadoLabel(row.estado)" [severity]="getEstadoSeverity(row.estado)"></p-tag>
+          </ng-template>
+          <ng-template pTemplate="actions" let-row>
+            <div class="action-buttons">
+              <button type="button" class="btn-action-icon btn-action-secondary"
+                pTooltip="Ver detalle" tooltipPosition="top"
+                (click)="$event.stopPropagation(); abrirDetalle(row)">
+                <i class="pi pi-eye"></i>
+              </button>
+              <button type="button" class="btn-action-icon btn-action-primary"
+                pTooltip="Digitalizar" tooltipPosition="top"
+                [disabled]="isProcesando"
+                (click)="$event.stopPropagation(); digitalizarUno(row)">
+                <i class="pi pi-upload"></i>
+              </button>
+            </div>
+          </ng-template>
+        </app-data-table>
+      </div>
+    </div>
+  </div>
+
+  <p-dialog header="Detalle del evento" [(visible)]="showDetalle" [modal]="true"
+    [style]="{ width: '640px', maxWidth: '95vw' }" (onHide)="cerrarDetalle()">
+    <div class="detalle-grid" *ngIf="detalle">
+      <div class="detalle-item"><span>Consecutivo</span><strong>{{ detalle.consecutivo }}</strong></div>
+      <div class="detalle-item"><span>Estado</span>
+        <p-tag [value]="getEstadoLabel(detalle.estado)" [severity]="getEstadoSeverity(detalle.estado)"></p-tag>
+      </div>
+      <div class="detalle-item"><span>Funcionario</span><strong>{{ nombreEmpleado(detalle) }}</strong></div>
+      <div class="detalle-item"><span>Documento</span><strong>{{ documentoEmpleado(detalle) }}</strong></div>
+      <div class="detalle-item"><span>U. Funcional</span><strong>{{ detalle.unidad_funcional || '—' }}</strong></div>
+      <div class="detalle-item"><span>Novedad</span><strong>{{ novedadLabel(detalle) }}</strong></div>
+      <div class="detalle-item"><span>Inicio</span><strong>{{ formatearFecha(detalle.fecha_nov_ini) }}</strong></div>
+      <div class="detalle-item"><span>Fin</span><strong>{{ formatearFecha(detalle.fecha_nov_fin) }}</strong></div>
+      <div class="detalle-item"><span>Horas</span><strong>{{ calcularHoras(detalle.fecha_nov_ini, detalle.fecha_nov_fin) }}</strong></div>
+    </div>
+    <div class="mt-3" *ngIf="isLoadingHistorial">
+      <p-skeleton width="100%" height="40px"></p-skeleton>
+    </div>
+    <div class="historial-mini mt-3" *ngIf="!isLoadingHistorial && historial.length">
+      <h4>Flujo</h4>
+      <div class="historial-row" *ngFor="let h of historial">
+        <span>{{ accionHistorial(h.accion) }}</span>
+        <span>{{ h.paso?.nombre_paso || h.paso?.nombre || '—' }}</span>
+        <span>{{ formatearFecha(h.fecha_accion) }}</span>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <button class="btn-action btn-action-secondary" (click)="cerrarDetalle()">Cerrar</button>
+      <button class="btn-action btn-action-success" [disabled]="isProcesando" (click)="detalle && digitalizarUno(detalle)">
+        <i class="pi pi-upload"></i> Digitalizar
+      </button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog header="Cargue masivo por Excel" [(visible)]="showExcelDialog" [modal]="true"
+    [style]="{ width: '520px', maxWidth: '95vw' }" (onHide)="showExcelDialog = false">
+    <p class="excel-hint">
+      Columna <strong>A</strong>: consecutivo del evento (el mismo de la exportación).
+      Solo se digitalizan eventos que sigan <strong>autorizados</strong> y pendientes de este paso.
+    </p>
+    <label class="filter-label">Comentario (opcional)</label>
+    <textarea pTextarea [(ngModel)]="comentarioMasivo" rows="2" class="w-100 mb-3"
+      placeholder="Observación de nómina..."></textarea>
+    <input type="file" accept=".xlsx,.xls" (change)="onArchivoExcel($event)" [disabled]="isImportando">
+    <p class="text-muted mt-2" *ngIf="isImportando">
+      <i class="pi pi-spin pi-spinner me-1"></i> Procesando archivo...
+    </p>
+    <ng-template pTemplate="footer">
+      <button class="btn-action btn-action-secondary" (click)="showExcelDialog = false" [disabled]="isImportando">
+        Cancelar
+      </button>
+    </ng-template>
+  </p-dialog>
+</div>

@@ -328,6 +328,47 @@ export class EventSolicitudService {
     );
   }
 
+  /** Eventos autorizados pendientes de digitalizar (cargue a nómina). */
+  getPendientesDigitalizar(filtros: {
+    search?: string;
+    empresa_id?: number | null;
+    sucursal_id?: number | null;
+  } = {}): Observable<{ success: boolean; data: EventSolicitud[]; total: number }> {
+    let params = new HttpParams()
+      .set('paso', 'digitalizar')
+      .set('per_page', '200');
+    if (filtros.search?.trim() && filtros.search.trim().length >= 2) {
+      params = params.set('search', filtros.search.trim());
+    }
+    if (filtros.empresa_id) {
+      params = params.set('empresa_id', String(filtros.empresa_id));
+    }
+    if (filtros.sucursal_id) {
+      params = params.set('sucursal_id', String(filtros.sucursal_id));
+    }
+    return this.http.get<{ success: boolean; data: EventSolicitud[]; total: number }>(
+      `${this.base}/solicitudes/pendientes`, { params }
+    );
+  }
+
+  /** Cierra un evento autorizado: pasa a Digitalizado. */
+  digitalizarEvento(id: number, comentario?: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/solicitudes/${id}/digitalizar`, { comentario });
+  }
+
+  /** Digitaliza varios eventos por id y/o consecutivo. */
+  digitalizarMasivo(payload: {
+    ids?: number[];
+    consecutivos?: string[];
+    comentario?: string;
+  }): Observable<{
+    success: boolean;
+    message: string;
+    data: { exitosos: number; fallidos: { id?: number; consecutivo?: string; message: string }[] };
+  }> {
+    return this.http.post<any>(`${this.base}/solicitudes/digitalizar-masivo`, payload);
+  }
+
   getSolicitudById(id: number): Observable<EventSolicitud> {
     return this.http.get<{ success: boolean; data: EventSolicitud }>(
       `${this.base}/solicitudes/${id}`
