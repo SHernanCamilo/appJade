@@ -31,9 +31,10 @@ import {
 } from '../../../helpers/column-type.helper';
 import {
   ROW_NUMBER_FIELD, makeRowNumberColDef, autoSizeGridColumns, isTypingTarget,
-  computeColumnStats, type ColumnStats,
+  computeColumnStats, toNumericValue, type ColumnStats,
 } from '../../helpers/grid-columns.helper';
 import { GridSearchBoxComponent } from '../grid-search-box/grid-search-box.component';
+import { CellRangeSelection } from '../../helpers/cell-range-selection';
 import {
   ExcelSheetComponent, ExcelSheetConfig,
   FormulaCellInfo, RibbonActionEvent, RibbonTab, FormulaCommitEvent,
@@ -485,6 +486,14 @@ readonly progress = signal<RefreshProgress>({
   readonly columnStats = signal<ColumnStats | null>(null);
   private gridApi?: GridApi;
 
+  /**
+   * Seleccion de rango tipo Excel (arrastrar el mouse sobre celdas).
+   *
+   * AG Grid Community NO trae seleccion de rango (es Enterprise), asi que se
+   * implementa a mano. Se crea en onGridReady y se destruye en ngOnDestroy.
+   */
+  private rangeSelection?: CellRangeSelection;
+
   readonly defaultColDef: ColDef = {
     sortable: true,
     resizable: true,
@@ -891,6 +900,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   ngOnDestroy(): void {
     this.clearTimers();
+    this.rangeSelection?.destroy();
     // Flush final: guardar estado antes de salir
     this.saveWorkbookState();
     // Liberar el motor de formulas y las vistas registradas: los indices de
@@ -1001,6 +1011,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    */
   private copySelectedCells(withHeaders = true): void {
     if (!this.gridApi) return;
+
+    // 0. Rango de celdas arrastrado: es lo mas parecido a copiar en Excel
+    if (this.rangeSelection?.getRange()) {
+      this.rangeSelection.copyToClipboard(withHeaders)
+        .then(filas => this.showCopyFeedback(filas, 'filas'))
+        .catch(err => console.warn('[Copiar] El navegador bloqueo el portapapeles:', err));
+      return;
+    }
 
     const visibleCols = this.gridApi.getColumns()
       ?.filter(c => c.isVisible() && c.getColId() !== ROW_NUMBER_FIELD) ?? [];
@@ -1115,6 +1133,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (!this.gridApi) return;
 
     this.gridApi.deselectAll();
+    this.rangeSelection?.clear();
     this.clearColumnStats();
     this.closeContextMenu();
   }
@@ -2256,6 +2275,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         cellClass: params => {
           const clases = ['bi-cell', `bi-cell--${type}`];
           if (params.colDef.field === this.selectedColumnId()) clases.push('bi-cell--selected');
+          // Resaltado del rango arrastrado (seleccion tipo Excel)
+          const rowIdx = params.node?.rowIndex;
+          if (rowIdx != null && params.colDef.field
+              && this.rangeSelection?.isSelected(rowIdx, params.colDef.field)) {
+            clases.push('bi-cell--range');
+          }
           return clases;
         },
         headerClass: () =>
@@ -2662,6 +2687,17 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   onGridReady(event: GridReadyEvent): void {
     this.gridApi = event.api;
 
+    // Seleccion de rango tipo Excel: se engancha al DOM del cuerpo de la grilla.
+    // Community no la trae, asi que la implementamos con eventos de mouse.
+    const gridRoot = document.querySelector('.vr-grid') as HTMLElement | null;
+    if (gridRoot && !this.rangeSelection) {
+      this.rangeSelection = new CellRangeSelection(
+        this.gridApi,
+        gridRoot,
+        () => this.onRangeChanged(),
+      );
+    }
+
     // Si las columnas se construyeron antes de que la grilla estuviera lista,
     // las entregamos ahora (OnPush puede no haber propagado el binding).
     if (this.columnDefs.length > 0) {
@@ -3032,9 +3068,46 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.selectedColumnId.set(colId);
     this.columnStats.set(computeColumnStats(this.visibleRows(), colId, label));
 
+    // Seleccionar tambien el rango de toda la columna, para poder copiarla
+    this.rangeSelection?.selectWholeColumn(colId);
+
     // Repintar para que se aplique el resaltado de la columna
     this.gridApi?.refreshCells({ force: true });
     this.gridApi?.refreshHeader();
+  }
+
+  /**
+   * El rango de celdas cambio (arrastre o Shift+clic): recalcular agregados.
+   *
+   * Con un rango activo, la barra de estado resume SOLO ese rango, igual que
+   * Excel. Sin rango, se mantiene el resumen de la columna seleccionada.
+   */
+  private onRangeChanged(): void {
+    const range = this.rangeSelection?.getRange();
+    if (!range) {
+      if (!this.selectedColumnId()) this.columnStats.set(null);
+      return;
+    }
+
+    const values = this.rangeSelection!.rangeValues();
+    const celdas = values.filter(v => v !== null && v !== undefined && v !== '');
+    const nums = celdas.map(toNumericValue).filter((n): n is number => n !== null);
+
+    const filas = range.toRow - range.fromRow + 1;
+    const cols = range.colIds.length;
+    const sum = nums.reduce((a, b) => a + b, 0);
+    const esNumerico = celdas.length > 0 && nums.length / celdas.length >= 0.8;
+
+    this.columnStats.set({
+      label: `${filas}\u00D7${cols} celdas`,
+      count: celdas.length,
+      numericCount: nums.length,
+      sum,
+      avg: nums.length > 0 ? sum / nums.length : 0,
+      min: nums.length > 0 ? Math.min(...nums) : 0,
+      max: nums.length > 0 ? Math.max(...nums) : 0,
+      isNumeric: esNumerico,
+    });
   }
 
   /**
@@ -4505,6 +4578,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       if (this.gridApi) {
         this.gridApi.setFilterModel(null);
         this.gridApi.setGridOption('pinnedBottomRowData', []);
+        this.rangeSelection?.clear();
+        this.selectedColumnId.set(null);
+        // Descartar el estado de columna de la hoja anterior (orden, pinning,
+        // ancho). AG Grid lo conserva emparejando por colId; sin esto, una
+        // columna congelada como "Banco" seguia anclada a la izquierda de la
+        // banda de numeros al cambiar de vista. resetColumnState devuelve las
+        // columnas al orden de columnDefs y quita el pinning heredado.
+        this.gridApi.resetColumnState();
       }
 
       // Restaurar datos de la hoja: cada hoja es independiente. Se copian los

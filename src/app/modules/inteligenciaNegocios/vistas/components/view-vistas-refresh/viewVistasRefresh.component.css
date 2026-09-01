@@ -1594,3 +1594,22 @@
   border: 2px solid #217346 !important;
   outline: none;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Seleccion de rango tipo Excel (arrastrar el mouse sobre las celdas)
+
+   AG Grid Community no trae seleccion de rango (es Enterprise), asi que la
+   pintamos con esta clase, que aplica CellRangeSelection via cellClass.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:host ::ng-deep .ag-theme-alpine .bi-cell--range {
+  background-color: rgba(33, 115, 70, 0.14) !important;
+}
+
+/* Mientras se arrastra un rango, el helper pone la clase vr-range-dragging en
+   la raiz de la grilla para que el navegador no marque texto en vez de celdas.
+   Fuera del arrastre el texto sigue siendo seleccionable (enableCellTextSelection). */
+:host ::ng-deep .vr-range-dragging .ag-body-viewport,
+:host ::ng-deep .vr-range-dragging .ag-cell {
+  user-select: none !important;
+}

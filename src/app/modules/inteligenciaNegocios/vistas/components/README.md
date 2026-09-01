@@ -135,9 +135,45 @@ Los componentes de vista usan clases CSS compartidas:
 - `.grid-loader` - Skeleton loaders
 - `.export-progress-*` - Indicadores de progreso
 
+## Componentes de apoyo
+
+Para no alargar `view-vistas-refresh` se extrajeron piezas reutilizables:
+
+- `grid-search-box/` — buscador flotante (Ctrl+F) que filtra por TODAS las
+  columnas de la fila usando `quickFilterText`. Reemplazo del `prompt()`.
+- `../helpers/grid-columns.helper.ts` — `makeRowNumberColDef` (banda de números
+  de fila, antes duplicada 5 veces), `autoSizeGridColumns`, `isTypingTarget`
+  (evita que los atajos roben el teclado a los inputs), `toNumericValue` y
+  `computeColumnStats` (agregados de columna).
+- `../helpers/cell-range-selection.ts` — selección de rango tipo Excel.
+
+## AG Grid Community vs Enterprise (importante)
+
+El proyecto usa **ag-grid-community 32.3.3 sin licencia**. Estas funciones son
+**solo Enterprise** y NO están disponibles, por más que se configuren:
+
+- Cell Selection / Range Selection (seleccionar un rectángulo de celdas
+  arrastrando el mouse). Ref oficial: la página *Cell Selection* está marcada
+  como Enterprise, y *Clipboard* dice que copiar del grid solo viene habilitado
+  para Enterprise. Contenido reformulado por restricciones de licencia.
+- `copySelectedRangeToClipboard()`, `clearRangeSelection()`, `getCellRanges()`.
+- Row Grouping, Pivoting nativo, Excel Export con formato.
+
+Por eso la selección de rango, la copia a portapapeles y los agregados se
+implementan **a mano** en `cell-range-selection.ts` (mousedown + drag + clase
+CSS aplicada vía `cellClass`). No replica todo Enterprise, pero da: arrastrar
+para seleccionar, Shift+clic para extender, Ctrl+C para copiar como TSV y el
+resumen del rango en la barra de estado.
+
+Si en el futuro se compra la licencia Enterprise, se puede reemplazar
+`cell-range-selection.ts` por `cellSelection: true` y borrar este apaño.
+
 ## Notas de desarrollo
 
 - Los componentes son standalone (no requieren NgModule)
 - Todos usan `OnPush` change detection para mejor rendimiento
 - La inyección de dependencias usa `inject()` en lugar de constructor
 - Los signals de Angular se usan para estado reactivo
+- Los atajos de teclado globales (Ctrl+C/V/F, Delete, Escape) deben ignorar los
+  eventos que nacen en inputs/textarea/select, o rompen los campos de texto
+  (buscadores de filtro, paneles). Ver `isTypingTarget`.
