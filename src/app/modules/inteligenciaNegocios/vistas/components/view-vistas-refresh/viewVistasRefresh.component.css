@@ -1565,3 +1565,32 @@
 .vr-mandatory-filter__input:focus {
   outline: none; border-color: #217346; box-shadow: 0 0 0 2px rgba(33,115,70,.12);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Seleccion de columna completa (clic en el encabezado o Ctrl+Espacio)
+
+   Replica el resaltado de Excel al pulsar la letra de una columna: la columna
+   se tinta y su encabezado se marca, mientras la barra de estado muestra
+   Suma / Promedio / Recuento / Min / Max.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:host ::ng-deep .ag-theme-alpine .bi-cell--selected {
+  background-color: #e8f2ec !important;
+  box-shadow: inset -1px 0 0 #217346, inset 1px 0 0 #217346;
+}
+
+:host ::ng-deep .ag-theme-alpine .excel-name-header--selected {
+  background-color: #217346 !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+
+:host ::ng-deep .ag-theme-alpine .excel-name-header--selected .ag-header-cell-text {
+  color: #fff !important;
+}
+
+/* La celda enfocada se ve como el cursor de Excel: borde verde nitido */
+:host ::ng-deep .ag-theme-alpine .ag-cell-focus:not(.ag-cell-range-selected) {
+  border: 2px solid #217346 !important;
+  outline: none;
+}

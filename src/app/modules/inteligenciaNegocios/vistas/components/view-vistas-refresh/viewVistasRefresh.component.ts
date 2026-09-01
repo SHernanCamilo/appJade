@@ -30,6 +30,11 @@ import {
   getColumnType, humanizeColumnName,
 } from '../../../helpers/column-type.helper';
 import {
+  ROW_NUMBER_FIELD, makeRowNumberColDef, autoSizeGridColumns, isTypingTarget,
+  computeColumnStats, type ColumnStats,
+} from '../../helpers/grid-columns.helper';
+import { GridSearchBoxComponent } from '../grid-search-box/grid-search-box.component';
+import {
   ExcelSheetComponent, ExcelSheetConfig,
   FormulaCellInfo, RibbonActionEvent, RibbonTab, FormulaCommitEvent,
   RibbonButton, RibbonDropdown,
@@ -202,8 +207,10 @@ function buildRibbon(
           ],
         },
         {
-          title: 'Filtrar',
+          title: 'Buscar y filtrar',
           items: [
+            btn('search-open', 'Buscar', 'pi pi-search', 'lg',
+                'Buscar un valor en todas las columnas (Ctrl+F)'),
             btn('filter-open', 'Filtros\ndinamicos', 'pi pi-filter', 'lg', 'Filtrar por rango de fechas, texto o numeros'),
             btn('filter-clear', 'Limpiar\nfiltros', 'pi pi-filter-slash', 'sm', 'Eliminar todos los filtros'),
           ],
@@ -405,7 +412,10 @@ const BLANK_SHEET_COLS = 26;
   selector: 'app-view-vistas-refresh',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, AgGridAngular, ExcelSheetComponent, PivotPanelComponent],
+  imports: [
+    CommonModule, FormsModule, AgGridAngular,
+    ExcelSheetComponent, PivotPanelComponent, GridSearchBoxComponent,
+  ],
   templateUrl: './viewVistasRefresh.component.html',
   styleUrl:    './viewVistasRefresh.component.css',
 })
@@ -472,15 +482,7 @@ readonly progress = signal<RefreshProgress>({
    * Agregados de la columna seleccionada, igual que la barra de estado de Excel:
    * al hacer clic en un encabezado se calculan Promedio / Recuento / Suma / Min / Max.
    */
-  readonly columnStats = signal<{
-    label: string;
-    count: number;
-    numericCount: number;
-    sum: number;
-    avg: number;
-    min: number;
-    max: number;
-  } | null>(null);
+  readonly columnStats = signal<ColumnStats | null>(null);
   private gridApi?: GridApi;
 
   readonly defaultColDef: ColDef = {
@@ -494,6 +496,21 @@ readonly progress = signal<RefreshProgress>({
   };
 
   readonly localeText = AG_GRID_LOCALE;
+
+  /**
+   * Seleccion tipo Excel.
+   *
+   * enableClickSelection quedaba en true, asi que cualquier clic en una celda
+   * pintaba la fila entera de azul y no se podia trabajar celda a celda ni
+   * arrastrar para copiar texto. Ahora el clic ENFOCA la celda; las filas se
+   * marcan con su casilla y las columnas con clic en el encabezado.
+   */
+  readonly rowSelection = {
+    mode: 'multiRow' as const,
+    enableClickSelection: false,
+    checkboxes: true,
+    headerCheckbox: true,
+  };
 
   // Helper para usar en el template
   readonly humanizeColumnName = humanizeColumnName;
@@ -766,12 +783,16 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     if (stats) {
       items.push({ key: 'stat-col', label: stats.label, value: '' });
-      if (stats.numericCount > 0) {
+
+      // Igual que Excel: los calculos solo aparecen si la columna es numerica.
+      // En una columna de texto Excel muestra unicamente el Recuento.
+      if (stats.isNumeric) {
         items.push({ key: 'stat-sum', label: 'Suma',     value: nf(stats.sum), variant: 'ok' });
         items.push({ key: 'stat-avg', label: 'Promedio', value: nf(stats.avg) });
         items.push({ key: 'stat-min', label: 'Min',      value: nf(stats.min) });
         items.push({ key: 'stat-max', label: 'Max',      value: nf(stats.max) });
       }
+
       items.push({ key: 'stat-count', label: 'Recuento', value: nf(stats.count) });
     }
 
@@ -897,6 +918,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   private handleKeyboardShortcut(event: KeyboardEvent): void {
+    // ── Guarda: no robarle el teclado a los campos de texto ─────────────────
+    //
+    // Estos atajos estan registrados en `document`, asi que tambien capturaban
+    // lo que el usuario escribia en el buscador del filtro de columna o en los
+    // paneles laterales. Pegar un valor en el filtro disparaba la alerta
+    // "Esta vista es de solo lectura. No se puede pegar contenido." y el texto
+    // nunca llegaba al campo, asi que no se podia filtrar pegando.
+    if (isTypingTarget(event.target)) return;
+
     // Ctrl+C: Copiar celdas seleccionadas
     if (event.ctrlKey && event.key === 'c') {
       event.preventDefault();
@@ -904,17 +934,28 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return;
     }
 
-    // Ctrl+V: Pegar (mostrar alerta de solo lectura)
+    // Ctrl+V: Pegar. Solo se avisa en hojas de datos, que son un espejo de la
+    // vista; en una hoja de calculo el pegado es legitimo y lo maneja AG Grid.
     if (event.ctrlKey && event.key === 'v') {
-      event.preventDefault();
-      this.showPasteAlert();
+      if (!this.isEditableSheet()) {
+        event.preventDefault();
+        this.showPasteAlert();
+      }
       return;
     }
 
-    // Ctrl+F: Abrir busqueda de AG Grid
+    // Ctrl+F: buscador en todas las columnas
     if (event.ctrlKey && event.key === 'f') {
       event.preventDefault();
       this.openGridSearch();
+      return;
+    }
+
+    // Ctrl+Espacio: seleccionar la columna de la celda enfocada (como Excel)
+    if (event.ctrlKey && event.code === 'Space') {
+      event.preventDefault();
+      const focused = this.gridApi?.getFocusedCell();
+      if (focused) this.selectColumn(focused.column.getColId());
       return;
     }
 
@@ -948,46 +989,71 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     }
   }
 
-  private copySelectedCells(): void {
+  /**
+   * Copia al portapapeles con formato TSV, listo para pegar en Excel.
+   *
+   * Prioridad, de mas concreto a mas general:
+   *   1. Filas marcadas con su casilla
+   *   2. Columna seleccionada (clic en su encabezado)
+   *   3. Celda enfocada
+   *
+   * @param withHeaders incluir la fila de encabezados
+   */
+  private copySelectedCells(withHeaders = true): void {
     if (!this.gridApi) return;
 
-    // AG Grid Community: usa filas seleccionadas o celda enfocada
+    const visibleCols = this.gridApi.getColumns()
+      ?.filter(c => c.isVisible() && c.getColId() !== ROW_NUMBER_FIELD) ?? [];
+
+    const texto = (v: unknown) => (v === null || v === undefined ? '' : String(v));
+
+    // 1. Filas marcadas
     const selectedRows = this.gridApi.getSelectedRows();
-    
     if (selectedRows.length > 0) {
-      const visibleCols = this.gridApi.getColumns()?.filter(c => c.isVisible() && c.getColId() !== '__ROW_NUMBER__') || [];
-      const headers = visibleCols.map(c => c.getColDef().headerName || c.getColId());
-      const lines: string[] = [headers.join('\t')];
-      
-      selectedRows.forEach(row => {
-        const values = visibleCols.map(c => {
-          const val = (row as any)[c.getColId()];
-          return val != null ? String(val) : '';
-        });
-        lines.push(values.join('\t'));
-      });
-      
-      navigator.clipboard.writeText(lines.join('\n')).then(() => {
-        this.showCopyFeedback(selectedRows.length);
-      });
-    } else {
-      // Copiar solo la celda enfocada
-      const focused = this.gridApi.getFocusedCell();
-      if (focused) {
-        const rowNode = this.gridApi.getDisplayedRowAtIndex(focused.rowIndex);
-        if (rowNode) {
-          const value = this.gridApi.getValue(focused.column, rowNode);
-          navigator.clipboard.writeText(value != null ? String(value) : '').then(() => {
-            this.showCopyFeedback(1);
-          });
-        }
+      const lines: string[] = [];
+      if (withHeaders) {
+        lines.push(visibleCols.map(c => c.getColDef().headerName || c.getColId()).join('\t'));
       }
+      for (const row of selectedRows) {
+        lines.push(visibleCols.map(c => texto((row as any)[c.getColId()])).join('\t'));
+      }
+      this.writeClipboard(lines.join('\n'), selectedRows.length, 'filas');
+      return;
     }
+
+    // 2. Columna completa seleccionada
+    const colId = this.selectedColumnId();
+    if (colId) {
+      const filas = this.visibleRows();
+      const lines: string[] = [];
+      if (withHeaders) {
+        lines.push(this.columnDefs.find(c => c.field === colId)?.headerName ?? colId);
+      }
+      for (const row of filas) lines.push(texto(row[colId]));
+      this.writeClipboard(lines.join('\n'), filas.length, 'celdas');
+      return;
+    }
+
+    // 3. Celda enfocada
+    const focused = this.gridApi.getFocusedCell();
+    if (!focused) return;
+
+    const rowNode = this.gridApi.getDisplayedRowAtIndex(focused.rowIndex);
+    if (!rowNode) return;
+
+    this.writeClipboard(texto(this.gridApi.getValue(focused.column, rowNode)), 1, 'celda');
   }
 
-  private showCopyFeedback(count: number): void {
+  /** Escribe en el portapapeles y avisa; si el navegador lo bloquea, lo registra. */
+  private writeClipboard(text: string, count: number, unidad: string): void {
+    navigator.clipboard.writeText(text)
+      .then(() => this.showCopyFeedback(count, unidad))
+      .catch(err => console.warn('[Copiar] El navegador bloqueo el portapapeles:', err));
+  }
+
+  private showCopyFeedback(count: number, unidad = 'filas'): void {
     const feedback = document.createElement('div');
-    feedback.textContent = 'Copiado (' + count + (count === 1 ? ' celda)' : ' filas)');
+    feedback.textContent = `Copiado (${count.toLocaleString('es-CO')} ${unidad})`;
     feedback.style.position = 'fixed';
     feedback.style.top = '20px';
     feedback.style.right = '20px';
@@ -1006,23 +1072,51 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     alert('Esta vista es de solo lectura. No se puede pegar contenido.');
   }
 
+  // ── Buscador en todas las columnas (Ctrl+F) ───────────────────────────────
+
+  /** Muestra/oculta el buscador flotante */
+  readonly showSearchBox = signal(false);
+  /** Filas que coinciden con el termino actual */
+  readonly searchMatches = signal(0);
+
   private openGridSearch(): void {
-    if (!this.gridApi) return;
-    
-    // AG Grid Community no tiene busqueda incorporada nativa
-    // Alternativa: Usar el filtro rapido (Quick Filter)
-    const searchTerm = prompt('Buscar en la tabla:');
-    if (searchTerm !== null) {
-      this.gridApi.setGridOption('quickFilterText', searchTerm);
-    }
+    this.showSearchBox.set(true);
   }
 
+  closeGridSearch(): void {
+    this.showSearchBox.set(false);
+    this.onSearchTerm(''); // al cerrar se quita el filtro, como Excel
+  }
+
+  /**
+   * Aplica el termino de busqueda a la grilla.
+   *
+   * quickFilterText de AG Grid compara el termino contra el texto de TODAS las
+   * celdas de cada fila, asi que encuentra el valor sin importar en que columna
+   * este. Es lo que pedia "si le doy a buscar debe buscar en toda la fila".
+   *
+   * Se combina con los filtros de columna: una fila debe pasar los dos.
+   */
+  onSearchTerm(term: string): void {
+    if (!this.gridApi) return;
+
+    this.gridApi.setGridOption('quickFilterText', term);
+    this.searchMatches.set(this.gridApi.getDisplayedRowCount());
+    this.filteredRows.set(this.gridApi.getDisplayedRowCount());
+  }
+
+  /**
+   * Escape: deshace la seleccion, como en Excel.
+   *
+   * Antes llamaba a clearRangeSelection(), que es de AG Grid Enterprise: en la
+   * edicion Community no existe y la tecla no hacia nada.
+   */
   private clearGridSelection(): void {
-    if (!this.gridApi) {
-      return;
-    }
-    this.gridApi.clearRangeSelection();
-    console.log('[Keyboard] Seleccion limpiada');
+    if (!this.gridApi) return;
+
+    this.gridApi.deselectAll();
+    this.clearColumnStats();
+    this.closeContextMenu();
   }
 
   private goToFirstCell(): void {
@@ -2139,31 +2233,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     console.group('[buildColumnDefs] Construyendo columnDefs desde metadatos backend');
     console.log('Columnas recibidas:', cols.length);
     
-    const result: ColDef[] = [
-      // -… Columna de numeros de fila (como Excel: 1, 2, 3...)
-      {
-        headerName: '',
-        field: '__ROW_NUMBER__',
-        width: 60,
-        minWidth: 60,
-        maxWidth: 60,
-        resizable: false,
-        sortable: false,
-        filter: false,
-        pinned: 'left',
-        lockPinned: true,
-        cellClass: 'bi-cell-row-number',
-        headerClass: 'excel-corner-header',
-        valueGetter: (params) => params.node?.rowIndex != null ? params.node.rowIndex + 1 : '',
-        cellStyle: {
-          fontWeight: 'bold',
-          color: '#666',
-          textAlign: 'center',
-          backgroundColor: '#f9fafb',
-          borderRight: '1px solid #d1d5db',
-        },
-      },
-    ];
+    const result: ColDef[] = [makeRowNumberColDef(60)];
 
     // Agregar las columnas reales de datos (sin letra en headerName, usaremos CSS)
     const dataCols = cols.map((col, index) => {
@@ -2181,8 +2251,17 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       const base: ColDef = {
         field:     col.name,
         headerName: humanizeColumnName(col.name), // La letra Excel va en el grupo padre
-        cellClass:  `bi-cell bi-cell--${type}`,
-        headerClass: 'excel-name-header',
+        // cellClass como funcion: añade el resaltado cuando la columna esta
+        // seleccionada, igual que Excel al pulsar la letra de la columna.
+        cellClass: params => {
+          const clases = ['bi-cell', `bi-cell--${type}`];
+          if (params.colDef.field === this.selectedColumnId()) clases.push('bi-cell--selected');
+          return clases;
+        },
+        headerClass: () =>
+          col.name === this.selectedColumnId()
+            ? 'excel-name-header excel-name-header--selected'
+            : 'excel-name-header',
         filter: type === 'date' ? ExcelDateFilterComponent : ExcelColumnFilterComponent,
         filterParams: { maxDisplayedValues: 50 },
         width: isLongText ? 280 : undefined,
@@ -2367,26 +2446,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     // La columna de numeros de fila (como Excel) tiene que ir siempre primero.
     // Antes se perdia al inferir columnas desde los datos.
-    const out: ColDef[] = [{
-      headerName: '',
-      field: '__ROW_NUMBER__',
-      width: 60, minWidth: 60, maxWidth: 60,
-      resizable: false, sortable: false, filter: false,
-      pinned: 'left', lockPinned: true,
-      cellClass: 'bi-cell-row-number',
-      headerClass: 'excel-corner-header',
-      valueGetter: (params) => params.node?.rowIndex != null ? params.node.rowIndex + 1 : '',
-      cellStyle: {
-        fontWeight: 'bold',
-        color: '#666',
-        textAlign: 'center',
-        backgroundColor: '#f9fafb',
-        borderRight: '1px solid #d1d5db',
-      },
-    }];
+    const out: ColDef[] = [makeRowNumberColDef(60)];
 
     const dataCols = Object.keys(data[0])
-      .filter(key => key !== '__ROW_NUMBER__')
+      .filter(key => key !== ROW_NUMBER_FIELD)
       .map(key => {
       const vals  = sample.map(r => r[key]).filter(v => v != null);
       const isNum = vals.length > 0 && vals.every(v => typeof v === 'number');
@@ -2668,29 +2731,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
 
-  /** Auto-ajusta columnas al contenido con limites razonables */
+  /** Auto-ajusta columnas al contenido con limites razonables (helper compartido) */
   private autoSizeColumns(): void {
-    if (!this.gridApi) return;
-    
-    // Ajustar todas las columnas al contenido
-    this.gridApi.autoSizeAllColumns(false);
-    
-    // Aplicar limites min/max para evitar columnas muy anchas o estrechas
-    const allColumns = this.gridApi.getColumns();
-    if (!allColumns) return;
-
-    allColumns.forEach(col => {
-      const currentWidth = col.getActualWidth();
-      let newWidth = currentWidth;
-      
-      // Minimo 100px, maximo 400px
-      if (currentWidth < 100) newWidth = 100;
-      if (currentWidth > 400) newWidth = 400;
-      
-      if (newWidth !== currentWidth) {
-        this.gridApi!.setColumnWidths([{ key: col.getColId(), newWidth }]);
-      }
-    });
+    autoSizeGridColumns(this.gridApi);
   }
 
   onCellFocused(event: CellFocusedEvent): void {
@@ -2746,8 +2789,27 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // No-op: los encabezados de grupo de AG Grid mantienen las letras
   }
 
+  /**
+   * Los filtros del menu de columna los aplica AG Grid, no nuestro rowData.
+   * Se sincroniza el contador de la barra de estado y se recalculan los
+   * agregados de la columna seleccionada sobre lo que quedo visible, igual que
+   * Excel al filtrar.
+   */
   onFilterChanged(): void {
-    // No-op: los encabezados de grupo de AG Grid mantienen las letras
+    if (!this.gridApi) return;
+
+    const visibles = this.gridApi.getDisplayedRowCount();
+    this.filteredRows.set(visibles);
+    this.searchMatches.set(visibles);
+
+    const colId = this.selectedColumnId();
+    if (colId) {
+      const label = this.columnDefs.find(c => c.field === colId)?.headerName
+        ?? humanizeColumnName(colId);
+      this.columnStats.set(computeColumnStats(this.visibleRows(), colId, label));
+    }
+
+    if (this.showTotalsRow()) this.updateTotalsRow();
   }
 
   onDisplayedColumnsChanged(): void {
@@ -2877,13 +2939,21 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.contextMenu.update(m => ({ ...m, visible: false }));
   }
 
+  /**
+   * Copiar / Copiar con encabezados.
+   *
+   * Antes llamaban a copySelectedRangeToClipboard(), que es de AG Grid
+   * Enterprise: en Community no existe y el menu no copiaba nada. Ahora usan la
+   * misma implementacion que Ctrl+C, que ya arma el texto con tabuladores para
+   * poder pegarlo directo en Excel.
+   */
   ctxCopyCells(): void {
-    this.gridApi?.copySelectedRangeToClipboard();
+    this.copySelectedCells(false);
     this.closeContextMenu();
   }
 
   ctxCopyWithHeaders(): void {
-    this.gridApi?.copySelectedRangeToClipboard();
+    this.copySelectedCells(true);
     this.closeContextMenu();
   }
 
@@ -2926,41 +2996,71 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    */
   onColumnHeaderClicked(event: any): void {
     const colId: string | undefined = event?.column?.getColId?.();
-    if (!colId || colId === '__ROW_NUMBER__') { this.columnStats.set(null); return; }
-
-    const stats = this.computeColumnStats(colId);
-    this.columnStats.set(stats);
+    if (!colId) return;
+    this.selectColumn(colId);
   }
 
-  /** Calcula los agregados de una columna sobre las filas visibles (filtradas). */
-  private computeColumnStats(colId: string) {
+  /** Columna seleccionada ahora mismo (se resalta en la grilla) */
+  readonly selectedColumnId = signal<string | null>(null);
+
+  /**
+   * Selecciona una columna completa, como al pulsar su letra en Excel:
+   * la resalta y publica sus agregados en la barra de estado.
+   *
+   * Los calculos (Suma / Promedio / Min / Max) solo se ofrecen si la columna es
+   * mayoritariamente numerica; para una de texto se muestra solo el Recuento,
+   * igual que hace Excel.
+   *
+   * Se calcula sobre las filas VISIBLES: si hay filtros o busqueda activos, el
+   * resumen corresponde a lo que se esta viendo.
+   */
+  selectColumn(colId: string): void {
+    if (!colId || colId === ROW_NUMBER_FIELD) {
+      this.clearColumnStats();
+      return;
+    }
+
+    // Alternar: volver a pulsar la misma columna deselecciona
+    if (this.selectedColumnId() === colId) {
+      this.clearColumnStats();
+      return;
+    }
+
     const label = this.columnDefs.find(c => c.field === colId)?.headerName
       ?? humanizeColumnName(colId);
 
-    const raw = this.rowData
-      .map(r => r[colId])
-      .filter(v => v !== null && v !== undefined && v !== '');
+    this.selectedColumnId.set(colId);
+    this.columnStats.set(computeColumnStats(this.visibleRows(), colId, label));
 
-    const nums = raw
-      .map(v => (typeof v === 'number' ? v : Number(String(v).replace(/[^\d.,-]/g, '').replace(',', '.'))))
-      .filter(n => Number.isFinite(n));
-
-    const sum = nums.reduce((a, b) => a + b, 0);
-
-    return {
-      label,
-      count: raw.length,
-      numericCount: nums.length,
-      sum,
-      avg: nums.length > 0 ? sum / nums.length : 0,
-      min: nums.length > 0 ? Math.min(...nums) : 0,
-      max: nums.length > 0 ? Math.max(...nums) : 0,
-    };
+    // Repintar para que se aplique el resaltado de la columna
+    this.gridApi?.refreshCells({ force: true });
+    this.gridApi?.refreshHeader();
   }
 
-  /** Limpia los agregados de columna de la barra de estado. */
+  /**
+   * Filas visibles en la grilla (tras filtros de columna y busqueda).
+   *
+   * Se leen del modelo de AG Grid y no de this.rowData, porque los filtros del
+   * menu de columna y el quickFilterText los aplica la grilla: this.rowData solo
+   * refleja los filtros dinamicos del panel lateral.
+   */
+  private visibleRows(): Record<string, unknown>[] {
+    if (!this.gridApi) return this.rowData;
+
+    const out: Record<string, unknown>[] = [];
+    this.gridApi.forEachNodeAfterFilterAndSort(node => {
+      if (node.data) out.push(node.data as Record<string, unknown>);
+    });
+
+    return out.length > 0 ? out : this.rowData;
+  }
+
+  /** Limpia la seleccion de columna y sus agregados. */
   clearColumnStats(): void {
     this.columnStats.set(null);
+    this.selectedColumnId.set(null);
+    this.gridApi?.refreshCells({ force: true });
+    this.gridApi?.refreshHeader();
   }
 
   /**
@@ -3142,8 +3242,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         break;
       }
 
+      case 'search-open': this.showSearchBox.set(true); break;
       case 'filter-open': this.showFilterPanel.set(true); break;
-      case 'filter-clear': this.clearAllFilters(); break;
+      case 'filter-clear':
+        this.clearAllFilters();
+        // Tambien los filtros del menu de columna y la busqueda: "Limpiar
+        // filtros" debe dejar la tabla como recien cargada.
+        this.gridApi?.setFilterModel(null);
+        this.closeGridSearch();
+        break;
 
       // -- Pestana Formato --
       case 'fmt-col':     this.formatTargetCol = event.value ?? ''; break;
@@ -3815,17 +3922,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   /** Cuando el componente pivot genera resultados */
   onPivotGenerated(result: PivotResult): void {
     // Construir columnDefs para AG Grid
-    const pivotCols: ColDef[] = [
-      {
-        headerName: '', field: '__ROW_NUMBER__',
-        width: 50, minWidth: 50, maxWidth: 50,
-        resizable: false, sortable: false, filter: false,
-        pinned: 'left', lockPinned: true,
-        cellClass: 'bi-cell-row-number',
-        headerClass: 'excel-corner-header',
-        valueGetter: (p) => p.node?.rowIndex != null ? p.node.rowIndex + 1 : '',
-      },
-    ];
+    const pivotCols: ColDef[] = [makeRowNumberColDef(50)];
 
     result.columns.forEach(col => {
       pivotCols.push({

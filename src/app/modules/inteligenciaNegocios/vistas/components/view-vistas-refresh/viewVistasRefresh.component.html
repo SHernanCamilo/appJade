@@ -83,8 +83,8 @@
       <ag-grid-angular class="ag-theme-alpine vr-grid" [rowData]="rowData" [columnDefs]="gridColumnDefs"
         [defaultColDef]="defaultColDef" [localeText]="localeText" [groupHeaderHeight]="20" [headerHeight]="26"
         [animateRows]="false" [suppressColumnVirtualisation]="false" [suppressNoRowsOverlay]="true"
-        [rowSelection]="{ mode: 'multiRow', enableClickSelection: true }" [enableCellTextSelection]="true"
-        [enableRangeSelection]="false" [suppressContextMenu]="true" [singleClickEdit]="false"
+        [rowSelection]="rowSelection" [enableCellTextSelection]="true"
+        [suppressContextMenu]="true" [singleClickEdit]="false"
         [stopEditingWhenCellsLoseFocus]="true" [enterNavigatesVertically]="true"
         [enterNavigatesVerticallyAfterEdit]="true" [tabToNextCell]="tabToNextCell" (gridReady)="onGridReady($event)"
         (cellFocused)="onCellFocused($event)" (cellContextMenu)="onCellContextMenu($event)"
@@ -135,6 +135,11 @@
           </button>
         </ng-container>
       </div>
+
+      <!-- Buscador en todas las columnas (Ctrl+F) -->
+      <app-grid-search-box *ngIf="showSearchBox()" [matches]="searchMatches()" [total]="totalRows()"
+        (termChange)="onSearchTerm($event)" (close)="closeGridSearch()">
+      </app-grid-search-box>
 
       <!-- Overlay parsing (datos cargando pero grilla ya visible) -->
       <div *ngIf="progress().status === 'parsing'" class="vr-parse-overlay">

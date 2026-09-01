@@ -24,6 +24,7 @@ import { GridLoaderComponent } from '../../../../../complements/shared/grid-load
 import {
   getColumnType, humanizeColumnName,
 } from '../../../helpers/column-type.helper';
+import { autoSizeGridColumns } from '../../helpers/grid-columns.helper';
 import {
   handleFabricError, isFiltersRequiredError, isMaintenanceError,
   isVistaEnMantenimiento, FabricFiltersRequiredError,
@@ -391,29 +392,9 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
     setTimeout(() => this.autoSizeColumns(), 100);
   }
 
-  /** Auto-ajusta columnas al contenido con límites razonables */
+  /** Auto-ajusta columnas al contenido con límites razonables (helper compartido) */
   private autoSizeColumns(): void {
-    if (!this.gridApi) return;
-    
-    // Ajustar todas las columnas al contenido
-    this.gridApi.autoSizeAllColumns(false);
-    
-    // Aplicar límites min/max para evitar columnas muy anchas o estrechas
-    const allColumns = this.gridApi.getColumns();
-    if (!allColumns) return;
-
-    allColumns.forEach(col => {
-      const currentWidth = col.getActualWidth();
-      let newWidth = currentWidth;
-      
-      // Mínimo 100px, máximo 400px
-      if (currentWidth < 100) newWidth = 100;
-      if (currentWidth > 400) newWidth = 400;
-      
-      if (newWidth !== currentWidth) {
-        this.gridApi!.setColumnWidths([{ key: col.getColId(), newWidth }]);
-      }
-    });
+    autoSizeGridColumns(this.gridApi);
   }
 
   onSortChanged(): void {
