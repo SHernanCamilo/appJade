@@ -66,6 +66,14 @@ export interface CambioTrazabilidad {
   nuevo: string;
 }
 
+/** Resultado consolidado de una toma de inventario. */
+export type ResultadoInventario = 'externo' | 'con_novedades' | 'sin_novedades';
+
+/** Opción de catálogo desde DetalleActivos. */
+export interface CatalogoValor {
+  valor: string;
+}
+
 /** Registro de trazabilidad (una toma de inventario). */
 export interface TrazabilidadActivo {
   id: number;
@@ -76,10 +84,12 @@ export interface TrazabilidadActivo {
   observacion: string | null;
   sucursal_origen: string | null;
   estado_fisico: string | null;
-  tipo_inventario: TipoInventario | null;
+  tipo_inventario: Pick<TipoInventario, 'id' | 'nombre'> | null;
   tipo_inventario_id: number | null;
   cambios: CambioTrazabilidad[];
   total_cambios: number;
+  resultado?: string;
+  es_externo?: boolean;
   registrado_por: {
     id: number | null;
     nombre: string;
@@ -87,6 +97,16 @@ export interface TrazabilidadActivo {
   };
   created_at: string | null;
   created_at_human: string | null;
+}
+
+export interface ValidacionPeriodicidad {
+  puede_registrar: boolean;
+  mensaje?: string;
+  ultimo_registro?: {
+    id: number;
+    fecha: string;
+    registrado_por: string;
+  };
 }
 
 /**
@@ -222,6 +242,9 @@ export class ActivosFijosService {
     desde?: string;
     hasta?: string;
     tipo_inventario_id?: number;
+    responsable?: string;
+    localizacion?: string;
+    resultado?: ResultadoInventario;
     es_externo?: boolean;
     per_page?: number;
     page?: number;
@@ -248,6 +271,9 @@ export class ActivosFijosService {
     estado_fisico?: string;
     desde?: string;
     hasta?: string;
+    responsable?: string;
+    localizacion?: string;
+    resultado?: ResultadoInventario;
     es_externo?: boolean;
   }): Observable<Blob> {
     const params: Record<string, string> = {};
@@ -269,8 +295,34 @@ export class ActivosFijosService {
     return this.http.post<ApiResponse<TrazabilidadActivo>>(`${this.baseUrl}/novedad-externa`, payload);
   }
 
-  // ── Empleados (Fabric: No.VW_Payroll_EmpleadosActivos) ──────────────────
+  // ── Catálogos desde DetalleActivos (Indigo) ─────────────────────────────
 
+  localizaciones(busqueda = '', limit = 200): Observable<ApiResponse<CatalogoValor[]>> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (busqueda.trim()) {
+      params['busqueda'] = busqueda.trim();
+    }
+    return this.http.get<ApiResponse<CatalogoValor[]>>(`${this.baseUrl}/localizaciones`, { params });
+  }
+
+  responsables(busqueda = '', limit = 50): Observable<ApiResponse<CatalogoValor[]>> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (busqueda.trim()) {
+      params['busqueda'] = busqueda.trim();
+    }
+    return this.http.get<ApiResponse<CatalogoValor[]>>(`${this.baseUrl}/responsables`, { params });
+  }
+
+  validarPeriodicidad(placa: string, tipoInventarioId: number): Observable<ApiResponse<ValidacionPeriodicidad>> {
+    return this.http.get<ApiResponse<ValidacionPeriodicidad>>(`${this.baseUrl}/validar-periodicidad`, {
+      params: {
+        placa,
+        tipo_inventario_id: String(tipoInventarioId)
+      }
+    });
+  }
+
+  /** @deprecated Usar responsables() desde DetalleActivos. */
   empleados(busqueda: string = '', limit = 50): Observable<ApiResponse<{ documento: string; nombre: string }[]>> {
     const params: Record<string, string> = { limit: String(limit) };
     if (busqueda.trim()) {
@@ -279,8 +331,7 @@ export class ActivosFijosService {
     return this.http.get<ApiResponse<{ documento: string; nombre: string }[]>>(`${this.baseUrl}/empleados`, { params });
   }
 
-  // ── Centros de Costo / Localizaciones (Fabric) ────────────────────────────
-
+  /** @deprecated Usar localizaciones() desde DetalleActivos. */
   centrosCosto(): Observable<ApiResponse<{ code: string; unidad_funcional: string }[]>> {
     return this.http.get<ApiResponse<{ code: string; unidad_funcional: string }[]>>(`${this.baseUrl}/centros-costo`);
   }

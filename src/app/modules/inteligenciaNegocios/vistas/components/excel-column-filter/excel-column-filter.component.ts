@@ -280,20 +280,20 @@ export class ExcelColumnFilterComponent implements IFilterComp, AfterViewInit {
 
     this.params.api.forEachNode(node => {
       let value: unknown;
-      
+
       if (this.valueGetter) {
-        value = this.valueGetter({ 
-          node, 
-          data: node.data, 
-          column: this.params.column, 
-          colDef: this.params.colDef 
+        value = this.valueGetter({
+          node,
+          data: node.data,
+          column: this.params.column,
+          colDef: this.params.colDef
         } as ValueGetterParams);
       } else {
         // Fallback: usar el field directamente
         const field = this.params.colDef.field;
         value = field ? node.data?.[field] : null;
       }
-      
+
       const str = value != null ? String(value).trim() : '(Vacío)';
       this.allUniqueValues.add(str);
     });
@@ -315,20 +315,20 @@ export class ExcelColumnFilterComponent implements IFilterComp, AfterViewInit {
 
   doesFilterPass(params: IDoesFilterPassParams): boolean {
     let value: unknown;
-    
+
     if (this.valueGetter) {
-      value = this.valueGetter({ 
-        node: params.node, 
-        data: params.data, 
-        column: this.params.column, 
-        colDef: this.params.colDef 
+      value = this.valueGetter({
+        node: params.node,
+        data: params.data,
+        column: this.params.column,
+        colDef: this.params.colDef
       } as ValueGetterParams);
     } else {
       // Fallback: usar el field directamente
       const field = this.params.colDef.field;
       value = field ? params.data?.[field] : null;
     }
-    
+
     const str = value != null ? String(value).trim() : '(Vacío)';
     return this.appliedSelected.has(str);
   }

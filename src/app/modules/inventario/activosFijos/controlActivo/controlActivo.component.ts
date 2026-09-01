@@ -19,8 +19,10 @@ import {
   NovedadActivoPayload,
   NovedadExternaPayload,
   ResumenTrazabilidad,
+  ValidacionPeriodicidad,
   TipoInventario,
-  TrazabilidadActivo
+  TrazabilidadActivo,
+  ResultadoInventario
 } from '../services/activos-fijos.service';
 
 /**
@@ -156,20 +158,21 @@ export class ControlActivoComponent implements OnInit {
   tiposInventario: TipoInventario[] = [];
   tiposInventarioOpciones: Array<{ label: string; value: number }> = [];
 
-  /** Centros de costo (Localización) desde Fabric. */
-  centrosCosto: { code: string; unidad_funcional: string }[] = [];
-  centrosCostoOpciones: Array<{ label: string; value: string }> = [];
+  /** Localizaciones desde DetalleActivos (Indigo). */
+  localizacionesOpciones: Array<{ label: string; value: string }> = [];
 
-  /** Empleados activos para el autocomplete de responsable. */
-  empleadosSugerencias: string[] = [];
+  /** Responsables desde DetalleActivos (Indigo). */
+  responsablesSugerencias: string[] = [];
 
   /** Controla si se muestra el formulario de activo externo. */
   mostrarFormExterno = false;
   formularioExterno: FormularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
   guardandoExterno = false;
 
-  /** Alerta de periodicidad: se muestra cuando el backend rechaza con 409. */
+  /** Alerta de periodicidad: se muestra cuando el backend rechaza con 409 o al seleccionar tipo. */
   alertaPeriodicidad: string | null = null;
+  validacionPeriodicidad: ValidacionPeriodicidad | null = null;
+  validandoPeriodicidad = false;
 
   /** Indica si la última búsqueda no encontró resultados. */
   sinResultados = false;
@@ -186,15 +189,26 @@ export class ControlActivoComponent implements OnInit {
   filasPorPagina = 25;
   primeraFila    = 0;
 
-  /** Filtros: tipo_inventario_id reemplaza a unidad_funcional. */
+  /** Filtros del reporte de trazabilidad. */
   filtros = {
     placa: '',
     estado_fisico: '',
     desde: '',
     hasta: '',
     tipo_inventario_id: null as number | null,
+    responsable: '',
+    localizacion: '',
+    resultado: '' as ResultadoInventario | '',
     es_externo: false
   };
+
+  readonly resultadosInventario: Array<{ valor: ResultadoInventario; etiqueta: string }> = [
+    { valor: 'con_novedades', etiqueta: 'Con novedades' },
+    { valor: 'sin_novedades', etiqueta: 'Sin novedades (coincide maestro)' },
+    { valor: 'externo',       etiqueta: 'Activo externo (no en Indigo)' }
+  ];
+  resultadosInventarioOpciones: Array<{ label: string; value: ResultadoInventario }> =
+    this.resultadosInventario.map(r => ({ label: r.etiqueta, value: r.valor }));
 
   exportando = false;
   expandidas: Record<number, boolean> = {};
@@ -205,7 +219,7 @@ export class ControlActivoComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarOpciones();
-    this.cargarCentrosCosto();
+    this.cargarLocalizaciones();
     this.cargarTrazabilidad();
     this.cargarResumen();
   }
@@ -296,9 +310,13 @@ export class ControlActivoComponent implements OnInit {
     this.resultados = [];
     this.formulario = { ...FORMULARIO_VACIO };
     this.alertaPeriodicidad = null;
+    this.validacionPeriodicidad = null;
 
     if (activo.placa) {
       this.cargarHistorialActivo(activo.placa);
+      if (this.formulario.tipo_inventario_id) {
+        this.verificarPeriodicidad(activo.placa, this.formulario.tipo_inventario_id);
+      }
     }
   }
 
@@ -312,6 +330,33 @@ export class ControlActivoComponent implements OnInit {
     this.mostrarFormExterno = false;
     this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
     this.alertaPeriodicidad = null;
+    this.validacionPeriodicidad = null;
+  }
+
+  onTipoInventarioChange(): void {
+    this.alertaPeriodicidad = null;
+    this.validacionPeriodicidad = null;
+
+    if (this.activo?.placa && this.formulario.tipo_inventario_id) {
+      this.verificarPeriodicidad(this.activo.placa, this.formulario.tipo_inventario_id);
+    }
+  }
+
+  private verificarPeriodicidad(placa: string, tipoInventarioId: number): void {
+    this.validandoPeriodicidad = true;
+    this.service.validarPeriodicidad(placa, tipoInventarioId).subscribe({
+      next: respuesta => {
+        this.validandoPeriodicidad = false;
+        this.validacionPeriodicidad = respuesta.data ?? null;
+        if (respuesta.data && !respuesta.data.puede_registrar) {
+          this.alertaPeriodicidad = respuesta.data.mensaje ?? 'Ya existe un registro en este período.';
+        }
+      },
+      error: () => {
+        this.validandoPeriodicidad = false;
+        this.validacionPeriodicidad = null;
+      }
+    });
   }
 
   // =========================================================================
@@ -328,8 +373,8 @@ export class ControlActivoComponent implements OnInit {
 
   get puedeRegistrar(): boolean {
     if (!this.activo || this.guardando) return false;
-    // Tipo de inventario es obligatorio
     if (!this.formulario.tipo_inventario_id) return false;
+    if (this.validacionPeriodicidad && !this.validacionPeriodicidad.puede_registrar) return false;
     return this.novedadesLlenas > 0 || this.formulario.observacion.trim() !== '';
   }
 
@@ -436,35 +481,38 @@ export class ControlActivoComponent implements OnInit {
     });
   }
 
-  private cargarCentrosCosto(): void {
-    this.service.centrosCosto().subscribe({
+  private cargarLocalizaciones(busqueda = ''): void {
+    this.service.localizaciones(busqueda, 300).subscribe({
       next: respuesta => {
-        this.centrosCosto = respuesta.data ?? [];
-        this.centrosCostoOpciones = this.centrosCosto.map(cc => ({
-          label: `${cc.code} - ${cc.unidad_funcional}`,
-          value: `${cc.code} - ${cc.unidad_funcional}`
+        this.localizacionesOpciones = (respuesta.data ?? []).map(item => ({
+          label: item.valor,
+          value: item.valor
         }));
       },
       error: () => {
-        this.centrosCosto = [];
-        this.centrosCostoOpciones = [];
+        this.localizacionesOpciones = [];
       }
     });
   }
 
-  buscarEmpleados(evento: { query: string }): void {
+  buscarLocalizaciones(evento: { filter?: string }): void {
+    this.cargarLocalizaciones(evento.filter ?? '');
+  }
+
+  buscarResponsables(evento: { query: string }): void {
     const busqueda = evento.query ?? '';
-    if (busqueda.trim().length < 3) {
-      this.empleadosSugerencias = [];
+    if (busqueda.trim().length < 2) {
+      this.responsablesSugerencias = [];
       return;
     }
-    this.service.empleados(busqueda, 30).subscribe({
+
+    this.service.responsables(busqueda, 30).subscribe({
       next: respuesta => {
-        this.empleadosSugerencias = (respuesta.data ?? []).map(emp =>
-          `${emp.documento} - ${emp.nombre}`
-        );
+        this.responsablesSugerencias = (respuesta.data ?? []).map(item => item.valor);
       },
-      error: () => { this.empleadosSugerencias = []; }
+      error: () => {
+        this.responsablesSugerencias = [];
+      }
     });
   }
 
@@ -554,6 +602,9 @@ export class ControlActivoComponent implements OnInit {
       estado_fisico:      this.filtros.estado_fisico || undefined,
       desde:              this.filtros.desde         || undefined,
       hasta:              this.filtros.hasta         || undefined,
+      responsable:        this.filtros.responsable   || undefined,
+      localizacion:       this.filtros.localizacion  || undefined,
+      resultado:          this.filtros.resultado     || undefined,
       es_externo:         this.filtros.es_externo    || undefined
     }).subscribe({
       next: (blob: Blob) => {
@@ -597,6 +648,9 @@ export class ControlActivoComponent implements OnInit {
       desde:               this.filtros.desde         || undefined,
       hasta:               this.filtros.hasta         || undefined,
       tipo_inventario_id:  this.filtros.tipo_inventario_id ?? undefined,
+      responsable:         this.filtros.responsable   || undefined,
+      localizacion:        this.filtros.localizacion  || undefined,
+      resultado:           this.filtros.resultado     || undefined,
       es_externo:          this.filtros.es_externo    || undefined,
       per_page: this.filasPorPagina,
       page:     pagina
@@ -638,7 +692,17 @@ export class ControlActivoComponent implements OnInit {
   }
 
   limpiarFiltros(): void {
-    this.filtros = { placa: '', estado_fisico: '', desde: '', hasta: '', tipo_inventario_id: null, es_externo: false };
+    this.filtros = {
+      placa: '',
+      estado_fisico: '',
+      desde: '',
+      hasta: '',
+      tipo_inventario_id: null,
+      responsable: '',
+      localizacion: '',
+      resultado: '',
+      es_externo: false
+    };
     this.primeraFila = 0;
     this.cargarTrazabilidad();
   }
@@ -649,6 +713,9 @@ export class ControlActivoComponent implements OnInit {
            this.filtros.desde            !== '' ||
            this.filtros.hasta            !== '' ||
            this.filtros.tipo_inventario_id !== null ||
+           this.filtros.responsable      !== '' ||
+           this.filtros.localizacion     !== '' ||
+           this.filtros.resultado        !== '' ||
            this.filtros.es_externo;
   }
 
@@ -664,6 +731,9 @@ export class ControlActivoComponent implements OnInit {
       desde: '',
       hasta: '',
       tipo_inventario_id: null,
+      responsable: '',
+      localizacion: '',
+      resultado: '',
       es_externo: false
     };
     this.primeraFila = 0;

@@ -170,11 +170,11 @@
               <label>Responsable</label>
               <p-autoComplete
                 [(ngModel)]="formularioExterno.responsable"
-                [suggestions]="empleadosSugerencias"
-                (completeMethod)="buscarEmpleados($event)"
+                [suggestions]="responsablesSugerencias"
+                (completeMethod)="buscarResponsables($event)"
                 [dropdown]="false"
-                placeholder="Buscar empleado..."
-                [minLength]="3"
+                placeholder="Buscar responsable en maestro..."
+                [minLength]="2"
                 [forceSelection]="false"
                 styleClass="ti-autocomplete-prime">
               </p-autoComplete>
@@ -184,13 +184,14 @@
               <label>Localización</label>
               <p-dropdown
                 [(ngModel)]="formularioExterno.localizacion"
-                [options]="centrosCostoOpciones"
+                [options]="localizacionesOpciones"
                 optionLabel="label"
                 optionValue="value"
                 [filter]="true"
                 filterBy="label"
                 [showClear]="true"
-                placeholder="Buscar localización..."
+                (onFilter)="buscarLocalizaciones($event)"
+                placeholder="Buscar localización en maestro..."
                 styleClass="ti-dropdown-prime">
               </p-dropdown>
             </div>
@@ -307,7 +308,7 @@
               [showClear]="true"
               placeholder="Seleccione el tipo de inventario que está realizando..."
               styleClass="ti-dropdown-prime ti-dropdown-prime--tipo"
-              (ngModelChange)="alertaPeriodicidad = null">
+              (ngModelChange)="onTipoInventarioChange()">
             </p-dropdown>
           </div>
 
@@ -315,6 +316,12 @@
           <div class="ti-tipo-inventario-selector__info" *ngIf="tipoInventarioSeleccionado">
             <i class="pi pi-info-circle"></i>
             <span>{{ tipoInventarioSeleccionado.descripcion_restriccion }}</span>
+          </div>
+
+          <div class="ti-tipo-inventario-selector__info ti-tipo-inventario-selector__info--ok"
+               *ngIf="validacionPeriodicidad?.puede_registrar && formulario.tipo_inventario_id">
+            <i class="pi pi-check-circle"></i>
+            <span>Este activo puede registrarse con el tipo seleccionado en el período actual.</span>
           </div>
         </div>
 
@@ -392,11 +399,11 @@
               <input type="text" [value]="valor(activo.responsable)" class="ti-input ti-input--readonly" readonly />
               <p-autoComplete
                 [(ngModel)]="formulario.novedad_responsable"
-                [suggestions]="empleadosSugerencias"
-                (completeMethod)="buscarEmpleados($event)"
+                [suggestions]="responsablesSugerencias"
+                (completeMethod)="buscarResponsables($event)"
                 [dropdown]="false"
-                placeholder="Buscar empleado..."
-                [minLength]="3"
+                placeholder="Buscar responsable en maestro..."
+                [minLength]="2"
                 [forceSelection]="false"
                 styleClass="ti-autocomplete-prime">
               </p-autoComplete>
@@ -408,13 +415,14 @@
               <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
               <p-dropdown
                 [(ngModel)]="formulario.novedad_localizacion"
-                [options]="centrosCostoOpciones"
+                [options]="localizacionesOpciones"
                 optionLabel="label"
                 optionValue="value"
                 [filter]="true"
                 filterBy="label"
                 [showClear]="true"
-                placeholder="Buscar localización..."
+                (onFilter)="buscarLocalizaciones($event)"
+                placeholder="Buscar localización en maestro..."
                 styleClass="ti-dropdown-prime">
               </p-dropdown>
             </div>
@@ -490,7 +498,7 @@
                 <span class="ti-timeline__fecha">{{ registro.created_at_human }}</span>
               </header>
 
-              <ul class="ti-cambios" *ngIf="registro.cambios.length > 0">
+              <ul class="ti-cambios" *ngIf="(registro.cambios?.length ?? 0) > 0">
                 <li *ngFor="let cambio of registro.cambios">
                   <span class="ti-cambios__campo">{{ cambio.etiqueta }}:</span>
                   <span class="ti-cambios__antes">{{ cambio.anterior || '(vacío)' }}</span>
@@ -504,7 +512,7 @@
                 {{ registro.observacion }}
               </p>
 
-              <p class="ti-timeline__sin-cambios" *ngIf="registro.cambios.length === 0 && !registro.observacion">
+              <p class="ti-timeline__sin-cambios" *ngIf="(registro.cambios?.length ?? 0) === 0 && !registro.observacion">
                 Toma registrada sin novedades.
               </p>
             </div>
@@ -567,7 +575,32 @@
           </select>
         </div>
 
-        <!-- Filtro Tipo Inventario (reemplaza Unidad Funcional) -->
+        <div class="ti-filtro">
+          <label for="fResponsable">Responsable</label>
+          <input id="fResponsable" type="text" [(ngModel)]="filtros.responsable"
+                 (keyup.enter)="aplicarFiltros()" placeholder="Responsable reportado" class="ti-input" />
+        </div>
+
+        <div class="ti-filtro">
+          <label for="fLocalizacion">Localización</label>
+          <input id="fLocalizacion" type="text" [(ngModel)]="filtros.localizacion"
+                 (keyup.enter)="aplicarFiltros()" placeholder="Localización reportada" class="ti-input" />
+        </div>
+
+        <div class="ti-filtro">
+          <label>Resultado</label>
+          <p-dropdown
+            [(ngModel)]="filtros.resultado"
+            [options]="resultadosInventarioOpciones"
+            optionLabel="label"
+            optionValue="value"
+            [showClear]="true"
+            placeholder="Todos los resultados"
+            styleClass="ti-dropdown-prime ti-dropdown-prime--filtro">
+          </p-dropdown>
+        </div>
+
+        <!-- Filtro Tipo Inventario -->
         <div class="ti-filtro">
           <label>Tipo de inventario</label>
           <p-dropdown
@@ -638,8 +671,8 @@
               <th style="width: 3rem"></th>
               <th>Placa</th>
               <th>Artículo</th>
-              <!-- Tipo Inventario en lugar de Unidad Funcional -->
               <th>Tipo Inventario</th>
+              <th>Resultado</th>
               <th>Estado físico</th>
               <th style="width: 6rem">Cambios</th>
               <th>Registrado por</th>
@@ -661,12 +694,14 @@
               </td>
               <td><strong class="ti-placa-tabla">{{ valor(registro.placa) }}</strong></td>
               <td>{{ valor(registro.articulo_nombre) }}</td>
-              <!-- Tipo inventario -->
               <td>
                 <span class="ti-tipo-badge" *ngIf="registro.tipo_inventario">
                   {{ registro.tipo_inventario.nombre }}
                 </span>
                 <span *ngIf="!registro.tipo_inventario" class="ti-sin-dato">—</span>
+              </td>
+              <td>
+                <span class="ti-resultado-badge">{{ valor(registro.resultado) }}</span>
               </td>
               <td>
                 <p-tag
@@ -687,10 +722,10 @@
 
             <!-- Detalle expandible -->
             <tr *ngIf="expandidas[registro.id]" class="ti-detalle">
-              <td colspan="8">
+              <td colspan="9">
                 <div class="ti-detalle__cuerpo">
 
-                  <div class="ti-detalle__bloque" *ngIf="registro.cambios.length > 0">
+                  <div class="ti-detalle__bloque" *ngIf="(registro.cambios?.length ?? 0) > 0">
                     <h4>Cambios reportados</h4>
                     <ul class="ti-cambios">
                       <li *ngFor="let cambio of registro.cambios">
@@ -723,7 +758,7 @@
                     </dl>
                   </div>
 
-                  <p class="ti-detalle__vacio" *ngIf="registro.cambios.length === 0 && !registro.observacion">
+                  <p class="ti-detalle__vacio" *ngIf="(registro.cambios?.length ?? 0) === 0 && !registro.observacion">
                     Esta toma se registró sin novedades: el activo coincidía con el maestro.
                   </p>
 
@@ -734,7 +769,7 @@
 
           <ng-template pTemplate="emptymessage">
             <tr>
-              <td colspan="8">
+              <td colspan="9">
                 <div class="ti-vacio">
                   <i class="pi pi-inbox"></i>
                   <span *ngIf="!hayFiltrosActivos">Aún no hay tomas de inventario registradas.</span>

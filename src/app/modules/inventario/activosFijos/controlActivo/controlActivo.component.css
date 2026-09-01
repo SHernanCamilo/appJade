@@ -905,6 +905,16 @@ textarea.ti-input {
   border-radius: 6px;
 }
 
+.ti-tipo-inventario-selector__info--ok {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.ti-resultado-badge {
+  font-size: 0.78rem;
+  color: #334155;
+}
+
 :host ::ng-deep .ti-dropdown-prime--tipo .p-dropdown {
   min-width: 320px;
   border-color: #3b82f6;
