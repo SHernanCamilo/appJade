@@ -201,6 +201,23 @@ function buildRibbon(
             btn('cancel-refresh', 'Cancelar',           'pi pi-times-circle',  'sm', 'Cancelar actualizacion en curso'),
           ],
         },
+        // ── FORMATO al inicio de Datos, como el grupo Numero de Excel ─────────
+        // El usuario pidio que el formato quede aqui y no en una pestaña aparte.
+        {
+          title: 'Formato de numero',
+          items: [
+            dropdown('fmt-col', 'Columna a formatear', '',
+              [{ label: '- Seleccione columna -', value: '' }, ...colOptions]),
+            btn('fmt-cop',     'COP',    'pi pi-dollar',          'sm', 'Pesos colombianos ($ 1.234)'),
+            btn('fmt-usd',     'USD',    'pi pi-dollar',          'sm', 'Dolares (US$ 1,234.00)'),
+            btn('fmt-percent', '%',      'pi pi-percentage',      'sm', 'Porcentaje'),
+            btn('fmt-number',  'Miles',  'pi pi-sort-numeric-up', 'sm', 'Separador de miles y 2 decimales'),
+            btn('fmt-integer', 'Entero', 'pi pi-hashtag',         'sm', 'Sin decimales'),
+            btn('fmt-date',    'Fecha',  'pi pi-calendar',        'sm', 'DD/MM/YYYY'),
+            btn('fmt-text',    'Texto',  'pi pi-align-left',      'sm', 'Mostrar como texto'),
+            btn('fmt-reset',   'Quitar', 'pi pi-undo',            'sm', 'Volver al formato original'),
+          ],
+        },
         {
           title: 'Vistas',
           items: [
@@ -235,8 +252,10 @@ function buildRibbon(
         {
           title: 'Exportar',
           items: [
-            btn('export-csv',  'CSV',   'pi pi-file-export', 'lg'),
-            btn('export-xlsx', 'Excel', 'pi pi-file-excel',  'lg'),
+            // Un solo boton: descarga el .xlsx ya generado en el servidor con
+            // TODOS los registros. No re-consulta Fabric, solo baja el archivo.
+            btn('export-xlsx', 'Descargar\nExcel', 'pi pi-file-excel', 'lg',
+                'Descargar el Excel con todos los registros de la vista'),
           ],
         },
         {
@@ -302,43 +321,6 @@ function buildRibbon(
               { label: 'Normal (28px)',    value: 'normal'      },
               { label: 'Comodo (36px)',    value: 'comfortable' },
             ]),
-          ],
-        },
-      ],
-    },
-    {
-      id: 'formato',
-      label: 'Formato',
-      groups: [
-        {
-          title: 'Columna activa',
-          items: [
-            dropdown('fmt-col', 'Columna a formatear', '',
-              [{ label: '- Seleccione columna -', value: '' }, ...colOptions]),
-          ],
-        },
-        {
-          title: 'Tipo de dato',
-          items: [
-            btn('fmt-text',   'Texto',   'pi pi-align-left',      'sm', 'Mostrar como texto'),
-            btn('fmt-number', 'Numero',  'pi pi-sort-numeric-up', 'sm', 'Mostrar con separador de miles y 2 decimales'),
-            btn('fmt-integer','Entero',  'pi pi-hashtag',         'sm', 'Mostrar sin decimales'),
-            btn('fmt-date',   'Fecha',   'pi pi-calendar',        'sm', 'Mostrar como DD/MM/YYYY'),
-          ],
-        },
-        {
-          title: 'Moneda y porcentaje',
-          items: [
-            btn('fmt-cop',     'COP',   'pi pi-dollar',  'sm', 'Pesos colombianos'),
-            btn('fmt-usd',     'USD',   'pi pi-dollar',  'sm', 'Dolares'),
-            btn('fmt-eur',     'EUR',   'pi pi-euro',    'sm', 'Euros'),
-            btn('fmt-percent', '%',     'pi pi-percentage', 'sm', 'Porcentaje'),
-          ],
-        },
-        {
-          title: 'Restablecer',
-          items: [
-            btn('fmt-reset', 'Quitar\nformato', 'pi pi-undo', 'lg', 'Volver al formato original de la columna'),
           ],
         },
       ],
@@ -494,7 +476,24 @@ readonly progress = signal<RefreshProgress>({
    */
   private rangeSelection?: CellRangeSelection;
 
+  /** Handler del clic en el header (letras de columna y esquina). */
+  private headerClickHandler?: (e: MouseEvent) => void;
+
+  /**
+   * jobId del ultimo export completado, por hoja de datos.
+   *
+   * El backend ya genero el .xlsx con TODOS los registros durante la carga;
+   * "Descargar Excel" solo baja ese archivo con ?as=file, sin re-consultar
+   * Fabric. Se guarda por sheetId porque cada vista tiene su propio export.
+   */
+  private readonly lastJobIdBySheet = new Map<string, string>();
+
   readonly defaultColDef: ColDef = {
+    // El orden sigue disponible (clic en el titulo ordena, como AG Grid por
+    // defecto). El bug del filtro NO era el sort: era que el handler de clic del
+    // header (seleccion de columna) se disparaba tambien sobre el boton del
+    // filtro y el reordenamiento cerraba el popup. Se corrigio en
+    // handleHeaderClick, que ahora ignora los controles interactivos del header.
     sortable: true,
     resizable: true,
     filter: ExcelColumnFilterComponent,
@@ -901,6 +900,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   ngOnDestroy(): void {
     this.clearTimers();
     this.rangeSelection?.destroy();
+    if (this.headerClickHandler) {
+      document.querySelector('.vr-grid')
+        ?.removeEventListener('click', this.headerClickHandler as EventListener);
+    }
     // Flush final: guardar estado antes de salir
     this.saveWorkbookState();
     // Liberar el motor de formulas y las vistas registradas: los indices de
@@ -1099,6 +1102,92 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   private openGridSearch(): void {
     this.showSearchBox.set(true);
+  }
+
+  // ── Descargar Excel ───────────────────────────────────────────────────────
+
+  /** true mientras se baja el .xlsx, para deshabilitar el boton. */
+  readonly downloadingExcel = signal(false);
+
+  /**
+   * Descarga el .xlsx con TODOS los registros de la vista actual.
+   *
+   * No genera nada nuevo: el backend ya creo el archivo durante "Actualizar
+   * todo" (ConvertGraphExportToXlsxJob). Aqui solo se baja con ?as=file, que
+   * entrega el binario tal cual, rapido y sin re-consultar Fabric.
+   *
+   * Las hojas de datos son de solo lectura, asi que el archivo del servidor y
+   * lo que ve el usuario coinciden. Solo los formatos de presentacion
+   * (COP/USD/%) son visuales; el dato subyacente es el mismo.
+   */
+  private downloadExcel(): void {
+    const activeSheet = this.sheets().find(s => s.id === this.currentSheetId)
+      ?? this.sheets().find(s => s.active);
+
+    // Los pivots y hojas de calculo no tienen export de servidor: se bajan como
+    // CSV desde la grilla (son resumenes chicos, no vale la pena un job).
+    if (activeSheet && (activeSheet.kind ?? 'view') !== 'view') {
+      this.gridApi?.exportDataAsCsv?.({ fileName: `${activeSheet.label}_${this.today()}.csv` });
+      return;
+    }
+
+    const jobId = this.currentSheetId ? this.lastJobIdBySheet.get(this.currentSheetId) : undefined;
+
+    if (!jobId) {
+      alert(
+        'Todavia no hay un Excel generado para esta vista.\n\n' +
+        'Pulse "Actualizar todo" para cargar los datos; al terminar, el Excel ' +
+        'con todos los registros queda listo para descargar.'
+      );
+      return;
+    }
+
+    this.downloadingExcel.set(true);
+    const token = localStorage.getItem('token') ?? '';
+
+    // ?as=file entrega el .xlsx ya generado (no el NDJSON de la grilla)
+    this.http.get(
+      `${this.baseUrl}/export/download/${jobId}?as=file&token=${encodeURIComponent(token)}`,
+      { responseType: 'blob', observe: 'response' }
+    ).subscribe({
+      next: response => {
+        this.downloadingExcel.set(false);
+        const blob = response.body;
+        if (!blob) { this.avisarDescargaFallida(); return; }
+
+        // Nombre del archivo: el que sugiera el servidor o uno con la vista+fecha
+        const disposition = response.headers.get('Content-Disposition') ?? '';
+        const match = /filename="?([^"]+)"?/.exec(disposition);
+        const filename = match?.[1] ?? `${this.viewName}_${this.today()}.xlsx`;
+
+        this.saveBlob(blob, filename);
+      },
+      error: err => {
+        this.downloadingExcel.set(false);
+        console.error('[downloadExcel] error', err);
+        this.avisarDescargaFallida();
+      },
+    });
+  }
+
+  private avisarDescargaFallida(): void {
+    alert(
+      'No se pudo descargar el Excel. El archivo pudo expirar en el servidor.\n\n' +
+      'Pulse "Actualizar todo" para regenerarlo y vuelva a intentar.'
+    );
+  }
+
+  /** Dispara la descarga de un blob en el navegador. */
+  private saveBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Liberar la URL en el proximo tick, cuando el navegador ya inicio la bajada
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   closeGridSearch(): void {
@@ -1617,6 +1706,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   private onJobCompleted(jobId: string, statusData: Record<string, unknown>): void {
     const rows = Number(statusData['rows'] ?? 0);
+
+    // Recordar el jobId para "Descargar Excel": ese export ya tiene el .xlsx
+    // con todos los registros listo en el servidor.
+    if (this.currentSheetId) this.lastJobIdBySheet.set(this.currentSheetId, jobId);
 
     this.progress.set({
       status: 'downloading',
@@ -2696,6 +2789,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         gridRoot,
         () => this.onRangeChanged(),
       );
+
+      // Clic en la LETRA de la columna (A, B, C...) o en la esquina gris.
+      //
+      // AG Grid no emite columnHeaderClicked para los encabezados de GRUPO (las
+      // letras van en un grupo padre) ni para la celda de la esquina, asi que
+      // se delega el clic sobre el header por DOM: es la unica via que cubre
+      // ambos casos con una sola escucha.
+      this.headerClickHandler = (e: MouseEvent) => this.handleHeaderClick(e);
+      gridRoot.addEventListener('click', this.headerClickHandler as EventListener);
     }
 
     // Si las columnas se construyeron antes de que la grilla estuviera lista,
@@ -3036,6 +3138,75 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.selectColumn(colId);
   }
 
+  /**
+   * Clic en el encabezado, resuelto por DOM.
+   *
+   *  - Esquina gris (sobre la banda de numeros de fila) -> seleccionar TODO,
+   *    igual que el cuadro de la esquina superior izquierda de Excel.
+   *  - Letra de columna (encabezado de grupo A, B, C...) -> seleccionar esa
+   *    columna completa. AG Grid no da un evento para el grupo, asi que se lee
+   *    la letra del DOM y se mapea a la columna hija por su posicion.
+   */
+  private handleHeaderClick(e: MouseEvent): void {
+    const target = e.target as HTMLElement;
+
+    // Nunca interferir con los controles interactivos del encabezado:
+    // el boton del filtro (embudo), el menu y las casillas. Si el clic nace ahi
+    // se deja pasar tal cual, para que el popup del filtro abra normal.
+    // Este era el bug: al abrir el filtro, el handler seleccionaba/ordenaba la
+    // columna y el reordenamiento cerraba el popup.
+    if (target.closest(
+      '.ag-header-cell-menu-button, .ag-header-icon, .ag-filter-icon, ' +
+      '.ag-header-cell-filter-button, input, .ag-checkbox, .ag-input-field-input'
+    )) {
+      return;
+    }
+
+    // ── Esquina: seleccionar toda la tabla ──────────────────────────────────
+    if (target.closest('.excel-corner-header')) {
+      e.stopPropagation();
+      this.selectWholeTable();
+      return;
+    }
+
+    // ── Letra de columna (encabezado de grupo A, B, C...) ────────────────────
+    // Solo el GRUPO selecciona columna. El header de columna normal (el que
+    // tiene el nombre y el filtro) se deja para el sort nativo y el filtro.
+    const groupHeader = target.closest('.ag-header-group-cell') as HTMLElement | null;
+    if (!groupHeader) return;
+
+    const letra = groupHeader.querySelector('.ag-header-group-text')?.textContent?.trim();
+    if (!letra) return;
+
+    const dataCols = this.columnDefs.filter(c => c.field && c.field !== ROW_NUMBER_FIELD);
+    const idx = this.excelLetterToIndex(letra);
+    const col = dataCols[idx];
+    if (col?.field) this.selectColumn(col.field);
+  }
+
+  /** Letra Excel a indice 0-based: A->0, B->1, ..., Z->25, AA->26. */
+  private excelLetterToIndex(letter: string): number {
+    let n = 0;
+    for (const ch of letter.toUpperCase()) {
+      n = n * 26 + (ch.charCodeAt(0) - 64);
+    }
+    return n - 1;
+  }
+
+  /**
+   * Selecciona toda la tabla (esquina gris) y publica el resumen del total.
+   * El rango abarca todas las filas y columnas visibles, listo para Ctrl+C.
+   */
+  selectWholeTable(): void {
+    if (!this.rangeSelection) return;
+
+    this.selectedColumnId.set(null);
+    this.rangeSelection.selectAll();
+    this.gridApi?.refreshCells({ force: true });
+    this.gridApi?.refreshHeader();
+    // onRangeChanged (callback del helper) actualiza la barra de estado
+  }
+
   /** Columna seleccionada ahora mismo (se resalta en la grilla) */
   readonly selectedColumnId = signal<string | null>(null);
 
@@ -3281,11 +3452,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.unfreezeColumns();
         break;
 
-      case 'export-csv':
-        this.gridApi?.exportDataAsCsv({ fileName: `${this.viewName}_${this.today()}.csv` });
-        break;
       case 'export-xlsx':
-        this.gridApi?.exportDataAsExcel?.({ fileName: `${this.viewName}_${this.today()}.xlsx` });
+        this.downloadExcel();
         break;
       case 'fullscreen':
         this.toggleFullscreen();

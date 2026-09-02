@@ -103,7 +103,7 @@ export class CellRangeSelection {
   }
 
   /**
-   * Selecciona una columna entera por su id (clic en el encabezado).
+   * Selecciona una columna entera por su id (clic en el encabezado o su letra).
    * Va de la primera a la ultima fila visible.
    */
   selectWholeColumn(colId: string): void {
@@ -113,6 +113,26 @@ export class CellRangeSelection {
     this.focus = { rowIndex: last, colId };
     this.dragging = false;
     this.refresh();
+  }
+
+  /**
+   * Selecciona TODA la tabla, como el cuadro gris de la esquina en Excel:
+   * de la primera a la ultima fila y columna visibles.
+   */
+  selectAll(): void {
+    const lastRow = this.api.getDisplayedRowCount() - 1;
+    const cols = this.currentColumnOrder();
+    if (lastRow < 0 || cols.length === 0) return;
+
+    this.anchor = { rowIndex: 0, colId: cols[0] };
+    this.focus = { rowIndex: lastRow, colId: cols[cols.length - 1] };
+    this.dragging = false;
+    this.refresh();
+  }
+
+  /** ¿Hay una seleccion activa ahora mismo? */
+  hasSelection(): boolean {
+    return this.getRange() !== null;
   }
 
   /** Copia el rango al portapapeles como TSV, listo para pegar en Excel. */
