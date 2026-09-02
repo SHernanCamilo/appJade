@@ -144,6 +144,27 @@
         <button class="vr-context-menu__item" (click)="ctxShowAllColumns()">
           <i class="pi pi-eye"></i> Mostrar todas
         </button>
+
+        <!-- Opciones de TABLA DINAMICA (clic derecho, como Excel) -->
+        <ng-container *ngIf="isPivotSheetActive()">
+          <div class="vr-context-menu__separator"></div>
+          <button class="vr-context-menu__item" (click)="ctxPivotGroup()">
+            <i class="pi pi-sitemap"></i> Agrupar...
+          </button>
+          <button class="vr-context-menu__item" (click)="ctxPivotUngroup()">
+            <i class="pi pi-times-circle"></i> Desagrupar
+          </button>
+          <button class="vr-context-menu__item" (click)="ctxPivotCollapse()">
+            <i class="pi pi-minus-circle"></i> Contraer / Expandir
+          </button>
+          <button class="vr-context-menu__item" (click)="ctxPivotRefresh()">
+            <i class="pi pi-refresh"></i> Actualizar
+          </button>
+          <button class="vr-context-menu__item" (click)="ctxPivotFields()">
+            <i class="pi pi-table"></i> Campos de tabla dinamica
+          </button>
+        </ng-container>
+
         <!-- Opciones de edicion (solo en hojas editables) -->
         <ng-container *ngIf="isEditableSheet()">
           <div class="vr-context-menu__separator"></div>
