@@ -82,32 +82,17 @@
       <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'filter')">
         <label class="pivot-zone__label"><i class="pi pi-filter"></i> FILTROS</label>
         <div class="pivot-zone__items">
-          <div *ngFor="let f of config.filterFields; let i = index" class="pivot-chip-wrap">
-            <span class="pivot-chip" draggable="true"
-                  (dragstart)="onChipDragStart($event, 'filter', i, f)">
-              {{ humanize(f) }}
-              <em class="pivot-chip__badge">{{ filterBadge(f) }}</em>
-              <button (click)="toggleFieldSettings(f)" title="Elegir valores"><i class="pi pi-chevron-down"></i></button>
-              <button (click)="removeFieldAuto('filter', i)" title="Quitar"><i class="pi pi-times"></i></button>
-            </span>
-
-            <!-- Desplegable de valores, como el filtro de informe de Excel -->
-            <div class="pivot-values" *ngIf="openSettingsField === f">
-              <div class="pivot-values__head">
-                <span>Valores de {{ humanize(f) }}</span>
-                <button (click)="clearFilterValues(f)" title="Seleccionar todas">Todas</button>
-              </div>
-              <label class="pivot-values__item" *ngFor="let v of filterOptions(f)">
-                <input type="checkbox" [checked]="isFilterValueSelected(f, v)"
-                       (change)="toggleFilterValue(f, v)">
-                <span>{{ v }}</span>
-              </label>
-              <p class="pivot-values__hint" *ngIf="filterOptions(f).length === 0">
-                Sin valores disponibles.
-              </p>
-            </div>
-          </div>
+          <span *ngFor="let f of config.filterFields; let i = index"
+                class="pivot-chip" draggable="true"
+                (dragstart)="onChipDragStart($event, 'filter', i, f)">
+            {{ humanize(f) }}
+            <em class="pivot-chip__badge">{{ filterBadge(f) }}</em>
+            <button (click)="removeFieldAuto('filter', i)" title="Quitar"><i class="pi pi-times"></i></button>
+          </span>
           <span *ngIf="config.filterFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
+          <p class="pivot-zone__hint" *ngIf="config.filterFields.length > 0">
+            Los valores se eligen en la barra de arriba de la tabla.
+          </p>
         </div>
       </div>
 

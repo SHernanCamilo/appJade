@@ -59,6 +59,7 @@ import {
   emptyPivotConfig,
   isPivotConfigUsable,
   measureLabel,
+  distinctFieldValues,
   PIVOT_KIND_FIELD,
   PIVOT_META_FIELDS,
   type PivotConfig,
@@ -4297,6 +4298,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     console.log('[Pivot] Generado sobre', sourceLabel, '->', result.rows.length, 'filas |', pivotSheetId);
 
+    // La barra de filtros de informe (encima de la tabla) refleja los campos
+    // del cuadrante FILTROS del pivot recien generado.
+    this.refreshReportFilterBar(pivotSheetId);
+
     // Persistir la receta enseguida: si el usuario cierra la pestaña del
     // navegador antes del siguiente autosave, el pivot no se pierde.
     this.saveWorkbookState();
@@ -4321,6 +4326,135 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   /** Hoja fuente preseleccionada en el desplegable del panel */
   readonly pivotPanelSheetId = signal('');
+
+  // ── Filtros de informe SOBRE la tabla dinamica (como Excel) ───────────────
+  //
+  // En Excel los campos del cuadrante FILTROS aparecen como desplegables encima
+  // de la tabla ("Cuenta [(Todas) ▾]"), no dentro del panel de campos. Estas
+  // señales alimentan esa barra cuando la hoja activa es un pivot.
+
+  /** Filtros de informe del pivot activo, listos para pintar la barra superior */
+  readonly pivotReportFilters = signal<Array<{ field: string; label: string; badge: string }>>([]);
+  /** Campo cuyo desplegable de valores esta abierto en la barra */
+  readonly openReportFilter = signal('');
+  /** Valores disponibles del filtro abierto (con su estado marcado) */
+  readonly reportFilterValues = signal<Array<{ value: string; checked: boolean }>>([]);
+
+  /** true cuando la hoja activa es una tabla dinamica con filtros de informe */
+  readonly showReportFilterBar = computed(() =>
+    (this.sheets().find(s => s.active)?.kind ?? 'view') === 'pivot'
+    && this.pivotReportFilters().length > 0
+  );
+
+  /**
+   * Refresca la barra de filtros de informe con la config del pivot activo.
+   *
+   * Se llama cada vez que se genera o recalcula un pivot. Reproduce los
+   * desplegables que Excel pone ENCIMA de la tabla ("Cuenta [(Todas) ▾]").
+   */
+  private refreshReportFilterBar(pivotSheetId: string): void {
+    const def = this.pivotDefs.get(pivotSheetId);
+    const isActivePivot = this.sheets().find(s => s.active)?.id === pivotSheetId;
+
+    if (!def || !isActivePivot || (def.config.filterFields?.length ?? 0) === 0) {
+      this.pivotReportFilters.set([]);
+      this.openReportFilter.set('');
+      return;
+    }
+
+    const sel = def.config.filterValues ?? {};
+    this.pivotReportFilters.set(
+      def.config.filterFields.map(field => {
+        const chosen = sel[field] ?? [];
+        return {
+          field,
+          label: humanizeColumnName(field),
+          badge: chosen.length === 0 ? '(Todas)' : `${chosen.length} sel.`,
+        };
+      })
+    );
+  }
+
+  /** Abre/cierra el desplegable de valores de un filtro de informe */
+  toggleReportFilter(field: string): void {
+    if (this.openReportFilter() === field) {
+      this.openReportFilter.set('');
+      return;
+    }
+
+    const def = this.pivotDefs.get(`sheet-pivot-${this.pivotSourceSheetIdFromActive()}`);
+    const source = this.sheets().find(s => s.id === def?.sourceSheetId);
+    if (!def || !source?.rowData) return;
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const values = distinctFieldValues(source.rowData, field, cols, def.config.fieldSettings?.[field]);
+    const chosen = new Set(def.config.filterValues?.[field] ?? []);
+
+    this.reportFilterValues.set(values.map(v => ({
+      value: v,
+      checked: chosen.size === 0 || chosen.has(v),
+    })));
+    this.openReportFilter.set(field);
+  }
+
+  /** Marca/desmarca un valor y recalcula el pivot con el nuevo filtro */
+  toggleReportFilterValue(field: string, value: string): void {
+    const pivotSheetId = `sheet-pivot-${this.pivotSourceSheetIdFromActive()}`;
+    const def = this.pivotDefs.get(pivotSheetId);
+    if (!def) return;
+
+    def.config.filterValues ??= {};
+    const source = this.sheets().find(s => s.id === def.sourceSheetId);
+    const cols = source?.rowData ? this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' })) : [];
+    const todos = source?.rowData ? distinctFieldValues(source.rowData, field, cols, def.config.fieldSettings?.[field]) : [];
+
+    const actual = def.config.filterValues[field] ?? [];
+    const base = actual.length === 0 ? todos : actual;
+    const next = base.includes(value) ? base.filter(v => v !== value) : [...base, value];
+
+    def.config.filterValues[field] = next.length === todos.length ? [] : next;
+
+    this.regeneratePivotFromDef(pivotSheetId, def);
+    this.toggleReportFilter(field); // cerrar
+    this.toggleReportFilter(field); // reabrir con el estado nuevo
+  }
+
+  /** "(Todas)": limpia el filtro de un campo */
+  clearReportFilter(field: string): void {
+    const pivotSheetId = `sheet-pivot-${this.pivotSourceSheetIdFromActive()}`;
+    const def = this.pivotDefs.get(pivotSheetId);
+    if (!def) return;
+    def.config.filterValues ??= {};
+    def.config.filterValues[field] = [];
+    this.regeneratePivotFromDef(pivotSheetId, def);
+    this.openReportFilter.set('');
+  }
+
+  /** Id de hoja fuente del pivot que se esta viendo ahora */
+  private pivotSourceSheetIdFromActive(): string {
+    const active = this.sheets().find(s => s.active);
+    if (active && (active.kind ?? 'view') === 'pivot') {
+      return active.id.replace(/^sheet-pivot-/, '');
+    }
+    return this.pivotSourceSheetId;
+  }
+
+  /** Recalcula y repinta un pivot desde su receta (tras cambiar un filtro) */
+  private regeneratePivotFromDef(
+    pivotSheetId: string,
+    def: { sourceSheetId: string; label: string; config: PivotConfig },
+  ): void {
+    const source = this.sheets().find(s => s.id === def.sourceSheetId);
+    if (!source?.rowData || source.rowData.length === 0) return;
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const result = computePivot(source.rowData, def.config, cols);
+    if (!result) return;
+
+    this.applyPivotResult(pivotSheetId, def.label, source, result);
+    this.refreshReportFilterBar(pivotSheetId);
+    this.saveWorkbookState();
+  }
 
   /** Serializa las tablas dinamicas para guardarlas en el workbook */
   private collectPivotDefs(): SavedPivot[] {
@@ -4370,6 +4504,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       if (!result) return;
 
       this.applyPivotResult(pivotSheetId, def.label, source, result);
+      this.refreshReportFilterBar(pivotSheetId);
       console.log('[Pivot] Recalculado', pivotSheetId, '->', result.rows.length, 'filas');
     });
   }
@@ -5058,6 +5193,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Recuperar el contexto de formulas de la hoja: si es de calculo, sus
     // formulas siguen vivas en su propia hoja de HyperFormula.
     const kind = sheet.kind ?? 'view';
+
+    // La barra de filtros de informe (encima de la grilla) solo aplica a pivots:
+    // se refresca si la hoja nueva es dinamica, se limpia si no.
+    this.openReportFilter.set('');
+    if (kind === 'pivot') {
+      this.refreshReportFilterBar(sheet.id);
+    } else {
+      this.pivotReportFilters.set([]);
+    }
 
     // Hoja dinamica sin filas: viene de un workbook restaurado o de un refresco.
     // Se reconstruye desde su receta guardada; antes esta rama caia en el `else`

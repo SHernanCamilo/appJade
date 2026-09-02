@@ -10,6 +10,33 @@
 
     <div class="vr-grid-wrap" [class.vr-grid-wrap--faded]="isLoading()" (contextmenu)="$event.preventDefault()">
 
+      <!-- Barra de FILTROS DE INFORME de la tabla dinamica (como Excel: encima
+           de la tabla, no en el panel de campos). Cada campo del cuadrante
+           FILTROS es un desplegable "Campo [(Todas) ▾]". -->
+      <div class="vr-report-filters" *ngIf="showReportFilterBar()">
+        <div class="vr-report-filter" *ngFor="let rf of pivotReportFilters()">
+          <span class="vr-report-filter__label">{{ rf.label }}</span>
+          <button class="vr-report-filter__btn" (click)="toggleReportFilter(rf.field)"
+            [class.vr-report-filter__btn--open]="openReportFilter() === rf.field">
+            <span class="vr-report-filter__badge">{{ rf.badge }}</span>
+            <i class="pi pi-chevron-down"></i>
+          </button>
+
+          <!-- Desplegable de valores -->
+          <div class="vr-report-filter__menu" *ngIf="openReportFilter() === rf.field">
+            <div class="vr-report-filter__menu-head">
+              <span>{{ rf.label }}</span>
+              <button (click)="clearReportFilter(rf.field)" title="Seleccionar todas">(Todas)</button>
+            </div>
+            <label class="vr-report-filter__item" *ngFor="let v of reportFilterValues()">
+              <input type="checkbox" [checked]="v.checked" (change)="toggleReportFilterValue(rf.field, v.value)">
+              <span>{{ v.value }}</span>
+            </label>
+            <p class="vr-report-filter__empty" *ngIf="reportFilterValues().length === 0">Sin valores.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Estado vacio inicial -->
       <div *ngIf="progress().status === 'idle'" class="vr-empty">
         <svg class="vr-empty__icon" viewBox="0 0 64 64" fill="none">

@@ -169,3 +169,5 @@
   padding: 2px 4px; background: #fff; width: 110px;
 }
 .pivot-values__hint { font-size: 10px; color: #9ca3af; font-style: italic; margin: 4px 0 0; }
+
+.pivot-zone__hint { font-size: 9px; color: #6b7280; font-style: italic; margin: 2px 0 0; grid-column: 1 / -1; }

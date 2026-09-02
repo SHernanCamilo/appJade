@@ -34,7 +34,70 @@
   position: relative;  /* necesario para que los overlays se posicionen dentro */
   transition: opacity 0.2s;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
+/* La grilla ocupa el resto tras la barra de filtros de informe */
+.vr-grid-wrap > .vr-grid { flex: 1; min-height: 0; }
+
+/* ── Barra de filtros de informe de la tabla dinamica (estilo Excel) ──────── */
+.vr-report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 12px;
+  background: #f3f6f4;
+  border-bottom: 1px solid #cfe0d6;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 30;
+}
+.vr-report-filter { display: flex; align-items: center; gap: 6px; position: relative; }
+.vr-report-filter__label { font-size: 12px; font-weight: 700; color: #14532d; }
+.vr-report-filter__btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 150px; justify-content: space-between;
+  padding: 3px 8px; border: 1px solid #b9c9bf; border-radius: 3px;
+  background: #fff; color: #1f2937; font-size: 12px; cursor: pointer;
+}
+.vr-report-filter__btn:hover,
+.vr-report-filter__btn--open { border-color: #217346; box-shadow: 0 0 0 1px #217346; }
+.vr-report-filter__badge { font-weight: 600; }
+.vr-report-filter__btn i { font-size: 10px; color: #6b7280; }
+
+.vr-report-filter__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #b9c9bf;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  z-index: 40;
+}
+.vr-report-filter__menu-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;
+  padding: 2px 4px 4px; border-bottom: 1px solid #e5e7eb; margin-bottom: 3px;
+}
+.vr-report-filter__menu-head button {
+  border: 1px solid #d1d5db; border-radius: 2px; background: #fff;
+  font-size: 10px; color: #217346; cursor: pointer; padding: 1px 5px; font-weight: 700;
+}
+.vr-report-filter__menu-head button:hover { background: #e2efda; }
+.vr-report-filter__item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 4px; font-size: 12px; color: #1f2937; cursor: pointer; border-radius: 2px;
+}
+.vr-report-filter__item:hover { background: #f3f4f6; }
+.vr-report-filter__item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vr-report-filter__empty { font-size: 11px; color: #9ca3af; font-style: italic; margin: 4px; }
 
 .vr-grid-wrap--faded {
   opacity: 0.35;
