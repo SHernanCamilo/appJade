@@ -441,7 +441,7 @@
         </button>
 
         <div class="vr-column-list">
-          <label *ngFor="let col of getColumnVisibilityList()" class="vr-column-list__item"
+          <label *ngFor="let col of columnPanelList()" class="vr-column-list__item"
             [class.vr-column-list__item--hidden]="!col.visible">
             <input type="checkbox" [checked]="col.visible" (change)="toggleColumnVisibility(col.id)">
             <span class="vr-column-list__name">{{ col.name }}</span>

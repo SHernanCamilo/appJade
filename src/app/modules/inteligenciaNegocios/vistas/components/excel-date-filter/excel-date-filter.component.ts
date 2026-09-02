@@ -553,12 +553,49 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
     return this.filterContainer.nativeElement;
   }
 
+  /**
+   * true cuando la grilla trae los datos paginados del servidor.
+   *
+   * En ese caso el filtrado real lo hace el backend y este filtro NO debe
+   * descartar filas (solo hay una pagina en memoria). Se recibe por
+   * `filterParams: { serverSide: true }`.
+   *
+   * Antes se adivinaba con "si hay <= 100 fechas distintas es server-side", y eso
+   * rompia el visor Excel: una columna con pocas fechas distintas (60 dias en
+   * 30.000 filas) se tomaba por paginada y el filtro de rango no filtraba nada.
+   */
+  private serverSide = false;
+
   agInit(params: IFilterParams): void {
     this.params = params;
     this.valueGetter = params.valueGetter;
+    this.serverSide = !!(params as { serverSide?: boolean }).serverSide;
 
     // Extraer fechas únicas de toda la data
     this.extractUniqueDates();
+
+    // Los atajos globales del visor (Ctrl+C, Delete, Escape) no deben capturar
+    // lo que se teclea dentro del popup.
+    this.filterContainer?.nativeElement.addEventListener('keydown', (e: KeyboardEvent) => {
+      e.stopPropagation();
+    });
+  }
+
+  /** AG Grid avisa al llegar filas nuevas: la lista de fechas se reconstruye */
+  onNewRowsLoaded(): void {
+    const previos = new Set(this.appliedSelected);
+    const eraActivo = this.isFilterActive() && this.filterMode() !== 'range';
+
+    this.extractUniqueDates();
+
+    if (!eraActivo) return;
+
+    const vigentes = new Set([...previos].filter(v => this.allDateStrings.has(v)));
+    if (vigentes.size === 0) return;
+
+    this.appliedSelected = vigentes;
+    this.pendingSelected = new Set(vigentes);
+    this.updateHierarchySelection(false);
   }
 
   private extractUniqueDates(): void {
@@ -748,9 +785,9 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
     // Si allDateStrings tiene pocas fechas (<=pageSize), es paginado → no filtrar local.
     // Si tiene muchas (>pageSize), es client-side → filtrar local.
     if (this.filterMode() === 'range') {
-      // En server-side solo hay 50 filas: dejar pasar todo, el backend filtra
-      if (this.allDateStrings.size <= 100) return true;
-      // En client-side (Excel viewer con todos los datos): filtrar por rango
+      // Paginado en el servidor: el backend ya filtro, aqui pasa todo
+      if (this.serverSide) return true;
+      // Client-side (visor con todos los datos): filtrar por rango
       const from = this.rangeFrom();
       const to = this.rangeTo();
       if (!from && !to) return true;
@@ -778,15 +815,21 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
     }
     const dateStr = value != null ? this.normalizeDateString(String(value)) : null;
 
-    // Server-side (few dates): don't filter locally
-    if (this.allDateStrings.size <= 100 && this.appliedSelected.size === 0) return true;
+    // Paginado en el servidor: no descartar filas aqui
+    if (this.serverSide) return true;
 
     return dateStr ? this.appliedSelected.has(dateStr) : false;
   }
 
-  getModel(): any {
+  /**
+   * Modelo serializable (JSON) del filtro.
+   *
+   * En modo jerarquia devolvia un `Set`, y eso rompia a quien lo consumiera:
+   * `api.getFilterModel()` entregaba un Set sin `filterType`, asi que el visor no
+   * podia traducirlo a filtros del backend ni guardarlo en el workbook.
+   */
+  getModel(): DateFilterModel | null {
     if (this.filterMode() === 'range' && (this.rangeFrom() || this.rangeTo())) {
-      // Return range info for the grid component to read
       return {
         filterType: 'dateRange',
         dateFrom: this.rangeFrom() || null,
@@ -794,22 +837,43 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
       };
     }
     if (this.appliedSelected.size < this.allDateStrings.size && this.allDateStrings.size > 0) {
-      return this.appliedSelected;
+      return {
+        filterType: 'dateValues',
+        values: [...this.appliedSelected],
+      };
     }
     return null;
   }
 
-  setModel(model: Set<string> | null): void {
-    if (model === null) {
+  /** Acepta el formato nuevo, el rango, un array suelto o el Set antiguo. */
+  setModel(model: DateFilterModel | string[] | Set<string> | null): void {
+    if (model === null || model === undefined) {
       // Reset: seleccionar todo
       this.pendingSelected = new Set(this.allDateStrings);
       this.appliedSelected = new Set(this.allDateStrings);
+      this.rangeFrom.set('');
+      this.rangeTo.set('');
       this.updateHierarchySelection(true);
-    } else {
-      this.appliedSelected = new Set(model);
-      this.pendingSelected = new Set(model);
-      this.updateHierarchySelection(false);
+      return;
     }
+
+    // Rango guardado
+    if (!Array.isArray(model) && !(model instanceof Set) && model.filterType === 'dateRange') {
+      this.filterMode.set('range');
+      this.rangeFrom.set(model.dateFrom ?? '');
+      this.rangeTo.set(model.dateTo ?? '');
+      return;
+    }
+
+    const values: string[] = Array.isArray(model)
+      ? model
+      : model instanceof Set
+        ? [...model]
+        : ((model as { values?: string[] }).values ?? []);
+
+    this.appliedSelected = new Set(values);
+    this.pendingSelected = new Set(values);
+    this.updateHierarchySelection(false);
   }
 
   private updateHierarchySelection(selectAll: boolean): void {
@@ -912,24 +976,44 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
 
   applyFilter(): void {
     if (this.filterMode() === 'range') {
-      // Modo rango: aplicar filtro de rango
-      if (this.rangeFrom() && this.rangeTo()) {
+      // Basta con UN extremo, como Excel ("desde el 1 de enero" sin tope).
+      // Antes exigia los dos y pulsar Aceptar con solo "Desde" no hacia nada.
+      if (this.rangeFrom() || this.rangeTo()) {
         this.applyRangeFilter();
       }
     } else {
-      // Modo jerarquía: confirmar selección temporal
+      // Modo jerarquía: confirmar selección temporal.
+      // Sin ninguna fecha marcada la tabla quedaria vacia: no se aplica.
+      if (this.pendingSelected.size === 0) return;
       this.appliedSelected = new Set(this.pendingSelected);
     }
 
     // Notificar AG Grid que el filtro cambió
     this.params.filterChangedCallback();
+    this.closePopup();
   }
 
   cancel(): void {
-    // Cerrar sin aplicar cambios — restaurar estado previo
+    // Cancelar restaura la seleccion confirmada y NO notifica a AG Grid: antes
+    // llamaba a filterChangedCallback() y en la vista paginada eso disparaba una
+    // recarga al servidor aunque no se hubiera cambiado nada.
     this.pendingSelected = new Set(this.appliedSelected);
     this.updateHierarchySelection(false);
-    this.params.filterChangedCallback();
+    this.closePopup();
+  }
+
+  /**
+   * Cierra el desplegable, como Excel al pulsar Aceptar.
+   * Respaldo con clic fuera si `hidePopupMenu` no esta disponible.
+   */
+  private closePopup(): void {
+    const api = this.params.api as unknown as { hidePopupMenu?: () => void };
+    try {
+      api.hidePopupMenu?.();
+      return;
+    } catch { /* sin el modulo del menu: usar el respaldo */ }
+
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   }
 
   // =========================================================================
@@ -1037,3 +1121,13 @@ export class ExcelDateFilterComponent implements IFilterComp, AfterViewInit {
     return item.value;
   }
 }
+
+/**
+ * Modelo serializable del filtro de fechas.
+ *
+ *  - `dateRange`  -> el usuario eligio un rango (Desde / Hasta)
+ *  - `dateValues` -> el usuario marco fechas concretas en el arbol Año/Mes/Dia
+ */
+export type DateFilterModel =
+  | { filterType: 'dateRange'; dateFrom: string | null; dateTo: string | null }
+  | { filterType: 'dateValues'; values: string[] };

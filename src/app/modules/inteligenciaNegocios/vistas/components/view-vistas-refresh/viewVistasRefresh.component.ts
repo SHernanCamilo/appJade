@@ -710,13 +710,27 @@ readonly perfMetrics = signal<{
       return;
     }
 
-    // Plantilla con la primera vista cargada como pista
+    // Plantilla con la primera vista cargada como pista. Los argumentos van
+    // vacios a proposito: el usuario los completa dentro de la celda.
     const sample = `=${name}("${views[0]}";"";"";"")`;
     const { rowIndex, colId } = this.focusedCell;
     const row = this.rowData[rowIndex];
     if (!row) return;
 
     row[colId] = sample;
+
+    // ── Registrar la formula en el MOTOR, no solo en la fila ─────────────────
+    //
+    // El valueGetter de las hojas de calculo, al ver un texto que empieza por
+    // '=', pide el resultado a HyperFormula. Si la formula nunca se escribio en
+    // el motor, ese resultado es null y la celda aparece VACIA: era el motivo de
+    // que "las funciones no funcionan" al insertarlas desde la cinta.
+    const colIndex = this.columnDefs.findIndex(c => c.field === colId) - 1;
+    if (this.activeFormulaSheet && colIndex >= 0) {
+      this.formulaEngine.ensureSheet(this.activeFormulaSheet, BLANK_SHEET_ROWS, BLANK_SHEET_COLS);
+      this.formulaEngine.setCellValue(this.activeFormulaSheet, rowIndex, colIndex, sample);
+    }
+
     this.cellInfo.update(ci => ({ ...ci, value: sample }));
     this.gridApi?.refreshCells({ force: true });
     this.gridApi?.startEditingCell({ rowIndex, colKey: colId });
@@ -2540,8 +2554,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   private applyColumnDefsFresh(): void {
     this.applyColumnDefs();
     if (!this.gridApi) return;
+
     this.gridApi.resetColumnState();
+
+    // resetColumnState tambien devuelve la VISIBILIDAD al valor de columnDefs,
+    // asi que borraba las columnas que el usuario habia ocultado en el panel
+    // "Columnas". Se vuelven a ocultar las que sigan existiendo en esta hoja.
+    const ocultas = this.hiddenColumnIds();
+    if (ocultas.length > 0) {
+      const existen = ocultas.filter(id => !!this.gridApi!.getColumn(id));
+      if (existen.length > 0) this.gridApi.setColumnsVisible(existen, false);
+    }
+
     this.gridApi.refreshHeader();
+    this.refreshColumnPanel();
   }
 
   /**
@@ -3013,8 +3039,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (this.showTotalsRow()) this.updateTotalsRow();
   }
 
+  /**
+   * Cambio el conjunto de columnas visibles (ocultar, mostrar, reordenar).
+   * Se sincroniza el panel "Columnas" para que sus casillas reflejen la realidad
+   * aunque el cambio venga del menu contextual o de AG Grid.
+   */
   onDisplayedColumnsChanged(): void {
-    // No-op: los encabezados de grupo de AG Grid mantienen las letras
+    if (this.showColumnPanel()) this.refreshColumnPanel();
   }
 
   // --- Navegacion y edicion tipo Excel ---
@@ -3175,6 +3206,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const colId = this.contextMenu().colId;
     if (colId && this.gridApi) {
       this.gridApi.setColumnsVisible([colId], false);
+      // Registrarla como oculta: si no, al cambiar de hoja reaparecia y el panel
+      // "Columnas" seguia mostrandola marcada.
+      this.hiddenColumnIds.update(ids => ids.includes(colId) ? ids : [...ids, colId]);
+      this.refreshColumnPanel();
+      this.saveWorkbookState();
     }
     this.closeContextMenu();
   }
@@ -3185,6 +3221,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       if (allCols) {
         this.gridApi.setColumnsVisible(allCols.map(c => c.getColId()), true);
         this.hiddenColumnIds.set([]);
+        this.refreshColumnPanel();
+        this.saveWorkbookState();
       }
     }
     this.closeContextMenu();
@@ -3198,7 +3236,31 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   onColumnHeaderClicked(event: any): void {
     const colId: string | undefined = event?.column?.getColId?.();
     if (!colId) return;
+
+    // ── No robarle el clic al menu de filtro ────────────────────────────────
+    //
+    // AG Grid emite columnHeaderClicked para CUALQUIER clic dentro del header,
+    // incluido el boton del embudo. Seleccionar la columna llama a
+    // refreshHeader(), que reconstruye las celdas de encabezado y con ellas
+    // DESTRUYE el popup que se acababa de abrir: el filtro "se cerraba solo" al
+    // primer clic. El guard del handler DOM no cubria este evento de AG Grid.
+    const target = (event?.event as MouseEvent | undefined)?.target as HTMLElement | undefined;
+    if (target?.closest(
+      '.ag-header-cell-menu-button, .ag-header-icon, .ag-filter-icon, ' +
+      '.ag-header-cell-filter-button, .ag-floating-filter, input, .ag-checkbox'
+    )) {
+      return;
+    }
+
+    // Tampoco si hay un popup de filtro abierto: el clic pudo nacer dentro.
+    if (this.isFilterPopupOpen()) return;
+
     this.selectColumn(colId);
+  }
+
+  /** true si AG Grid tiene abierto el popup del menu/filtro de columna */
+  private isFilterPopupOpen(): boolean {
+    return !!document.querySelector('.ag-popup .ag-menu, .ag-popup .excel-filter, .ag-popup .excel-date-filter');
   }
 
   /**
@@ -3220,7 +3282,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // columna y el reordenamiento cerraba el popup.
     if (target.closest(
       '.ag-header-cell-menu-button, .ag-header-icon, .ag-filter-icon, ' +
-      '.ag-header-cell-filter-button, input, .ag-checkbox, .ag-input-field-input'
+      '.ag-header-cell-filter-button, input, .ag-checkbox, .ag-input-field-input, ' +
+      // Todo el contenido del popup del filtro: hacer clic en una casilla o en
+      // "Aceptar" no debe interpretarse como clic en el encabezado.
+      '.ag-popup, .ag-menu, .excel-filter, .excel-date-filter'
     )) {
       return;
     }
@@ -3322,7 +3387,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.rangeSelection?.selectWholeColumn(colId);
 
     this.gridApi?.refreshCells({ force: true });
-    this.gridApi?.refreshHeader();
+    // refreshHeader reconstruye las celdas de encabezado y cerraria el popup del
+    // filtro si estuviera abierto: el resaltado del titulo puede esperar.
+    if (!this.isFilterPopupOpen()) this.gridApi?.refreshHeader();
   }
 
   /**
@@ -3382,7 +3449,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.columnStats.set(null);
     this.selectedColumnId.set(null);
     this.gridApi?.refreshCells({ force: true });
-    this.gridApi?.refreshHeader();
+    if (!this.isFilterPopupOpen()) this.gridApi?.refreshHeader();
   }
 
   /**
@@ -3470,38 +3537,60 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.closeContextMenu();
   }
 
+  /**
+   * Lista del panel "Columnas".
+   *
+   * Es un SIGNAL y no un metodo del template: con OnPush, un metodo se reevalua
+   * solo cuando Angular decide correr deteccion de cambios en este componente, y
+   * al ocultar una columna la casilla se quedaba como estaba (parecia que el
+   * panel "no funcionaba"). Ahora la lista se recalcula explicitamente cada vez
+   * que cambia la visibilidad o la hoja.
+   */
+  readonly columnPanelList = signal<Array<{ id: string; name: string; visible: boolean }>>([]);
+
+  /** Relee del grid el estado de visibilidad y repinta el panel */
+  private refreshColumnPanel(): void {
+    if (!this.gridApi) { this.columnPanelList.set([]); return; }
+
+    const allCols = this.gridApi.getColumns();
+    if (!allCols) { this.columnPanelList.set([]); return; }
+
+    this.columnPanelList.set(
+      allCols
+        .filter(c => c.getColId() !== ROW_NUMBER_FIELD)
+        .map(c => ({
+          id: c.getColId(),
+          name: c.getColDef().headerName || humanizeColumnName(c.getColId()),
+          visible: c.isVisible(),
+        }))
+    );
+  }
+
   /** Toggle visibilidad de una columna individual */
   toggleColumnVisibility(colId: string): void {
     if (!this.gridApi) return;
     const col = this.gridApi.getColumn(colId);
     if (!col) return;
-    
+
     const isVisible = col.isVisible();
     this.gridApi.setColumnsVisible([colId], !isVisible);
-    
+
     // Actualizar lista de ocultas
     if (isVisible) {
-      this.hiddenColumnIds.update(ids => [...ids, colId]);
+      this.hiddenColumnIds.update(ids => ids.includes(colId) ? ids : [...ids, colId]);
     } else {
       this.hiddenColumnIds.update(ids => ids.filter(id => id !== colId));
     }
-    
+
+    this.refreshColumnPanel();
     this.saveWorkbookState();
   }
 
-  /** Obtener lista de columnas con su estado de visibilidad */
-  getColumnVisibilityList(): Array<{ id: string; name: string; visible: boolean }> {
-    if (!this.gridApi) return [];
-    const allCols = this.gridApi.getColumns();
-    if (!allCols) return [];
-    
-    return allCols
-      .filter(c => c.getColId() !== '__ROW_NUMBER__')
-      .map(c => ({
-        id: c.getColId(),
-        name: c.getColDef().headerName || humanizeColumnName(c.getColId()),
-        visible: c.isVisible(),
-      }));
+  /** Muestra u oculta el panel de columnas, refrescando su contenido al abrir */
+  toggleColumnPanel(): void {
+    const abrir = !this.showColumnPanel();
+    if (abrir) this.refreshColumnPanel();
+    this.showColumnPanel.set(abrir);
   }
 
   // -Ribbon actions -
@@ -3519,7 +3608,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.ctxShowAllColumns();
         break;
       case 'column-panel':
-        this.showColumnPanel.update(v => !v);
+        this.toggleColumnPanel();
         break;
 
       case 'toggle-totals':  this.toggleTotalsRow(); break;

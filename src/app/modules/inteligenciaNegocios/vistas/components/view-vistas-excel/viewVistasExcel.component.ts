@@ -11,7 +11,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Location } from '@angular/common';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -117,7 +116,6 @@ const RIBBON_BI_EXTRA: RibbonTab[] = [
 })
 export class ViewVistasExcelComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
-  private readonly location = inject(Location);
   private readonly vistasService = inject(VistasService);
 
   // ── State ──
@@ -150,6 +148,9 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
 
   private gridApi?: GridApi;
   private filterDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  /** Metadatos de columnas del backend (tipos reales), para el filtro de fechas */
+  private fabricColumns: FabricColumn[] = [];
 
   readonly localeText = AG_GRID_LOCALE;
 
@@ -196,7 +197,8 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
   readonly defaultColDef: ColDef = {
     sortable: true,
     filter: ExcelColumnFilterComponent,
-    filterParams: { maxDisplayedValues: 50 },
+    // serverSide: los datos vienen paginados, el filtro no descarta filas solo
+    filterParams: { maxDisplayedValues: 50, serverSide: true },
     resizable: true,
     minWidth: 90,
     floatingFilter: false, // sin floating filter, solo el menú con checkboxes
@@ -245,6 +247,14 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
           return;
         }
+
+        // Metadatos de columnas: es la unica forma fiable de saber cuales son
+        // fechas y asignarles el filtro de calendario. No bloquea la carga.
+        this.vistasService.getColumnas(this.schema, this.viewName).subscribe({
+          next: res => { this.fabricColumns = res.data?.columns ?? []; },
+          error: () => { this.fabricColumns = []; },
+        });
+
         this.cargarDatos();
       },
       error: (err) => {
@@ -258,17 +268,35 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
    * Post-procesa columnDefs del servicio para asignar filtros específicos por tipo
    */
   private assignDateFiltersToColumns(columnDefs: ColDef[]): ColDef[] {
+    // Nombres de columna que el backend declaro como fecha: es la señal fiable.
+    const dateFields = new Set(
+      this.fabricColumns
+        .filter(c => getColumnType(c.type) === 'date')
+        .map(c => c.name.toLowerCase())
+    );
+
     return columnDefs.map(colDef => {
-      // Detectar si es columna de fecha por el valueFormatter
-      // El servicio asigna un valueFormatter específico para fechas que contiene lógica de formato
-      const isDateCol = colDef.valueFormatter && 
-                       String(colDef.valueFormatter).includes('T]') ||
-                       String(colDef.valueFormatter).includes('datePart');
-      
+      // ── Deteccion de columna de fecha ─────────────────────────────────────
+      //
+      // Antes se inspeccionaba el codigo fuente del valueFormatter con
+      //   `colDef.valueFormatter && String(...).includes('T]') || String(...).includes('datePart')`
+      // que ademas tenia un bug de precedencia: `a && b || c` se evalua como
+      // `(a && b) || c`, asi que la segunda condicion se comprobaba incluso sin
+      // valueFormatter y podia reventar. Y con el codigo minificado en produccion
+      // esas cadenas no existen, asi que en el build real NINGUNA columna se
+      // detectaba como fecha: todas caian en el filtro de valores.
+      //
+      // Ahora se usa el tipo declarado por el backend y, como respaldo, el
+      // nombre de la columna.
+      const field = (colDef.field ?? '').toLowerCase();
+      const isDateCol = dateFields.has(field) || /fecha|date|_dt$|periodo/.test(field);
+
       return {
         ...colDef,
         filter: isDateCol ? ExcelDateFilterComponent : ExcelColumnFilterComponent,
-        filterParams: { maxDisplayedValues: 50 },
+        // serverSide: esta vista trae los datos paginados, asi que el filtro no
+        // debe descartar filas por su cuenta (solo hay una pagina en memoria).
+        filterParams: { maxDisplayedValues: 50, serverSide: true },
       };
     });
   }
@@ -369,18 +397,31 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Firma de las columnas entregadas al grid, para no reemplazarlas sin motivo */
+  private appliedColumnSignature = '';
+
   private refreshGrid(): void {
     if (!this.gridApi) {
       console.warn('[ViewVistasExcel] refreshGrid llamado pero gridApi no está inicializado');
       return;
     }
-    console.log('[ViewVistasExcel] Refrescando grid con:', {
-      columnas: this.columnDefs().length,
-      filas: this.rowData().length
-    });
-    this.gridApi.setGridOption('columnDefs', this.columnDefs());
+
+    // ── Las columnas SOLO se reemplazan si de verdad cambiaron ───────────────
+    //
+    // Este era el bug del filtro: cada carga hacia
+    // setGridOption('columnDefs', nuevosObjetos), y eso destruye las instancias
+    // de filtro de AG Grid. Como filtrar dispara una recarga, el ciclo era:
+    //   aplicar filtro -> recarga -> columnDefs nuevos -> filtro destruido
+    // Resultado: el popup se cerraba y la columna volvia a salir sin filtrar.
+    const signature = this.columnDefs().map(c => c.field ?? c.headerName ?? '').join('|');
+
+    if (signature !== this.appliedColumnSignature) {
+      this.appliedColumnSignature = signature;
+      this.gridApi.setGridOption('columnDefs', this.columnDefs());
+      console.log('[ViewVistasExcel] columnDefs actualizados:', this.columnDefs().length);
+    }
+
     this.gridApi.setGridOption('rowData', this.rowData());
-    this.gridApi.sizeColumnsToFit();
   }
 
   // ─── Grid events ──────────────────────────────────────────────────────────
@@ -399,28 +440,99 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
 
   onSortChanged(): void {
     const state = this.gridApi?.getColumnState()?.find(c => c.sort);
-    this.sortCol = state?.colId ?? '';
-    this.sortDir = (state?.sort as 'asc' | 'desc') ?? 'asc';
+    const col = state?.colId ?? '';
+    const dir = (state?.sort as 'asc' | 'desc') ?? 'asc';
+
+    // Sin cambio real no se recarga. AG Grid emite sortChanged tambien al
+    // entregar datos nuevos, y eso provocaba una segunda consulta identica al
+    // servidor por cada carga (y de paso cerraba el menu de columna abierto).
+    if (col === this.sortCol && dir === this.sortDir) return;
+
+    this.sortCol = col;
+    this.sortDir = dir;
     this.paginaActual = 1;
     this.cargarDatos();
   }
 
+  /**
+   * El filtro de columna cambio.
+   *
+   * Los datos vienen paginados del servidor, asi que el filtro se traduce a la
+   * clausula que entiende el backend. Lo que se puede expresar:
+   *
+   *   - un solo valor marcado  -> igualdad exacta
+   *   - rango de fechas        -> `dateRange` (from/to)
+   *   - varios valores         -> NO se puede expresar en la API actual: se
+   *     avisa y se deja el filtrado del lado del cliente sobre la pagina.
+   *
+   * Antes leia `m.filter` y `m.type`, campos de los filtros nativos de AG Grid
+   * que nuestros filtros nunca produjeron (devolvian un Set). El resultado era
+   * `filters = {}`: se recargaba la vista SIN filtro y el usuario veia que
+   * "el filtro no hace nada".
+   */
   onFilterChanged(): void {
     if (this.filterDebounce) clearTimeout(this.filterDebounce);
+
     this.filterDebounce = setTimeout(() => {
       if (!this.gridApi) return;
+
       const model = this.gridApi.getFilterModel() as Record<string, any>;
       const result: Record<string, string> = {};
+      const soloCliente: string[] = [];
+
       for (const [col, m] of Object.entries(model)) {
+        if (!m) continue;
+
+        // Rango de fechas del filtro propio.
+        //
+        // El endpoint /data recibe `filters` como mapa columna -> valor (con `%`
+        // para LIKE), asi que un rango abierto no se puede expresar. Solo el
+        // rango de UN dia se traduce, como prefijo LIKE.
+        if (m.filterType === 'dateRange') {
+          if (m.dateFrom && m.dateFrom === m.dateTo) {
+            result[col] = `${m.dateFrom}%`;
+          } else if (m.dateFrom || m.dateTo) {
+            soloCliente.push(col);
+          }
+          continue;
+        }
+
+        // Lista de valores (filtro de valores o de fechas concretas)
+        if (Array.isArray(m.values)) {
+          if (m.values.length === 1) {
+            result[col] = m.values[0] === '(Vacío)' ? '' : String(m.values[0]);
+          } else if (m.values.length > 1) {
+            soloCliente.push(col);
+          }
+          continue;
+        }
+
+        // Filtros nativos de AG Grid (por si alguna columna los usa)
         if (m.filter !== undefined && m.filter !== null && m.filter !== '') {
-          const val = m.filter instanceof Date ? m.filter.toISOString().split('T')[0] : String(m.filter);
-          result[col] = m.type === 'contains' ? `%${val}%` : m.type === 'startsWith' ? `${val}%` : m.type === 'endsWith' ? `%${val}` : val;
+          const val = m.filter instanceof Date
+            ? m.filter.toISOString().split('T')[0]
+            : String(m.filter);
+          result[col] = m.type === 'contains'   ? `%${val}%`
+                      : m.type === 'startsWith' ? `${val}%`
+                      : m.type === 'endsWith'   ? `%${val}`
+                      : val;
         }
       }
+
+      if (soloCliente.length > 0) {
+        console.info('[ViewVistasExcel] Seleccion multiple en',
+          soloCliente.join(', '), '- se filtra la pagina en el navegador');
+      }
+
+      // Si el filtro efectivo para el servidor no cambio, no se recarga: asi el
+      // menu de columna sigue abierto y no se pierde el trabajo del usuario.
+      const nuevo = JSON.stringify(result);
+      if (nuevo === JSON.stringify(this.filters)) return;
+
       this.filters = result;
       this.paginaActual = 1;
       this.cargarDatos();
-    }, 600);
+    }, 500);
   }
 
   // ─── Shell events ─────────────────────────────────────────────────────────
@@ -436,14 +548,16 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
       case 'page-size':
         if (event.value) { this.pageSize = Number(event.value); this.paginaActual = 1; this.cargarDatos(); }
         break;
-      case 'sort-asc':
-        this.gridApi?.applyColumnState({ state: [{ colId: this.gridApi.getFocusedCell()?.column.getColId() ?? '', sort: 'asc' }] });
-        break;
-      case 'sort-desc':
-        this.gridApi?.applyColumnState({ state: [{ colId: this.gridApi.getFocusedCell()?.column.getColId() ?? '', sort: 'desc' }] });
-        break;
+      // Ordenar la columna donde esta el cursor. Antes, si no habia celda
+      // enfocada, se llamaba applyColumnState con colId '' y AG Grid lo
+      // ignoraba en silencio: el boton "no hacia nada" sin explicacion.
+      case 'sort-asc':  this.applySortToFocusedColumn('asc');  break;
+      case 'sort-desc': this.applySortToFocusedColumn('desc'); break;
+
       case 'clear-filters':
         this.gridApi?.setFilterModel(null);
+        // Si no habia filtros de servidor, no hace falta recargar
+        if (Object.keys(this.filters).length === 0) break;
         this.filters = {};
         this.paginaActual = 1;
         this.cargarDatos();
@@ -454,8 +568,14 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
       case 'zoom-fit': 
         this.gridApi?.sizeColumnsToFit();
         break;
-      case 'export-csv': this.gridApi?.exportDataAsCsv({ fileName: `${this.viewName}.csv` }); break;
-      case 'export-excel': this.gridApi?.exportDataAsExcel?.({ fileName: `${this.viewName}.xlsx` }); break;
+      case 'export-csv': this.exportCsv(); break;
+
+      // exportDataAsExcel es de AG Grid ENTERPRISE: en Community no existe, asi
+      // que el `?.()` no hacia nada y el boton parecia roto. Se exporta CSV
+      // (Excel lo abre igual) y se avisa de la equivalencia.
+      case 'export-excel':
+        this.exportCsv();
+        break;
       case 'row-height':
         const heights: Record<string, number> = { compact: 21, normal: 28, comfortable: 36 };
         const h = heights[event.value ?? 'normal'] ?? 28;
@@ -475,6 +595,43 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
           this.gridApi?.refreshCells({ force: true });
         }
         break;
+    }
+  }
+
+  /**
+   * Ordena la columna enfocada. Si el usuario no ha hecho clic en ninguna celda,
+   * se avisa en vez de fallar en silencio.
+   */
+  private applySortToFocusedColumn(sort: 'asc' | 'desc'): void {
+    const colId = this.gridApi?.getFocusedCell()?.column.getColId();
+    if (!colId) {
+      alert('Seleccione primero una celda de la columna que quiere ordenar.');
+      return;
+    }
+    this.gridApi?.applyColumnState({
+      state: [{ colId, sort }],
+      defaultState: { sort: null },
+    });
+  }
+
+  /**
+   * Exporta lo que se ve en la pagina actual a CSV.
+   *
+   * Solo la pagina: los datos vienen paginados del servidor. Se avisa para que
+   * el usuario no crea que bajo la vista completa.
+   */
+  private exportCsv(): void {
+    if (!this.gridApi) return;
+
+    const filas = this.rowData().length;
+    const total = this.meta().total;
+
+    this.gridApi.exportDataAsCsv({
+      fileName: `${this.viewName}_pag${this.paginaActual}.csv`,
+    });
+
+    if (total > filas && total !== -1) {
+      console.info(`[ViewVistasExcel] Exportadas ${filas} de ${total} filas (pagina actual).`);
     }
   }
 
