@@ -304,8 +304,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     }
   }
 
-  cargarUnidadesResponsable(): void { /* ya se cargan en cargarEmpresas */ }
-
   onEmpresaChange(): void {
     if (!this.selectedEmpresa) return;
     if (this._unidadManualmenteSeleccionada) return;
@@ -844,9 +842,7 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     this.construirCalendario();
   }
 
-  mostrarSelectorMesAnio(event: Event): void {
-    // Deprecated: ahora usa p-calendar directo
-  }
+  mostrarSelectorMesAnio(_event: Event): void { }
 
   seleccionarMes(mes: number): void {
     this.selectedMes = mes;
@@ -1212,8 +1208,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   canDelete(): boolean { return this.permissionService.hasPermission('talhum-turnos-eliminar'); }
   canExport(): boolean { return this.permissionService.hasPermission('talhum-turnos-exportar'); }
   canUpload(): boolean { return this.permissionService.hasPermission('talhum-turnos-carga-masiva'); }
-  canPublish(): boolean { return this.permissionService.hasPermission('talhum-turnos-publicar'); }
-  canClose(): boolean { return this.permissionService.hasPermission('talhum-turnos-cerrar'); }
 
   // ── Jornada ────────────────────────────────────────────────
   /** Calcula el porcentaje de progreso de la jornada (total / max * 100) */
@@ -1273,12 +1267,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     });
   }
 
-  /** Calcula el porcentaje de progreso de la jornada (total / max * 100) */
-  getProgresoJornada(): number {
-    if (!this.cuadro?.jornada_max?.horas_max_mes || !this.cuadro?.totales?.total) return 0;
-    const pct = (this.cuadro.totales.total / this.cuadro.jornada_max.horas_max_mes) * 100;
-    return Math.min(pct, 100);
-  }
 
   trackByFecha(_: number, d: DiaCalendario) { return d.fecha; }
 
@@ -1473,11 +1461,6 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   /** Previsualizar las fechas que se generarían (uso interno/futuro) */
   previsualizarFrecuencia(): void {
     // Método mantenido por compatibilidad pero no se expone en UI
-  }
-
-  /** @deprecated Usar guardarConFrecuencia() vía "Guardar cambios" */
-  generarFrecuencia(): void {
-    this.guardarConFrecuencia();
   }
 
   /** Guardar con frecuencia: genera turnos recurrentes desde el botón "Guardar cambios" */
