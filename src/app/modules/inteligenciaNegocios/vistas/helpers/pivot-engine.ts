@@ -45,6 +45,12 @@ export interface PivotFieldSetting {
   numericStep?: number | null;
   /** Contraer: solo aplica al primer campo de fila (muestra solo sus totales) */
   collapsed?: boolean;
+  /**
+   * Agrupacion MANUAL (como "Agrupar seleccion" de Excel sobre valores de texto).
+   * Mapea cada valor original al nombre del grupo. Los valores sin entrada se
+   * quedan tal cual. Ej: {"BANCO ITAU":"Privados","BANCO BBVA":"Privados"}.
+   */
+  manualGroups?: Record<string, string>;
 }
 
 export interface PivotConfig {
@@ -111,7 +117,10 @@ export function emptyPivotConfig(): PivotConfig {
     filterFields: [],
     filterValues: {},
     fieldSettings: {},
-    showSubtotals: true,
+    // Subtotales OFF por defecto: con dos campos de fila llenaban la tabla de
+    // filas "X — Total" y el usuario los pidio fuera. Se activan desde la cinta
+    // Analisis > Subtotales cuando de verdad hacen falta.
+    showSubtotals: false,
     showGrandTotals: true,
     sortBy: 'value',
     sortDir: 'desc',
@@ -121,7 +130,9 @@ export function emptyPivotConfig(): PivotConfig {
 /** Copia profunda de una config (evita compartir arrays entre panel y estado) */
 export function clonePivotConfig(config: PivotConfig): PivotConfig {
   const settings: Record<string, PivotFieldSetting> = {};
-  Object.entries(config?.fieldSettings ?? {}).forEach(([k, v]) => { settings[k] = { ...v }; });
+  Object.entries(config?.fieldSettings ?? {}).forEach(([k, v]) => {
+    settings[k] = { ...v, manualGroups: v.manualGroups ? { ...v.manualGroups } : undefined };
+  });
 
   const values: Record<string, string[]> = {};
   Object.entries(config?.filterValues ?? {}).forEach(([k, v]) => { values[k] = [...(v ?? [])]; });
@@ -615,6 +626,15 @@ function groupedValue(
 ): string {
   const raw = row?.[field];
   if (raw === null || raw === undefined || raw === '') return '(vacio)';
+
+  // Agrupacion MANUAL (texto): el valor cae en el grupo que le asigno el usuario.
+  // Es lo que permite "agrupar por cada banco" en un conjunto con nombre propio.
+  const manual = setting?.manualGroups;
+  if (manual) {
+    const clave = String(raw).trim();
+    const grupo = manual[clave];
+    if (grupo) return grupo;
+  }
 
   // Agrupacion numerica por rangos
   const step = setting?.numericStep ?? null;

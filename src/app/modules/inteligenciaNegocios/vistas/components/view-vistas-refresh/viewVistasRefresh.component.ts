@@ -3791,8 +3791,23 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     return { pivotSheetId: active.id, def, source };
   }
 
-  /** Campo por el que operan Agrupar/Desagrupar: el primero de filas o columnas */
+  /**
+   * Campo por el que operan Agrupar/Desagrupar.
+   *
+   * Prioridad, como Excel (que agrupa el campo de la celda donde estas):
+   *   1. la columna del clic derecho / celda enfocada, si es un campo de fila
+   *   2. el primer campo de fila
+   *   3. el primer campo de columna
+   *
+   * En una tabla dinamica las columnas de etiqueta llevan como `field` el nombre
+   * del campo original (Banco, Fecha...), asi que el colId de la celda ya es el
+   * campo a agrupar.
+   */
   private pivotTargetField(def: { config: PivotConfig }): string | null {
+    const clic = this.contextMenu().colId || this.gridApi?.getFocusedCell()?.column.getColId();
+    if (clic && (def.config.rowFields.includes(clic) || def.config.columnFields.includes(clic))) {
+      return clic;
+    }
     return def.config.rowFields[0] ?? def.config.columnFields[0] ?? null;
   }
 
@@ -3834,8 +3849,52 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
       this.progress.update(p => ({ ...p, message: `Campo "${humanizeColumnName(field)}" agrupado en rangos de ${n}` }));
     } else {
-      alert(`"${humanizeColumnName(field)}" es un campo de texto: solo se agrupan fechas y numeros.`);
+      // Campo de TEXTO: agrupacion manual, como "Agrupar seleccion" de Excel.
+      // Se agrupa el valor de la fila donde se hizo clic derecho en un grupo con
+      // nombre; repetir sobre otras filas con el MISMO nombre las une (ej. juntar
+      // varios bancos en "Privados").
+      this.pivotGroupTextValue(ctx, field);
     }
+  }
+
+  /**
+   * Agrupa manualmente el valor de la celda clicada de un campo de texto.
+   *
+   * Excel deja seleccionar varios valores y "Agrupar seleccion"; aqui se hace por
+   * el valor de la fila del clic. Escribir el mismo nombre de grupo en varias
+   * filas las une, que es el caso de uso ("juntar estos bancos en un grupo").
+   */
+  private pivotGroupTextValue(
+    ctx: { pivotSheetId: string; def: { sourceSheetId: string; label: string; config: PivotConfig }; source: any },
+    field: string,
+  ): void {
+    // Valor original de la fila del clic (la celda del pivot ya trae la etiqueta).
+    const focused = this.gridApi?.getFocusedCell();
+    const rowIdx = focused?.rowIndex ?? 0;
+    const valorActual = String(this.rowData[rowIdx]?.[field] ?? '').trim();
+
+    if (!valorActual || valorActual.endsWith('— Total') || valorActual === 'Total general') {
+      alert('Haga clic derecho sobre una fila de datos (no un subtotal) para agruparla.');
+      return;
+    }
+
+    const grupo = prompt(
+      `Agrupar "${valorActual}" en el grupo:\n\n` +
+      `Escriba el MISMO nombre en otras filas para unirlas en un solo grupo.`,
+      valorActual,
+    );
+    if (grupo === null) return;
+
+    const nombre = grupo.trim();
+    if (!nombre) return;
+
+    ctx.def.config.fieldSettings ??= {};
+    ctx.def.config.fieldSettings[field] ??= {};
+    ctx.def.config.fieldSettings[field].manualGroups ??= {};
+    ctx.def.config.fieldSettings[field].manualGroups![valorActual] = nombre;
+
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+    this.progress.update(p => ({ ...p, message: `"${valorActual}" agrupado en "${nombre}"` }));
   }
 
   /** Quita la agrupacion del campo activo (fecha exacta y sin rangos) */
@@ -3847,12 +3906,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (!field) return;
 
     const s = ctx.def.config.fieldSettings?.[field];
-    if (!s || (s.dateGroup === 'none' && !s.numericStep)) {
+    const tieneManual = !!s?.manualGroups && Object.keys(s.manualGroups).length > 0;
+    if (!s || (s.dateGroup === 'none' && !s.numericStep && !tieneManual)) {
       alert('El campo no esta agrupado.');
       return;
     }
 
-    ctx.def.config.fieldSettings![field] = { ...s, dateGroup: 'none', numericStep: null };
+    ctx.def.config.fieldSettings![field] = {
+      ...s, dateGroup: 'none', numericStep: null, manualGroups: undefined,
+    };
     this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
     this.progress.update(p => ({ ...p, message: `Campo "${humanizeColumnName(field)}" desagrupado` }));
   }
