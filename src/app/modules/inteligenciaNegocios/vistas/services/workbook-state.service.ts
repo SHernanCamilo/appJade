@@ -2,12 +2,37 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 
+/**
+ * Definicion persistida de una tabla dinamica.
+ *
+ * Solo se guarda la RECETA (que campos, que operaciones y de que hoja salen los
+ * datos), no las filas calculadas: el pivot se vuelve a calcular al restaurar el
+ * workbook, sobre los datos frescos de la vista fuente.
+ */
+export interface SavedPivot {
+  /** Id de la hoja de resultados (`sheet-pivot-<sourceSheetId>`) */
+  sheetId: string;
+  /** Id de la hoja de datos que alimenta el pivot */
+  sourceSheetId: string;
+  /** Etiqueta de la pestana, para reconstruirla igual */
+  label: string;
+  /** Configuracion de campos (rowFields, columnFields, valueFields, filterFields) */
+  config: any;
+}
+
 export interface WorkbookState {
   sheets: Array<{ id: string; label: string; schema: string; viewName: string; active: boolean; kind?: string }>;
   activeSheetId: string;
   hiddenColumns: string[];
   filters: any[];
+  /**
+   * Config del pivot que el usuario tenia abierto en el panel.
+   * @deprecated Usar `pivots` (una entrada por hoja dinamica). Se mantiene por
+   * retrocompatibilidad con workbooks guardados antes del cambio.
+   */
   pivotConfig: any;
+  /** Tablas dinamicas del workbook, una por hoja de resultados */
+  pivots?: SavedPivot[];
   zoom: number;
   /** Formulas escritas por el usuario en hojas de calculo (por hoja, Map<celda, formula>) */
   formulas?: Record<string, Record<string, string>>;
@@ -105,6 +130,26 @@ export class WorkbookStateService {
     });
   }
 
+  /**
+   * Guarda el quick-state SIN esperar el debounce.
+   * Es lo que se usa cuando el usuario pulsa "Guardar workbook": necesita saber
+   * de inmediato si quedo guardado.
+   */
+  saveNow(schema: string, viewName: string, state: WorkbookState): Promise<boolean> {
+    this.cancelPending();
+    return new Promise((resolve) => {
+      this.http.post(`${this.baseUrl}/workbook/save`, {
+        schema_name: schema,
+        view_name: viewName,
+        name: 'default',
+        state,
+      }).subscribe({
+        next: () => resolve(true),
+        error: (err) => { console.warn('[WorkbookState] Error al guardar:', err.message); resolve(false); },
+      });
+    });
+  }
+
   /** Cancela cualquier guardado pendiente */
   cancelPending(): void {
     if (this.saveTimer) {
@@ -198,6 +243,17 @@ export class WorkbookStateService {
         error: (err) => console.warn('[WorkbookState] Error auto-save workbook:', err.message),
       });
     }, 3000);
+  }
+
+  /** Guarda el estado del workbook sin esperar el debounce */
+  saveWorkbookStateNow(id: number, state: WorkbookState): Promise<boolean> {
+    if (this.wbSaveTimer) { clearTimeout(this.wbSaveTimer); this.wbSaveTimer = null; }
+    return new Promise((resolve) => {
+      this.http.put(`${this.baseUrl}/my-workbook/${id}/state`, { state }).subscribe({
+        next: () => resolve(true),
+        error: (err) => { console.warn('[WorkbookState] Error al guardar workbook:', err.message); resolve(false); },
+      });
+    });
   }
 
   /**

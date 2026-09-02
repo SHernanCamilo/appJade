@@ -17,7 +17,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { ColDef, ColGroupDef, GridApi, GridReadyEvent, CellFocusedEvent } from 'ag-grid-community';
@@ -52,7 +52,15 @@ import {
   type FormulaDef,
 } from '../../services/formula-catalog';
 import type { FormulaSuggestionItem } from '../../../../../complements/shared/excel-sheet';
-import { PivotPanelComponent, PivotResult } from '../pivot-panel/pivot-panel.component';
+import { PivotPanelComponent } from '../pivot-panel/pivot-panel.component';
+import {
+  computePivot,
+  clonePivotConfig,
+  isPivotConfigUsable,
+  type PivotConfig,
+  type PivotResult,
+} from '../../helpers/pivot-engine';
+import type { SavedPivot } from '../../services/workbook-state.service';
 
 // Tipos propios -
 export type RefreshStatus =
@@ -200,6 +208,17 @@ function buildRibbon(
           items: [
             btn('refresh',        'Actualizar\ntodo',   'pi pi-refresh',       'lg', 'Recargar desde Fabric (parquet)'),
             btn('cancel-refresh', 'Cancelar',           'pi pi-times-circle',  'sm', 'Cancelar actualizacion en curso'),
+          ],
+        },
+        // ── Workbook: el guardado es automatico, pero hacia falta poder forzarlo
+        // y llegar a "Excel Sheets" sin salir del visor.
+        {
+          title: 'Workbook',
+          items: [
+            btn('wb-save', 'Guardar\nworkbook', 'pi pi-save', 'lg',
+                'Guardar ahora hojas, filtros y tablas dinamicas en Excel Sheets'),
+            btn('wb-open', 'Excel Sheets', 'pi pi-folder-open', 'sm',
+                'Abrir mis workbooks guardados'),
           ],
         },
         // ── FORMATO al inicio de Datos, como el grupo Numero de Excel ─────────
@@ -405,6 +424,7 @@ const BLANK_SHEET_COLS = 26;
 })
 export class ViewVistasRefreshComponent implements OnInit, OnDestroy {
   private readonly route          = inject(ActivatedRoute);
+  private readonly router         = inject(Router);
   private readonly vistasService  = inject(VistasService);
   private readonly http           = inject(HttpClient);
   private readonly formulaEngine  = inject(FormulaEngineService);
@@ -1428,16 +1448,24 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.gridApi?.setGridOption('rowData', []);
     }
 
-    // Cerrar SOLO los pivots que salieron de esta vista: sus datos van a
-    // cambiar. Antes se cerraba cualquier pivot, así que abrir una segunda
-    // vista destruía la tabla dinámica de la primera sin avisar.
+    // Los pivots de ESTA vista quedan obsoletos: se vacian y se recalculan solos
+    // cuando termine la carga, porque su receta vive en `pivotDefs`.
+    //
+    // Antes se CERRABAN (se borraba la hoja), asi que refrescar los datos
+    // destruia la tabla dinamica y habia que rearmarla campo por campo. Ahora la
+    // pestaña se queda donde estaba, igual que "Actualizar" en Excel.
     const stalePivots = this.sheets().filter(s =>
       (s.kind ?? 'view') === 'pivot' && s.viewName.includes(this.viewName)
     );
     if (stalePivots.length > 0) {
       const staleIds = new Set(stalePivots.map(s => s.id));
-      this.sheets.update(sheets => sheets.filter(s => !staleIds.has(s.id)));
-      console.log('[startRefresh] Pivots cerrados por refresco de', this.viewName, '->', staleIds.size);
+      this.sheets.update(sheets => {
+        sheets.forEach(s => {
+          if (staleIds.has(s.id)) s.rowData = [];
+        });
+        return [...sheets];
+      });
+      console.log('[startRefresh] Pivots marcados para recalculo:', [...staleIds].join(', '));
     }
 
     this.clearTimers();
@@ -1849,6 +1877,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       // pestaña, al volver los datos ya estan ahi.
       this.saveSheetData(targetId, data, this.columnDefs);
 
+      // Recalcular las tablas dinamicas que salen de esta hoja: al refrescar o al
+      // restaurar un workbook sus filas estan vacias u obsoletas. Va antes del
+      // corte por "hoja no activa" a proposito: el pivot puede ser justo la hoja
+      // que el usuario esta mirando mientras su vista fuente carga por detras.
+      this.regeneratePivotsForSource(targetId);
+
       if (!targetIsActive()) {
         console.log('[parseAndLoad] La hoja destino ya no esta activa; datos guardados sin pintar la grilla',
           { targetId, activa: this.sheets().find(s => s.active)?.id });
@@ -1868,7 +1902,6 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
       // --- Carga progresiva: evita congelar el navegador con 64K+ filas ---
       const FIRST_CHUNK = 1000;
-      const CHUNK_SIZE  = 10000;
 
       // 1. Primer chunk rapido: el usuario ve datos en <1s
       const firstSlice = data.slice(0, Math.min(FIRST_CHUNK, data.length));
@@ -1880,30 +1913,31 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.autoSizeColumns();
       }
 
-      // 2. Chunks restantes con pausas de 30ms entre cada uno
+      // 2. Resto del dataset en UNA sola entrega.
+      //
+      // Antes esto iba en tramos de 10.000 filas y cada tramo llamaba
+      // setGridOption('rowData', slice), que reconstruye el modelo de filas
+      // COMPLETO. Con 64.000 filas eran 8 reconstrucciones acumulativas
+      // (1k + 11k + 21k + ... ≈ 250.000 filas creadas) cuando bastaban 64.000.
+      // AG Grid virtualiza el scroll, asi que entregar todo de golpe pinta lo
+      // mismo en pantalla y ahorra la mayor parte del trabajo.
       if (data.length > FIRST_CHUNK) {
-        let offset = FIRST_CHUNK;
-        while (offset < data.length) {
-          await new Promise(r => setTimeout(r, 30));
+        // Ceder el hilo para que el navegador pinte el primer tramo antes de
+        // ponerse con el dataset entero.
+        await new Promise(r => setTimeout(r, 30));
 
-          // El usuario pudo cambiar de pestaña a mitad del troceado: dejar de
-          // pintar en la grilla de otra hoja.
-          if (!targetIsActive()) {
-            console.log('[parseAndLoad] Cambio de pestaña durante la carga; se deja de pintar');
-            break;
-          }
-
-          offset = Math.min(offset + CHUNK_SIZE, data.length);
-          this.rowData = data.slice(0, offset);
-          this.filteredRows.set(offset);
-          if (this.gridApi) {
-            this.gridApi.setGridOption('rowData', this.rowData);
-          }
+        if (!targetIsActive()) {
+          console.log('[parseAndLoad] Cambio de pestaña durante la carga; se deja de pintar');
+        } else {
           this.progress.update(p => ({
             ...p,
-            message: 'Cargando ' + offset.toLocaleString() + ' / ' + data.length.toLocaleString() + ' filas...',
-            percent: 75 + Math.round((offset / data.length) * 20),
+            message: 'Cargando ' + data.length.toLocaleString('es-CO') + ' filas...',
+            percent: 90,
           }));
+
+          this.rowData = data;
+          this.filteredRows.set(data.length);
+          this.gridApi?.setGridOption('rowData', data);
         }
       }
 
@@ -1926,12 +1960,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.releaseLoadSlot();
       this.saveWorkbookState();
 
-      setTimeout(() => {
-        if (this.gridApi) {
-          this.gridApi.setGridOption('rowData', this.rowData);
-          this.autoSizeColumns();
-        }
-      }, 50);
+      // Solo reajustar anchos: el dataset ya se entrego arriba. Antes aqui se
+      // repetia setGridOption('rowData'), una tercera reconstruccion completa
+      // del modelo de filas que no aportaba nada.
+      setTimeout(() => this.autoSizeColumns(), 50);
 
       // Validar que el parquet coincida con la vista real (detectar parquet stale/corrupto)
       this.validateRowCountAgainstView(data.length);
@@ -3478,6 +3510,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       case 'export-xlsx':
         this.downloadExcel();
         break;
+
+      case 'wb-save':
+        this.saveWorkbookNow();
+        break;
+      case 'wb-open':
+        this.router.navigate(['/inteligenciaNegocios/excelSheets']);
+        break;
       case 'fullscreen':
         this.toggleFullscreen();
         break;
@@ -3922,6 +3961,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   /** Limpia config y restaura datos originales (llamado desde template) */
   clearPivotConfigAuto(): void {
     this.clearPivotConfig();
+
+    // Olvidar la receta de esta hoja: si no, el proximo refresco la volveria a
+    // generar aunque el usuario acabe de limpiarla.
+    const pivotSheetId = `sheet-pivot-${this.pivotSourceSheetId}`;
+    this.pivotDefs.delete(pivotSheetId);
+    this.pendingPivots = this.pendingPivots.filter(p => p.sheetId !== pivotSheetId);
+    this.pivotPanelConfig.set(null);
+    this.saveWorkbookState();
+
     if (this.pivotSourceData.length > 0) {
       this.rowData = this.pivotSourceData;
       this.rawData = this.pivotSourceData;
@@ -4001,6 +4049,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return;
     }
 
+    // Si esta hoja ya tiene una tabla dinamica, abrir el panel CON su receta:
+    // el usuario ve los campos que puso y puede seguir editandolos. Antes el
+    // panel arrancaba vacio y parecia que la configuracion se habia perdido.
+    const existingDef = this.pivotDefs.get(`sheet-pivot-${this.pivotSourceSheetId}`);
+    this.pivotPanelConfig.set(existingDef ? clonePivotConfig(existingDef.config) : null);
+    this.pivotPanelSheetId.set(this.pivotSourceSheetId);
+
     this.showPivotPanel.set(true);
   }
 
@@ -4051,26 +4106,38 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // la vista activa. Sin esto se arrastraban columnas de otra vista.
     this.pivotColumns.set(this.columnsForSheet(sheet));
 
+    // Cada hoja tiene su propia tabla dinamica: mostrar la receta de ESTA hoja
+    // (o zonas vacias si todavia no tiene una).
+    const def = this.pivotDefs.get(`sheet-pivot-${sheet.id}`);
+    this.pivotPanelConfig.set(def ? clonePivotConfig(def.config) : null);
+    this.pivotPanelSheetId.set(sheet.id);
+
     console.log('[Pivot] Fuente cambiada a:', sheet.label,
       '-', sheet.rowData.length, 'registros,', this.pivotColumns().length, 'columnas');
   }
 
-  /** Cuando el componente pivot genera resultados */
-  onPivotGenerated(result: PivotResult): void {
-    // Construir columnDefs para AG Grid
+  /** Traduce las columnas del resultado del pivot a columnDefs de AG Grid */
+  private pivotColumnDefs(result: PivotResult): ColDef[] {
     const pivotCols: ColDef[] = [makeRowNumberColDef(50)];
 
-    result.columns.forEach(col => {
+    result.columns.forEach((col, idx) => {
       pivotCols.push({
         field: col.field,
         headerName: col.headerName,
         type: col.type || undefined,
-        pinned: result.columns.indexOf(col) < 2 ? 'left' : undefined,
+        pinned: idx < 2 ? 'left' : undefined,
         valueFormatter: col.type === 'numericColumn'
           ? (p) => p.value != null ? Number(p.value).toLocaleString('es-CO', { maximumFractionDigits: 2 }) : ''
           : undefined,
       });
     });
+
+    return pivotCols;
+  }
+
+  /** Cuando el componente pivot genera resultados */
+  onPivotGenerated(result: PivotResult): void {
+    const pivotCols = this.pivotColumnDefs(result);
 
     // ─── Crear o actualizar la hoja Pivot ────────────────────────────────────
     //
@@ -4090,6 +4157,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const sourceView    = sourceSheet?.viewName ?? this.viewName;
     const pivotSheetId  = `sheet-pivot-${this.pivotSourceSheetId || sourceView}`;
     const existingPivot = this.sheets().find(s => s.id === pivotSheetId);
+    const pivotLabel    = `Pivot · ${sourceLabel}`;
+
+    // Guardar la RECETA del pivot: es lo que se persiste en el workbook y lo que
+    // permite recalcularlo tras un refresco o al reabrir "Mis Excels". Antes solo
+    // quedaban las filas ya calculadas en memoria, asi que al recargar la pagina
+    // la hoja dinamica volvia vacia y sin forma de regenerarse.
+    this.pivotDefs.set(pivotSheetId, {
+      sourceSheetId: this.pivotSourceSheetId || sourceView,
+      label: pivotLabel,
+      config: clonePivotConfig(result.config),
+    });
+    this.pivotConfig.set(clonePivotConfig(result.config) as any);
 
     // Los datos en memoria pasan a ser del PIVOT desde ya. Fijarlo ANTES de
     // tocar el signal de hojas cierra la ventana en la que `active` era el pivot
@@ -4117,7 +4196,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         sheets.forEach(s => s.active = false);
         sheets.push({
           id: pivotSheetId,
-          label: `Pivot · ${sourceLabel}`,
+          label: pivotLabel,
           schema: sourceSheet?.schema ?? this.schema,
           viewName: `Pivot - ${sourceView}`,
           active: true,
@@ -4162,6 +4241,208 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     }
 
     console.log('[Pivot] Generado sobre', sourceLabel, '->', result.rows.length, 'filas |', pivotSheetId);
+
+    // Persistir la receta enseguida: si el usuario cierra la pestaña del
+    // navegador antes del siguiente autosave, el pivot no se pierde.
+    this.saveWorkbookState();
+  }
+
+  // ── Persistencia y recalculo de tablas dinamicas ───────────────────────────
+
+  /**
+   * Recetas de las tablas dinamicas vivas, indexadas por la hoja de resultados.
+   * Es la fuente de verdad para persistir (`WorkbookState.pivots`) y recalcular.
+   */
+  private readonly pivotDefs = new Map<string, { sourceSheetId: string; label: string; config: PivotConfig }>();
+
+  /**
+   * Recetas leidas del workbook que aun no se pueden calcular porque su hoja
+   * fuente no tiene datos. Se adoptan en cuanto esa hoja carga.
+   */
+  private pendingPivots: SavedPivot[] = [];
+
+  /** Config que se le pasa al panel al abrirlo (pivot existente de esa hoja) */
+  readonly pivotPanelConfig = signal<PivotConfig | null>(null);
+
+  /** Hoja fuente preseleccionada en el desplegable del panel */
+  readonly pivotPanelSheetId = signal('');
+
+  /** Serializa las tablas dinamicas para guardarlas en el workbook */
+  private collectPivotDefs(): SavedPivot[] {
+    const saved: SavedPivot[] = [];
+
+    this.pivotDefs.forEach((def, sheetId) => {
+      if (!isPivotConfigUsable(def.config)) return;
+      saved.push({
+        sheetId,
+        sourceSheetId: def.sourceSheetId,
+        label: def.label,
+        config: clonePivotConfig(def.config),
+      });
+    });
+
+    // Las que todavia no se han podido recalcular tambien se conservan: si el
+    // usuario no llego a abrir esa vista, su pivot no debe desaparecer.
+    for (const pending of this.pendingPivots) {
+      if (!saved.some(s => s.sheetId === pending.sheetId)) saved.push(pending);
+    }
+
+    return saved;
+  }
+
+  /**
+   * Recalcula las tablas dinamicas alimentadas por una hoja de datos.
+   *
+   * Se llama cuando esa hoja termina de cargar: carga inicial, "Actualizar todo"
+   * o restauracion de un workbook. Asi el pivot nunca queda vacio ni con datos
+   * viejos, igual que Excel al refrescar el origen de datos.
+   */
+  private regeneratePivotsForSource(sourceSheetId: string): void {
+    if (!sourceSheetId) return;
+
+    this.adoptPendingPivotsForSource(sourceSheetId);
+
+    const source = this.sheets().find(s => s.id === sourceSheetId);
+    if (!source || !source.rowData || source.rowData.length === 0) return;
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+
+    this.pivotDefs.forEach((def, pivotSheetId) => {
+      if (def.sourceSheetId !== sourceSheetId) return;
+      if (!isPivotConfigUsable(def.config)) return;
+
+      const result = computePivot(source.rowData!, def.config, cols);
+      if (!result) return;
+
+      this.applyPivotResult(pivotSheetId, def.label, source, result);
+      console.log('[Pivot] Recalculado', pivotSheetId, '->', result.rows.length, 'filas');
+    });
+  }
+
+  /** Mueve de `pendingPivots` a `pivotDefs` las recetas de una hoja fuente */
+  private adoptPendingPivotsForSource(sourceSheetId: string): void {
+    if (this.pendingPivots.length === 0) return;
+
+    this.pendingPivots = this.pendingPivots.filter(p => {
+      if (p.sourceSheetId !== sourceSheetId) return true;
+      this.pivotDefs.set(p.sheetId, {
+        sourceSheetId: p.sourceSheetId,
+        label: p.label,
+        config: clonePivotConfig(p.config),
+      });
+      return false;
+    });
+  }
+
+  /**
+   * Escribe el resultado de un pivot en su hoja SIN robarle el foco al usuario.
+   *
+   * Se diferencia de `onPivotGenerated` en que aqui nadie pidio ver el pivot:
+   * es un recalculo de fondo. Solo se pinta la grilla si la hoja hidratada YA
+   * es la del pivot (el usuario esta parado en esa pestaña esperando datos).
+   */
+  private applyPivotResult(
+    pivotSheetId: string,
+    label: string,
+    sourceSheet: { id: string; schema: string; viewName: string },
+    result: PivotResult,
+  ): void {
+    const pivotCols = this.pivotColumnDefs(result);
+    const exists    = this.sheets().some(s => s.id === pivotSheetId);
+
+    this.sheets.update(sheets => {
+      if (exists) {
+        const pivot = sheets.find(s => s.id === pivotSheetId);
+        if (pivot) {
+          pivot.rowData    = result.rows;
+          pivot.columnDefs = pivotCols;
+          pivot.label      = label;
+        }
+      } else {
+        sheets.push({
+          id: pivotSheetId,
+          label,
+          schema: sourceSheet.schema,
+          viewName: `Pivot - ${sourceSheet.viewName}`,
+          active: false,
+          kind: 'pivot',
+          rowData: result.rows,
+          columnDefs: pivotCols,
+          columns: [],
+        });
+      }
+      return [...sheets];
+    });
+
+    // Si el usuario esta viendo justo esta hoja, pintarla ahora.
+    if (this.currentSheetId === pivotSheetId) {
+      this.rawData    = result.rows;
+      this.rowData    = result.rows;
+      this.columnDefs = [...pivotCols];
+      this.columns    = [];
+      this.colOptions.set([]);
+      this.applyColumnDefs();
+      this.totalRows.set(result.rows.length);
+      this.filteredRows.set(result.rows.length);
+
+      if (this.gridApi) {
+        this.gridApi.setFilterModel(null);
+        this.gridApi.setGridOption('pinnedBottomRowData', []);
+        this.gridApi.setGridOption('rowData', result.rows);
+        setTimeout(() => this.autoSizeColumns(), 50);
+      }
+    }
+  }
+
+  /**
+   * Rellena una hoja dinamica que quedo vacia (workbook restaurado o refrescado).
+   *
+   * Si la hoja fuente ya tiene datos, el pivot se recalcula al instante. Si no,
+   * se pide la carga de la vista fuente en segundo plano: `currentSheetId` sigue
+   * apuntando al pivot, asi que al terminar la carga el recalculo lo hidrata sin
+   * que el usuario tenga que cambiar de pestaña.
+   */
+  private rebuildEmptyPivotSheet(pivotSheetId: string): void {
+    const pending = this.pendingPivots.find(p => p.sheetId === pivotSheetId);
+    if (pending) this.adoptPendingPivotsForSource(pending.sourceSheetId);
+
+    const def = this.pivotDefs.get(pivotSheetId);
+    if (!def) {
+      console.warn('[Pivot] Hoja dinamica sin receta guardada:', pivotSheetId);
+      return;
+    }
+
+    const source = this.sheets().find(s => s.id === def.sourceSheetId);
+    if (!source) {
+      console.warn('[Pivot] La hoja fuente del pivot ya no esta abierta:', def.sourceSheetId);
+      return;
+    }
+
+    if ((source.rowData?.length ?? 0) > 0) {
+      this.regeneratePivotsForSource(def.sourceSheetId);
+      return;
+    }
+
+    // La fuente no tiene datos: cargarla sin cambiar de pestaña.
+    if ((source.kind ?? 'view') !== 'view' || !source.schema || !source.viewName) return;
+    if (this.loadInFlight) {
+      console.log('[Pivot] Hay otra carga en curso; el pivot se recalcula al terminar');
+      return;
+    }
+
+    console.log('[Pivot] Cargando la vista fuente para reconstruir', pivotSheetId);
+    this.loadInFlight      = true;
+    this.loadTargetSheetId = source.id;
+    this.schema            = source.schema;
+    this.viewName          = source.viewName;
+    this.progress.set({
+      status: 'queuing',
+      message: `Recuperando datos para la tabla dinamica...`,
+      percent: 5,
+      rows: 0,
+      elapsed: 0,
+    });
+    this.loadMeta();
   }
 
   // -Metricas de Performance -
@@ -4241,6 +4522,43 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     }
   }
 
+  /**
+   * Guarda el workbook AHORA (boton "Guardar workbook" del ribbon).
+   *
+   * El autosave con debounce de 3s sigue existiendo; esto es para cuando el
+   * usuario quiere confirmacion inmediata antes de cerrar la pestaña.
+   */
+  async saveWorkbookNow(): Promise<void> {
+    if (!this.schema || !this.viewName) return;
+
+    // Los datos que hay en pantalla pertenecen a su hoja: guardarlos antes de
+    // serializar, o el estado saldria sin la ultima hoja tocada.
+    if (this.currentSheetId) {
+      this.saveSheetData(this.currentSheetId, this.rawData, this.columnDefs);
+    }
+
+    const state = this.buildCurrentState();
+
+    this.progress.update(p => ({ ...p, message: 'Guardando workbook...' }));
+
+    const quickOk = await this.workbookService.saveNow(this.schema, this.viewName, state);
+
+    let wbOk = true;
+    if (this.currentWorkbookId) {
+      wbOk = await this.workbookService.saveWorkbookStateNow(this.currentWorkbookId, state);
+    } else {
+      this.createWorkbookIfNeeded(state);
+    }
+
+    const pivots = state.pivots?.length ?? 0;
+    this.progress.update(p => ({
+      ...p,
+      message: (quickOk && wbOk)
+        ? `Workbook guardado (${state.sheets.length} hojas${pivots > 0 ? `, ${pivots} tablas dinamicas` : ''})`
+        : 'No se pudo guardar el workbook',
+    }));
+  }
+
   /** Construye el blob de estado del workspace actual */
   private buildCurrentState(): import('../../services/workbook-state.service').WorkbookState {
     // Extraer formulas escritas en hojas de calculo (para restaurar luego)
@@ -4268,6 +4586,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       hiddenColumns: this.hiddenColumnIds(),
       filters: this.activeFilters(),
       pivotConfig: this.pivotConfig(),
+      pivots: this.collectPivotDefs(),
       zoom: this.zoom(),
       formulas: Object.keys(formulas).length > 0 ? formulas : undefined,
     };
@@ -4346,18 +4665,72 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.hiddenColumnIds.set(wb.state.hiddenColumns);
     }
 
+    // Restaurar las tablas dinamicas. Solo se guarda la receta, no las filas:
+    // quedan pendientes y cada una se recalcula en cuanto su hoja fuente cargue.
+    this.restorePivots(wb.state);
+
     console.log('[Workbook] Estado restaurado, cargando datos de la primera vista...');
 
-    // Ahora cargar los datos de la hoja activa (o la primera de datos)
+    // Ahora cargar datos. La hoja que el usuario dejo activa puede ser una tabla
+    // dinamica: esa no se descarga de Fabric, se calcula. En ese caso se pide la
+    // VISTA FUENTE y se deja el pivot como hoja hidratada, de modo que al llegar
+    // los datos el recalculo pinte el pivot sin cambiar de pestaña.
+    //
+    // Antes se llamaba loadMeta() con el viewName del pivot ("Pivot - VW_x"),
+    // que no existe en Fabric: el visor abria en error y la hoja quedaba vacia.
     const activeSheet = this.sheets().find(s => s.active) ?? this.sheets()[0];
-    if (activeSheet && activeSheet.viewName) {
-      this.schema   = activeSheet.schema;
-      this.viewName = activeSheet.viewName;
-      this.loadTargetSheetId = activeSheet.id;
-      this.currentSheetId    = activeSheet.id;
+    const activeIsPivot = (activeSheet?.kind ?? 'view') === 'pivot';
+
+    const dataSheet = activeIsPivot
+      ? (this.sheets().find(s => s.id === activeSheet.id.replace(/^sheet-pivot-/, ''))
+          ?? this.sheets().find(s => (s.kind ?? 'view') === 'view' && !!s.viewName))
+      : activeSheet;
+
+    if (dataSheet && dataSheet.viewName && (dataSheet.kind ?? 'view') === 'view') {
+      this.schema   = dataSheet.schema;
+      this.viewName = dataSheet.viewName;
+      this.loadTargetSheetId = dataSheet.id;
+      this.currentSheetId    = activeIsPivot ? activeSheet.id : dataSheet.id;
       this.loadMeta();
     } else {
       this.loadInFlight = false;
+    }
+  }
+
+  /**
+   * Deja listas las recetas de tablas dinamicas de un estado guardado.
+   *
+   * Soporta los dos formatos:
+   *  - `pivots[]`: una receta por hoja dinamica (formato actual)
+   *  - `pivotConfig`: la config unica del panel (workbooks antiguos). Se asocia
+   *    a la hoja dinamica restaurada, deduciendo su fuente del propio id
+   *    (`sheet-pivot-<sourceSheetId>`).
+   */
+  private restorePivots(state: import('../../services/workbook-state.service').WorkbookState): void {
+    const saved = state.pivots ?? [];
+
+    if (saved.length > 0) {
+      this.pendingPivots = saved
+        .filter(p => p.sheetId && p.sourceSheetId && isPivotConfigUsable(p.config))
+        .map(p => ({ ...p, config: clonePivotConfig(p.config) }));
+    } else if (isPivotConfigUsable(state.pivotConfig)) {
+      this.pendingPivots = (state.sheets ?? [])
+        .filter(s => (s.kind ?? 'view') === 'pivot' && s.id.startsWith('sheet-pivot-'))
+        .map(s => ({
+          sheetId: s.id,
+          sourceSheetId: s.id.replace(/^sheet-pivot-/, ''),
+          label: s.label,
+          config: clonePivotConfig(state.pivotConfig),
+        }));
+    }
+
+    if (isPivotConfigUsable(state.pivotConfig)) {
+      this.pivotConfig.set(clonePivotConfig(state.pivotConfig) as any);
+    }
+
+    if (this.pendingPivots.length > 0) {
+      console.log('[Workbook] Tablas dinamicas por recalcular:',
+        this.pendingPivots.map(p => p.sheetId).join(', '));
     }
   }
 
@@ -4526,6 +4899,19 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.formulaEngine.removeSheet(sheet.id);
     }
 
+    // Cerrar la pestaña significa descartar la tabla dinamica: sin esto su receta
+    // seguiria viva y el siguiente refresco la volveria a crear sola.
+    if (kind === 'pivot') {
+      this.pivotDefs.delete(sheet.id);
+      this.pendingPivots = this.pendingPivots.filter(p => p.sheetId !== sheet.id);
+    } else if (kind === 'view') {
+      // Se va la hoja fuente: sus pivots no se pueden recalcular.
+      this.pivotDefs.forEach((def, pivotId) => {
+        if (def.sourceSheetId === sheet.id) this.pivotDefs.delete(pivotId);
+      });
+      this.pendingPivots = this.pendingPivots.filter(p => p.sourceSheetId !== sheet.id);
+    }
+
     // Se cierra la hoja que estamos viendo si es la hidratada, no solo si el
     // shell la marco activa.
     const wasActive = sheet.active || sheet.id === this.currentSheetId;
@@ -4611,12 +4997,22 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    */
   private loadSheetData(sheetId: string): void {
     console.log('[loadSheetData] Cargando hoja:', sheetId);
-    const sheet = this.sheets().find(s => s.id === sheetId);
+    let sheet = this.sheets().find(s => s.id === sheetId);
     if (!sheet) return;
 
     // Recuperar el contexto de formulas de la hoja: si es de calculo, sus
     // formulas siguen vivas en su propia hoja de HyperFormula.
     const kind = sheet.kind ?? 'view';
+
+    // Hoja dinamica sin filas: viene de un workbook restaurado o de un refresco.
+    // Se reconstruye desde su receta guardada; antes esta rama caia en el `else`
+    // final, exigia kind === 'view' y la pestaña quedaba vacia para siempre.
+    if (kind === 'pivot' && (sheet.rowData?.length ?? 0) === 0) {
+      this.currentSheetId = sheet.id;
+      this.rebuildEmptyPivotSheet(sheet.id);
+      sheet = this.sheets().find(s => s.id === sheetId) ?? sheet;
+      if ((sheet.rowData?.length ?? 0) === 0) return; // se recalculara al cargar la fuente
+    }
     if (kind === 'blank') {
       this.formulaEngine.ensureSheet(sheet.id, BLANK_SHEET_ROWS, BLANK_SHEET_COLS);
       this.activeFormulaSheet = sheet.id;

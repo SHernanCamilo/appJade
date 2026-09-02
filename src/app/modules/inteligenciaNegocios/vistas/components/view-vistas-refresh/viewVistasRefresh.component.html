@@ -572,6 +572,7 @@
     <!-- Panel lateral: Tabla Dinamica (componente separado) -->
     <aside class="vr-pivot-panel" [class.vr-pivot-panel--visible]="showPivotPanel()">
       <app-pivot-panel [availableColumns]="pivotColumns()" [sheets]="getPivotSheets()" [sourceData]="pivotSourceData"
+        [initialConfig]="pivotPanelConfig()" [initialSheetId]="pivotPanelSheetId()"
         (pivotGenerated)="onPivotGenerated($event)" (closed)="closePivotPanel()" (cleared)="clearPivotConfigAuto()"
         (sheetSelected)="onPivotSheetSelected($event)">
       </app-pivot-panel>
