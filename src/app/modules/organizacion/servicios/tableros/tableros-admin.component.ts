@@ -49,14 +49,21 @@ export class TablerosAdminComponent implements OnInit {
   currentCode = '';
   currentInstructions = '';
 
-  readonly sedeOptions = [
+  /**
+   * Sedes del desplegable.
+   *
+   * Se cargan del backend, que las lee de la MISMA vista que alimenta el tablero
+   * ([UG].[VW_HC_TableroUrgencias]). Antes estaban escritas a mano aqui y no
+   * coincidian con la vista: faltaba TUNJA y sobraban sedes que la vista no
+   * devuelve, asi que abrir una sede obligaba a tocar codigo y desplegar.
+   *
+   * El fallback solo se usa si el servicio de datos no responde.
+   */
+  readonly sedeOptions = signal<Array<{ label: string; value: string }>>([
     { label: 'Todas las sedes', value: '' },
-    { label: 'NEIVA', value: 'NEIVA' },
-    { label: 'FLORENCIA', value: 'FLORENCIA' },
-    { label: 'FACATATIVA', value: 'FACATATIVA' },
-    { label: 'PITALITO', value: 'PITALITO' },
-    { label: 'GARZON', value: 'GARZON' },
-  ];
+  ]);
+
+  readonly loadingSedes = signal(false);
 
   readonly viewOptions = [
     { label: 'Tablero Urgencias', value: 'VW_HC_TableroUrgencias' },
@@ -64,6 +71,41 @@ export class TablerosAdminComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDevices();
+    this.loadSedes();
+  }
+
+  /** Trae las sedes reales de la vista para el desplegable */
+  loadSedes(): void {
+    this.loadingSedes.set(true);
+
+    this.service.sedes().subscribe({
+      next: (res) => {
+        const sedes = res.data ?? [];
+        this.sedeOptions.set([
+          { label: 'Todas las sedes', value: '' },
+          ...sedes.map(s => ({ label: s, value: s })),
+        ]);
+        this.loadingSedes.set(false);
+
+        if (sedes.length === 0) {
+          this.msg.add({
+            severity: 'warn',
+            summary: 'Sin sedes',
+            detail: 'No se pudieron leer las sedes de la vista. Puede dejar "Todas las sedes".',
+          });
+        }
+      },
+      error: () => {
+        // Sin sedes del backend queda al menos "Todas las sedes": el tablero
+        // funciona igual, solo sin filtrar.
+        this.loadingSedes.set(false);
+        this.msg.add({
+          severity: 'warn',
+          summary: 'Sedes no disponibles',
+          detail: 'No se pudo consultar la lista de sedes. Intente recargar.',
+        });
+      },
+    });
   }
 
   loadDevices(): void {
