@@ -105,3 +105,54 @@
 .me-card__action--fav { color: #f59e0b; }
 .me-card__action--del:hover { background: #fef2f2; color: #dc2626; }
 .me-card__action:focus-visible { outline: 2px solid #217346; outline-offset: 1px; }
+
+/* ── Barra de acciones (seleccion multiple y limpieza de duplicados) ──────── */
+.me-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 8px 12px; margin-bottom: 12px;
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+}
+.me-toolbar__spacer { flex: 1; }
+
+.me-tool {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 4px;
+  background: #fff; color: #374151; font-size: 12px; font-weight: 500; cursor: pointer;
+}
+.me-tool:hover:not(:disabled) { background: #e2efda; border-color: #217346; color: #217346; }
+.me-tool:disabled { opacity: 0.45; cursor: not-allowed; }
+.me-tool--on { background: #e2efda; border-color: #217346; color: #217346; }
+.me-tool--danger:hover:not(:disabled) { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+.me-tool--warn:hover:not(:disabled) { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+
+.me-dup-warn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #92400e; background: #fef3c7;
+  border: 1px solid #fcd34d; border-radius: 4px; padding: 4px 8px;
+}
+
+.me-busy {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: #374151; margin-bottom: 10px;
+}
+
+/* ── Tarjeta: casilla, marca de duplicado y estado seleccionado ───────────── */
+.me-card { position: relative; }
+
+.me-card__check {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  display: flex; align-items: center; cursor: pointer;
+}
+.me-card__check input { cursor: pointer; }
+
+.me-card--selected {
+  border-color: #217346 !important;
+  box-shadow: 0 0 0 2px rgba(33, 115, 70, 0.25);
+}
+
+.me-card__dup {
+  display: inline-block; margin-left: 6px; vertical-align: middle;
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  color: #92400e; background: #fef3c7; border: 1px solid #fcd34d;
+  border-radius: 3px; padding: 1px 4px;
+}

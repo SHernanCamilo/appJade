@@ -5,7 +5,10 @@
       <i class="pi pi-file-excel me-header__icon"></i>
       <div>
         <h2 class="me-header__title">Excel Sheets</h2>
-        <p class="me-header__sub">Workbooks guardados con tus vistas, formulas y filtros</p>
+        <p class="me-header__sub">
+          Workbooks guardados con tus vistas, formulas, filtros y tablas dinamicas
+          <span *ngIf="!loading()"> &middot; {{ workbooks().length }} en total</span>
+        </p>
       </div>
     </div>
     <div class="me-header__right">
@@ -21,6 +24,38 @@
     </div>
   </header>
 
+  <!-- Barra de acciones -->
+  <div class="me-toolbar" *ngIf="!loading() && workbooks().length > 0">
+    <button class="me-tool" (click)="selectAllVisible()">
+      <i class="pi pi-check-square"></i> Seleccionar todo
+    </button>
+
+    <button class="me-tool me-tool--danger" (click)="deleteSelected()" [disabled]="selected().size === 0">
+      <i class="pi pi-trash"></i> Eliminar seleccion ({{ selected().size }})
+    </button>
+
+    <button class="me-tool" (click)="onlyFavorites.set(!onlyFavorites())"
+      [class.me-tool--on]="onlyFavorites()">
+      <i class="pi pi-star"></i> Solo favoritos
+    </button>
+
+    <span class="me-toolbar__spacer"></span>
+
+    <span class="me-dup-warn" *ngIf="duplicateCount() > 0">
+      <i class="pi pi-exclamation-triangle"></i>
+      {{ duplicateCount() }} workbook(s) repetidos
+    </span>
+
+    <button class="me-tool me-tool--warn" (click)="cleanupDuplicates()" [disabled]="duplicateCount() === 0"
+      title="Conserva el mas reciente de cada grupo con las mismas vistas">
+      <i class="pi pi-filter-slash"></i> Eliminar duplicados
+    </button>
+  </div>
+
+  <div class="me-busy" *ngIf="busy()">
+    <i class="pi pi-spin pi-spinner"></i> {{ busy() }}
+  </div>
+
   <!-- Loading -->
   <div class="me-loading" *ngIf="loading()">
     <i class="pi pi-spin pi-spinner"></i>
@@ -28,21 +63,28 @@
   </div>
 
   <!-- Empty state -->
-  <div class="me-empty" *ngIf="!loading() && filteredWorkbooks.length === 0">
+  <div class="me-empty" *ngIf="!loading() && filteredWorkbooks().length === 0">
     <i class="pi pi-inbox me-empty__icon"></i>
     <p>No tienes workbooks guardados todavia.</p>
     <p class="me-empty__hint">
       Abre una vista en modo Excel, trabaja con tus datos y el workbook se guardara automaticamente.
+      Tambien puedes forzarlo con <strong>Datos &gt; Guardar workbook</strong>.
     </p>
   </div>
 
   <!-- Grid de tarjetas -->
-  <div class="me-grid" *ngIf="!loading() && filteredWorkbooks.length > 0">
+  <div class="me-grid" *ngIf="!loading() && filteredWorkbooks().length > 0">
     <div
       class="me-card"
-      *ngFor="let wb of filteredWorkbooks; trackBy: trackById"
+      *ngFor="let wb of filteredWorkbooks(); trackBy: trackById"
       (click)="openWorkbook(wb)"
-      [class.me-card--favorite]="wb.is_favorite">
+      [class.me-card--favorite]="wb.is_favorite"
+      [class.me-card--selected]="isSelected(wb.id)">
+
+      <!-- Casilla de seleccion -->
+      <label class="me-card__check" (click)="toggleSelected(wb, $event)" title="Seleccionar">
+        <input type="checkbox" [checked]="isSelected(wb.id)" (click)="toggleSelected(wb, $event)">
+      </label>
 
       <!-- Icono -->
       <div class="me-card__icon-wrap">
@@ -52,7 +94,12 @@
 
       <!-- Contenido -->
       <div class="me-card__body">
-        <h3 class="me-card__name">{{ wb.name }}</h3>
+        <h3 class="me-card__name">
+          {{ wb.name }}
+          <span class="me-card__dup" *ngIf="isDuplicate(wb)" title="Hay mas workbooks con estas mismas vistas">
+            repetido
+          </span>
+        </h3>
         <p class="me-card__desc" *ngIf="wb.description">{{ wb.description }}</p>
         <div class="me-card__views">
           <span class="me-card__view-tag" *ngFor="let v of wb.viewNames">{{ v }}</span>
@@ -75,6 +122,12 @@
           title="Favorito"
           (click)="toggleFavorite(wb, $event)">
           <i [class]="wb.is_favorite ? 'pi pi-star-fill' : 'pi pi-star'"></i>
+        </button>
+        <button
+          class="me-card__action"
+          title="Renombrar"
+          (click)="renameWorkbook(wb, $event)">
+          <i class="pi pi-pencil"></i>
         </button>
         <button
           class="me-card__action me-card__action--del"

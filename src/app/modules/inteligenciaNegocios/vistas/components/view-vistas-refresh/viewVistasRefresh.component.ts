@@ -56,7 +56,11 @@ import { PivotPanelComponent } from '../pivot-panel/pivot-panel.component';
 import {
   computePivot,
   clonePivotConfig,
+  emptyPivotConfig,
   isPivotConfigUsable,
+  measureLabel,
+  PIVOT_KIND_FIELD,
+  PIVOT_META_FIELDS,
   type PivotConfig,
   type PivotResult,
 } from '../../helpers/pivot-engine';
@@ -1448,24 +1452,22 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.gridApi?.setGridOption('rowData', []);
     }
 
-    // Los pivots de ESTA vista quedan obsoletos: se vacian y se recalculan solos
-    // cuando termine la carga, porque su receta vive en `pivotDefs`.
+    // Las tablas dinamicas de ESTA vista se recalculan solas al terminar la carga
+    // (su receta vive en `pivotDefs`, y parseAndLoad llama
+    // regeneratePivotsForSource con los datos frescos).
     //
-    // Antes se CERRABAN (se borraba la hoja), asi que refrescar los datos
-    // destruia la tabla dinamica y habia que rearmarla campo por campo. Ahora la
-    // pestaña se queda donde estaba, igual que "Actualizar" en Excel.
-    const stalePivots = this.sheets().filter(s =>
+    // NO se tocan aqui:
+    //  - Antes se CERRABAN, asi que refrescar destruia la tabla dinamica y habia
+    //    que rearmarla campo por campo.
+    //  - Despues se VACIABAN sus filas, lo que perdia los resultados si el
+    //    refresco fallaba o el usuario lo cancelaba.
+    // Ahora se dejan intactas y se sobreescriben solo cuando hay datos nuevos.
+    const pivotsDeLaVista = this.sheets().filter(s =>
       (s.kind ?? 'view') === 'pivot' && s.viewName.includes(this.viewName)
     );
-    if (stalePivots.length > 0) {
-      const staleIds = new Set(stalePivots.map(s => s.id));
-      this.sheets.update(sheets => {
-        sheets.forEach(s => {
-          if (staleIds.has(s.id)) s.rowData = [];
-        });
-        return [...sheets];
-      });
-      console.log('[startRefresh] Pivots marcados para recalculo:', [...staleIds].join(', '));
+    if (pivotsDeLaVista.length > 0) {
+      console.log('[startRefresh] Se recalcularan al terminar:',
+        pivotsDeLaVista.map(s => s.id).join(', '));
     }
 
     this.clearTimers();
@@ -2519,6 +2521,26 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   private applyColumnDefs(): void {
     this.gridColumnDefs = this.toGroupedColumnDefs(this.columnDefs);
     this.gridApi?.setGridOption('columnDefs', this.gridColumnDefs);
+  }
+
+  /**
+   * Entrega columnas NUEVAS descartando el estado de la hoja anterior.
+   *
+   * AG Grid conserva ancho, orden, pinning y sort emparejando por colId, asi que
+   * al pasar del pivot a la vista (o entre vistas) una columna con el mismo
+   * nombre heredaba el estado del otro contexto. Sintoma: "Banco" quedaba
+   * congelada a la izquierda de la vista principal y las letras Excel salian
+   * desordenadas (H, A, B...).
+   *
+   * resetColumnState() tiene que ir DESPUES de setGridOption('columnDefs'): si va
+   * antes, resetea contra las columnas viejas y el estado se vuelve a aplicar al
+   * llegar las nuevas.
+   */
+  private applyColumnDefsFresh(): void {
+    this.applyColumnDefs();
+    if (!this.gridApi) return;
+    this.gridApi.resetColumnState();
+    this.gridApi.refreshHeader();
   }
 
   /**
@@ -3950,12 +3972,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * Limpia la configuracion de la tabla dinamica
    */
   clearPivotConfig(): void {
-    this.pivotConfig.set({
-      rowFields: [],
-      columnFields: [],
-      valueFields: [],
-      filterFields: []
-    });
+    this.pivotConfig.set(emptyPivotConfig() as any);
   }
 
   /** Limpia config y restaura datos originales (llamado desde template) */
@@ -4116,21 +4133,59 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       '-', sheet.rowData.length, 'registros,', this.pivotColumns().length, 'columnas');
   }
 
-  /** Traduce las columnas del resultado del pivot a columnDefs de AG Grid */
+  /**
+   * Traduce las columnas del resultado del pivot a columnDefs de AG Grid.
+   *
+   * Dos decisiones importantes:
+   *
+   *  - NINGUNA columna va `pinned`. Antes se congelaban las dos primeras, y como
+   *    AG Grid conserva el estado de columna por colId, al volver a la hoja de
+   *    datos la columna del pivot (p. ej. "Banco") seguia anclada a la izquierda:
+   *    la vista principal aparecia con las columnas desordenadas y las letras
+   *    Excel descolocadas (H sobre la primera columna).
+   *
+   *  - Los campos tecnicos del motor (__PIVOT_KIND__, __PIVOT_LEVEL__) no se
+   *    pintan: solo sirven para resaltar subtotales y el total general.
+   */
   private pivotColumnDefs(result: PivotResult): ColDef[] {
     const pivotCols: ColDef[] = [makeRowNumberColDef(50)];
 
-    result.columns.forEach((col, idx) => {
-      pivotCols.push({
-        field: col.field,
-        headerName: col.headerName,
-        type: col.type || undefined,
-        pinned: idx < 2 ? 'left' : undefined,
-        valueFormatter: col.type === 'numericColumn'
-          ? (p) => p.value != null ? Number(p.value).toLocaleString('es-CO', { maximumFractionDigits: 2 }) : ''
-          : undefined,
+    // Las medidas en porcentaje se formatean con "%" (Mostrar valores como)
+    const pctFields = new Set(
+      result.config.valueFields
+        .filter(v => v.showAs && v.showAs !== 'value')
+        .map(v => measureLabel(v)),
+    );
+    const esPct = (field: string) =>
+      pctFields.size > 0 && [...pctFields].some(l => field === l || field.endsWith(`· ${l}`));
+
+    result.columns
+      .filter(col => !PIVOT_META_FIELDS.includes(col.field))
+      .forEach(col => {
+        const numerica = col.type === 'numericColumn';
+        pivotCols.push({
+          field: col.field,
+          headerName: col.headerName,
+          type: col.type || undefined,
+          // Resaltar subtotales y total general, como el formato en negrita de Excel
+          cellClass: params => {
+            const kind = params.data?.[PIVOT_KIND_FIELD];
+            const clases = ['bi-cell', numerica ? 'bi-cell--number' : 'bi-cell--text'];
+            if (kind === 'subtotal') clases.push('bi-cell--subtotal');
+            if (kind === 'grand')    clases.push('bi-cell--grand');
+            return clases;
+          },
+          valueFormatter: numerica
+            ? (p) => {
+                if (p.value == null) return '';
+                const n = Number(p.value);
+                if (!Number.isFinite(n)) return String(p.value);
+                const txt = n.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+                return esPct(col.field) ? `${txt} %` : txt;
+              }
+            : undefined,
+        });
       });
-    });
 
     return pivotCols;
   }
@@ -4229,7 +4284,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.columns    = [];
     this.activeFilters.set([]);
     this.colOptions.set([]);
-    this.applyColumnDefs();
+    this.applyColumnDefsFresh();
     this.totalRows.set(result.rows.length);
     this.filteredRows.set(result.rows.length);
 
@@ -4381,7 +4436,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.columnDefs = [...pivotCols];
       this.columns    = [];
       this.colOptions.set([]);
-      this.applyColumnDefs();
+      this.applyColumnDefsFresh();
       this.totalRows.set(result.rows.length);
       this.filteredRows.set(result.rows.length);
 
@@ -5038,12 +5093,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.gridApi.setGridOption('pinnedBottomRowData', []);
         this.rangeSelection?.clear();
         this.selectedColumnId.set(null);
-        // Descartar el estado de columna de la hoja anterior (orden, pinning,
-        // ancho). AG Grid lo conserva emparejando por colId; sin esto, una
-        // columna congelada como "Banco" seguia anclada a la izquierda de la
-        // banda de numeros al cambiar de vista. resetColumnState devuelve las
-        // columnas al orden de columnDefs y quita el pinning heredado.
-        this.gridApi.resetColumnState();
+        // El estado de columna heredado (orden, pinning, ancho) se descarta mas
+        // abajo con applyColumnDefsFresh(), DESPUES de entregar las columnas
+        // nuevas: hacerlo aqui reseteaba contra las columnas viejas y el pinning
+        // del pivot volvia a aplicarse sobre la vista.
       }
 
       // Restaurar datos de la hoja: cada hoja es independiente. Se copian los
@@ -5067,7 +5120,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.selectedColType.set(null);
       this.columnStats.set(null);
 
-      this.applyColumnDefs();
+      // Columnas nuevas SIN el estado de la hoja anterior
+      this.applyColumnDefsFresh();
 
       this.totalRows.set(sheet.rowData.length);
       this.filteredRows.set(sheet.rowData.length);

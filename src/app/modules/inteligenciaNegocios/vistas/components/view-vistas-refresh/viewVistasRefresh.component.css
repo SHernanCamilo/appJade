@@ -1635,3 +1635,21 @@
 :host ::ng-deep .vr-range-dragging .ag-cell {
   user-select: none !important;
 }
+
+/* ── Tabla dinamica: subtotales y total general ─────────────────────────────
+   Excel resalta en negrita los subtotales de cada campo de fila y el Total
+   general. El motor marca cada fila con __PIVOT_KIND__ y el cellClass del
+   pivot traduce eso a estas clases. */
+:host ::ng-deep .vr-grid .bi-cell--subtotal {
+  background: #f3f6f4;
+  font-weight: 600;
+  color: #14532d;
+  border-top: 1px solid #d1d5db;
+}
+
+:host ::ng-deep .vr-grid .bi-cell--grand {
+  background: #e2efda;
+  font-weight: 700;
+  color: #14532d;
+  border-top: 2px solid #217346;
+}

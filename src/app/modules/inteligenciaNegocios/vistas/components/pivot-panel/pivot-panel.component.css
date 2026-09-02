@@ -111,3 +111,61 @@
   margin-top: auto;
 }
 .pivot-panel__clear:hover { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+/* ── Herramientas de tabla dinamica (Contraer, Subtotales, Totales...) ────── */
+.pivot-tools {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb;
+}
+.pivot-tool {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 7px; border: 1px solid #d1d5db; border-radius: 3px;
+  background: #fff; color: #374151; font-size: 10px; font-weight: 600; cursor: pointer;
+}
+.pivot-tool:hover:not(:disabled) { background: #e2efda; border-color: #217346; color: #217346; }
+.pivot-tool:disabled { opacity: 0.45; cursor: not-allowed; }
+.pivot-tool--on { background: #e2efda; border-color: #217346; color: #217346; }
+.pivot-tool i { font-size: 10px; }
+.pivot-tool__select {
+  flex: 1; min-width: 130px; padding: 3px 5px; border: 1px solid #d1d5db;
+  border-radius: 3px; font-size: 10px; background: #fff; color: #374151; cursor: pointer;
+}
+
+/* ── Chips con panel desplegable (filtros de informe / agrupar) ───────────── */
+.pivot-chip-wrap { display: flex; flex-direction: column; gap: 3px; }
+.pivot-chip__badge {
+  font-style: normal; font-size: 9px; color: #217346; background: #e2efda;
+  padding: 0 3px; border-radius: 2px;
+}
+.pivot-chip__col { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pivot-values {
+  border: 1px solid #d1d5db; border-radius: 3px; background: #fff;
+  max-height: 170px; overflow-y: auto; padding: 4px;
+}
+.pivot-values__head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 9px; font-weight: 700; color: #6b7280; text-transform: uppercase;
+  padding-bottom: 3px; border-bottom: 1px solid #e5e7eb; margin-bottom: 3px;
+}
+.pivot-values__head button {
+  border: 1px solid #d1d5db; border-radius: 2px; background: #fff;
+  font-size: 9px; color: #217346; cursor: pointer; padding: 1px 4px; font-weight: 700;
+}
+.pivot-values__head button:hover { background: #e2efda; }
+.pivot-values__item {
+  display: flex; align-items: center; gap: 5px; padding: 2px 3px;
+  font-size: 10px; color: #1f2937; cursor: pointer; border-radius: 2px;
+}
+.pivot-values__item:hover { background: #f3f4f6; }
+.pivot-values__item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pivot-values__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  font-size: 10px; color: #374151; padding: 3px;
+}
+.pivot-values__row select,
+.pivot-values__row input {
+  border: 1px solid #d1d5db; border-radius: 2px; font-size: 10px;
+  padding: 2px 4px; background: #fff; width: 110px;
+}
+.pivot-values__hint { font-size: 10px; color: #9ca3af; font-style: italic; margin: 4px 0 0; }

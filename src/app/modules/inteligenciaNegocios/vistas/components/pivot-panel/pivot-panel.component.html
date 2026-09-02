@@ -19,6 +19,40 @@
       </select>
     </div>
 
+    <!-- Herramientas de tabla dinamica (equivalente a la cinta "Analizar") -->
+    <div class="pivot-tools">
+      <button class="pivot-tool" (click)="toggleCollapse()" [disabled]="!canCollapse"
+        [class.pivot-tool--on]="isCollapsed"
+        [title]="isCollapsed ? 'Expandir el campo de fila' : 'Contraer al primer campo de fila'">
+        <i class="pi" [ngClass]="isCollapsed ? 'pi-plus-circle' : 'pi-minus-circle'"></i>
+        {{ isCollapsed ? 'Expandir' : 'Contraer' }}
+      </button>
+
+      <button class="pivot-tool" (click)="toggleSubtotals()"
+        [class.pivot-tool--on]="config.showSubtotals !== false"
+        title="Mostrar u ocultar los subtotales de cada campo de fila">
+        <i class="pi pi-list"></i> Subtotales
+      </button>
+
+      <button class="pivot-tool" (click)="toggleGrandTotals()"
+        [class.pivot-tool--on]="config.showGrandTotals !== false"
+        title="Mostrar u ocultar la fila y columna de Total general">
+        <i class="pi pi-calculator"></i> Totales
+      </button>
+
+      <button class="pivot-tool" (click)="refresh()" title="Recalcular con los datos actuales">
+        <i class="pi pi-refresh"></i> Actualizar
+      </button>
+
+      <select class="pivot-tool__select" [ngModel]="sortValue" (ngModelChange)="changeSort($event)"
+        title="Criterio de orden de las filas">
+        <option value="value:desc">Valor: mayor a menor</option>
+        <option value="value:asc">Valor: menor a mayor</option>
+        <option value="label:asc">Etiqueta: A - Z</option>
+        <option value="label:desc">Etiqueta: Z - A</option>
+      </select>
+    </div>
+
     <!-- Busqueda de campos -->
     <div class="pivot-panel__search">
       <i class="pi pi-search"></i>
@@ -44,16 +78,35 @@
 
     <!-- 4 zonas de destino -->
     <div class="pivot-zones">
-      <!-- FILTROS -->
+      <!-- FILTROS (filtros de informe: recortan todo el dataset) -->
       <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'filter')">
         <label class="pivot-zone__label"><i class="pi pi-filter"></i> FILTROS</label>
         <div class="pivot-zone__items">
-          <span *ngFor="let f of config.filterFields; let i = index"
-                class="pivot-chip" draggable="true"
-                (dragstart)="onChipDragStart($event, 'filter', i, f)">
-            {{ humanize(f) }}
-            <button (click)="removeFieldAuto('filter', i)"><i class="pi pi-times"></i></button>
-          </span>
+          <div *ngFor="let f of config.filterFields; let i = index" class="pivot-chip-wrap">
+            <span class="pivot-chip" draggable="true"
+                  (dragstart)="onChipDragStart($event, 'filter', i, f)">
+              {{ humanize(f) }}
+              <em class="pivot-chip__badge">{{ filterBadge(f) }}</em>
+              <button (click)="toggleFieldSettings(f)" title="Elegir valores"><i class="pi pi-chevron-down"></i></button>
+              <button (click)="removeFieldAuto('filter', i)" title="Quitar"><i class="pi pi-times"></i></button>
+            </span>
+
+            <!-- Desplegable de valores, como el filtro de informe de Excel -->
+            <div class="pivot-values" *ngIf="openSettingsField === f">
+              <div class="pivot-values__head">
+                <span>Valores de {{ humanize(f) }}</span>
+                <button (click)="clearFilterValues(f)" title="Seleccionar todas">Todas</button>
+              </div>
+              <label class="pivot-values__item" *ngFor="let v of filterOptions(f)">
+                <input type="checkbox" [checked]="isFilterValueSelected(f, v)"
+                       (change)="toggleFilterValue(f, v)">
+                <span>{{ v }}</span>
+              </label>
+              <p class="pivot-values__hint" *ngIf="filterOptions(f).length === 0">
+                Sin valores disponibles.
+              </p>
+            </div>
+          </div>
           <span *ngIf="config.filterFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
         </div>
       </div>
@@ -62,12 +115,16 @@
       <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'column')">
         <label class="pivot-zone__label"><i class="pi pi-th-large"></i> COLUMNAS</label>
         <div class="pivot-zone__items">
-          <span *ngFor="let f of config.columnFields; let i = index"
-                class="pivot-chip" draggable="true"
-                (dragstart)="onChipDragStart($event, 'column', i, f)">
-            {{ humanize(f) }}
-            <button (click)="removeFieldAuto('column', i)"><i class="pi pi-times"></i></button>
-          </span>
+          <div *ngFor="let f of config.columnFields; let i = index" class="pivot-chip-wrap">
+            <span class="pivot-chip" draggable="true"
+                  (dragstart)="onChipDragStart($event, 'column', i, f)">
+              {{ humanize(f) }}
+              <button *ngIf="isDate(f) || isNumeric(f)" (click)="toggleFieldSettings(f)"
+                      title="Agrupar / Desagrupar"><i class="pi pi-sitemap"></i></button>
+              <button (click)="removeFieldAuto('column', i)" title="Quitar"><i class="pi pi-times"></i></button>
+            </span>
+            <ng-container *ngTemplateOutlet="agrupar; context: { f: f }"></ng-container>
+          </div>
           <span *ngIf="config.columnFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
         </div>
       </div>
@@ -76,12 +133,16 @@
       <div class="pivot-zone" (dragover)="onDragOver($event)" (drop)="onDrop($event, 'row')">
         <label class="pivot-zone__label"><i class="pi pi-bars"></i> FILAS</label>
         <div class="pivot-zone__items">
-          <span *ngFor="let f of config.rowFields; let i = index"
-                class="pivot-chip" draggable="true"
-                (dragstart)="onChipDragStart($event, 'row', i, f)">
-            {{ humanize(f) }}
-            <button (click)="removeFieldAuto('row', i)"><i class="pi pi-times"></i></button>
-          </span>
+          <div *ngFor="let f of config.rowFields; let i = index" class="pivot-chip-wrap">
+            <span class="pivot-chip" draggable="true"
+                  (dragstart)="onChipDragStart($event, 'row', i, f)">
+              {{ humanize(f) }}
+              <button *ngIf="isDate(f) || isNumeric(f)" (click)="toggleFieldSettings(f)"
+                      title="Agrupar / Desagrupar"><i class="pi pi-sitemap"></i></button>
+              <button (click)="removeFieldAuto('row', i)" title="Quitar"><i class="pi pi-times"></i></button>
+            </span>
+            <ng-container *ngTemplateOutlet="agrupar; context: { f: f }"></ng-container>
+          </div>
           <span *ngIf="config.rowFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
         </div>
       </div>
@@ -91,18 +152,28 @@
         <label class="pivot-zone__label"><i class="pi pi-calculator"></i> VALORES</label>
         <div class="pivot-zone__items">
           <span *ngFor="let vf of config.valueFields; let i = index" class="pivot-chip pivot-chip--value">
-            <select class="pivot-chip__op" [ngModel]="vf.operation" (ngModelChange)="changeValueOperation(i, $event)">
-              <option value="sum">SUM</option>
+            <select class="pivot-chip__op" [ngModel]="vf.operation" (ngModelChange)="changeValueOperation(i, $event)"
+              title="Resumir valores por">
+              <option value="sum">SUMA</option>
               <option value="avg">PROMEDIO</option>
               <option value="count">CONTAR</option>
               <option value="min">MIN</option>
               <option value="max">MAX</option>
               <option value="distinct">DISTINTOS</option>
             </select>
-            <span>{{ humanize(vf.column) }}</span>
-            <button (click)="removeFieldAuto('value', i)"><i class="pi pi-times"></i></button>
+            <span class="pivot-chip__col">{{ humanize(vf.column) }}</span>
+            <select class="pivot-chip__op" [ngModel]="vf.showAs ?? 'value'"
+              (ngModelChange)="changeValueShowAs(i, $event)" title="Mostrar valores como">
+              <option value="value">Valor</option>
+              <option value="pctGrandTotal">% del total</option>
+              <option value="pctRow">% de la fila</option>
+              <option value="pctCol">% de la columna</option>
+            </select>
+            <button (click)="removeFieldAuto('value', i)" title="Quitar"><i class="pi pi-times"></i></button>
           </span>
-          <span *ngIf="config.valueFields.length === 0" class="pivot-zone__empty">Soltar aqui</span>
+          <span *ngIf="config.valueFields.length === 0" class="pivot-zone__empty">
+            Soltar aqui (sin medidas se cuenta)
+          </span>
         </div>
       </div>
     </div>
@@ -113,3 +184,31 @@
     </button>
   </div>
 </aside>
+
+<!-- Panel "Agrupar..." reutilizado por filas y columnas -->
+<ng-template #agrupar let-f="f">
+  <div class="pivot-values" *ngIf="openSettingsField === f && (isDate(f) || isNumeric(f))">
+    <div class="pivot-values__head">
+      <span>Agrupar {{ humanize(f) }}</span>
+      <button (click)="ungroupField(f)" title="Quitar la agrupacion">Desagrupar</button>
+    </div>
+
+    <label class="pivot-values__row" *ngIf="isDate(f)">
+      <span>Por</span>
+      <select [ngModel]="fieldSetting(f).dateGroup ?? 'month'" (ngModelChange)="changeDateGroup(f, $event)">
+        <option value="year">Año</option>
+        <option value="quarter">Trimestre</option>
+        <option value="month">Mes</option>
+        <option value="day">Dia</option>
+        <option value="none">Fecha exacta</option>
+      </select>
+    </label>
+
+    <label class="pivot-values__row" *ngIf="isNumeric(f)">
+      <span>Rangos de</span>
+      <input type="number" min="0" placeholder="sin agrupar"
+             [ngModel]="fieldSetting(f).numericStep"
+             (ngModelChange)="changeNumericStep(f, $event)">
+    </label>
+  </div>
+</ng-template>

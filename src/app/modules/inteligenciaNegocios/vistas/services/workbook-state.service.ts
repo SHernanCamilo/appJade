@@ -257,6 +257,21 @@ export class WorkbookStateService {
   }
 
   /**
+   * Elimina los workbooks duplicados del usuario (mismo conjunto de vistas).
+   * Conserva el mas reciente de cada grupo. Devuelve cuantos borro.
+   */
+  cleanupDuplicates(): Promise<number> {
+    return new Promise((resolve) => {
+      this.http.post<{ success: boolean; deleted: number }>(
+        `${this.baseUrl}/my-workbooks/cleanup-duplicates`, {}
+      ).subscribe({
+        next: (res) => resolve(res?.deleted ?? 0),
+        error: (err) => { console.warn('[WorkbookState] Error limpiando duplicados:', err.message); resolve(0); },
+      });
+    });
+  }
+
+  /**
    * Elimina un workbook guardado.
    */
   deleteWorkbook(id: number): Promise<boolean> {
