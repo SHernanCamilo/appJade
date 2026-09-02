@@ -101,28 +101,57 @@
 }
 .xl-rgroup-grow { flex: 1; border-right: none; min-width: 0; }
 
-.xl-rgroup-body { display: flex; align-items: flex-start; gap: 2px; flex: 1; padding-top: 2px; }
-.xl-rgroup-title { font-size: 10.5px; color: #757575; text-align: center; padding: 2px 0 3px; white-space: nowrap; }
-
-/* Buttons */
-.xl-rbtn {
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
-  min-width: 32px; padding: 3px 5px; border: 1px solid transparent; border-radius: 3px;
-  background: transparent; color: var(--xl-text); font-family: inherit;
-  font-size: 10.5px; line-height: 1.2; text-align: center; cursor: pointer;
-  transition: background .1s, border-color .1s; white-space: nowrap;
+/* Los items del grupo se envuelven en columnas de la altura del ribbon, como
+   Excel: los botones pequeños se apilan de a 2-3 en vez de estirarse en una
+   sola fila larga. Los botones grandes (-lg) ocupan toda la altura y no envuelven. */
+/* Los items del grupo se envuelven en columnas de la altura del ribbon, como
+   Excel: los botones pequeños se apilan de a 2-3 en vez de estirarse en una
+   sola fila larga. Los botones grandes (-lg) ocupan toda la altura. */
+.xl-rgroup-body {
+  display: flex; flex-flow: column wrap; align-content: flex-start;
+  gap: 1px 3px; flex: 1;
+  height: 56px; padding-top: 2px;
 }
-.xl-rbtn:hover { background: #e8e8e8; border-color: #cfcfcf; }
-.xl-rbtn:active { background: #dedede; }
-.xl-rbtn i { font-size: 14px; color: var(--xl-green); line-height: 1; }
-.xl-rbtn-lg { min-width: 52px; height: 52px; padding: 4px 5px; font-size: 10px; }
-.xl-rbtn-lg i { font-size: 17px; }
-.xl-rbtn-active { background: #d8eede; border-color: #a3d4b5; }
+
+/* Titulo del grupo (fila inferior tipo Excel: "Portapapeles", "Fuente"...).
+   Linea superior sutil que separa botones de titulo, como en Excel. */
+.xl-rgroup-title {
+  font-size: 10.5px; color: #6b6b6b; text-align: center;
+  padding: 3px 6px 2px; margin-top: 2px; white-space: nowrap;
+  border-top: 1px solid #ececec;
+}
+
+/* Buttons
+   Botones "sm" (sin -lg): apilados verticalmente y compactos, como los grupos
+   de iconos pequeños de Excel (COP, USD, %...). Botones "lg": icono grande
+   arriba y label debajo, como Pegar / Actualizar todo. */
+.xl-rbtn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 30px; padding: 3px 6px; border: 1px solid transparent; border-radius: 3px;
+  background: transparent; color: var(--xl-text); font-family: inherit;
+  font-size: 10.5px; line-height: 1.15; text-align: center; cursor: pointer;
+  transition: background .08s, border-color .08s; white-space: nowrap;
+}
+.xl-rbtn:hover { background: #eaf3ee; border-color: #cfe3d6; }
+.xl-rbtn:active { background: #d8eede; }
+.xl-rbtn:focus-visible { outline: 2px solid var(--xl-green); outline-offset: -1px; }
+.xl-rbtn i { font-size: 15px; color: var(--xl-green); line-height: 1; }
+/* Boton grande: ocupa toda la altura del grupo (no envuelve) */
+.xl-rbtn-lg { min-width: 54px; height: 56px; padding: 5px; font-size: 10px; }
+.xl-rbtn-lg i { font-size: 18px; margin-bottom: 2px; }
+/* Boton pequeño: mitad de alto, para que quepan 2 apilados como en Excel */
+.xl-rbtn:not(.xl-rbtn-lg) {
+  flex-direction: row; justify-content: flex-start; gap: 5px;
+  height: 26px; min-width: 46px; padding: 2px 7px; text-align: left;
+}
+.xl-rbtn:not(.xl-rbtn-lg) i { font-size: 13px; }
+.xl-rbtn-active { background: #d8eede; border-color: #a3d4b5; box-shadow: inset 0 0 0 1px #a3d4b5; }
 .xl-rbtn:disabled { opacity: .4; cursor: not-allowed; }
 .xl-rbtn:disabled:hover { background: transparent; border-color: transparent; }
 
-/* Separator */
-.xl-rsep { width: 1px; align-self: stretch; margin: 4px 3px; background: #e0e0e0; }
+/* Separator entre items dentro de un grupo (en layout de columna es una linea
+   horizontal corta que separa los botones apilados) */
+.xl-rsep { width: 100%; height: 1px; margin: 2px 0; background: #e0e0e0; }
 
 /* Legend */
 .xl-rlegend { display: flex; flex-direction: column; gap: 3px; justify-content: center; padding-top: 4px; }
@@ -131,9 +160,9 @@
 
 /* Dropdown */
 .xl-rselect {
-  height: 24px; padding: 0 4px; border: 1px solid #c0c0c0; border-radius: 2px;
-  font-size: 11px; font-family: inherit; background: #fff; color: var(--xl-text);
-  cursor: pointer; outline: none;
+  height: 24px; align-self: center; padding: 0 4px; border: 1px solid #c0c0c0;
+  border-radius: 2px; font-size: 11px; font-family: inherit; background: #fff;
+  color: var(--xl-text); cursor: pointer; outline: none; max-width: 160px;
 }
 .xl-rselect:focus { border-color: var(--xl-green); }
 

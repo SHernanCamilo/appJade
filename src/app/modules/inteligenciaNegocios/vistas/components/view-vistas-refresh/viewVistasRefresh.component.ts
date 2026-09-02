@@ -3856,168 +3856,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     }
   }
 
-  /**
-   * Genera la tabla dinamica con la configuracion actual
-   */
-  generatePivotTable(): void {
-    const config = this.pivotConfig();
-    
-    if (config.rowFields.length === 0 || config.valueFields.length === 0) {
-      alert('Debe agregar al menos un campo a "FILAS" y uno a "VALORES"');
-      return;
-    }
-
-    console.log('[Pivot] Generando tabla dinamica con config:', config);
-
-    // 1. Guardar hoja actual
-    this.saveActiveSheetData(this.rawData, this.columnDefs);
-
-    // 2. Agrupar datos por las combinaciones de rowFields
-    const grouped = new Map<string, Record<string, unknown>[]>();
-    const sourceData = this.rawData.length > 0 ? this.rawData : this.rowData;
-
-    sourceData.forEach(row => {
-      const key = config.rowFields.map(f => String(row[f] ?? '(vacio)')).join(' | ');
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(row);
-    });
-
-    // 3. Calcular valores agregados para cada grupo
-    const pivotRows: Record<string, unknown>[] = [];
-
-    grouped.forEach((rows, key) => {
-      const pivotRow: Record<string, unknown> = {};
-
-      // Campos de fila
-      config.rowFields.forEach(f => {
-        pivotRow[f] = rows[0][f] ?? '(vacio)';
-      });
-
-      // Campos de valor (con su operacion)
-      config.valueFields.forEach(vf => {
-        const values = rows.map(r => r[vf.column]).filter(v => v != null);
-        const nums = values.map(v => Number(v)).filter(n => !isNaN(n));
-        let result: number | string = 0;
-
-        switch (vf.operation) {
-          case 'sum':
-            result = nums.reduce((a, b) => a + b, 0);
-            break;
-          case 'avg':
-            result = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
-            break;
-          case 'count':
-            result = values.length;
-            break;
-          case 'min':
-            result = nums.length > 0 ? Math.min(...nums) : 0;
-            break;
-          case 'max':
-            result = nums.length > 0 ? Math.max(...nums) : 0;
-            break;
-          case 'distinct':
-            result = new Set(values.map(v => String(v))).size;
-            break;
-        }
-
-        const label = `${vf.operation.toUpperCase()} de ${humanizeColumnName(vf.column)}`;
-        pivotRow[label] = result;
-      });
-
-      pivotRows.push(pivotRow);
-    });
-
-    // 4. Construir columnDefs para la tabla pivotada
-    const pivotColumnDefs: ColDef[] = [
-      {
-        headerName: '',
-        field: '__ROW_NUMBER__',
-        width: 50, minWidth: 50, maxWidth: 50,
-        resizable: false, sortable: false, filter: false,
-        pinned: 'left', lockPinned: true,
-        cellClass: 'bi-cell-row-number',
-        headerClass: 'excel-corner-header',
-        valueGetter: (params) => params.node?.rowIndex != null ? params.node.rowIndex + 1 : '',
-      },
-    ];
-
-    // Columnas de fila
-    config.rowFields.forEach(f => {
-      pivotColumnDefs.push({
-        field: f,
-        headerName: humanizeColumnName(f),
-        pinned: 'left',
-        filter: true,
-      });
-    });
-
-    // Columnas de valores
-    config.valueFields.forEach(vf => {
-      const label = `${vf.operation.toUpperCase()} de ${humanizeColumnName(vf.column)}`;
-      pivotColumnDefs.push({
-        field: label,
-        headerName: label,
-        type: 'numericColumn',
-        valueFormatter: (p) => p.value != null
-          ? Number(p.value).toLocaleString('es-CO', { maximumFractionDigits: 2 })
-          : '',
-      });
-    });
-
-    // 5. Crear nueva hoja con los datos pivotados
-    const pivotSheetId = `sheet-pivot-${Date.now()}`;
-    const analysisCount = this.sheets().filter(s => (s.kind ?? 'view') === 'pivot').length;
-
-    // Guardar la hoja de datos actual ANTES de crear el pivot
-    // Solo si la hoja activa es de datos (no otro pivot previo)
-    const activeSheet = this.sheets().find(s => s.active);
-    if (activeSheet && (activeSheet.kind ?? 'view') === 'view' && this.pivotSourceData.length > 0) {
-      this.sheets.update(sheets => {
-        const ds = sheets.find(s => s.id === activeSheet.id);
-        if (ds) {
-          ds.rowData    = this.pivotSourceData;
-          ds.columnDefs = ds.columnDefs && ds.columnDefs.length > 0 ? ds.columnDefs : this.columnDefs;
-        }
-        return [...sheets];
-      });
-    }
-
-    // Sin limite: una tabla dinamica es un resumen agregado, no una vista mas
-    this.sheets.update(sheets => {
-      sheets.forEach(s => s.active = false);
-      sheets.push({
-        id: pivotSheetId,
-        label: `Pivot ${analysisCount + 1}`,
-        schema: '',
-        viewName: `Pivot - ${config.rowFields.join(', ')}`,
-        active: true,
-        kind: 'pivot',
-        rowData: pivotRows,
-        columnDefs: pivotColumnDefs,
-        columns: [],
-      });
-      return [...sheets];
-    });
-    this.activeFormulaSheet = '';
-
-    // 6. Aplicar al grid SOLO si la hoja pivot es la activa
-    const pivotActive = this.sheets().find(s => s.active);
-    if (pivotActive && (pivotActive.kind ?? 'view') === 'pivot') {
-      this.rawData = pivotRows;
-      this.rowData = pivotRows;
-      this.columnDefs = pivotColumnDefs;
-      this.applyColumnDefs();
-      this.columns = [];
-      this.totalRows.set(pivotRows.length);
-      this.filteredRows.set(pivotRows.length);
-      if (this.gridApi) {
-        this.gridApi.setGridOption('rowData', pivotRows);
-        setTimeout(() => this.autoSizeColumns(), 100);
-      }
-    }
-    console.log('[Pivot] Tabla dinamica generada:', pivotRows.length, 'filas,', pivotColumnDefs.length, 'columnas');
-    this.closePivotPanel();
-  }
+  // NOTA: la generacion legacy `generatePivotTable()` se elimino. Era codigo
+  // muerto (sin ningun call site) y peligroso: identificaba la hoja pivot por
+  // timestamp (`sheet-pivot-${Date.now()}`) en vez del id deterministico por
+  // hoja fuente, y guardaba usando la hoja ACTIVA en vez de currentSheetId, el
+  // mismo patron que causaba el cruce de datos entre vista y pivot. Toda la
+  // generacion vive ahora en el PivotPanelComponent -> onPivotGenerated().
 
   /**
    * Limpia la configuracion de la tabla dinamica
@@ -4094,7 +3938,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       this.pivotColumns.set(this.columnsForSheet(dataSheet));
     } else {
       this.pivotSourceData    = this.rawData.length > 0 ? this.rawData : this.rowData;
-      this.pivotSourceSheetId = activeSheet?.id ?? '';
+      // Nunca dejar pivotSourceSheetId vacio: si quedara vacio, onPivotGenerated
+      // caeria a nombrar la hoja pivot por viewName y dos hojas de la misma
+      // vista colisionarian en un mismo `sheet-pivot-...`. Se prefiere el id
+      // hidratado (currentSheetId) y solo como ultimo recurso la hoja activa.
+      this.pivotSourceSheetId = this.currentSheetId
+        || activeSheet?.id
+        || this.sheets().find(s => (s.kind ?? 'view') === 'view')?.id
+        || '';
       this.pivotColumns.set(this.columns);
     }
 
@@ -4196,6 +4047,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const pivotSheetId  = `sheet-pivot-${this.pivotSourceSheetId || sourceView}`;
     const existingPivot = this.sheets().find(s => s.id === pivotSheetId);
 
+    // Los datos en memoria pasan a ser del PIVOT desde ya. Fijarlo ANTES de
+    // tocar el signal de hojas cierra la ventana en la que `active` era el pivot
+    // pero currentSheetId seguia siendo la hoja de datos: en ese instante un
+    // guardado intermedio habria escrito el pivot sobre la vista.
+    this.currentSheetId = pivotSheetId;
+
     // Devolver a la hoja fuente sus datos originales, por si el pivot anterior
     // los habia dejado a medias. Se escribe en SU id, nunca en "la activa".
     if (this.pivotSourceSheetId && this.pivotSourceData.length > 0) {
@@ -4240,16 +4097,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       });
     }
 
-    // Solo aplicar al grid si la hoja Pivot es la activa AHORA.
-    // Si el usuario ve la hoja de datos y el pivot se auto-genera al arrastrar
-    // un campo, NO tocar la grilla. Los datos ya estan en sheet.rowData.
-    // El usuario vera los resultados al hacer clic en la pestana Pivot.
-    // Hidratar la grilla con el pivot: acabamos de marcarlo activo arriba.
-    // currentSheetId pasa a ser el del pivot, asi que si el usuario vuelve a la
-    // hoja de datos, estos resultados se guardan en la hoja del PIVOT y no
-    // encima de la vista. Ese era el cruce que mezclaba las dos.
-    this.currentSheetId = pivotSheetId;
-
+    // Hidratar la grilla con el pivot. currentSheetId ya apunta al pivot (se
+    // fijo arriba), asi que si el usuario vuelve a la hoja de datos estos
+    // resultados se guardan en la hoja del PIVOT y no encima de la vista.
     this.rawData    = result.rows;
     this.rowData    = result.rows;
     this.columnDefs = [...pivotCols];
