@@ -712,3 +712,53 @@ export function isNumericField(field: string, cols: PivotColumnMeta[]): boolean 
   const meta = cols.find(c => c.name === field);
   return !!meta && /int|decimal|numeric|float|double|money|real/i.test(meta.type ?? '');
 }
+
+// ── Exportacion de la tabla dinamica ─────────────────────────────────────────
+
+/**
+ * Convierte el resultado de un pivot a CSV listo para abrir en Excel.
+ *
+ * Se hace aparte del `exportDataAsCsv` de AG Grid a proposito:
+ *  - AG Grid exportaba tambien las columnas tecnicas (__PIVOT_KIND__,
+ *    __PIVOT_LEVEL__), que no deben salir.
+ *  - No respetaba el formato: los porcentajes salian como el numero crudo y los
+ *    subtotales sin su etiqueta.
+ *
+ * El CSV usa `;` como separador (Excel en español lo abre en columnas) y numeros
+ * con coma decimal, coherente con el resto del visor.
+ */
+export function pivotResultToCsv(result: PivotResult): string {
+  const cols = result.columns.filter(c => !PIVOT_META_FIELDS.includes(c.field));
+
+  // Que medidas van en porcentaje, para anadir el "%" en la celda
+  const pctLabels = new Set(
+    result.config.valueFields
+      .filter(v => v.showAs && v.showAs !== 'value')
+      .map(v => measureLabel(v)),
+  );
+  const esPct = (field: string) =>
+    pctLabels.size > 0 && [...pctLabels].some(l => field === l || field.endsWith(`· ${l}`));
+
+  const esc = (s: string) => /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+
+  const fmt = (field: string, type: string | undefined, value: unknown): string => {
+    if (value === null || value === undefined || value === '') return '';
+    if (type === 'numericColumn') {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return String(value);
+      const txt = n.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+      return esPct(field) ? `${txt} %` : txt;
+    }
+    return String(value);
+  };
+
+  const lineas: string[] = [];
+  lineas.push(cols.map(c => esc(c.headerName)).join(';'));
+
+  for (const row of result.rows) {
+    lineas.push(cols.map(c => esc(fmt(c.field, c.type, row[c.field]))).join(';'));
+  }
+
+  // BOM para que Excel respete los acentos al abrir el CSV.
+  return '\uFEFF' + lineas.join('\r\n');
+}

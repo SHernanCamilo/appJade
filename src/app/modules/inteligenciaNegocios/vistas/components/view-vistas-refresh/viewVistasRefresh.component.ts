@@ -60,6 +60,7 @@ import {
   isPivotConfigUsable,
   measureLabel,
   distinctFieldValues,
+  pivotResultToCsv,
   PIVOT_KIND_FIELD,
   PIVOT_META_FIELDS,
   type PivotConfig,
@@ -456,7 +457,7 @@ readonly progress = signal<RefreshProgress>({
   private elapsedTimer: ReturnType<typeof setInterval> | null = null;
   private startTime = 0;
   private keyboardHandler?: (event: KeyboardEvent) => void;
-  private clickHandler?: () => void;
+  private clickHandler?: (e: Event) => void;
 
   // Datos en memoria --------------------
 
@@ -972,8 +973,17 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.keyboardHandler = this.handleKeyboardShortcut.bind(this);
     document.addEventListener('keydown', this.keyboardHandler);
     
-    // Cerrar context menu al hacer clic en cualquier parte
-    this.clickHandler = () => this.closeContextMenu();
+    // Clic fuera: cerrar el menu contextual y el desplegable de filtro de informe
+    this.clickHandler = (e: Event) => {
+      this.closeContextMenu();
+
+      // El desplegable de filtro de informe (barra de la tabla dinamica) se
+      // cierra al hacer clic fuera de la barra, como cualquier dropdown.
+      if (this.openReportFilter()) {
+        const t = e.target as HTMLElement | null;
+        if (!t?.closest('.vr-report-filters')) this.openReportFilter.set('');
+      }
+    };
     document.addEventListener('click', this.clickHandler);
   }
 
@@ -1171,8 +1181,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const activeSheet = this.sheets().find(s => s.id === this.currentSheetId)
       ?? this.sheets().find(s => s.active);
 
-    // Los pivots y hojas de calculo no tienen export de servidor: se bajan como
-    // CSV desde la grilla (son resumenes chicos, no vale la pena un job).
+    // ── Tabla dinamica: CSV limpio desde su receta ──────────────────────────
+    //
+    // Se recalcula el pivot y se serializa con pivotResultToCsv, que respeta las
+    // etiquetas de subtotal/total y el formato de %. Antes se usaba
+    // exportDataAsCsv de AG Grid, que sacaba las columnas tecnicas
+    // (__PIVOT_KIND__, __PIVOT_LEVEL__) y los porcentajes como numero crudo.
+    if (activeSheet && (activeSheet.kind ?? 'view') === 'pivot') {
+      this.exportPivotToCsv(activeSheet.id, activeSheet.label);
+      return;
+    }
+
+    // Hojas de calculo: CSV directo de la grilla (no hay pivot que recalcular).
     if (activeSheet && (activeSheet.kind ?? 'view') !== 'view') {
       this.gridApi?.exportDataAsCsv?.({ fileName: `${activeSheet.label}_${this.today()}.csv` });
       return;
@@ -4526,6 +4546,36 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return active.id.replace(/^sheet-pivot-/, '');
     }
     return this.pivotSourceSheetId;
+  }
+
+  /**
+   * Exporta una tabla dinamica a CSV (Excel lo abre en columnas).
+   *
+   * Se recalcula desde su receta para que el archivo coincida EXACTAMENTE con lo
+   * que se ve: subtotales, total general y porcentajes incluidos.
+   */
+  private exportPivotToCsv(pivotSheetId: string, label: string): void {
+    const def = this.pivotDefs.get(pivotSheetId);
+    const source = def ? this.sheets().find(s => s.id === def.sourceSheetId) : undefined;
+
+    if (!def || !source?.rowData || source.rowData.length === 0) {
+      // Sin receta o sin datos de origen: respaldo con lo que haya en la grilla.
+      this.gridApi?.exportDataAsCsv?.({ fileName: `${label}_${this.today()}.csv` });
+      return;
+    }
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const result = computePivot(source.rowData, def.config, cols);
+    if (!result) {
+      this.gridApi?.exportDataAsCsv?.({ fileName: `${label}_${this.today()}.csv` });
+      return;
+    }
+
+    const csv = pivotResultToCsv(result);
+    const nombre = `${label.replace(/[^\w\- ]+/g, '').trim() || 'pivot'}_${this.today()}.csv`;
+    this.saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), nombre);
+
+    this.progress.update(p => ({ ...p, message: `Tabla dinamica exportada (${result.rows.length} filas)` }));
   }
 
   /** Recalcula y repinta un pivot desde su receta (tras cambiar un filtro) */
