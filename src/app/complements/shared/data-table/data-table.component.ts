@@ -13,7 +13,7 @@ import {
 import { CommonModule, DatePipe, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PrimeTemplate } from 'primeng/api';
-import { Table, TableModule } from 'primeng/table';
+import { Table, TableLazyLoadEvent, TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
@@ -45,6 +45,11 @@ export class DataTableComponent implements AfterContentInit {
   @Input() paginator = true;
   @Input() rows = 10;
   @Input() rowsPerPageOptions: number[] = [10, 25, 50];
+  @Input() lazy = false;
+  @Input() lazyLoadOnInit = true;
+  @Input() totalRecords = 0;
+  @Input() first = 0;
+  @Output() onLazyLoad = new EventEmitter<TableLazyLoadEvent>();
   @Input() dataKey?: string;
   @Input() styleClass = '';
   @Input() showCaption = true;

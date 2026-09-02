@@ -60,6 +60,12 @@ export class GlpiPlantillaService {
     return this.http.delete<ApiResponse<null>>(`${this.apiUrl}/${id}`).pipe(map(() => undefined));
   }
 
+  duplicar(id: number): Observable<GlpiPlantilla> {
+    return this.http
+      .post<ApiResponse<GlpiPlantilla>>(`${this.apiUrl}/${id}/duplicar`, {})
+      .pipe(map((response) => response.data));
+  }
+
   toggleEstado(id: number): Observable<GlpiPlantilla> {
     return this.http
       .patch<ApiResponse<GlpiPlantilla>>(`${this.apiUrl}/${id}/toggle-estado`, {})

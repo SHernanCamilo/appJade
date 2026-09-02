@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Subject, debounceTime, distinctUntilChanged, forkJoin, of, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, forkJoin, of, switchMap, takeUntil } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { EventSolicitudService, EventSolicitud, CreateEventSolicitudRequest, UnidadFuncionalOption, FlujoPreview, EmpleadoOption, MotivoRechazoOption, formatEmpleadoLabel, formatUnidadFuncionalLabel, formatMotivoRechazoLabel } from '../services/event-solicitud.service';
 import { ContextoService, Empresa } from '../../../../core/services/contexto.service';
@@ -26,6 +26,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { SkeletonModule } from 'primeng/skeleton';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { MessageService, ConfirmationService } from 'primeng/api';
+import { TableLazyLoadEvent } from 'primeng/table';
 
 interface BandejaPasoPendiente {
   paso: string;
@@ -55,6 +56,10 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   novedades: EventSolicitud[] = [];
   novedadesFiltradas: EventSolicitud[] = [];
+  solicitudTotal = 0;
+  solicitudPage = 1;
+  solicitudPerPage = 10;
+  solicitudFirst = 0;
   solicitudColumns: TableColumn[] = [];
   bandejaColumns: TableColumn[] = [];
   gestionadosColumns: TableColumn[] = [];
@@ -88,6 +93,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   private busquedaEmpleado$ = new Subject<string>();
   private busquedaEmpleadoCubre$ = new Subject<string>();
   private busquedaUnidad$ = new Subject<string>();
+  private solapamientoCheck$ = new Subject<void>();
   private destroy$ = new Subject<void>();
   isLoading = false;
   isSubmitting = false;
@@ -109,7 +115,9 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   currentId?: number;
   submitted = false;
   fechaInicialInvalida = false;
+  isLoadingEdicion = false;
   private hidratandoEdicion = false;
+  private edicionRequestId = 0;
   mensajesSolapamiento: string[] = [];
 
   formData: {
@@ -150,7 +158,8 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         this.isSearchingEmpleados = true;
         const empresaId = this.formData.empresa_id ?? this.empresaSeleccionada;
         return this.solicitudService.getEmpleadosMiUnidad(empresaId, term, 1, this.PAGE_SIZE);
-      })
+      }),
+      takeUntil(this.destroy$)
     ).subscribe({
       next: (data) => {
         this.hayMasEmpleados = data.length === this.PAGE_SIZE;
@@ -170,7 +179,8 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         this.isSearchingEmpleadosCubre = true;
         const empresaId = this.formData.empresa_id ?? this.empresaSeleccionada;
         return this.solicitudService.getEmpleados(empresaId, term, 1, this.PAGE_SIZE);
-      })
+      }),
+      takeUntil(this.destroy$)
     ).subscribe({
       next: (data) => {
         this.hayMasEmpleadosCubre = data.length === this.PAGE_SIZE;
@@ -190,7 +200,8 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         this.isSearchingUnidades = true;
         const empresaId = this.formData.empresa_id ?? this.empresaSeleccionada;
         return this.solicitudService.getUnidadesFuncionales(empresaId, term, 1, this.PAGE_SIZE);
-      })
+      }),
+      takeUntil(this.destroy$)
     ).subscribe({
       next: (data) => {
         this.hayMasUnidades = data.length === this.PAGE_SIZE;
@@ -198,6 +209,14 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
         this.isSearchingUnidades = false;
       },
       error: () => { this.unidadFuncionalOptions = []; this.isSearchingUnidades = false; }
+    });
+
+    this.solapamientoCheck$.pipe(
+      debounceTime(400),
+      takeUntil(this.destroy$),
+      switchMap(() => this.consultarSolapamientos$())
+    ).subscribe(mensajes => {
+      this.mensajesSolapamiento = mensajes;
     });
   }
 
@@ -268,6 +287,28 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     this.rechazoComentario = '';
   }
 
+  get rechazoMasivo(): boolean {
+    return this.rechazoTargets.length > 0;
+  }
+
+  get eventosARechazar(): EventSolicitud[] {
+    return this.rechazoMasivo
+      ? this.rechazoTargets
+      : (this.rechazoTarget ? [this.rechazoTarget] : []);
+  }
+
+  get consecutivosRechazo(): string {
+    return this.eventosARechazar.map(e => e.consecutivo).join(', ');
+  }
+
+  cerrarDialogoRechazo(): void {
+    this.showRechazoDialog = false;
+    this.rechazoTarget = undefined;
+    this.rechazoTargets = [];
+    this.rechazoPasoMasivo = null;
+    this.resetFormularioRechazo();
+  }
+
   private puedeConfirmarRechazo(): boolean {
     return !!this.rechazoMotivoId;
   }
@@ -284,6 +325,8 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   rechazoMotivoId: number | null = null;
   rechazoComentario = '';
   rechazoTarget?: EventSolicitud;
+  rechazoTargets: EventSolicitud[] = [];
+  rechazoPasoMasivo: string | null = null;
   motivosRechazoOptions: { label: string; value: number }[] = [];
   isLoadingMotivosRechazo = false;
   isProcesando = false;
@@ -729,28 +772,94 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   abrirRechazo(evento: EventSolicitud): void {
     this.rechazoTarget = evento;
+    this.rechazoTargets = [];
+    this.rechazoPasoMasivo = null;
+    this.resetFormularioRechazo();
+    this.loadMotivosRechazo();
+    this.showRechazoDialog = true;
+  }
+
+  abrirRechazoSeleccionados(paso: string): void {
+    const seleccionados = [...(this.seleccionPorPaso[paso] || [])];
+    if (seleccionados.length === 0 || this.isProcesandoMasivo) return;
+
+    this.rechazoTarget = undefined;
+    this.rechazoTargets = seleccionados;
+    this.rechazoPasoMasivo = paso;
     this.resetFormularioRechazo();
     this.loadMotivosRechazo();
     this.showRechazoDialog = true;
   }
 
   confirmarRechazo(): void {
-    if (!this.rechazoTarget || !this.puedeConfirmarRechazo()) return;
-    this.isProcesando = true;
-    this.solicitudService.rechazarEvento(this.rechazoTarget.id, {
+    const eventos = this.eventosARechazar;
+    if (!eventos.length || !this.puedeConfirmarRechazo()) return;
+
+    const payload = {
       id_motivo_rechazo: this.rechazoMotivoId!,
       comentario: this.rechazoComentario.trim() || undefined
-    }).subscribe({
-      next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento rechazado' });
-        this.showRechazoDialog = false;
-        this.isProcesando = false;
+    };
+
+    if (eventos.length === 1 && !this.rechazoMasivo) {
+      this.isProcesando = true;
+      this.solicitudService.rechazarEvento(eventos[0].id, payload).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento rechazado' });
+          this.cerrarDialogoRechazo();
+          this.isProcesando = false;
+          this.loadPendientes();
+          this.loadNovedades();
+        },
+        error: (err) => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al rechazar' });
+          this.isProcesando = false;
+        }
+      });
+      return;
+    }
+
+    const paso = this.rechazoPasoMasivo;
+    this.isProcesandoMasivo = true;
+    forkJoin(
+      eventos.map(evento =>
+        this.solicitudService.rechazarEvento(evento.id, payload).pipe(
+          map(() => ({ ok: true as const, evento })),
+          catchError(err => of({
+            ok: false as const,
+            evento,
+            message: err.error?.message || 'Error al rechazar'
+          }))
+        )
+      )
+    ).subscribe({
+      next: (results) => {
+        const exitosos = results.filter(r => r.ok).length;
+        const fallidos = results.filter(r => !r.ok);
+
+        if (exitosos > 0) {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: exitosos === 1 ? '1 evento rechazado' : `${exitosos} eventos rechazados`
+          });
+        }
+        if (fallidos.length > 0) {
+          this.messageService.add({
+            severity: fallidos.length === eventos.length ? 'error' : 'warn',
+            summary: 'Algunos eventos no se rechazaron',
+            detail: fallidos.map(f => `${f.evento.consecutivo}: ${f.message}`).join('; ')
+          });
+        }
+
+        if (paso) this.seleccionPorPaso[paso] = [];
+        this.cerrarDialogoRechazo();
+        this.isProcesandoMasivo = false;
         this.loadPendientes();
         this.loadNovedades();
       },
-      error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Error al rechazar' });
-        this.isProcesando = false;
+      error: () => {
+        this.isProcesandoMasivo = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Error al rechazar la selección' });
       }
     });
   }
@@ -946,24 +1055,18 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   }
 
   loadEmpresasDisponibles(): void {
-    console.log('=== Cargando empresas disponibles ===');
     this.contextoService.obtenerEmpresasDisponibles().subscribe({
       next: (empresas: Empresa[]) => {
-        console.log('Empresas obtenidas:', empresas.length, empresas);
-        
         if (empresas.length === 0) {
-          console.log('Usuario transversal - sin empresas asignadas');
           this.esTransversal = true;
           this.http.get<{ success: boolean; data: { nombre: string; id: number }[] }>(
             `${environment.URL_SERVICIOS}/empresas-activas`
           ).subscribe({
             next: (r) => {
-              console.log('Empresas activas obtenidas:', r.data?.length || 0);
               this.empresaOptions = (r.data || []).map(e => ({ label: e.nombre, value: e.id }));
             }
           });
         } else if (empresas.length === 1) {
-          console.log('Usuario con una sola empresa:', empresas[0]);
           this.esTransversal = false;
           this.empresaSeleccionada = empresas[0].id;
           this.formData.empresa_id = empresas[0].id;
@@ -971,15 +1074,13 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
           this.loadUnidadesFuncionales(empresas[0].id);
           this.loadNovedadesCatalogo(empresas[0].id);
         } else {
-          console.log('Usuario transversal - múltiples empresas');
           this.esTransversal = true;
           this.empresaOptions = empresas.map(e => ({ label: e.nombre, value: e.id }));
         }
       },
-      error: (err) => { 
-        console.error('Error cargando empresas:', err);
-        this.esTransversal = false; 
-        this.loadEmpleados(); 
+      error: () => {
+        this.esTransversal = false;
+        this.loadEmpleados();
       }
     });
   }
@@ -1053,55 +1154,27 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   loadNovedadesCatalogo(empresaId?: number | null): void {
     this.sinNovedadesEmpresa = false;
-    
+
     this.solicitudService.getNovedadesCatalogo(empresaId).subscribe({
       next: (data) => {
-        console.log('=== COMPONENTE - Datos recibidos del servicio ===');
-        console.log('Empresa ID:', empresaId);
-        console.log('Total opciones:', data.length);
-        
         if (data.length === 0) {
-          console.log('No hay novedades para esta empresa');
           this.novedadOptions = [];
           this.sinNovedadesEmpresa = true;
           return;
         }
-        
+
         this.sinNovedadesEmpresa = false;
-        console.log('Primeras 3 opciones:', data.slice(0, 3));
-        
-        // Buscar novedad id:5
-        const nov5 = data.find((n: any) => n.value === 5);
-        console.log('Componente - Novedad id:5 recibida:', nov5);
-        
-        // Mapear manualmente para asegurar que cubre esté presente
-        this.novedadOptions = data.map((n: any) => {
-          const option = {
-            label: n.label,
-            value: n.value,
-            cubre: n.cubre ?? false
-          };
-          
-          // Log para novedades con cubre
-          if (n.value === 5 || n.value === 6 || n.value === 15) {
-            console.log(`Componente - Procesando opción ${n.value}:`, {
-              cubreRecibido: n.cubre,
-              cubreAsignado: option.cubre
-            });
-          }
-          
-          return option;
-        });
-        
-        console.log('Componente - Novedades finales (primeras 3):', this.novedadOptions.slice(0, 3));
-        console.log('Componente - Novedad id:5 final:', this.novedadOptions.find((n: any) => n.value === 5));
+        this.novedadOptions = data.map((n: any) => ({
+          label: n.label,
+          value: n.value,
+          cubre: n.cubre ?? false
+        }));
 
         if (this.editMode && this.formData.novedad_id) {
           this.onNovedadChange({ value: this.formData.novedad_id });
         }
       },
-      error: () => { 
-        console.log('Error cargando novedades');
+      error: () => {
         this.novedadOptions = [];
         this.sinNovedadesEmpresa = true;
       }
@@ -1110,33 +1183,40 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   loadNovedades(): void {
     this.isLoading = true;
-    this.solicitudService.getSolicitudes(this.selectedEstado ? String(this.selectedEstado) : undefined).subscribe({
+    this.solicitudService.getSolicitudes({
+      estado: this.selectedEstado,
+      search: this.searchTerm.trim() || undefined,
+      page: this.solicitudPage,
+      per_page: this.solicitudPerPage
+    }).subscribe({
       next: (res) => {
-        console.log('=== Datos de solicitudes recibidos ===');
-        console.log('Primera solicitud:', res.data?.[0]);
         this.novedades = res.data || [];
-        this.aplicarFiltros();
+        this.novedadesFiltradas = this.novedades;
+        this.solicitudTotal = res.total ?? this.novedades.length;
         this.isLoading = false;
       },
-      error: () => { this.novedades = []; this.novedadesFiltradas = []; this.isLoading = false; }
+      error: () => {
+        this.novedades = [];
+        this.novedadesFiltradas = [];
+        this.solicitudTotal = 0;
+        this.isLoading = false;
+      }
     });
   }
 
+  onSolicitudesLazyLoad(event: TableLazyLoadEvent): void {
+    const rows = event.rows ?? this.solicitudPerPage;
+    const first = event.first ?? 0;
+    this.solicitudPerPage = rows;
+    this.solicitudFirst = first;
+    this.solicitudPage = Math.floor(first / rows) + 1;
+    this.loadNovedades();
+  }
+
   aplicarFiltros(): void {
-    let result = [...this.novedades];
-    if (this.selectedEstado) {
-      result = result.filter(n => this.getEstadoCodigo(n.estado) === this.selectedEstado);
-    }
-    if (this.searchTerm.trim()) {
-      const term = this.searchTerm.toLowerCase();
-      result = result.filter(n => {
-        const empleadoNombre = typeof n.empleado === 'object' ? n.empleado?.nombre : n.empleado;
-        return empleadoNombre?.toLowerCase().includes(term) ||
-               n.consecutivo?.toLowerCase().includes(term) ||
-               (n.unidad_funcional ? String(n.unidad_funcional).toLowerCase().includes(term) : false);
-      });
-    }
-    this.novedadesFiltradas = result;
+    this.solicitudPage = 1;
+    this.solicitudFirst = 0;
+    this.loadNovedades();
   }
 
   limpiarFiltros(): void {
@@ -1146,43 +1226,77 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   }
 
   abrirFormulario(): void {
-    console.log('=== Abriendo formulario ===');
-    console.log('Es transversal:', this.esTransversal);
-    console.log('Empresa seleccionada:', this.empresaSeleccionada);
-    console.log('Opciones de novedad disponibles:', this.novedadOptions.length);
-    
+    this.edicionRequestId++;
     this.editMode = false;
     this.currentId = undefined;
     this.submitted = false;
+    this.isLoadingEdicion = false;
+    this.hidratandoEdicion = false;
+    this.sinNovedadesEmpresa = false;
+    this.resetCamposFormulario();
+
+    if (this.esTransversal) {
+      this.novedadOptions = [];
+    }
+
+    this.showFormDialog = true;
+  }
+
+  editarNovedad(novedad: EventSolicitud): void {
+    const requestId = ++this.edicionRequestId;
+    this.editMode = true;
+    this.currentId = novedad.id;
+    this.submitted = false;
+    this.sinNovedadesEmpresa = false;
+    this.resetCamposFormulario();
+    this.hidratandoEdicion = true;
+    this.isLoadingEdicion = true;
+    this.showFormDialog = true;
+
+    this.solicitudService.getSolicitudById(novedad.id).subscribe({
+      next: (detalle) => {
+        if (requestId !== this.edicionRequestId) return;
+        this.hidratarFormularioEdicion(detalle);
+        this.isLoadingEdicion = false;
+      },
+      error: () => {
+        if (requestId !== this.edicionRequestId) return;
+        this.isLoadingEdicion = false;
+        this.hidratandoEdicion = false;
+        this.showFormDialog = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo cargar la solicitud para editar'
+        });
+      }
+    });
+  }
+
+  cerrarFormulario(): void {
+    this.edicionRequestId++;
+    this.showFormDialog = false;
+    this.editMode = false;
+    this.currentId = undefined;
+    this.submitted = false;
+    this.isLoadingEdicion = false;
+    this.hidratandoEdicion = false;
+    this.resetCamposFormulario();
+  }
+
+  private resetCamposFormulario(): void {
     this.fechaInicialInvalida = false;
     this.mensajesSolapamiento = [];
     this.mostrarEmpleadoCubre = false;
     this.flujoPreview = null;
     this.formData = this.emptyForm();
-    
-    // Si no es transversal y hay empresa seleccionada, mantener la empresa en el formulario
+
     if (!this.esTransversal && this.empresaSeleccionada) {
       this.formData.empresa_id = this.empresaSeleccionada;
-      console.log('Formulario iniciado con empresa:', this.empresaSeleccionada);
-    } else {
-      // Limpiar novedades hasta que se seleccione empresa
-      this.novedadOptions = [];
-      console.log('Formulario iniciado sin empresa - novedades limpiadas');
     }
-    
-    this.showFormDialog = true;
   }
 
-  editarNovedad(novedad: EventSolicitud): void {
-    this.editMode = true;
-    this.currentId = novedad.id;
-    this.submitted = false;
-    this.fechaInicialInvalida = false;
-    this.mensajesSolapamiento = [];
-    this.flujoPreview = null;
-    this.sinNovedadesEmpresa = false;
-    this.hidratandoEdicion = true;
-
+  private hidratarFormularioEdicion(novedad: EventSolicitud): void {
     const empleadoId = this.resolverEmpleadoId(novedad);
     const novedadId = this.resolverNovedadCatalogoId(novedad);
     const unidadId = this.toId(novedad.id_unidad_funcional);
@@ -1301,86 +1415,49 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   }
 
   private validarSolapamiento(): void {
-    this.mensajesSolapamiento = [];
+    this.solapamientoCheck$.next();
+  }
+
+  private consultarSolapamientos$() {
     const ini = this.formData.fecha_inicial;
     const fin = this.formData.fecha_final;
 
     if (!ini || !fin || this.fechaInicialInvalida || isNaN(ini.getTime()) || isNaN(fin.getTime())) {
-      return;
+      return of([] as string[]);
     }
-    if (!this.tieneEmpleadosSeleccionados()) return;
+    if (!this.tieneEmpleadosSeleccionados()) {
+      return of([] as string[]);
+    }
 
     const idsAValidar = this.editMode
       ? (this.formData.empleado_id != null ? [this.formData.empleado_id] : [])
       : this.formData.empleado_ids;
 
-    for (const empId of idsAValidar) {
-      const conflicto = this.buscarSolapamiento(empId, ini, fin);
-      if (conflicto) {
-        this.mensajesSolapamiento.push(
-          `${this.nombreEmpleadoPorId(empId)} ya tiene el evento ${conflicto.consecutivo} (${this.formatearFecha(conflicto.fecha_nov_ini)} – ${this.formatearFecha(conflicto.fecha_nov_fin)}) que se cruza con el rango seleccionado.`
-        );
-      }
+    if (!idsAValidar.length) {
+      return of([] as string[]);
     }
-  }
 
-  /** Convierte una fecha de la BD ("YYYY-MM-DD HH:mm:ss") o ISO a timestamp local. */
-  private parsearFechaMs(valor: any): number {
-    if (!valor) return NaN;
-    if (valor instanceof Date) return valor.getTime();
-    const texto = String(valor);
-    const date = new Date(texto.includes(' ') ? texto.replace(' ', 'T') : texto);
-    return date.getTime();
-  }
+    const fechaInicial = this.formatearFechaParaAPI(ini);
+    const fechaFinal = this.formatearFechaParaAPI(fin);
 
-  /** Normaliza un nombre (acepta string u objeto {nombre}) para comparar. */
-  private nombreNormalizado(valor: any): string {
-    if (!valor) return '';
-    const nombre = typeof valor === 'object' ? (valor.nombre || '') : String(valor);
-    return nombre.trim().toUpperCase();
-  }
+    const requests = idsAValidar.map(empId =>
+      this.solicitudService.verificarSolapamiento({
+        empleado_id: empId,
+        fecha_inicial: fechaInicial,
+        fecha_final: fechaFinal,
+        excluir_id: this.editMode ? this.currentId : undefined
+      }).pipe(
+        map(conflicto => conflicto
+          ? `${this.nombreEmpleadoPorId(empId)} ya tiene el evento ${conflicto.consecutivo} (${this.formatearFecha(conflicto.fecha_nov_ini)} – ${this.formatearFecha(conflicto.fecha_nov_fin)}) que se cruza con el rango seleccionado.`
+          : null
+        ),
+        catchError(() => of(null))
+      )
+    );
 
-  /** Nombre del empleado seleccionado en el formulario (extrae de "doc - NOMBRE"). */
-  private nombreEmpleadoFormPorId(id: number): string {
-    const opt = this.empleadoOptions.find(o => Number(o.value) === Number(id));
-    if (!opt?.label) return '';
-    const idx = opt.label.indexOf(' - ');
-    return (idx >= 0 ? opt.label.substring(idx + 3) : opt.label).trim().toUpperCase();
-  }
-
-  /**
-   * Busca un evento ya registrado del mismo empleado cuyo rango de fechas
-   * se cruce con [ini, fin]. Ignora eventos Rechazados/Anulados y, en edición,
-   * el propio evento. Validación rápida en cliente (usa las novedades ya cargadas).
-   * Compara por empleado_id y, como respaldo, por nombre (el id puede no venir en el listado).
-   */
-  private buscarSolapamiento(empleadoId: number, ini: Date, fin: Date): EventSolicitud | null {
-    const iniMs = ini.getTime();
-    const finMs = fin.getTime();
-    if (isNaN(iniMs) || isNaN(finMs)) return null;
-
-    const nombreObjetivo = this.nombreEmpleadoFormPorId(empleadoId);
-
-    for (const nov of this.novedades) {
-      if (this.editMode && this.currentId && nov.id === this.currentId) continue;
-
-      const mismoPorId = nov.empleado_id != null && Number(nov.empleado_id) === Number(empleadoId);
-      const mismoPorNombre = !!nombreObjetivo && this.nombreNormalizado(nov.empleado) === nombreObjetivo;
-      if (!mismoPorId && !mismoPorNombre) continue;
-
-      const codigo = this.getEstadoCodigo(nov.estado);
-      if (codigo === 4 || codigo === 6) continue; // Rechazado / Anulado no bloquean
-
-      const eIni = this.parsearFechaMs(nov.fecha_nov_ini);
-      const eFin = this.parsearFechaMs(nov.fecha_nov_fin);
-      if (isNaN(eIni) || isNaN(eFin)) continue;
-
-      // Cruce de rangos (extremos que solo se tocan no se consideran cruce)
-      if (iniMs < eFin && eIni < finMs) {
-        return nov;
-      }
-    }
-    return null;
+    return forkJoin(requests).pipe(
+      map(msgs => msgs.filter((m): m is string => !!m))
+    );
   }
 
   private nombreEmpleadoPorId(id: number): string {
@@ -1433,27 +1510,15 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   }
 
   onNovedadChange(event?: any): void {
-    // Obtener el ID desde el evento o desde el modelo
     const id = event?.value ?? this.formData.novedad_id;
-    
-    console.log('=== onNovedadChange disparado ===');
-    console.log('ID recibido:', id);
-    console.log('Todas las opciones:', this.novedadOptions);
-    
     const novedad = this.novedadOptions.find((n: any) => Number(n.value) === Number(id));
-    
-    console.log('Novedad encontrada:', novedad);
-    
+
     if (novedad) {
-      console.log('Valor de cubre:', novedad.cubre, 'Tipo:', typeof novedad.cubre);
-      // cubre puede venir como boolean true, número 1, o string "1"
       this.mostrarEmpleadoCubre = !!(novedad.cubre === true || novedad.cubre == 1 || novedad.cubre === '1');
     } else {
       this.mostrarEmpleadoCubre = false;
     }
-    
-    console.log('Mostrar campo cubre:', this.mostrarEmpleadoCubre);
-    
+
     if (!this.mostrarEmpleadoCubre) {
       this.formData.empleado_cubre_id = null;
     }
@@ -1464,8 +1529,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
   onSubmit(): void {
     this.submitted = true;
     this.validarFechas();
-    
-    // Validaciones básicas
+
     if (!this.tieneEmpleadosSeleccionados() || !this.formData.fecha_inicial || !this.formData.fecha_final) return;
 
     if (this.fechaInicialInvalida) {
@@ -1477,32 +1541,15 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.validarSolapamiento();
-    if (this.mensajesSolapamiento.length > 0) {
+    if (!this.formData.unidad_funcional_id) return;
+    if (!this.sinNovedadesEmpresa && !this.formData.novedad_id) return;
+    if (this.novedadSeleccionadaCubre && !this.formData.empleado_cubre_id) return;
+
+    if (this.sinNovedadesEmpresa) {
       this.messageService.add({
         severity: 'warn',
-        summary: 'Rango no disponible',
-        detail: this.mensajesSolapamiento[0],
-        life: 6000
-      });
-      return;
-    }
-    
-    // Unidad funcional obligatoria: lugar donde se realiza el evento y de donde toma el flujo.
-    if (!this.formData.unidad_funcional_id) return;
-
-    // Validar que hay novedad seleccionada (solo si no es empresa sin novedades)
-    if (!this.sinNovedadesEmpresa && !this.formData.novedad_id) return;
-    
-    // Validar empleado que cubre (solo si la novedad lo requiere)
-    if (this.novedadSeleccionadaCubre && !this.formData.empleado_cubre_id) return;
-    
-    // Si la empresa no tiene novedades, mostrar mensaje y no enviar
-    if (this.sinNovedadesEmpresa) {
-      this.messageService.add({ 
-        severity: 'warn', 
-        summary: 'Advertencia', 
-        detail: 'No se puede crear la solicitud. La empresa seleccionada no tiene parámetros de novedades configurados.' 
+        summary: 'Advertencia',
+        detail: 'No se puede crear la solicitud. La empresa seleccionada no tiene parámetros de novedades configurados.'
       });
       return;
     }
@@ -1517,17 +1564,26 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
     }
 
     this.isSubmitting = true;
-    
-    console.log('=== Enviando solicitud ===');
-    console.log('Fecha inicial seleccionada:', this.formData.fecha_inicial);
-    console.log('Fecha final seleccionada:', this.formData.fecha_final);
-    
+    this.consultarSolapamientos$().subscribe(msgs => {
+      this.mensajesSolapamiento = msgs;
+      if (msgs.length > 0) {
+        this.isSubmitting = false;
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Rango no disponible',
+          detail: msgs[0],
+          life: 6000
+        });
+        return;
+      }
+      this.enviarSolicitud();
+    });
+  }
+
+  private enviarSolicitud(): void {
     const fechaInicialFormateada = this.formatearFechaParaAPI(this.formData.fecha_inicial!);
     const fechaFinalFormateada = this.formatearFechaParaAPI(this.formData.fecha_final!);
-    
-    console.log('Fecha inicial formateada:', fechaInicialFormateada);
-    console.log('Fecha final formateada:', fechaFinalFormateada);
-    
+
     const payloadBase: Omit<CreateEventSolicitudRequest, 'empleado_id'> = {
       unidad_funcional_id: this.formData.unidad_funcional_id ?? undefined,
       novedad_id:        this.formData.novedad_id ?? undefined,
@@ -1546,7 +1602,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
       this.solicitudService.updateSolicitud(this.currentId, payload).subscribe({
         next: () => {
           this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Solicitud actualizada' });
-          this.showFormDialog = false;
+          this.cerrarFormulario();
           this.isSubmitting = false;
           this.loadNovedades();
         },
@@ -1592,7 +1648,7 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
             summary: fallidas > 0 ? 'Parcial' : 'Éxito',
             detail
           });
-          this.showFormDialog = false;
+          this.cerrarFormulario();
           this.loadNovedades();
         } else {
           const primerError = results.find(r => !r.ok);
@@ -1706,53 +1762,31 @@ export class DashboardEventosComponent implements OnInit, OnDestroy {
 
   formatearFecha(fecha: any): string {
     if (!fecha) return '—';
-    
-    console.log('Formateando fecha:', fecha, 'Tipo:', typeof fecha);
-    
+
     try {
       let date: Date;
-      
-      // Si ya es un objeto Date
+
       if (fecha instanceof Date) {
         date = fecha;
-      }
-      // Si es string, convertir a Date
-      else if (typeof fecha === 'string') {
-        // Para fechas en formato "YYYY-MM-DD HH:mm:ss" de la BD
-        if (fecha.includes(' ')) {
-          // Reemplazar espacio por T para formato ISO
-          date = new Date(fecha.replace(' ', 'T'));
-        } else {
-          // Formato ISO estándar
-          date = new Date(fecha);
-        }
-      }
-      else {
-        console.warn('Tipo de fecha no reconocido:', fecha);
+      } else if (typeof fecha === 'string') {
+        date = new Date(fecha.includes(' ') ? fecha.replace(' ', 'T') : fecha);
+      } else {
         return fecha.toString();
       }
-      
-      // Verificar que la fecha es válida
+
       if (isNaN(date.getTime())) {
-        console.warn('Fecha inválida:', fecha);
         return fecha.toString();
       }
-      
-      // Formatear en español (Colombia)
-      const resultado = date.toLocaleDateString('es-CO', {
+
+      return date.toLocaleDateString('es-CO', {
         day: '2-digit',
-        month: '2-digit', 
+        month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
       });
-      
-      console.log('Fecha formateada:', resultado);
-      return resultado;
-      
-    } catch (error) {
-      console.error('Error formateando fecha:', fecha, error);
+    } catch {
       return fecha.toString();
     }
   }

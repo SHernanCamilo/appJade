@@ -71,7 +71,7 @@
               <td><p-tag [value]="getEstadoLabel(s.estado)" [severity]="getSeverity(s.estado)"></p-tag></td>
               <td>
                 <div class="action-buttons">
-                  <button class="btn-action-icon btn-action-primary" pTooltip="Ver detalles"><i class="pi pi-eye"></i></button>
+                  <button class="btn-action-icon btn-action-primary" [routerLink]="['/financiera/anticipos/solicitudes', s.id]" pTooltip="Ver detalles"><i class="pi pi-eye"></i></button>
                 </div>
               </td>
             </tr>

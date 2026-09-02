@@ -31,19 +31,19 @@ function vistasReporteRoutes(config: {
     {
       path: `${config.path}/viewVistas/fullscreen/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
+        import('./vistas/components/view-vistas-excel/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
       data: { listPath }
     },
     {
       path: `${config.path}/viewVistas/pivot/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
+        import('./vistas/components/view-vistas-pivot/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
       data: { listPath }
     },
     {
       path: `${config.path}/viewVistas/:schema/:viewName`,
       loadComponent: () =>
-        import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
+        import('./vistas/components/view-vistas-grid/viewVistas.component').then(m => m.ViewVistasComponent),
       canActivate: [moduleGuard],
       data: routeData
     }
@@ -54,6 +54,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   {
     path: '',
     component: InteligenciaNegociosComponent
+  },
+  {
+    path: 'excelSheets',
+    loadComponent: () =>
+      import('./vistas/components/mis-excels/mis-excels.component').then(m => m.MisExcelsComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-VISTAS',
+      pageTitle: 'Excel Sheets',
+      pageSubtitle: 'Workbooks guardados con tus vistas, formulas y configuracion'
+    }
   },
   {
     path: 'vistas',
@@ -70,19 +81,19 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
   {
     path: 'vistas/viewVistas/fullscreen/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
+      import('./vistas/components/view-vistas-excel/viewVistasExcel.component').then(m => m.ViewVistasExcelComponent),
     data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {
     path: 'vistas/viewVistas/pivot/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
+      import('./vistas/components/view-vistas-pivot/viewVistasPivot.component').then(m => m.ViewVistasPivotComponent),
     data: { listPath: '/inteligenciaNegocios/vistas' }
   },
   {
     path: 'vistas/viewVistas/:schema/:viewName',
     loadComponent: () =>
-      import('./vistas/viewVistas/viewVistas.component').then(m => m.ViewVistasComponent),
+      import('./vistas/components/view-vistas-grid/viewVistas.component').then(m => m.ViewVistasComponent),
     canActivate: [moduleGuard],
     data: {
       moduleCode: 'BI-VISTAS',
@@ -147,6 +158,17 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     }
   },
   {
+    path: 'parametros/cron-parquet',
+    loadComponent: () =>
+      import('./parametros/cronParquet/cronParquet.component').then(m => m.CronParquetComponent),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-CRON-PARQUET',
+      pageTitle: 'Cron Parquet',
+      pageSubtitle: 'Configuración de intervalos de regeneración de parquets por vista'
+    }
+  },
+  {
     path: 'parametros/usuariosBI',
     loadComponent: () =>
       import('./parametros/usuariosBI/usuarios-bi.component').then(m => m.UsuariosBiComponent),
@@ -192,6 +214,32 @@ export const INTELIGENCIA_NEGOCIOS_ROUTES: Routes = [
     data: {
       moduleCode: 'BI-FORM-PFARMA',
       pageSubtitle: 'Consulta de perfil farmacoterapéutico por cédula'
+    }
+  },
+  {
+    path: 'formularios/trasladoAsistencial',
+    loadComponent: () =>
+      import('./formularios/trasladoAsistencial/trasladoAsistencial.component').then(
+        m => m.TrasladoAsistencialComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORM-TRASLADO-ASI',
+      pageTitle: 'Traslado Asistencial',
+      pageSubtitle: 'Historia clínica de traslado primario o secundario asistencial'
+    }
+  },
+  {
+    path: 'formularios/parametros',
+    loadComponent: () =>
+      import('./formularios/parametros/parametros.component').then(
+        m => m.FormulariosParametrosComponent
+      ),
+    canActivate: [moduleGuard],
+    data: {
+      moduleCode: 'BI-FORM-TRASLADO-ASI',
+      pageTitle: 'Parámetros de formularios',
+      pageSubtitle: 'Configuración de campos por formulario'
     }
   },
   {

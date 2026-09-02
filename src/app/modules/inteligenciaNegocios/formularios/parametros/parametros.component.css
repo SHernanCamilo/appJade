@@ -1,0 +1,248 @@
+.form-params-page.page-container {
+  background: #f5f7fa;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.form-params-page .page-header-modern {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.form-params-page .header-top {
+  margin-bottom: 1rem;
+}
+
+.form-params-page .btn-back-modern {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.form-params-page .btn-back-modern:hover {
+  color: #1f2937;
+}
+
+.form-params-page .header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.form-params-page .page-title-modern {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.25rem;
+  display: flex;
+  align-items: center;
+}
+
+.form-params-page .page-subtitle-modern {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.form-params-page .header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.form-params-page .btn-action {
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-params-page .btn-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.form-params-page .btn-action-primary {
+  background: #1d4ed8;
+  color: white;
+}
+
+.form-params-page .btn-action-primary:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.form-params-page .btn-action-outline {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.form-params-page .btn-action-outline:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.form-params-page .dashboard-content {
+  padding: 0 2rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-params-page .selector-panel {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.form-params-page .selector-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.45rem;
+}
+
+.form-params-page .formulario-dropdown {
+  max-width: 52rem;
+}
+
+.form-params-page .selector-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+.form-params-page .empty-state {
+  background: white;
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.form-params-page .empty-state i {
+  font-size: 1.8rem;
+  display: block;
+  margin-bottom: 0.65rem;
+  color: #9ca3af;
+}
+
+.form-params-page .empty-state p {
+  margin: 0;
+}
+
+.form-params-page .campos-panel {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.form-params-page .campos-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.form-params-page .campos-meta h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.form-params-page .campos-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.form-params-page .filtro-wrap {
+  min-width: 16rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 0.65rem;
+  background: #fff;
+}
+
+.form-params-page .filtro-wrap i {
+  color: #9ca3af;
+}
+
+.form-params-page .filtro-wrap input {
+  width: 100%;
+  border: none;
+  box-shadow: none;
+}
+
+.form-params-page .campos-table {
+  font-size: 0.84rem;
+}
+
+.form-params-page .col-center {
+  text-align: center;
+}
+
+.form-params-page .campo-nombre {
+  font-weight: 600;
+  color: #111827;
+}
+
+.form-params-page .campo-key {
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
+.form-params-page .seccion-row td {
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.form-params-page .seccion-row i {
+  margin-right: 0.4rem;
+}
+
+.form-params-page .empty-table {
+  text-align: center;
+  color: #6b7280;
+  padding: 1.5rem !important;
+}
+
+@media (max-width: 760px) {
+  .form-params-page .page-header-modern,
+  .form-params-page .dashboard-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .form-params-page .filtro-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+}

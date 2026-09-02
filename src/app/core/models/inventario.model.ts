@@ -67,16 +67,16 @@ export interface Pedido {
 }
 
 export interface PedidoTrazabilidad {
+  id: number;
+  pedido_id: number;
+  estado: string;
+  comentarios: string | null;
+  cambiado_por: number | null;
+  created_at: string;
+  usuario?: {
     id: number;
-    pedido_id: number;
-    estado: string;
-    comentarios: string | null;
-    cambiado_por: number | null;
-    created_at: string;
-    usuario?: {
-        id: number;
-        name: string;
-    };
+    name: string;
+  };
 }
 
 export interface OrdenCompraItem {
@@ -98,29 +98,76 @@ export interface OrdenCompraItem {
   total_linea?: number;
 }
 
+export type OrdenCompraDetalle = OrdenCompraItem;
+
 export interface OrdenCompra {
   id: number;
   compra_id?: number;
+  numero_recepcion?: string;
   numero_orden_compra: string;
   oc_indigo?: string;
+  proveedor_id?: number;
   proveedor?: string;
   proveedor_nombre?: string;
-  fecha_orden: string;
+  fecha_orden?: string;
+  fecha_recepcion?: string;
   estado: string;
   items_count: number;
   total?: number;
   creado_por_nombre?: string;
+  creado_por?: number;
+  sucursal_id?: number;
+  sincronizado_indigo?: boolean;
+  // Flags calculados por el backend (accessors del modelo InvOrdenCompra)
+  es_sincronizada?: boolean;
+  origen?: 'indigo' | 'aplicativo';
+  puede_editar?: boolean;
   detalles?: OrdenCompraItem[];
+  items?: OrdenCompraDetalle[];
   total_items?: number;
   items_recibidos?: number;
 }
 
+export interface SucursalOption {
+  id: number;
+  nombre: string;
+  prefijo?: string;
+  principal?: boolean;
+}
+
 export interface RecepcionItem {
-  producto_nombre: string;
+  id?: number;
+  producto_nombre?: string;
   codigo_producto: string;
   numero_pedido?: string;
-  cantidad_solicitada_compra: number;
+  cantidad_solicitada_compra?: number;
+  cantidad_solicitada?: number;
   cantidad_recibida?: number;
+  muestra_poblacion?: number;
+  muestra_exclusion?: boolean;
+  marca?: string;
+  tipo_producto?: string;
+  forma_farmaceutica?: string;
+  concentracion?: string;
+  unidad_empaque?: string;
+  fabricante?: string;
+  vida_util?: string;
+  estado_invima?: string;
+  estado_invima_manual?: boolean;
+  invima_override_manual?: boolean;
+  invima_observaciones?: string;
+  aspecto_cumple?: boolean;
+  embalaje_cumple?: boolean;
+  contenido_cumple?: boolean;
+  cadena_frio_temperatura?: number;
+  es_medicamento_vital?: boolean;
+  mvd_ium?: string;
+  mvd_solicitante?: string;
+  mvd_principio_activo?: string;
+  mvd_forma_farmaceutica?: string;
+  mvd_presentacion?: string;
+  mvd_presentacion_comercial?: string;
+  mvd_fecha_autorizacion?: string;
   numero_lote?: string;
   fecha_vencimiento?: string;
   codigo_sanitario?: string;

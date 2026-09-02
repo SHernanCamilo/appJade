@@ -105,6 +105,11 @@ export interface SheetTab {
   label: string;
   active?: boolean;
   color?: string;
+  /**
+   * Si es `false` la pestana no muestra la X de cerrar.
+   * Por defecto se considera cerrable (igual que en Excel, salvo la ultima hoja).
+   */
+  closable?: boolean;
 }
 
 // ─── Status Bar ─────────────────────────────────────────────────────────────
@@ -161,4 +166,21 @@ export interface SheetTabEvent {
 export interface FormulaCommitEvent {
   /** New value committed from the formula bar. */
   value: string;
+}
+
+/**
+ * Una sugerencia del autocompletado de la barra de formulas.
+ * El shell solo la renderiza: quien la produce es el componente consumidor.
+ */
+export interface FormulaSuggestionItem {
+  /** Que tipo de sugerencia es (cambia el icono y como se inserta). */
+  kind: 'function' | 'view' | 'column';
+  /** Texto que se inserta al aceptar. */
+  insert: string;
+  /** Titulo visible. */
+  label: string;
+  /** Linea secundaria: firma de la funcion o origen de la columna. */
+  detail: string;
+  /** Descripcion larga / ejemplo (tooltip). */
+  hint?: string;
 }

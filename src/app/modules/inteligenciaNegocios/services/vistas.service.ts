@@ -59,6 +59,15 @@ export interface FabricColumn {
   nullable: boolean;
 }
 
+export interface DesktopLaunchResponse {
+  success: boolean;
+  ticket?: string;
+  protocol_url?: string;
+  download_url?: string;
+  message?: string;
+  expires_in?: number;
+}
+
 export interface FabricDataMeta {
   total: number;
   limit: number;
@@ -185,6 +194,42 @@ export class VistasService {
 
   constructor(private http: HttpClient) {}
 
+  launchDesktop(schema: string, viewName: string, viewLabel?: string): Observable<DesktopLaunchResponse> {
+    return this.http.post<DesktopLaunchResponse>(`${this.baseUrl}/desktop/launch`, {
+      schema_name: schema,
+      view: viewName,
+      view_label: viewLabel ?? viewName
+    });
+  }
+
+  /**
+   * Abre jadeone-desktop:// sin navegar fuera de la SPA. Si el protocolo no está
+   * registrado, onNotInstalled se ejecuta a los ~2s.
+   */
+  openDesktopProtocol(protocolUrl: string, onNotInstalled: () => void): void {
+    let blurred = false;
+    const onBlur = (): void => { blurred = true; };
+    window.addEventListener('blur', onBlur, { once: true });
+
+    const anchor = document.createElement('a');
+    anchor.href = protocolUrl;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+
+    window.setTimeout(() => {
+      window.removeEventListener('blur', onBlur);
+      if (!blurred && document.hasFocus()) {
+        onNotInstalled();
+      }
+    }, 2000);
+  }
+
+  getDesktopDownloadUrl(): string {
+    return `${this.baseUrl}/desktop/download`;
+  }
+
   getContext(grupoTipo?: number): Observable<FabricViewerContext> {
     const params = grupoTipo != null ? { tipo: grupoTipo } : undefined;
     return this.http.get<FabricViewerContext>(`${this.baseUrl}/context`, { params });
@@ -245,13 +290,48 @@ export class VistasService {
     viewName: string,
     options: FabricDataQueryOptions = {}
   ): Observable<VistaDatosResponse> {
-    return this.http.post<FabricDataResponse>(`${this.baseUrl}/data`, this.buildDataPayload(schema, viewName, options)).pipe(
-      map(response => ({
-        success: response.success,
-        columnDefs: this.buildColumnDefsFromRows(response.data),
-        rowData: response.data ?? [],
-        meta: response.meta ?? { total: 0, limit: 50, offset: 0, has_next: false }
-      }))
+    const payload = this.buildDataPayload(schema, viewName, options);
+    const url = `${this.baseUrl}/data`;
+
+    console.log('[VistasService] getVistaDatos llamado:', {
+      url,
+      schema,
+      viewName,
+      payload
+    });
+
+    return this.http.post<FabricDataResponse>(url, payload).pipe(
+      map(response => {
+        console.log('[VistasService] getVistaDatos respuesta:', {
+          success: response.success,
+          dataLength: response.data?.length ?? 0,
+          meta: response.meta,
+          firstRow: response.data?.[0],
+          keys: response.data?.[0] ? Object.keys(response.data[0]) : []
+        });
+
+        const columnDefs = this.buildColumnDefsFromRows(response.data);
+        console.log('[VistasService] columnDefs generadas:', {
+          count: columnDefs.length,
+          columns: columnDefs.map(c => c.field)
+        });
+
+        const result = {
+          success: response.success,
+          columnDefs,
+          rowData: response.data ?? [],
+          meta: response.meta ?? { total: 0, limit: 50, offset: 0, has_next: false }
+        };
+
+        console.log('[VistasService] Retornando:', {
+          success: result.success,
+          columnDefs: result.columnDefs.length,
+          rowData: result.rowData.length,
+          meta: result.meta
+        });
+
+        return result;
+      })
     );
   }
 
@@ -404,7 +484,7 @@ export class VistasService {
       filters: options.filters ?? {},
       sort_col: options.sort_col ?? '',
       sort_dir: options.sort_dir ?? 'asc',
-      max_rows: options.max_rows ?? 50000,
+      max_rows: options.max_rows ?? 20000,
       format: options.format ?? 'gzip'
     }, { responseType: 'blob' });
   }
@@ -513,15 +593,12 @@ export class VistasService {
         // Si la API dice texto pero los valores parecen fechas → tratar como fecha
         const inferDate = colType === 'text' && sampleValues.some(v => looksLikeDate(v));
 
-        let filter: string;
         let valueFormatter: ((params: any) => string) | undefined;
         let cellDataType: string | undefined;
 
         if (forceText) {
-          filter = 'agTextColumnFilter';
           cellDataType = 'text';
         } else if (colType === 'date' || inferDate) {
-          filter = 'agDateColumnFilter';
           // Formatear fechas según el tipo:
           // - datetime/datetime2 con T → "YYYY-MM-DD HH:mm"
           // - date sin hora → "YYYY-MM-DD 00:00"
@@ -541,31 +618,20 @@ export class VistasService {
             const datePart = val.substring(0, 10);
             return isDatetime ? `${datePart} 00:00` : datePart;
           };
-        } else if (colType === 'number') {
-          filter = 'agNumberColumnFilter';
-        } else {
-          filter = 'agTextColumnFilter';
         }
 
         const colDef: ColDef = {
           field: col.name,
           headerName: col.name.replace(/_/g, ' '),
-          filter,
           minWidth: 120,
         };
 
         if (valueFormatter) colDef.valueFormatter = valueFormatter;
         if (cellDataType) colDef.cellDataType = cellDataType;
 
-        // Para filtro de fechas server-side: el comparator siempre retorna 0 (match)
-        // porque el filtrado real se hace en el backend. Esto evita que Ag-Grid
-        // oculte filas que ya vienen filtradas del servidor.
-        if (filter === 'agDateColumnFilter') {
-          colDef.filterParams = {
-            comparator: () => 0, // Siempre match — filtrado es server-side
-            inRangeInclusive: true,
-          };
-        }
+        // Marcar el tipo de columna para que los componentes de grid
+        // puedan asignar el filtro correcto (ExcelDateFilter vs ExcelColumnFilter)
+        (colDef as any).__colType = forceText ? 'text' : (colType === 'date' || inferDate) ? 'date' : colType;
 
         return colDef;
       });
@@ -584,22 +650,30 @@ export class VistasService {
   }
 
   private buildColumnDefsFromRows(rows: Record<string, unknown>[]): ColDef[] {
+    console.log('[VistasService] buildColumnDefsFromRows llamado con:', {
+      rowsLength: rows?.length ?? 0,
+      firstRow: rows?.[0]
+    });
+
     const sample = rows[0];
     if (!sample) {
+      console.warn('[VistasService] buildColumnDefsFromRows: No hay filas para inferir columnas');
       return [];
     }
 
-    return Object.keys(sample).map(key => {
+    const keys = Object.keys(sample);
+    console.log('[VistasService] Generando columnDefs para keys:', keys);
+
+    return keys.map(key => {
       const sampleValues = rows.slice(0, 20).map(r => r[key]);
       const firstNonNull = sampleValues.find(v => v !== null && v !== undefined && v !== '');
 
-      let filter: string;
       let valueFormatter: ((params: any) => string) | undefined;
+      let colType = 'text';
 
-      if (shouldBeText(key, sampleValues)) {
-        filter = 'agTextColumnFilter';
-      } else if (looksLikeDate(firstNonNull)) {
-        filter = 'agDateColumnFilter';
+      // Detectar fechas para formatearlas
+      if (looksLikeDate(firstNonNull)) {
+        colType = 'date';
         valueFormatter = (params: any) => {
           if (!params.value) return '';
           const val = String(params.value);
@@ -610,27 +684,22 @@ export class VistasService {
           }
           return val.substring(0, 10);
         };
-      } else if (typeof firstNonNull === 'number') {
-        filter = 'agNumberColumnFilter';
       } else {
-        filter = 'agTextColumnFilter';
+        // Detectar numérico
+        const isNumeric = sampleValues.filter(v => v != null).every(v => typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(String(v)));
+        if (isNumeric && sampleValues.some(v => v != null)) colType = 'number';
       }
 
       const colDef: ColDef = {
         field: key,
         headerName: key.replace(/_/g, ' '),
-        filter,
         minWidth: 120
       };
 
       if (valueFormatter) colDef.valueFormatter = valueFormatter;
 
-      if (filter === 'agDateColumnFilter') {
-        colDef.filterParams = {
-          comparator: () => 0,
-          inRangeInclusive: true,
-        };
-      }
+      // Marcar tipo para que assignDateFiltersToColumns asigne el filtro correcto
+      (colDef as any).__colType = colType;
 
       return colDef;
     });

@@ -9,18 +9,23 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { Subscription } from 'rxjs';
 
-import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../services/vistas.service';
-import { FabricExportService, ExportProgress } from '../../services/fabric-export.service';
-import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
-import { GridLoaderComponent } from '../../../../complements/shared/grid-loader/grid-loader.component';
-import { getColumnType, humanizeColumnName } from '../../helpers/column-type.helper';
-import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../helpers/fabric-error.helper';
+import { FabricDataMeta, FabricColumn, VistasService, VistaBi } from '../../../services/vistas.service';
+import { FabricExportService, ExportProgress } from '../../../services/fabric-export.service';
+import { AG_GRID_LOCALE } from '../../../../../core/config/ag-grid.config';
+import { GridLoaderComponent } from '../../../../../complements/shared/grid-loader/grid-loader.component';
+import { getColumnType, humanizeColumnName } from '../../../helpers/column-type.helper';
+import { handleFabricError, isFiltersRequiredError, isMaintenanceError, isVistaEnMantenimiento, FabricFiltersRequiredError } from '../../../helpers/fabric-error.helper';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ExcelColumnFilterComponent } from '../excel-column-filter/excel-column-filter.component';
+import { ExcelDateFilterComponent } from '../excel-date-filter/excel-date-filter.component';
+
+import { PermissionService } from '../../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../../core/directives/has-permission.directive';
 
 @Component({
   selector: 'app-view-vistas',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, AgGridAngular, ToastModule, TooltipModule, GridLoaderComponent],
+  imports: [CommonModule, FormsModule, RouterModule, AgGridAngular, ToastModule, TooltipModule, GridLoaderComponent, HasPermissionDirective],
   providers: [MessageService],
   templateUrl: './viewVistas.component.html',
   styleUrl: './viewVistas.component.css',
@@ -61,10 +66,11 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
 
   defaultColDef: ColDef = {
     sortable: true,
-    filter: true,
+    filter: ExcelColumnFilterComponent,
+    filterParams: { maxDisplayedValues: 50 },
     resizable: true,
     minWidth: 110,
-    floatingFilter: true,
+    floatingFilter: false, // sin floating filter, solo el menú desplegable
     cellClass: 'cell-copyable'
   };
 
@@ -92,6 +98,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   private exportSub?: Subscription;
   private filterDebounce: ReturnType<typeof setTimeout> | null = null;
   exportEnSegundoPlano = false;
+  isLaunchingDesktop = false;
 
   private listPath = '/inteligenciaNegocios/vistas';
 
@@ -101,7 +108,8 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     private location: Location,
     private vistasService: VistasService,
     private fabricExportService: FabricExportService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    public permissionService: PermissionService
   ) {}
 
   ngOnInit(): void {
@@ -128,6 +136,10 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.exportSub?.unsubscribe();
     if (this.filterDebounce) clearTimeout(this.filterDebounce);
+  }
+
+  permissionDesktop(): boolean {
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP'); 
   }
 
   get totalRegistros(): number {
@@ -194,6 +206,23 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Post-procesa columnDefs para asignar ExcelDateFilterComponent a columnas de fecha.
+   * Usa la marca __colType que buildColumnDefs del servicio deja en cada colDef.
+   */
+  private assignDateFiltersToColumns(columnDefs: ColDef[]): ColDef[] {
+    return columnDefs.map(colDef => {
+      const colType = (colDef as any).__colType;
+      const isDateCol = colType === 'date';
+
+      return {
+        ...colDef,
+        filter: isDateCol ? ExcelDateFilterComponent : ExcelColumnFilterComponent,
+        filterParams: { maxDisplayedValues: 50 },
+      };
+    });
+  }
+
   cargarDatos(): void {
     if (!this.vista) return;
 
@@ -210,7 +239,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
       skip_count: usarSkipCount
     }).subscribe({
       next: (response) => {
-        this.columnDefs = response.columnDefs;
+        this.columnDefs = this.assignDateFiltersToColumns(response.columnDefs);
         this.rowData = response.rowData;
         this.meta = response.meta;
         this.isHeavyView = !!response.meta.heavy_view;
@@ -319,14 +348,38 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     const filters: Record<string, string> = {};
 
     for (const [col, model] of Object.entries(filterModel as Record<string, any>)) {
-      // Filtro de fecha (agDateColumnFilter) — usa dateFrom/dateTo
+      // ExcelDateFilterComponent en modo rango: { filterType: 'dateRange', dateFrom, dateTo }
+      if (model && model.filterType === 'dateRange') {
+        const from = model.dateFrom || '';
+        const to = model.dateTo || '';
+        if (from && to) {
+          filters[col] = `${from}..${to}`;
+        } else if (from) {
+          filters[col] = `>${from}`;
+        } else if (to) {
+          filters[col] = `<${to}`;
+        }
+        continue;
+      }
+
+      // ExcelDateFilterComponent en modo jerarquia: Set de strings seleccionados.
+      if (model instanceof Set || (model && typeof model === 'object' && model.size !== undefined && !(model.filterType))) {
+        const dates = [...model].sort();
+        if (dates.length > 0) {
+          const from = dates[0];
+          const to = dates[dates.length - 1];
+          filters[col] = from === to ? from : `${from}..${to}`;
+        }
+        continue;
+      }
+
+      // Filtro de fecha legacy (agDateColumnFilter) — usa dateFrom/dateTo
       if (model.dateFrom) {
         const tipo = model.type ?? 'equals';
-        const dateFrom = model.dateFrom.split(' ')[0]; // "2026-07-14 00:00:00" → "2026-07-14"
+        const dateFrom = model.dateFrom.split(' ')[0];
 
         switch (tipo) {
           case 'equals':
-            // Para datetime: buscar todo el día (rango inicio..fin del día)
             filters[col] = `${dateFrom}..${dateFrom}`;
             break;
           case 'greaterThan':
@@ -348,7 +401,20 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      // Filtro de texto/número — usa filter
+      // ExcelColumnFilterComponent devuelve { selectedValues: Set<string> }
+      if (model.selectedValues && model.selectedValues instanceof Set) {
+        // Para texto: enviar como contains del primer valor (o lista)
+        const values = [...model.selectedValues];
+        if (values.length === 1) {
+          filters[col] = values[0];
+        } else if (values.length > 0 && values.length < 20) {
+          // Multiples valores: enviar como OR (backend debe soportar lista)
+          filters[col] = `%${values[0]}%`;
+        }
+        continue;
+      }
+
+      // Filtro de texto/número genérico
       if (model.filter !== undefined && model.filter !== null && model.filter !== '') {
         const tipo = model.type ?? 'contains';
         const valor = this.formatGridFilterValue(model.filter);
@@ -453,14 +519,59 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   volverAlListado(): void { this.router.navigate([this.listPath]); }
 
   abrirEnNuevaPestana(): void {
-    // Usar router.createUrlTree para generar la ruta relativa
-    const urlTree = this.router.createUrlTree([this.listPath, 'viewVistas', 'fullscreen', this.schema, this.viewName]);
+    // Abrir vista refresh en nueva pestaña sin layout usando ruta genérica con query params
+    const urlTree = this.router.createUrlTree(['/inteligenciaNegocios/viewVistaExcel'], {
+      queryParams: {
+        schema: this.schema,
+        viewName: this.viewName
+      }
+    });
     const url = this.router.serializeUrl(urlTree);
-    
-    // Usar location.prepareExternalUrl para respetar el base-href en producción
     const fullUrl = this.location.prepareExternalUrl(url);
-    
-    window.open(fullUrl, '_blank');
+    window.open(fullUrl, '_blank', 'noopener');
+  }
+
+  abrirEnEscritorio(): void {
+    if (!this.vista || this.isLaunchingDesktop) {
+      return;
+    }
+
+    this.isLaunchingDesktop = true;
+    this.vistasService.launchDesktop(this.schema, this.viewName, this.vista.nombre).subscribe({
+      next: res => {
+        if (!res.success || !res.protocol_url) {
+          this.isLaunchingDesktop = false;
+          this.messageService.add({
+            severity: 'error',
+            summary: 'No se pudo abrir el escritorio',
+            detail: res.message ?? 'Intente de nuevo.',
+            life: 5000
+          });
+          return;
+        }
+
+        const downloadUrl = res.download_url ?? this.vistasService.getDesktopDownloadUrl();
+        this.vistasService.openDesktopProtocol(res.protocol_url, () => {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'JadeOne Desktop no está instalado',
+            detail: 'Se iniciará la descarga. Instale el .exe y vuelva a pulsar Escritorio.',
+            life: 8000
+          });
+          window.open(downloadUrl, '_blank', 'noopener');
+        });
+        window.setTimeout(() => { this.isLaunchingDesktop = false; }, 2500);
+      },
+      error: err => {
+        this.isLaunchingDesktop = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'No se pudo abrir el escritorio',
+          detail: err?.error?.message ?? 'Sin permiso o error de red.',
+          life: 5000
+        });
+      }
+    });
   }
 
   abrirPivot(): void {

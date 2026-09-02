@@ -9,6 +9,11 @@ export const CONTABILIDAD_ROUTES: Routes = [
     path: 'personas',
     children: [
       {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'dashboard'
+      },
+      {
         path: 'dashboard',
         loadComponent: () => import('./personas/dashboard/dashboard.component')
           .then(m => m.DashboardPersonasComponent)

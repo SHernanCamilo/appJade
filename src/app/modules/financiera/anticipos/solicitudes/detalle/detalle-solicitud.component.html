@@ -1,0 +1,299 @@
+<div class="page-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header -->
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/financiera/anticipos/solicitudes">
+        <i class="pi pi-arrow-left"></i> Volver a Solicitudes
+      </button>
+    </div>
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-file me-2"></i>
+          {{ solicitud?.numero_solicitud || 'Cargando...' }}
+        </h1>
+        <p class="page-subtitle-modern">Detalle de solicitud de anticipo</p>
+      </div>
+      <div class="header-actions" *ngIf="solicitud">
+        <p-tag [value]="getEstadoLabel(solicitud.estado)" [severity]="getSeverity(solicitud.estado)" styleClass="estado-badge-lg"></p-tag>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenido -->
+  <div class="dashboard-content" *ngIf="!isLoading && solicitud">
+
+    <!-- Acciones rápidas -->
+    <div class="acciones-bar" *ngIf="getAccionesDisponibles().length > 0">
+      <div class="acciones-container">
+        <button class="btn-action btn-action-success" *ngIf="tieneAccion('aprobar')" (click)="abrirAprobar()">
+          <i class="pi pi-check"></i> Aprobar
+        </button>
+        <button class="btn-action btn-action-danger" *ngIf="tieneAccion('rechazar')" (click)="abrirRechazar()">
+          <i class="pi pi-times"></i> Rechazar
+        </button>
+        <button class="btn-action btn-action-primary" *ngIf="tieneAccion('desembolsar')" (click)="desembolsar()">
+          <i class="pi pi-wallet"></i> Desembolsar
+        </button>
+        <button class="btn-action btn-action-primary" *ngIf="tieneAccion('legalizar')" (click)="abrirLegalizar()">
+          <i class="pi pi-file-check"></i> Legalizar
+        </button>
+        <button class="btn-action btn-action-primary" *ngIf="tieneAccion('decidir-contabilidad')" (click)="abrirDecision()">
+          <i class="pi pi-calculator"></i> Decidir
+        </button>
+        <button class="btn-action btn-action-primary" *ngIf="tieneAccion('registrar-devolucion')" (click)="registrarDevolucion()">
+          <i class="pi pi-replay"></i> Registrar Devolución
+        </button>
+        <button class="btn-action btn-action-primary" *ngIf="tieneAccion('aprobar-excedente')" (click)="confirmarAprobar()">
+          <i class="pi pi-check"></i> Aprobar Excedente
+        </button>
+        <button class="btn-action btn-action-danger" *ngIf="tieneAccion('rechazar-excedente')" (click)="abrirRechazar()">
+          <i class="pi pi-times"></i> Rechazar Excedente
+        </button>
+        <button class="btn-action btn-action-secondary" *ngIf="tieneAccion('cerrar')" (click)="cerrarSolicitud()">
+          <i class="pi pi-lock"></i> Cerrar
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <p-tabView [(activeIndex)]="activeTab" styleClass="detalle-tabs">
+
+      <!-- TAB: Información -->
+      <p-tabPanel header="Información" leftIcon="pi pi-info-circle">
+        <div class="info-grid">
+          <!-- Datos generales -->
+          <div class="info-card">
+            <div class="info-card-header"><i class="pi pi-user me-2"></i>Solicitante</div>
+            <div class="info-card-body">
+              <div class="info-row"><span class="info-label">Empleado</span><span class="info-value">{{ solicitud.empleado?.nombre || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">Unidad Funcional</span><span class="info-value">{{ solicitud.unidad_funcional || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">Cobertura</span><span class="info-value capitalize">{{ solicitud.cobertura }}</span></div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <div class="info-card-header"><i class="pi pi-map-marker me-2"></i>Viaje</div>
+            <div class="info-card-body">
+              <div class="info-row"><span class="info-label">Ciudad Destino</span><span class="info-value">{{ solicitud.ciudad_destino?.nombre || '-' }} ({{ solicitud.ciudad_destino?.tipo_ciudad || '-' }})</span></div>
+              <div class="info-row"><span class="info-label">Fecha Salida</span><span class="info-value">{{ formatDate(solicitud.fecha_salida) }}</span></div>
+              <div class="info-row"><span class="info-label">Fecha Regreso</span><span class="info-value">{{ formatDate(solicitud.fecha_regreso) }}</span></div>
+              <div class="info-row"><span class="info-label">Motivo</span><span class="info-value">{{ solicitud.motivo }}</span></div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <div class="info-card-header"><i class="pi pi-dollar me-2"></i>Montos</div>
+            <div class="info-card-body">
+              <div class="info-row"><span class="info-label">Solicitado</span><span class="info-value font-bold">{{ formatCurrency(solicitud.monto_solicitado) }}</span></div>
+              <div class="info-row" *ngIf="solicitud.monto_autorizado"><span class="info-label">Autorizado</span><span class="info-value text-success font-bold">{{ formatCurrency(solicitud.monto_autorizado) }}</span></div>
+              <div class="info-row" *ngIf="solicitud.monto_legalizado"><span class="info-label">Legalizado</span><span class="info-value">{{ formatCurrency(solicitud.monto_legalizado) }}</span></div>
+              <div class="info-row" *ngIf="solicitud.monto_reintegro"><span class="info-label">Reintegro</span><span class="info-value text-warn">{{ formatCurrency(solicitud.monto_reintegro) }}</span></div>
+              <div class="info-row" *ngIf="solicitud.monto_excedente"><span class="info-label">Excedente</span><span class="info-value text-danger">{{ formatCurrency(solicitud.monto_excedente) }}</span></div>
+            </div>
+          </div>
+
+          <!-- Items -->
+          <div class="info-card info-card-full" *ngIf="solicitud.items && solicitud.items.length > 0">
+            <div class="info-card-header"><i class="pi pi-list me-2"></i>Detalle de Items</div>
+            <div class="info-card-body p-0">
+              <table class="items-table">
+                <thead><tr><th>Descripción</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let item of solicitud.items">
+                    <td>{{ item.descripcion }}</td>
+                    <td class="text-center">{{ item.cantidad }}</td>
+                    <td class="text-end">{{ formatCurrency(item.valor_unitario) }}</td>
+                    <td class="text-end font-bold">{{ formatCurrency(item.valor_total) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- TAB: Aprobaciones -->
+      <p-tabPanel header="Aprobaciones" leftIcon="pi pi-check-circle">
+        <div class="aprobaciones-container">
+          <div class="timeline-custom" *ngIf="aprobaciones.length > 0">
+            <div class="timeline-item" *ngFor="let aprobacion of aprobaciones">
+              <div class="timeline-marker" [style.background]="getAccionColor(aprobacion.accion)">
+                <i [class]="getAccionIcon(aprobacion.accion)" style="color:white;font-size:0.7rem"></i>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <span class="timeline-usuario">{{ aprobacion.usuario.nombre || 'Usuario' }}</span>
+                  <span class="timeline-fecha">{{ formatDateTime(aprobacion.fecha_accion) }}</span>
+                </div>
+                <div class="timeline-body">
+                  <p-tag [value]="aprobacion.accion | titlecase" [severity]="aprobacion.accion === 'aprobado' ? 'success' : aprobacion.accion === 'rechazado' ? 'danger' : 'warn'" styleClass="timeline-tag"></p-tag>
+                  <span class="timeline-rol">{{ aprobacion.rol_aprobador }}</span>
+                </div>
+                <div class="timeline-comentario" *ngIf="aprobacion.comentario">
+                  <i class="pi pi-comment me-1"></i>{{ aprobacion.comentario }}
+                </div>
+                <div class="timeline-monto" *ngIf="aprobacion.monto_autorizado">
+                  Monto autorizado: <strong>{{ formatCurrency(aprobacion.monto_autorizado) }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="empty-state" *ngIf="aprobaciones.length === 0">
+            <i class="pi pi-clock" style="font-size:2.5rem;color:#9ca3af"></i>
+            <p>Sin historial de aprobaciones</p>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- TAB: Documentos -->
+      <p-tabPanel header="Documentos" leftIcon="pi pi-paperclip">
+        <div class="documentos-container">
+          <!-- Upload -->
+          <div class="upload-section">
+            <h4 class="subsection-title"><i class="pi pi-upload me-2"></i>Subir Soporte</h4>
+            <div class="upload-form">
+              <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                  <label class="form-label-compact">Tipo</label>
+                  <p-dropdown [options]="tiposDocumento" [(ngModel)]="tipoDocumentoSeleccionado"
+                    optionLabel="label" optionValue="value" styleClass="w-100"></p-dropdown>
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label-compact">Archivo (PDF, JPG, PNG - máx 10MB)</label>
+                  <div class="file-input-wrapper">
+                    <input type="file" #fileInput (change)="onArchivoSeleccionado($event)" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+                    <button class="btn-upload-compact" (click)="fileInput.click()">
+                      <i class="pi pi-paperclip me-1"></i>
+                      {{ archivoSeleccionado ? archivoSeleccionado.name : 'Seleccionar archivo' }}
+                    </button>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <button class="btn-action btn-action-primary w-100" (click)="subirDocumento()"
+                    [disabled]="!archivoSeleccionado || isSubiendo">
+                    <i class="pi pi-upload me-1"></i>
+                    {{ isSubiendo ? 'Subiendo...' : 'Subir' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lista de documentos -->
+          <div class="documentos-lista mt-4" *ngIf="documentos.length > 0">
+            <div class="documento-item" *ngFor="let doc of documentos">
+              <div class="documento-icon">
+                <i class="pi pi-file-pdf" *ngIf="doc.mime_type?.includes('pdf')"></i>
+                <i class="pi pi-image" *ngIf="doc.mime_type?.includes('image')"></i>
+                <i class="pi pi-file" *ngIf="!doc.mime_type?.includes('pdf') && !doc.mime_type?.includes('image')"></i>
+              </div>
+              <div class="documento-info">
+                <div class="documento-nombre">{{ doc.nombre_archivo }}</div>
+                <div class="documento-meta">
+                  <span class="documento-tipo">{{ getTipoDocLabel(doc.tipo_documento) }}</span>
+                  <span class="documento-size">{{ formatFileSize(doc.tamano) }}</span>
+                  <span class="documento-fecha">{{ formatDateTime(doc.created_at) }}</span>
+                </div>
+              </div>
+              <div class="documento-actions">
+                <button class="btn-action-icon btn-action-primary" (click)="descargarDocumento(doc)" pTooltip="Descargar">
+                  <i class="pi pi-download"></i>
+                </button>
+                <button class="btn-action-icon btn-action-danger" (click)="eliminarDocumento(doc)" pTooltip="Eliminar">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="empty-state" *ngIf="documentos.length === 0">
+            <i class="pi pi-folder-open" style="font-size:2.5rem;color:#9ca3af"></i>
+            <p>No hay documentos adjuntos</p>
+          </div>
+        </div>
+      </p-tabPanel>
+
+    </p-tabView>
+  </div>
+
+  <!-- Loading -->
+  <div class="dashboard-content" *ngIf="isLoading">
+    <div class="loading-placeholder">
+      <p-skeleton width="100%" height="3rem" styleClass="mb-3"></p-skeleton>
+      <p-skeleton width="100%" height="20rem"></p-skeleton>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODALES ──────────────────────────────────────────────────────────── -->
+
+<!-- Modal Aprobar -->
+<p-dialog header="Aprobar Solicitud" [(visible)]="displayAprobar" [modal]="true" [style]="{width:'450px'}">
+  <div class="form-grid">
+    <div class="form-field">
+      <label>Comentario (opcional)</label>
+      <input pInputText [(ngModel)]="comentarioAprobacion" placeholder="Comentario de aprobación" class="w-100">
+    </div>
+    <div class="form-field">
+      <label>Monto autorizado (opcional, si desea ajustar)</label>
+      <p-inputNumber [(ngModel)]="montoAutorizado" mode="currency" currency="COP" locale="es-CO" styleClass="w-100"
+        [placeholder]="'Dejar vacío = monto solicitado'"></p-inputNumber>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="displayAprobar=false"></p-button>
+    <p-button label="Aprobar" icon="pi pi-check" severity="success" (onClick)="confirmarAprobar()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal Rechazar -->
+<p-dialog header="Rechazar Solicitud" [(visible)]="displayRechazar" [modal]="true" [style]="{width:'450px'}">
+  <div class="form-field">
+    <label>Motivo del rechazo *</label>
+    <textarea pInputText [(ngModel)]="comentarioRechazo" rows="3" placeholder="Indique el motivo del rechazo" class="w-100" style="resize:vertical"></textarea>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="displayRechazar=false"></p-button>
+    <p-button label="Rechazar" icon="pi pi-times" severity="danger" (onClick)="confirmarRechazar()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal Legalizar -->
+<p-dialog header="Legalizar Anticipo" [(visible)]="displayLegalizar" [modal]="true" [style]="{width:'450px'}">
+  <div class="form-grid">
+    <div class="form-field">
+      <label>Monto legalizado (lo que realmente se gastó) *</label>
+      <p-inputNumber [(ngModel)]="montoLegalizado" mode="currency" currency="COP" locale="es-CO" styleClass="w-100"></p-inputNumber>
+    </div>
+    <div class="form-field">
+      <label>Observaciones</label>
+      <textarea pInputText [(ngModel)]="observacionesLegalizacion" rows="3" class="w-100" style="resize:vertical"></textarea>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="displayLegalizar=false"></p-button>
+    <p-button label="Legalizar" icon="pi pi-check" severity="success" (onClick)="confirmarLegalizar()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Modal Decidir Contabilidad -->
+<p-dialog header="Decisión Contabilidad" [(visible)]="displayDecision" [modal]="true" [style]="{width:'450px'}">
+  <div class="form-grid">
+    <div class="form-field">
+      <label>Decisión *</label>
+      <p-dropdown [options]="decisionOptions" [(ngModel)]="decisionContabilidad"
+        optionLabel="label" optionValue="value" styleClass="w-100"></p-dropdown>
+    </div>
+    <div class="form-field">
+      <label>Comentario</label>
+      <input pInputText [(ngModel)]="comentarioDecision" class="w-100">
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="displayDecision=false"></p-button>
+    <p-button label="Confirmar" icon="pi pi-check" severity="success" (onClick)="confirmarDecision()"></p-button>
+  </ng-template>
+</p-dialog>

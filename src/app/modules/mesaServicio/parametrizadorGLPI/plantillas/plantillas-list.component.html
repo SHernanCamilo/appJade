@@ -64,7 +64,7 @@
               <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre"></p-sortIcon></th>
               <th>Categorías</th>
               <th>Estado</th>
-              <th style="text-align: center; width: 120px;">Acciones</th>
+              <th style="text-align: center; width: 160px;">Acciones</th>
             </tr>
           </ng-template>
 
@@ -97,6 +97,18 @@
                   pTooltip="Editar"
                   tooltipPosition="top"
                   (click)="editarPlantilla(plantilla)">
+                </button>
+                <button
+                  *ngIf="puedeCrear"
+                  pButton
+                  type="button"
+                  icon="pi pi-copy"
+                  class="p-button-rounded p-button-text p-button-sm p-button-info"
+                  pTooltip="Duplicar"
+                  tooltipPosition="top"
+                  [loading]="duplicandoId === plantilla.id"
+                  [disabled]="duplicandoId !== null"
+                  (click)="duplicarPlantilla(plantilla)">
                 </button>
                 <button
                   *ngIf="puedeEliminar"

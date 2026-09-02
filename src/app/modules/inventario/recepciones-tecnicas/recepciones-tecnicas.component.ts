@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -15,16 +15,20 @@ import { InventarioService } from '../../../core/services/inventario.service';
 import { OrdenCompra, RecepcionItem } from '../../../core/models/inventario.model';
 
 interface RecepcionFormData {
+  pedido_detalle_id?: number | null;
   codigo_producto: string;
   producto_nombre: string;
   cantidad_solicitada_compra: number;
+  cantidad_solicitada?: number;
   cantidad_recibida: number;
+  muestra_poblacion?: number | null;
   numero_lote: string;
   fecha_vencimiento: string;
-  codigo_sanitario: string; // CUM o Registro INVIMA
+  codigo_sanitario: string;
   concepto_recepcion: 'aceptado' | 'rechazado' | 'cuarentena' | '';
   es_medicamento_vital: boolean;
   observaciones: string;
+  recibido?: boolean | number;
 }
 
 @Component({
@@ -153,21 +157,25 @@ export class RecepcionesTecnicasComponent implements OnInit {
     this.receptionGlobalObservations.set('');
 
     // Cargar detalles pendientes de la orden de compra
-    this.inventarioService.getRecepcion(orden.compra_id).subscribe({
+    this.inventarioService.getRecepcionByCompra(orden.compra_id).subscribe({
       next: (res) => {
         this.isLoadingDetails.set(false);
         if (res.success && res.data) {
           const formItems: RecepcionFormData[] = res.data.map((item: any) => ({
+            pedido_detalle_id: item.pedido_detalle_id ?? null,
             codigo_producto: item.codigo_producto,
             producto_nombre: item.producto_nombre,
             cantidad_solicitada_compra: item.cantidad_solicitada_compra,
-            cantidad_recibida: item.cantidad_solicitada_compra, // Sugerimos la cantidad total por defecto
-            numero_lote: '',
-            fecha_vencimiento: '',
-            codigo_sanitario: '',
-            concepto_recepcion: 'aceptado', // Sugerimos aceptado por defecto
-            es_medicamento_vital: false,
-            observaciones: ''
+            cantidad_solicitada: item.cantidad_solicitada ?? item.cantidad_solicitada_compra,
+            cantidad_recibida: item.cantidad_solicitada_compra,
+            muestra_poblacion: item.muestra_poblacion ?? null,
+            numero_lote: item.numero_lote || '',
+            fecha_vencimiento: item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '',
+            codigo_sanitario: item.codigo_sanitario || '',
+            concepto_recepcion: 'aceptado',
+            es_medicamento_vital: Boolean(item.es_medicamento_vital),
+            observaciones: '',
+            recibido: true,
           }));
           this.currentReceptionForm.set(formItems);
         }
@@ -204,7 +212,9 @@ export class RecepcionesTecnicasComponent implements OnInit {
     const payload = {
       compra_id: orden.compra_id,
       observaciones: this.receptionGlobalObservations(),
-      items: formItems.filter(i => i.cantidad_recibida > 0) // Solo enviar los que se reciben
+      items: formItems
+        .filter(i => i.cantidad_recibida > 0)
+        .map(i => ({ ...i, recibido: 1 })),
     };
 
     // Usar cualquier mÃ©todo existente para enviar (ej: store)
@@ -231,13 +241,13 @@ export class RecepcionesTecnicasComponent implements OnInit {
 
   // --- Ver Detalles (Completadas) ---
   viewDetails(orden: OrdenCompra): void {
-    if (!orden.compra_id) return;
+    if (!orden.id) return;
     
     this.currentReception.set(orden);
     this.showDetailsModal.set(true);
     this.isLoadingDetails.set(true);
     
-    this.inventarioService.getRecepcion(orden.compra_id).subscribe({
+    this.inventarioService.getRecepcion(orden.id).subscribe({
       next: (res) => {
         this.isLoadingDetails.set(false);
         if (res.success) {
@@ -265,11 +275,38 @@ export class RecepcionesTecnicasComponent implements OnInit {
 
   getSeverityTag(estado: string): 'success' | 'secondary' | 'info' | 'warn' | 'danger' | 'contrast' {
     switch (estado?.toLowerCase()) {
-      case 'confirmado': return 'warn';
+      case 'recepcionado': return 'info';
+      case 'confirmado': return this.currentView() === 'completed' ? 'success' : 'warn';
       case 'en_sitio': return 'info';
       case 'parcial': return 'secondary';
       case 'recibida': return 'success';
       default: return 'info';
     }
+  }
+
+  calculateSampleFallback(item: any): number {
+    const qty = Math.floor(Number(item?.cantidad_recibida ?? 0));
+    if (Boolean(item?.muestra_exclusion)) return qty;
+    if (item?.muestra_poblacion && Number(item.muestra_poblacion) > 0) return Number(item.muestra_poblacion);
+    if (!qty || qty <= 0) return 0;
+    const rules = [
+      { min: 2, max: 8, sample: 2 },
+      { min: 9, max: 15, sample: 3 },
+      { min: 16, max: 25, sample: 5 },
+      { min: 26, max: 50, sample: 8 },
+      { min: 51, max: 90, sample: 13 },
+      { min: 91, max: 150, sample: 20 },
+      { min: 151, max: 280, sample: 32 },
+      { min: 281, max: 500, sample: 50 },
+      { min: 501, max: 1200, sample: 80 },
+      { min: 1201, max: 3200, sample: 125 },
+      { min: 3201, max: 10000, sample: 200 },
+      { min: 10001, max: 35000, sample: 315 },
+      { min: 35001, max: 150000, sample: 500 },
+      { min: 150001, max: 500000, sample: 800 },
+      { min: 500001, max: 2147483647, sample: 1250 },
+    ];
+    const rule = rules.find(r => qty >= r.min && qty <= r.max);
+    return rule ? rule.sample : qty;
   }
 }

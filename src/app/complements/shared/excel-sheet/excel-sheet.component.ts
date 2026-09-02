@@ -18,6 +18,7 @@ import {
   RibbonActionEvent,
   FormulaCellInfo,
   FormulaCommitEvent,
+  FormulaSuggestionItem,
   SheetTab,
   SheetTabEvent,
   StatusBarConfig,
@@ -51,6 +52,28 @@ export class ExcelSheetComponent {
   @Output() formulaCommit = new EventEmitter<FormulaCommitEvent>();
   @Output() sheetTabChange = new EventEmitter<SheetTabEvent>();
   @Output() zoomChange = new EventEmitter<number>();
+  @Output() addSheet = new EventEmitter<void>();
+  /** Se emite al pulsar la X de una pestana. El consumidor decide si la quita. */
+  @Output() closeSheet = new EventEmitter<string>();
+
+  /**
+   * Se emite cada vez que cambia el texto o el cursor de la barra de formulas.
+   * El consumidor responde poblando `formulaSuggestions`.
+   */
+  @Output() formulaInput = new EventEmitter<{ text: string; caret: number }>();
+
+  // ─── Autocompletado de formulas ───────────────────────────────────────────
+
+  /**
+   * Sugerencias a mostrar bajo la barra de formulas. El componente es agnostico:
+   * solo renderiza lo que le pasen. El consumidor decide que sugerir.
+   */
+  @Input() formulaSuggestions: FormulaSuggestionItem[] = [];
+
+  /** Indice de la sugerencia resaltada (navegacion con flechas) */
+  readonly suggestionIndex = signal(0);
+  /** Si el desplegable esta visible */
+  readonly suggestionsOpen = signal(false);
 
   // ─── Internal state ───────────────────────────────────────────────────────
 
@@ -117,12 +140,115 @@ export class ExcelSheetComponent {
     this.secondaryAction.emit(action);
   }
 
-  // ─── Formula bar ─────────────────────────────────────────────────────────
+  // ─── Formula bar + autocompletado ────────────────────────────────────────
+
+  /** Texto escrito: pide sugerencias al consumidor. */
+  onFormulaTextChange(value: string, input: HTMLInputElement): void {
+    this.formulaValue.set(value);
+    const caret = input.selectionStart ?? value.length;
+    this.suggestionIndex.set(0);
+    this.formulaInput.emit({ text: value, caret });
+    this.suggestionsOpen.set(value.trim().startsWith('='));
+  }
 
   onFormulaKeydown(event: KeyboardEvent): void {
+    const input = event.target as HTMLInputElement;
+    const hasSuggestions = this.formulaSuggestions.length > 0 &&
+      (this.suggestionsOpen() || this.formulaValue().trim().startsWith('='));
+
+    // Navegacion dentro del desplegable
+    if (hasSuggestions) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.suggestionsOpen.set(true);
+        this.suggestionIndex.update(i => (i + 1) % this.formulaSuggestions.length);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.suggestionsOpen.set(true);
+        this.suggestionIndex.update(i => (i - 1 + this.formulaSuggestions.length) % this.formulaSuggestions.length);
+        return;
+      }
+      // Tab acepta la sugerencia; Enter tambien si el desplegable esta abierto
+      if (event.key === 'Tab' || (event.key === 'Enter' && this.suggestionsOpen())) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.acceptSuggestion(this.formulaSuggestions[this.suggestionIndex()], input);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.suggestionsOpen.set(false);
+        return;
+      }
+    }
+
+    // Sin desplegable: Enter confirma la formula
     if (event.key === 'Enter') {
+      this.suggestionsOpen.set(false);
       this.formulaCommit.emit({ value: this.formulaValue() });
     }
+  }
+
+  /**
+   * Blur con retardo: Tab causa blur ANTES de que Angular procese el
+   * preventDefault() del keydown. Si cerramos inmediato el desplegable se va
+   * antes de que keydown pueda aceptar la sugerencia. 150ms da margen de sobra
+   * para que el keydown gane la carrera.
+   */
+  private blurTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  onFormulaBlur(): void {
+    this.blurTimeout = setTimeout(() => this.suggestionsOpen.set(false), 150);
+  }
+
+  /**
+   * Inserta la sugerencia reemplazando el token que el usuario estaba
+   * escribiendo, y deja el cursor listo para seguir.
+   */
+  acceptSuggestion(s: FormulaSuggestionItem | undefined, input?: HTMLInputElement): void {
+    if (!s) return;
+
+    // Cancelar el blur pendiente: el foco vuelve al input, no queremos cerrarlo
+    if (this.blurTimeout) { clearTimeout(this.blurTimeout); this.blurTimeout = null; }
+
+    const text = this.formulaValue();
+    const el = input ?? null;
+    const caret = el?.selectionStart ?? text.length;
+
+    const before = text.slice(0, caret);
+    const after = text.slice(caret);
+
+    let newBefore: string;
+    if (s.kind === 'function') {
+      // Reemplazar el token de funcion parcial
+      newBefore = before.replace(/[A-Za-zÁÉÍÓÚÑáéíóúñ.]+$/, '') + s.insert;
+    } else {
+      // Vista o columna: reemplazar lo escrito tras la ultima comilla
+      const lastQuote = before.lastIndexOf('"');
+      newBefore = before.slice(0, lastQuote + 1) + s.insert + '"';
+    }
+
+    const next = newBefore + after;
+    this.formulaValue.set(next);
+    this.suggestionsOpen.set(false);
+
+    // Reposicionar el cursor tras lo insertado
+    const pos = newBefore.length;
+    if (el) {
+      setTimeout(() => { el.focus(); el.setSelectionRange(pos, pos); }, 0);
+    }
+
+    // Pedir sugerencias para la nueva posicion: al aceptar una funcion el
+    // usuario suele necesitar de inmediato el primer argumento.
+    this.suggestionIndex.set(0);
+    this.formulaInput.emit({ text: next, caret: pos });
+  }
+
+  closeSuggestions(): void {
+    if (this.blurTimeout) { clearTimeout(this.blurTimeout); this.blurTimeout = null; }
+    this.suggestionsOpen.set(false);
   }
 
   // ─── Sheet tabs ───────────────────────────────────────────────────────────
@@ -202,5 +328,15 @@ export class ExcelSheetComponent {
 
   isButton(item: RibbonItem): boolean {
     return item.type === 'button' || item.type === 'toggle';
+  }
+
+  onCloseSheet(event: MouseEvent, tab: SheetTab): void {
+    // Evita que el clic en la X active tambien la pestana
+    event.stopPropagation();
+    this.closeSheet.emit(tab.id);
+  }
+
+  onAddSheet(): void {
+    this.addSheet.emit();
   }
 }

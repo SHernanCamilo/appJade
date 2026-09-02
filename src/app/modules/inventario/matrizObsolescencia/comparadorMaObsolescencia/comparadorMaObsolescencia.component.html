@@ -1,0 +1,433 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="pi pi-arrow-right-arrow-left me-2"></i>
+          Comparador Matriz de Obsolescencia
+        </h1>
+        <p class="page-subtitle-modern">
+          Cruza el Excel de inventario contra los activos de la base de datos por placa y serial
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button
+          class="btn-action btn-action-secondary"
+          (click)="descargarPlantilla()"
+          [disabled]="isDescargandoPlantilla">
+          <i class="pi" [ngClass]="isDescargandoPlantilla ? 'pi-spin pi-spinner' : 'pi-download'"></i>
+          Plantilla
+        </button>
+        <button
+          class="btn-action btn-action-success"
+          (click)="exportarResultado()"
+          [disabled]="!resultado || isExportando">
+          <i class="pi" [ngClass]="isExportando ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+          {{ isExportando ? 'Exportando...' : 'Exportar resultado' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-section">
+    <div class="upload-card">
+      <div
+        class="upload-zone"
+        [class.drag-over]="isDragOver"
+        [class.has-file]="!!archivo"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event)"
+        (click)="!archivo ? fileInput.click() : null">
+
+        <input
+          #fileInput
+          id="comparadorFileInput"
+          type="file"
+          class="d-none"
+          accept=".xlsx,.xls"
+          (change)="onFileSelect($event)">
+
+        <ng-container *ngIf="!archivo">
+          <i class="pi pi-cloud-upload upload-icon"></i>
+          <h3>Cargar Excel de inventario</h3>
+          <p>Arrastra el archivo aquí o haz clic para seleccionarlo. Puede tener más de 1.000 filas.</p>
+          <span class="upload-hint">Columnas: Sucursal / Sede, PLACA, MARCA, TIPO DE EQUIPO, SERIAL, RAM, Disco…</span>
+        </ng-container>
+
+        <ng-container *ngIf="archivo">
+          <i class="pi pi-file-excel upload-icon success"></i>
+          <h3>{{ archivo.name }}</h3>
+          <p>{{ (archivo.size / 1024).toFixed(1) }} KB</p>
+          <button class="btn-quitar" (click)="quitarArchivo($event)">
+            <i class="pi pi-times"></i> Quitar archivo
+          </button>
+        </ng-container>
+      </div>
+
+      <div class="upload-actions">
+        <button
+          class="btn-action btn-action-primary"
+          (click)="comparar()"
+          [disabled]="!archivo || isComparando">
+          <i class="pi" [ngClass]="isComparando ? 'pi-spin pi-spinner' : 'pi-search'"></i>
+          {{ isComparando ? 'Comparando...' : 'Comparar con la BD' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="loading-box" *ngIf="isComparando">
+      <p-skeleton width="100%" height="72px" styleClass="mb-2"></p-skeleton>
+      <p-skeleton width="100%" height="240px"></p-skeleton>
+      <p class="loading-text">Leyendo el Excel y cruzando contra los activos. Esto puede tardar unos segundos si hay muchas filas.</p>
+    </div>
+
+    <ng-container *ngIf="resultado && resumen && !isComparando">
+      <div class="stats-row">
+        <button class="stat-mini stat-diff" type="button" (click)="irATab('diferencias')">
+          <div class="sm-icon"><i class="pi pi-exclamation-triangle"></i></div>
+          <div>
+            <div class="sm-num">{{ resumen.diferencias }}</div>
+            <div class="sm-lbl">Con diferencias</div>
+          </div>
+        </button>
+        <button class="stat-mini stat-ok" type="button" (click)="irATab('iguales')">
+          <div class="sm-icon"><i class="pi pi-check-circle"></i></div>
+          <div>
+            <div class="sm-num">{{ resumen.iguales }}</div>
+            <div class="sm-lbl">Iguales</div>
+          </div>
+        </button>
+        <button class="stat-mini stat-excel" type="button" (click)="irATab('solo_excel')">
+          <div class="sm-icon"><i class="pi pi-file-excel"></i></div>
+          <div>
+            <div class="sm-num">{{ resumen.solo_excel }}</div>
+            <div class="sm-lbl">Solo en Excel</div>
+          </div>
+        </button>
+        <button class="stat-mini stat-bd" type="button" (click)="irATab('solo_bd')">
+          <div class="sm-icon"><i class="pi pi-database"></i></div>
+          <div>
+            <div class="sm-num">{{ resumen.solo_bd }}</div>
+            <div class="sm-lbl">Solo en BD</div>
+          </div>
+        </button>
+        <button class="stat-mini stat-total" type="button">
+          <div class="sm-icon"><i class="pi pi-desktop"></i></div>
+          <div>
+            <div class="sm-num">{{ resumen.filas_validas }} / {{ resumen.activos_bd }}</div>
+            <div class="sm-lbl">Excel / BD</div>
+          </div>
+        </button>
+      </div>
+
+      <div class="alert-warn" *ngIf="resultado.advertencias.length">
+        <i class="pi pi-info-circle"></i>
+        <div>
+          <strong>Advertencias</strong>
+          <ul>
+            <li *ngFor="let aviso of resultado.advertencias">{{ aviso }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <p-tabView [(activeIndex)]="activeTabIndex" styleClass="comparador-tabs">
+        <p-tabPanel header="Diferencias ({{ resumen.diferencias }})">
+          <div class="modern-table-container">
+            <p-table
+              #dtDiff
+              [value]="resultado.diferencias"
+              dataKey="fila_excel"
+              [paginator]="true"
+              [rows]="rowsPerPage"
+              [rowsPerPageOptions]="[25, 50, 100, 250]"
+              [expandedRowKeys]="expandedRows"
+              [globalFilterFields]="['placa','serial','nombre_equipo']"
+              [showCurrentPageReport]="true"
+              currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+              styleClass="modern-table"
+              responsiveLayout="scroll">
+
+              <ng-template pTemplate="caption">
+                <div class="table-caption">
+                  <span>Activos cruzados con campos distintos entre Excel y BD</span>
+                  <span class="p-input-icon-left">
+                    <i class="pi pi-search"></i>
+                    <input pInputText type="text" placeholder="Buscar placa, serial o equipo"
+                      (input)="dtDiff.filterGlobal($any($event.target).value, 'contains')">
+                  </span>
+                </div>
+              </ng-template>
+
+              <ng-template pTemplate="header">
+                <tr>
+                  <th style="width:3rem"></th>
+                  <th>Fila</th>
+                  <th>PLACA</th>
+                  <th>SERIAL</th>
+                  <th>Equipo BD</th>
+                  <th>ID GLPI</th>
+                  <th>Cruce</th>
+                  <th>Campos</th>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="body" let-row let-expanded="expanded">
+                <tr>
+                  <td>
+                    <p-button
+                      type="button"
+                      [pRowToggler]="row"
+                      [text]="true"
+                      [rounded]="true"
+                      [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'">
+                    </p-button>
+                  </td>
+                  <td>{{ row.fila_excel }}</td>
+                  <td class="fw-600">{{ row.placa || '—' }}</td>
+                  <td>{{ row.serial || '—' }}</td>
+                  <td>{{ row.nombre_equipo || '—' }}</td>
+                  <td>{{ row.id_activo_glpi || '—' }}</td>
+                  <td>
+                    <p-tag [value]="etiquetaCoincidencia(row.coincidencia_por)" [severity]="severityCoincidencia(row.coincidencia_por)"></p-tag>
+                  </td>
+                  <td>
+                    <span class="badge-diff">{{ row.total_diferencias }}</span>
+                  </td>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="rowexpansion" let-row>
+                <tr>
+                  <td colspan="8">
+                    <table class="diff-inner">
+                      <thead>
+                        <tr>
+                          <th>Campo</th>
+                          <th>Excel</th>
+                          <th>Base de datos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let campo of row.campos">
+                          <td>{{ campo.etiqueta }}</td>
+                          <td class="val-excel">{{ campo.excel || '—' }}</td>
+                          <td class="val-bd">{{ campo.bd || '—' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="emptymessage">
+                <tr>
+                  <td colspan="8" class="empty-msg">No hay diferencias en los activos cruzados.</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </p-tabPanel>
+
+        <p-tabPanel header="Iguales ({{ resumen.iguales }})">
+          <div class="modern-table-container">
+            <p-table
+              #dtOk
+              [value]="resultado.iguales"
+              [paginator]="true"
+              [rows]="rowsPerPage"
+              [rowsPerPageOptions]="[25, 50, 100, 250]"
+              [globalFilterFields]="['placa','serial','nombre_equipo']"
+              [showCurrentPageReport]="true"
+              currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+              styleClass="modern-table"
+              responsiveLayout="scroll">
+              <ng-template pTemplate="caption">
+                <div class="table-caption">
+                  <span>Coinciden Excel y BD en todos los campos comparados</span>
+                  <span class="p-input-icon-left">
+                    <i class="pi pi-search"></i>
+                    <input pInputText type="text" placeholder="Buscar"
+                      (input)="dtOk.filterGlobal($any($event.target).value, 'contains')">
+                  </span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Fila</th>
+                  <th>PLACA</th>
+                  <th>SERIAL</th>
+                  <th>Equipo BD</th>
+                  <th>ID GLPI</th>
+                  <th>Cruce</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.fila_excel }}</td>
+                  <td class="fw-600">{{ row.placa || '—' }}</td>
+                  <td>{{ row.serial || '—' }}</td>
+                  <td>{{ row.nombre_equipo || '—' }}</td>
+                  <td>{{ row.id_activo_glpi || '—' }}</td>
+                  <td>
+                    <p-tag [value]="etiquetaCoincidencia(row.coincidencia_por)" [severity]="severityCoincidencia(row.coincidencia_por)"></p-tag>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="6" class="empty-msg">Ningún activo quedó idéntico.</td></tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </p-tabPanel>
+
+        <p-tabPanel header="Solo Excel ({{ resumen.solo_excel }})">
+          <div class="modern-table-container">
+            <p-table
+              #dtExcel
+              [value]="resultado.solo_excel"
+              [paginator]="true"
+              [rows]="rowsPerPage"
+              [rowsPerPageOptions]="[25, 50, 100, 250]"
+              [globalFilterFields]="['placa','serial','marca','tipo']"
+              [showCurrentPageReport]="true"
+              currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+              styleClass="modern-table"
+              responsiveLayout="scroll">
+              <ng-template pTemplate="caption">
+                <div class="table-caption">
+                  <span>Están en el archivo y no se encontraron en BD por placa ni serial</span>
+                  <span class="p-input-icon-left">
+                    <i class="pi pi-search"></i>
+                    <input pInputText type="text" placeholder="Buscar"
+                      (input)="dtExcel.filterGlobal($any($event.target).value, 'contains')">
+                  </span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Fila</th>
+                  <th>PLACA</th>
+                  <th>SERIAL</th>
+                  <th>Sucursal / Sede</th>
+                  <th>Marca</th>
+                  <th>Tipo</th>
+                  <th>Ubicación</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.fila_excel }}</td>
+                  <td class="fw-600">{{ row.placa || '—' }}</td>
+                  <td>{{ row.serial || '—' }}</td>
+                  <td>{{ row.sucursal_sede || '—' }}</td>
+                  <td>{{ row.marca || '—' }}</td>
+                  <td>{{ row.tipo || '—' }}</td>
+                  <td>{{ row.ubicacion || '—' }}</td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="7" class="empty-msg">Todos los registros del Excel están en la BD.</td></tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </p-tabPanel>
+
+        <p-tabPanel header="Solo BD ({{ resumen.solo_bd }})">
+          <div class="modern-table-container">
+            <p-table
+              #dtBd
+              [value]="resultado.solo_bd"
+              [paginator]="true"
+              [rows]="rowsPerPage"
+              [rowsPerPageOptions]="[25, 50, 100, 250]"
+              [globalFilterFields]="['placa','serial','nombre_equipo']"
+              [showCurrentPageReport]="true"
+              currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+              styleClass="modern-table"
+              responsiveLayout="scroll">
+              <ng-template pTemplate="caption">
+                <div class="table-caption">
+                  <span>Están en la BD y no aparecen en el Excel</span>
+                  <span class="p-input-icon-left">
+                    <i class="pi pi-search"></i>
+                    <input pInputText type="text" placeholder="Buscar"
+                      (input)="dtBd.filterGlobal($any($event.target).value, 'contains')">
+                  </span>
+                </div>
+              </ng-template>
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>ID GLPI</th>
+                  <th>Equipo</th>
+                  <th>PLACA</th>
+                  <th>SERIAL</th>
+                  <th>Sucursal / Sede</th>
+                  <th>Marca</th>
+                  <th>Tipo</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.id_activo_glpi || '—' }}</td>
+                  <td>{{ row.nombre_equipo || '—' }}</td>
+                  <td class="fw-600">{{ row.placa || '—' }}</td>
+                  <td>{{ row.serial || '—' }}</td>
+                  <td>{{ row.sucursal_sede || '—' }}</td>
+                  <td>{{ row.marca || '—' }}</td>
+                  <td>{{ row.tipo || '—' }}</td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="7" class="empty-msg">Todos los activos de BD están en el Excel.</td></tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </p-tabPanel>
+
+        <p-tabPanel header="Sin clave ({{ resumen.sin_clave }})">
+          <div class="modern-table-container">
+            <p-table
+              [value]="resultado.sin_clave"
+              [paginator]="true"
+              [rows]="rowsPerPage"
+              styleClass="modern-table"
+              responsiveLayout="scroll">
+              <ng-template pTemplate="caption">
+                <span>Filas del Excel sin placa ni serial: no se pueden cruzar</span>
+              </ng-template>
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Fila</th>
+                  <th>Sucursal / Sede</th>
+                  <th>Marca</th>
+                  <th>Tipo</th>
+                  <th>Ubicación</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row.fila_excel }}</td>
+                  <td>{{ row.sucursal_sede || '—' }}</td>
+                  <td>{{ row.marca || '—' }}</td>
+                  <td>{{ row.tipo || '—' }}</td>
+                  <td>{{ row.ubicacion || '—' }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        </p-tabPanel>
+      </p-tabView>
+    </ng-container>
+  </div>
+</div>

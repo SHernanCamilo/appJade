@@ -1,0 +1,227 @@
+<p-toast position="top-right"></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
+<div class="pt-wrap">
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- ENCABEZADO                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <header class="pt-header">
+    <div>
+      <h2 class="pt-titulo">
+        <i class="pi pi-sliders-h"></i>
+        Tipos de Inventario
+      </h2>
+      <p class="pt-subtitulo">
+        Parametrice los tipos de inventario y su periodicidad de registro por activo.
+      </p>
+    </div>
+    <button type="button" class="pt-btn pt-btn--primary" (click)="abrirCrear()">
+      <i class="pi pi-plus"></i>
+      Nuevo tipo
+    </button>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- TABLA DE TIPOS                                                     -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <section class="pt-card">
+
+    <p-table
+      [value]="tipos"
+      [loading]="cargando"
+      styleClass="pt-tabla"
+      [rowHover]="true"
+      [sortField]="'nombre'"
+      [sortOrder]="1">
+
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="nombre" style="min-width: 200px">
+            Nombre <p-sortIcon field="nombre"></p-sortIcon>
+          </th>
+          <th style="min-width: 140px">Periodicidad</th>
+          <th>Restricción</th>
+          <th style="min-width: 90px">Registros</th>
+          <th style="min-width: 100px">Estado</th>
+          <th style="width: 130px; text-align: right">Acciones</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-tipo>
+        <tr [class.pt-fila--inactivo]="!tipo.activo">
+          <!-- Nombre -->
+          <td>
+            <span class="pt-nombre">{{ tipo.nombre }}</span>
+            <small *ngIf="tipo.descripcion" class="pt-descripcion">{{ tipo.descripcion }}</small>
+          </td>
+
+          <!-- Periodicidad -->
+          <td>
+            <p-tag
+              [value]="periodicidadNombre(tipo.periodicidad)"
+              [severity]="severidadPeriodicidad(tipo.periodicidad)">
+            </p-tag>
+          </td>
+
+          <!-- Descripción restricción -->
+          <td class="pt-restriccion">{{ tipo.descripcion_restriccion }}</td>
+
+          <!-- Contador registros -->
+          <td>
+            <span class="pt-conteo">{{ tipo.registros_count ?? 0 | number }}</span>
+          </td>
+
+          <!-- Estado -->
+          <td>
+            <button
+              type="button"
+              class="pt-toggle"
+              [class.pt-toggle--activo]="tipo.activo"
+              [class.pt-toggle--inactivo]="!tipo.activo"
+              [pTooltip]="tipo.activo ? 'Activo — click para desactivar' : 'Inactivo — click para activar'"
+              tooltipPosition="top"
+              (click)="toggleEstado(tipo)">
+              <i class="pi" [ngClass]="tipo.activo ? 'pi-check-circle' : 'pi-times-circle'"></i>
+              {{ tipo.activo ? 'Activo' : 'Inactivo' }}
+            </button>
+          </td>
+
+          <!-- Acciones -->
+          <td class="pt-acciones">
+            <button
+              type="button"
+              class="pt-btn pt-btn--sm pt-btn--ghost"
+              pTooltip="Editar"
+              tooltipPosition="top"
+              (click)="abrirEditar(tipo)">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button
+              type="button"
+              class="pt-btn pt-btn--sm pt-btn--danger-ghost"
+              pTooltip="Eliminar"
+              tooltipPosition="top"
+              [disabled]="eliminando === tipo.id || (tipo.registros_count ?? 0) > 0"
+              [pTooltip]="(tipo.registros_count ?? 0) > 0 ? 'Tiene registros asociados — no se puede eliminar' : 'Eliminar'"
+              (click)="eliminar(tipo)">
+              <i class="pi" [ngClass]="eliminando === tipo.id ? 'pi-spin pi-spinner' : 'pi-trash'"></i>
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6">
+            <div class="pt-vacio">
+              <i class="pi pi-inbox"></i>
+              No hay tipos de inventario configurados. Cree el primero.
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+
+    </p-table>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- DIALOG CREAR / EDITAR                                              -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="pt-overlay" *ngIf="dialogVisible" (click)="cerrarDialog()"></div>
+
+  <aside class="pt-dialog" *ngIf="dialogVisible">
+    <header class="pt-dialog__header">
+      <h3 class="pt-dialog__titulo">
+        <i class="pi" [ngClass]="modoEdicion ? 'pi-pencil' : 'pi-plus-circle'"></i>
+        {{ modoEdicion ? 'Editar tipo de inventario' : 'Nuevo tipo de inventario' }}
+      </h3>
+      <button type="button" class="pt-dialog__cerrar" (click)="cerrarDialog()">
+        <i class="pi pi-times"></i>
+      </button>
+    </header>
+
+    <div class="pt-dialog__cuerpo">
+
+      <!-- Nombre -->
+      <div class="pt-campo">
+        <label for="ptNombre">
+          Nombre <span class="pt-requerido">*</span>
+        </label>
+        <input
+          id="ptNombre"
+          type="text"
+          [(ngModel)]="formulario.nombre"
+          placeholder="Ej: Inventario General"
+          class="pt-input"
+          maxlength="100"
+          autocomplete="off" />
+        <small class="pt-ayuda-campo">Nombre único para identificar este tipo.</small>
+      </div>
+
+      <!-- Periodicidad -->
+      <div class="pt-campo">
+        <label for="ptPeriodicidad">
+          Periodicidad <span class="pt-requerido">*</span>
+        </label>
+        <select id="ptPeriodicidad" [(ngModel)]="formulario.periodicidad" class="pt-input">
+          <option value="">-- Seleccione la periodicidad --</option>
+          <option *ngFor="let op of opciones" [value]="op.valor">
+            {{ op.etiqueta }}
+          </option>
+        </select>
+        <!-- Descripción dinámica según selección -->
+        <small class="pt-ayuda-campo pt-ayuda-campo--info" *ngIf="formulario.periodicidad">
+          <i class="pi pi-info-circle"></i>
+          {{ periodicidadDescripcion(formulario.periodicidad) }}
+        </small>
+      </div>
+
+      <!-- Descripción -->
+      <div class="pt-campo">
+        <label for="ptDescripcion">Descripción</label>
+        <textarea
+          id="ptDescripcion"
+          [(ngModel)]="formulario.descripcion"
+          placeholder="Descripción opcional del tipo de inventario..."
+          class="pt-input"
+          rows="3"
+          maxlength="500"></textarea>
+        <small class="pt-contador">{{ formulario.descripcion.length }} / 500</small>
+      </div>
+
+      <!-- Estado -->
+      <div class="pt-campo pt-campo--inline">
+        <label class="pt-check-label">
+          <span class="pt-switch" [class.pt-switch--on]="formulario.activo">
+            <input
+              type="checkbox"
+              [(ngModel)]="formulario.activo"
+              style="display: none" />
+            <span class="pt-switch__thumb"></span>
+          </span>
+          {{ formulario.activo ? 'Activo' : 'Inactivo' }}
+        </label>
+        <small class="pt-ayuda-campo">
+          Los tipos inactivos no aparecen en el formulario de toma de inventario.
+        </small>
+      </div>
+
+    </div>
+
+    <footer class="pt-dialog__footer">
+      <button type="button" class="pt-btn pt-btn--secondary" (click)="cerrarDialog()">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="pt-btn pt-btn--primary"
+        [disabled]="!formularioValido || guardando"
+        (click)="guardar()">
+        <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+        {{ guardando ? 'Guardando...' : (modoEdicion ? 'Guardar cambios' : 'Crear tipo') }}
+      </button>
+    </footer>
+  </aside>
+
+</div>

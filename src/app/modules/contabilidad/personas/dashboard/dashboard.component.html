@@ -1,7 +1,6 @@
 <div class="page-container">
   <p-toast></p-toast>
 
-  <!-- Header con navegación y acciones -->
   <div class="page-header-modern">
     <div class="header-top">
       <button class="btn-back-modern" routerLink="/contabilidad">
@@ -9,24 +8,285 @@
         Volver
       </button>
     </div>
-    
+
     <div class="header-main">
       <div class="header-title-section">
         <h1 class="page-title-modern">
-          <i class="pi pi-file-edit me-2"></i>
-          Dashboard de Personas y Tercero
+          <i class="pi pi-users me-2"></i>
+          Personas y terceros
         </h1>
-        <p class="page-subtitle-modern">Gestión de terceros y personas</p>
+        <p class="page-subtitle-modern">
+          Alta y edición sobre config_person_tercero
+          <span class="empresa-badge" *ngIf="!esTransversal && empresaNombre">
+            <i class="pi pi-building me-1"></i>{{ empresaNombre }}
+          </span>
+        </p>
       </div>
-      
+
       <div class="header-actions">
-        <!-- <button 
-          class="btn-action btn-action-primary"
-          (click)="abrirNuevaSolicitud()">
+        <button class="btn-action btn-action-outline" type="button" (click)="nuevaPersona()">
           <i class="pi pi-plus"></i>
-          Nueva Solicitud
-        </button> -->
+          Nueva
+        </button>
+        <button
+          class="btn-action btn-action-primary"
+          type="button"
+          (click)="guardar()"
+          [disabled]="isSubmitting || !formularioListo || form.invalid">
+          <i class="pi pi-save" [class.pi-spin]="isSubmitting"></i>
+          {{ isSubmitting ? 'Guardando...' : 'Guardar' }}
+        </button>
       </div>
     </div>
   </div>
+
+  <form [formGroup]="form" class="dashboard-content">
+    <div class="two-panel-layout">
+
+      <div class="panel-left">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Datos principales</span>
+        </div>
+
+        <div class="panel-form">
+          <div class="param-group" *ngIf="esTransversal">
+            <label class="param-label">Empresa *</label>
+            <p-dropdown
+              formControlName="id_empresa"
+              [options]="empresasOptions"
+              (onChange)="onEmpresaChange()"
+              placeholder="Seleccionar empresa"
+              [showClear]="true"
+              [filter]="true"
+              filterBy="label"
+              [loading]="isLoadingEmpresas"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="w-full"
+              appendTo="body">
+            </p-dropdown>
+          </div>
+
+          <div class="param-group" *ngIf="!esTransversal">
+            <label class="param-label">Empresa *</label>
+            <div class="empresa-readonly">
+              <i class="pi pi-building"></i>
+              <span>{{ empresaNombre }}</span>
+            </div>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Número de identificación *</label>
+            <div class="codigo-input-group">
+              <input
+                pInputText
+                formControlName="numero_identificacion"
+                placeholder="Escriba el documento"
+                class="w-100"
+                (keyup.enter)="onDocumentoEnter()">
+              <button
+                type="button"
+                class="btn-search-codigo"
+                (click)="abrirModalUsuarios()"
+                pTooltip="Ver usuarios"
+                tooltipPosition="top">
+                <i class="pi" [ngClass]="isLoadingUsuarios ? 'pi-spin pi-spinner' : 'pi-search'"></i>
+              </button>
+            </div>
+            <small class="form-hint">Escriba el documento o use la lupa. El resto se habilita al cargar o si no existe, para crear.</small>
+          </div>
+
+          <div class="param-group" [class.campo-bloqueado]="!formularioListo">
+            <label class="param-label">Tipo de documento *</label>
+            <p-dropdown
+              formControlName="tipo_identificacion"
+              [options]="tiposDocumento"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Se carga con el documento"
+              appendTo="body"
+              styleClass="w-full">
+            </p-dropdown>
+          </div>
+
+          <div class="param-group" [class.campo-bloqueado]="!formularioListo">
+            <label class="param-label">Nombre *</label>
+            <input pInputText formControlName="nombre" placeholder="Nombre completo o razón social" class="w-100">
+          </div>
+
+          <div class="param-group" [class.campo-bloqueado]="!formularioListo">
+            <label class="param-label">Correo *</label>
+            <input pInputText type="email" formControlName="email" placeholder="correo@empresa.com" class="w-100">
+          </div>
+
+          <div class="usuario-vinculado" *ngIf="usuarioVinculado">
+            <div>
+              <small class="param-label">Usuario vinculado</small>
+              <strong>{{ usuarioVinculado.name }}</strong>
+              <div class="text-muted">{{ usuarioVinculado.email }}</div>
+            </div>
+            <button type="button" class="btn-link-danger" (click)="desvincularUsuario()">Quitar vínculo</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-right" [class.panel-blocked]="!formularioListo">
+        <div class="panel-header panel-header-accent">
+          <span class="panel-title">Más datos</span>
+        </div>
+
+        <div class="panel-form mas-datos-grid">
+          <div class="param-group">
+            <label class="param-label">Teléfono</label>
+            <input pInputText formControlName="telefono" placeholder="Teléfono" class="w-100">
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Dirección</label>
+            <input pInputText formControlName="direccion" placeholder="Dirección" class="w-100">
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Cargo</label>
+            <p-dropdown
+              formControlName="id_cargo"
+              [options]="cargos"
+              optionLabel="nombre_cargo"
+              optionValue="id_cargo"
+              placeholder="Opcional"
+              [filter]="true"
+              filterBy="nombre_cargo"
+              [showClear]="true"
+              appendTo="body"
+              styleClass="w-full">
+            </p-dropdown>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Unidad</label>
+            <input pInputText formControlName="unidad" placeholder="Unidad funcional" class="w-100">
+          </div>
+
+          <div class="param-group full">
+            <label class="param-label">Contrato</label>
+            <input pInputText formControlName="contrato" placeholder="Número o referencia" class="w-100">
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Inicio contrato</label>
+            <p-calendar
+              formControlName="fecha_inicio_contrato"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              [showButtonBar]="true"
+              appendTo="body"
+              styleClass="w-100">
+            </p-calendar>
+          </div>
+
+          <div class="param-group">
+            <label class="param-label">Fin contrato</label>
+            <p-calendar
+              formControlName="fecha_fin_contrato"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              [showButtonBar]="true"
+              appendTo="body"
+              styleClass="w-100">
+            </p-calendar>
+          </div>
+
+          <div class="param-group param-group-inline full">
+            <label class="param-label">Estado</label>
+            <div class="toggle-wrapper">
+              <p-inputSwitch
+                [ngModel]="estadoActivo"
+                (ngModelChange)="onEstadoChange($event)"
+                [ngModelOptions]="{ standalone: true }"
+                [disabled]="!formularioListo">
+              </p-inputSwitch>
+            </div>
+            <span class="toggle-label">{{ estadoActivo ? 'Activo' : 'Inactivo' }}</span>
+          </div>
+
+          <div class="auditoria full">
+            <p><strong>Auditoría</strong></p>
+            <ng-container *ngIf="editMode; else sinAuditoria">
+              <p><strong>Creación:</strong> {{ auditoriaCreacion || '—' }}</p>
+              <p><strong>Última edición:</strong> {{ auditoriaEdicion || '—' }}</p>
+            </ng-container>
+            <ng-template #sinAuditoria>
+              <p class="text-muted mb-0">Se registra al guardar.</p>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <p-dialog
+    header="Usuarios"
+    [(visible)]="showModalUsuarios"
+    [modal]="true"
+    [style]="{ width: '70vw', maxWidth: '900px' }"
+    [breakpoints]="{ '960px': '90vw', '640px': '95vw' }"
+    (onShow)="cargarUsuarios(1)">
+
+    <div class="modal-search mb-3">
+      <span class="p-input-icon-left w-100">
+        <i class="pi pi-search"></i>
+        <input
+          pInputText
+          type="text"
+          [(ngModel)]="busquedaUsuarios"
+          (keyup.enter)="onBuscarUsuarios()"
+          placeholder="Buscar por identificación, nombre o correo"
+          class="w-100">
+      </span>
+      <small class="form-hint">Superusuario ve todos; si tiene empresa, solo los de su permiso.</small>
+    </div>
+
+    <p-table
+      [value]="usuarios"
+      [lazy]="true"
+      [paginator]="true"
+      [rows]="usuariosRows"
+      [first]="usuariosFirst"
+      [totalRecords]="usuariosTotal"
+      [loading]="isLoadingUsuarios"
+      (onPage)="onUsuariosPage($event)"
+      styleClass="p-datatable-sm p-datatable-striped"
+      responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Documento</th>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th style="width: 120px">Acción</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-usuario>
+        <tr>
+          <td><span class="usuario-codigo">{{ usuario.numero_identificacion || '—' }}</span></td>
+          <td>{{ usuario.name }}</td>
+          <td>{{ usuario.email }}</td>
+          <td>
+            <p-button
+              icon="pi pi-check"
+              label="Seleccionar"
+              size="small"
+              severity="info"
+              [text]="true"
+              (onClick)="seleccionarUsuario(usuario)">
+            </p-button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4" class="text-center py-4">No hay usuarios</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-dialog>
 </div>

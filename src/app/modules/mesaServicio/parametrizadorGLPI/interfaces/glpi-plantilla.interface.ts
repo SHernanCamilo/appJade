@@ -29,6 +29,7 @@ export interface GlpiAnsOpcion {
   label: string;
   value: string;
   prioridad: GlpiPrioridad;
+  alias?: string;
 }
 
 export interface GlpiPlantillaCategoria extends GlpiCategoriaNodo {

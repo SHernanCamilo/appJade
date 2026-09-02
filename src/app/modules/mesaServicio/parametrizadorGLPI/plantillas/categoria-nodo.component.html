@@ -10,8 +10,19 @@
       <i class="pi" [ngClass]="estaExpandido ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
     </button>
     <span *ngIf="esHoja" class="nodo-toggle nodo-toggle-spacer"></span>
-    <i class="pi" [ngClass]="esHoja ? 'pi-file' : 'pi-folder'" [class.icono-hoja]="esHoja"></i>
-    <span class="nodo-nivel" [class.nodo-nivel-hoja]="esHoja" [pTooltip]="tooltipCantidad" tooltipPosition="top">{{ etiquetaCantidad }}</span>
+    <i
+      class="pi"
+      [ngClass]="esHoja ? 'pi-file' : 'pi-folder'"
+      [class.icono-hoja]="esHoja"
+      [class.nodo-icono-clickable]="!esHoja"
+      (click)="toggleRama()"></i>
+    <span
+      class="nodo-nivel"
+      [class.nodo-nivel-hoja]="esHoja"
+      [class.nodo-icono-clickable]="!esHoja"
+      [pTooltip]="tooltipCantidad"
+      tooltipPosition="top"
+      (click)="toggleRama()">{{ etiquetaCantidad }}</span>
     <div class="nodo-nombre">
       <input pInputText formControlName="nombre" [placeholder]="placeholder">
       <small class="p-error" *ngIf="campoInvalido('nombre')">Obligatorio</small>

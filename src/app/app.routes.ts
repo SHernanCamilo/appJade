@@ -29,6 +29,23 @@ export const routes: Routes = [
     loadComponent: () => import('./modules/inventario/recepciones-tecnicas/recepcion-excel/recepcion-excel.component').then(m => m.RecepcionExcelComponent),
     canActivate: [authGuard]
   },
+
+  // Vista Excel "Actualizar datos" de BI — pantalla completa sin layout (se abre en pestaña nueva)
+  // Ruta genérica nueva (recomendada)
+  {
+    path: 'inteligenciaNegocios/viewVistaExcel',
+    loadComponent: () => import('./modules/inteligenciaNegocios/vistas/components/view-vistas-refresh/viewVistasRefresh.component').then(m => m.ViewVistasRefreshComponent),
+    canActivate: [authGuard],
+    data: { listPath: '/inteligenciaNegocios/vistas' }
+  },
+  
+  // Ruta legacy (mantener por compatibilidad)
+  {
+    path: 'vistaBI-refresh/:schema/:viewName',
+    loadComponent: () => import('./modules/inteligenciaNegocios/vistas/components/view-vistas-refresh/viewVistasRefresh.component').then(m => m.ViewVistasRefreshComponent),
+    canActivate: [authGuard],
+    data: { listPath: '/inteligenciaNegocios/vistas' }
+  },
   
   
   // Rutas protegidas con layout

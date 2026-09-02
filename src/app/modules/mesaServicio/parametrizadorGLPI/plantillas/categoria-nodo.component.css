@@ -1,3 +1,7 @@
+:host {
+  display: contents;
+}
+
 .nodo {
   display: flex;
   flex-direction: column;
@@ -77,6 +81,10 @@
 .nodo-toggle-spacer {
   cursor: default;
   pointer-events: none;
+}
+
+.nodo-icono-clickable {
+  cursor: pointer;
 }
 
 .nodo-nivel {

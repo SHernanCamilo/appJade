@@ -12,6 +12,16 @@ const validadorGuard = {
   data: { moduleCode: 'MESA-GLPI-VALIDADOR' }
 };
 
+const tableroTicGuard = {
+  canActivate: [moduleGuard],
+  data: { moduleCode: 'MESA-GLPI-TABLERO' }
+};
+
+const loadPlantillaEditor = () =>
+  import('./parametrizadorGLPI/plantillas/plantilla-editor.component').then(
+    (m) => m.GlpiPlantillaEditorComponent
+  );
+
 export const MESA_SERVICIO_ROUTES: Routes = [
   {
     path: '',
@@ -38,10 +48,7 @@ export const MESA_SERVICIO_ROUTES: Routes = [
           },
           {
             path: 'nueva',
-            loadComponent: () =>
-              import('./parametrizadorGLPI/plantillas/plantilla-editor.component').then(
-                (m) => m.GlpiPlantillaEditorComponent
-              ),
+            loadComponent: loadPlantillaEditor,
             ...plantillasGuard,
             data: {
               ...plantillasGuard.data,
@@ -50,10 +57,7 @@ export const MESA_SERVICIO_ROUTES: Routes = [
           },
           {
             path: ':id',
-            loadComponent: () =>
-              import('./parametrizadorGLPI/plantillas/plantilla-editor.component').then(
-                (m) => m.GlpiPlantillaEditorComponent
-              ),
+            loadComponent: loadPlantillaEditor,
             ...plantillasGuard,
             data: {
               ...plantillasGuard.data,
@@ -76,5 +80,16 @@ export const MESA_SERVICIO_ROUTES: Routes = [
         }
       }
     ]
+  },
+  {
+    path: 'tableros/tic',
+    loadComponent: () =>
+      import('./tableros/tic/tablero-tic.component').then((m) => m.TableroTicComponent),
+    ...tableroTicGuard,
+    data: {
+      ...tableroTicGuard.data,
+      pageTitle: 'Tablero TIC',
+      pageSubtitle: 'Tickets abiertos de Nivel 1 Nacional y alerta ANS'
+    }
   }
 ];

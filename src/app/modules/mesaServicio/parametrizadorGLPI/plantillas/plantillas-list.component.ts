@@ -42,6 +42,7 @@ export class GlpiPlantillasListComponent implements OnInit {
   plantillas: GlpiPlantilla[] = [];
   plantillasFiltradas: GlpiPlantilla[] = [];
   isLoading = false;
+  duplicandoId: number | null = null;
   searchTerm = '';
 
   constructor(
@@ -124,6 +125,45 @@ export class GlpiPlantillasListComponent implements OnInit {
       return;
     }
     this.router.navigate(['/mesaServicio/parametrizadorGLPI/plantillas', plantilla.id]);
+  }
+
+  duplicarPlantilla(plantilla: GlpiPlantilla): void {
+    if (!plantilla.id || this.duplicandoId !== null) {
+      return;
+    }
+
+    this.confirmationService.confirm({
+      message: `¿Duplicar la plantilla "${plantilla.nombre}"? Se creará una copia independiente, con su propio código, incluyendo ANS y categorías.`,
+      header: 'Duplicar plantilla',
+      icon: 'pi pi-copy',
+      acceptLabel: 'Duplicar',
+      rejectLabel: 'Cancelar',
+      accept: () => {
+        if (!plantilla.id) {
+          return;
+        }
+        this.duplicandoId = plantilla.id;
+        this.plantillaService.duplicar(plantilla.id).subscribe({
+          next: (copia) => {
+            this.duplicandoId = null;
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Plantilla duplicada',
+              detail: `Se creó "${copia.codigo}"`
+            });
+            this.cargarPlantillas();
+          },
+          error: (error) => {
+            this.duplicandoId = null;
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Error',
+              detail: error?.error?.message || 'No se pudo duplicar la plantilla'
+            });
+          }
+        });
+      }
+    });
   }
 
   toggleEstado(plantilla: GlpiPlantilla): void {

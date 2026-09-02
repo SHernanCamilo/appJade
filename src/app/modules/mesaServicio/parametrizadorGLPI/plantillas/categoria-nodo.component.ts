@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Injectable, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -10,16 +10,7 @@ import {
   GlpiAnsOpcion,
   GlpiPrioridad
 } from '../interfaces/glpi-plantilla.interface';
-
-@Injectable()
-export class GlpiCategoriaBusqueda {
-  texto = '';
-}
-
-@Injectable()
-export class GlpiCategoriaAnsOpciones {
-  opciones: GlpiAnsOpcion[] = [];
-}
+import { GlpiCategoriaAnsOpciones, GlpiCategoriaBusqueda } from './glpi-categoria.state';
 
 @Component({
   selector: 'app-glpi-categoria-nodo',
@@ -30,8 +21,7 @@ export class GlpiCategoriaAnsOpciones {
     ButtonModule,
     InputTextModule,
     DropdownModule,
-    TooltipModule,
-    GlpiCategoriaNodoComponent
+    TooltipModule
   ],
   templateUrl: './categoria-nodo.component.html',
   styleUrl: './categoria-nodo.component.css'
@@ -54,11 +44,19 @@ export class GlpiCategoriaNodoComponent {
   ) {}
 
   get opcionesAns(): GlpiAnsOpcion[] {
-    return this.ansOpciones.opciones;
-  }
-
-  get busqueda(): string {
-    return this.busquedaState.texto;
+    const opciones = this.ansOpciones.opciones;
+    const actual = String(this.nodo?.get('ans_nombre')?.value || '').trim();
+    if (!actual || opciones.some((item) => item.value === actual)) {
+      return opciones;
+    }
+    return [
+      ...opciones,
+      {
+        label: actual,
+        value: actual,
+        prioridad: (this.nodo.get('prioridad')?.value || 'baja') as GlpiPrioridad
+      }
+    ];
   }
 
   get hijas(): FormArray {
@@ -93,21 +91,21 @@ export class GlpiCategoriaNodoComponent {
   }
 
   get hayBusqueda(): boolean {
-    return this.normalizar(this.busqueda).length > 0;
+    return this.busquedaState.hayFiltro;
   }
 
   get coincide(): boolean {
     if (!this.hayBusqueda) {
       return false;
     }
-    return this.normalizar(this.nodo.get('nombre')?.value).includes(this.normalizar(this.busqueda));
+    return this.busquedaState.nodoCoincide(this.nodo.get('nombre')?.value, this.nodo.get('ans_nombre')?.value);
   }
 
   get visible(): boolean {
     if (!this.hayBusqueda) {
       return true;
     }
-    return this.ramaCoincide(this.nodo, this.normalizar(this.busqueda));
+    return this.ramaCoincide(this.nodo);
   }
 
   get estaExpandido(): boolean {
@@ -176,20 +174,11 @@ export class GlpiCategoriaNodoComponent {
     return total;
   }
 
-  private ramaCoincide(grupo: FormGroup, q: string): boolean {
-    if (this.normalizar(grupo.get('nombre')?.value).includes(q)) {
+  private ramaCoincide(grupo: FormGroup): boolean {
+    if (this.busquedaState.nodoCoincide(grupo.get('nombre')?.value, grupo.get('ans_nombre')?.value)) {
       return true;
     }
     const hijas = grupo.get('hijas') as FormArray | null;
-    return !!hijas?.controls.some((control) => this.ramaCoincide(control as FormGroup, q));
-  }
-
-  private normalizar(valor: unknown): string {
-    return String(valor || '')
-      .normalize('NFD')
-      .replace(/\p{M}/gu, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
+    return !!hijas?.controls.some((control) => this.ramaCoincide(control as FormGroup));
   }
 }

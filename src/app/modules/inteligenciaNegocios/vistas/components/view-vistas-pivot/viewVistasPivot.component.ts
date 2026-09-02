@@ -5,8 +5,8 @@ import { ActivatedRoute } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 
-import { VistasService, FabricColumn } from '../../services/vistas.service';
-import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
+import { VistasService, FabricColumn } from '../../../services/vistas.service';
+import { AG_GRID_LOCALE } from '../../../../../core/config/ag-grid.config';
 
 interface AggValue {
   field: string;

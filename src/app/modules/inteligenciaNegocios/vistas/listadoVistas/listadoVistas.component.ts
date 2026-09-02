@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { ButtonModule } from 'primeng/button';
@@ -16,6 +17,9 @@ import { MultiSelectModule } from 'primeng/multiselect';
 
 import { EsquemaCatalogo, VistasService, VistaBi } from '../../services/vistas.service';
 import { isVistaEnMantenimiento } from '../../helpers/fabric-error.helper';
+
+import { PermissionService } from '../../../../core/services/permission.service';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
 export interface EsquemaOption {
   code: string;
@@ -48,7 +52,8 @@ export interface GrupoVistas {
     InputTextModule,
     TooltipModule,
     DropdownModule,
-    MultiSelectModule
+    MultiSelectModule,
+    HasPermissionDirective
   ],
   providers: [MessageService],
   templateUrl: './listadoVistas.component.html',
@@ -58,6 +63,7 @@ export class ListadoVistasComponent implements OnInit {
   isLoadingContext = false;
   isLoadingVistas = false;
   isNavigating = false;
+  isLaunchingDesktop = false;
   searchTerm = '';
   vistas: VistaBi[] = [];
   departamento: string | null = null;
@@ -77,8 +83,10 @@ export class ListadoVistasComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private vistasService: VistasService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    public permissionService: PermissionService
   ) {}
 
   ngOnInit(): void {
@@ -89,6 +97,10 @@ export class ListadoVistasComponent implements OnInit {
     this.pageTitle = (data['pageTitle'] as string) ?? this.pageTitle;
     this.pageSubtitle = (data['pageSubtitle'] as string) ?? this.pageSubtitle;
     this.cargarContexto();
+  }
+
+  permissionDesktop(): boolean {
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP'); 
   }
 
   get isLoading(): boolean {
@@ -247,49 +259,81 @@ export class ListadoVistasComponent implements OnInit {
     }
 
     this.isLoadingVistas = true;
-    const promises: Promise<VistaBi[]>[] = [];
 
+    // Separar los esquemas que ya estan en cache de los que hay que pedir a Graph
+    const pendientes: string[] = [];
     for (const schema of this.esquemasSeleccionados) {
       if (forceReload) this.vistasPorEsquema.delete(schema);
-
-      const cached = this.vistasPorEsquema.get(schema);
-      if (cached) {
-        promises.push(Promise.resolve(cached));
-      } else {
-        promises.push(new Promise((resolve, reject) => {
-          this.vistasService.getVistasPorEsquema(schema, forceReload, this.grupoTipo).subscribe({
-            next: response => {
-              const nombreEsquema = this.esquemasCatalogo.find(
-                e => e.schema.toLowerCase() === schema.toLowerCase()
-              )?.nombre;
-
-              const vistas = (response.data ?? []).map(v => ({
-                ...v,
-                schemaDisplay: nombreEsquema ?? v.schemaDisplay
-              }));
-
-              this.vistasPorEsquema.set(schema, vistas);
-              resolve(vistas);
-            },
-            error: err => reject(err)
-          });
-        }));
-      }
+      if (!this.vistasPorEsquema.has(schema)) pendientes.push(schema);
     }
 
-    Promise.all(promises).then(results => {
-      this.vistas = results.flat();
-      this.isLoadingVistas = false;
-    }).catch(() => {
-      this.vistas = [];
-      this.isLoadingVistas = false;
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'No se pudieron cargar las vistas.',
-        life: 6000
+    // CONCURRENCIA LIMITADA: en vez de disparar N requests /views a la vez
+    // (que represaba Graph con 90+ requests), cargar de a MAX_CONCURRENT.
+    // Los esquemas ya cacheados no cuentan (resuelven al instante).
+    const MAX_CONCURRENT = 3;
+
+    const cargarUno = (schema: string): Promise<void> => {
+      return new Promise((resolve) => {
+        this.vistasService.getVistasPorEsquema(schema, forceReload, this.grupoTipo).subscribe({
+          next: response => {
+            const nombreEsquema = this.esquemasCatalogo.find(
+              e => e.schema.toLowerCase() === schema.toLowerCase()
+            )?.nombre;
+            const vistas = (response.data ?? []).map(v => ({
+              ...v,
+              schemaDisplay: nombreEsquema ?? v.schemaDisplay
+            }));
+            this.vistasPorEsquema.set(schema, vistas);
+            // Actualizar la grilla de forma incremental (el usuario ve vistas
+            // apareciendo por esquema, no espera a que TODOS terminen)
+            this.recomputarVistasVisibles();
+            resolve();
+          },
+          error: () => {
+            // Un esquema que falla no debe tumbar los demas
+            this.vistasPorEsquema.set(schema, []);
+            resolve();
+          }
+        });
       });
+    };
+
+    // Worker pool: procesa la cola de pendientes de a MAX_CONCURRENT
+    const cola = [...pendientes];
+    const workers: Promise<void>[] = [];
+
+    const trabajar = async (): Promise<void> => {
+      while (cola.length > 0) {
+        const schema = cola.shift()!;
+        await cargarUno(schema);
+      }
+    };
+
+    for (let i = 0; i < Math.min(MAX_CONCURRENT, cola.length); i++) {
+      workers.push(trabajar());
+    }
+
+    // Si todo estaba cacheado, mostrar de una
+    if (pendientes.length === 0) {
+      this.recomputarVistasVisibles();
+      this.isLoadingVistas = false;
+      return;
+    }
+
+    Promise.all(workers).then(() => {
+      this.recomputarVistasVisibles();
+      this.isLoadingVistas = false;
     });
+  }
+
+  /** Reconstruye this.vistas desde el cache por esquema (para render incremental). */
+  private recomputarVistasVisibles(): void {
+    const todas: VistaBi[] = [];
+    for (const schema of this.esquemasSeleccionados) {
+      const cached = this.vistasPorEsquema.get(schema);
+      if (cached) todas.push(...cached);
+    }
+    this.vistas = todas;
   }
 
   actualizar(): void {
@@ -330,6 +374,85 @@ export class ListadoVistasComponent implements OnInit {
       vista.schema,
       vista.view_name
     ]);
+  }
+
+  /**
+   * Abre la vista en el modo "Actualizar como Excel" en una NUEVA PESTAÑA
+   * (sin sidebar, pantalla completa), igual que el modo fullscreen.
+   * Descarga el dataset completo vía export/parquet con virtual scroll.
+   *
+   * URL: ...viewVistas/refresh/:schema/:viewName
+   */
+  abrirVistaRefresh(vista: VistaBi, event: Event): void {
+    event.stopPropagation();
+
+    if (isVistaEnMantenimiento(vista) || !vista.estado) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Vista no disponible',
+        detail: 'Esta vista no está disponible para cargar en modo actualizar.',
+        life: 3000
+      });
+      return;
+    }
+
+    // Abrir en nueva pestaña usando ruta genérica con query params
+    const urlTree = this.router.createUrlTree([
+      '/inteligenciaNegocios/viewVistaExcel'
+    ], {
+      queryParams: {
+        schema: vista.schema,
+        viewName: vista.view_name
+      }
+    });
+    const url      = this.router.serializeUrl(urlTree);
+    const fullUrl  = this.location.prepareExternalUrl(url);
+    window.open(fullUrl, '_blank', 'noopener');
+  }
+
+  abrirVistaEscritorio(vista: VistaBi, event: Event): void {
+    event.stopPropagation();
+
+    if (isVistaEnMantenimiento(vista) || !vista.estado || this.isLaunchingDesktop) {
+      return;
+    }
+
+    this.isLaunchingDesktop = true;
+    this.vistasService.launchDesktop(vista.schema, vista.view_name, vista.nombre).subscribe({
+      next: res => {
+        if (!res.success || !res.protocol_url) {
+          this.isLaunchingDesktop = false;
+          this.messageService.add({
+            severity: 'error',
+            summary: 'No se pudo abrir el escritorio',
+            detail: res.message ?? 'Intente de nuevo.',
+            life: 5000
+          });
+          return;
+        }
+
+        const downloadUrl = res.download_url ?? this.vistasService.getDesktopDownloadUrl();
+        this.vistasService.openDesktopProtocol(res.protocol_url, () => {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'JadeOne Desktop no está instalado',
+            detail: 'Se iniciará la descarga. Instale el .exe y vuelva a pulsar el botón.',
+            life: 8000
+          });
+          window.open(downloadUrl, '_blank', 'noopener');
+        });
+        window.setTimeout(() => { this.isLaunchingDesktop = false; }, 2500);
+      },
+      error: err => {
+        this.isLaunchingDesktop = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'No se pudo abrir el escritorio',
+          detail: err?.error?.message ?? 'Sin permiso o error de red.',
+          life: 5000
+        });
+      }
+    });
   }
 
   toggleGrupo(key: string): void {

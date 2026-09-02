@@ -114,6 +114,7 @@ export class OdataLinksComponent implements OnInit {
   // ─── Resultado ──────────────────────────────────────
   showResultDialog = false;
   resultUrl = '';
+  resultParquetUrl = '';
   resultToken = '';
   resultKey = '';
   resultWarning = '';
@@ -220,6 +221,9 @@ export class OdataLinksComponent implements OnInit {
         this.loadLinks();
 
         this.resultUrl = res.data.full_url || res.data.url;
+        // URL del carril rápido. Para links públicos se agrega el token igual
+        // que en full_url, para que quede lista de pegar en Excel.
+        this.resultParquetUrl = this.buildParquetUrl(res.data.parquet_url, res.data.public_token);
         this.resultToken = res.data.public_token || '';
         this.resultKey = '';
         this.resultWarning = res.data.warning || '';
@@ -260,6 +264,25 @@ export class OdataLinksComponent implements OnInit {
     navigator.clipboard.writeText(url).then(() => {
       this.showSuccess('URL copiada al portapapeles');
     });
+  }
+
+  /**
+   * URL del carril parquet lista para pegar en Excel. Si el backend no la
+   * devuelve (deploy viejo), la deriva de la URL normal cambiando /link/ por
+   * /parquet/. Para links públicos agrega el token en query.
+   */
+  buildParquetUrl(parquetUrl?: string, token?: string): string {
+    let url = parquetUrl ?? '';
+    if (!url) return '';
+    if (token) {
+      url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    }
+    return url;
+  }
+
+  /** URL parquet de una fila de la tabla (deploy viejo: la deriva del /link/). */
+  parquetUrlOf(link: OdataLink): string {
+    return link.parquet_url ?? link.url.replace('/odata/link/', '/odata/parquet/');
   }
 
   getVisibilityLabel(v: string): string {
@@ -314,6 +337,7 @@ export class OdataLinksComponent implements OnInit {
         this.loadApiKeys();
 
         this.resultUrl = '';
+        this.resultParquetUrl = '';
         this.resultToken = '';
         this.resultKey = res.data.key;
         this.resultWarning = res.warning || '';

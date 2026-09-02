@@ -7,7 +7,8 @@ import { environment } from '../../environments/environment';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
 
-  // Agregar URL base solo a rutas relativas (que empiezan con /)
+  // Convertir URLs relativas (/api/...) a absolutas usando URL_SERVICIOS.
+  // Necesario para el callback de Microsoft OAuth y cualquier llamada con ruta relativa.
   if (req.url.startsWith('/')) {
     req = req.clone({ url: `${environment.URL_SERVICIOS}${req.url}` });
   }
