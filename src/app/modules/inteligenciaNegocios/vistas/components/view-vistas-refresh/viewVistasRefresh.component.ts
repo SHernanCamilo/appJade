@@ -188,6 +188,7 @@ function dropdown(
 function buildRibbon(
   colOptions: Array<{ label: string; value: string }>,
   showTotals: boolean,
+  fmtColValue = '',
 ): RibbonTab[] {
   return [
     {
@@ -206,7 +207,7 @@ function buildRibbon(
         {
           title: 'Formato de numero',
           items: [
-            dropdown('fmt-col', 'Columna a formatear', '',
+            dropdown('fmt-col', 'Columna a formatear', fmtColValue,
               [{ label: '- Seleccione columna -', value: '' }, ...colOptions]),
             btn('fmt-cop',     'COP',    'pi pi-dollar',          'sm', 'Pesos colombianos ($ 1.234)'),
             btn('fmt-usd',     'USD',    'pi pi-dollar',          'sm', 'Dolares (US$ 1,234.00)'),
@@ -539,8 +540,15 @@ readonly progress = signal<RefreshProgress>({
 
   /** Columna seleccionada en la pestana Formato */
   private formatTargetCol = '';
+  /** Valor mostrado en el desplegable "Seleccione columna" del ribbon */
+  readonly fmtColValue = signal('');
   /** Formato aplicado por columna (para poder restablecer) */
   private readonly columnFormats = new Map<string, ColumnFormat>();
+
+  /** Sincroniza el desplegable de Formato con la columna dada. */
+  private updateFmtColDropdown(colId: string): void {
+    this.fmtColValue.set(colId);
+  }
 
   // Panel "Agregar vista" --------------------
 
@@ -752,7 +760,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           { label: 'Cerrar', icon: 'pi pi-times', action: 'close' },
         ],
       },
-      ribbonTabs: buildRibbon(this.colOptions(), this.showTotalsRow()),
+      ribbonTabs: buildRibbon(this.colOptions(), this.showTotalsRow(), this.fmtColValue()),
 
       // Se le entregan COPIAS de las pestañas, no nuestros objetos.
       //
@@ -3227,11 +3235,22 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return;
     }
 
-    // Alternar: volver a pulsar la misma columna deselecciona
+    // Alternar: volver a pulsar la misma columna deselecciona (clic en grilla)
     if (this.selectedColumnId() === colId) {
       this.clearColumnStats();
       return;
     }
+
+    this.highlightColumn(colId);
+  }
+
+  /**
+   * Fija la seleccion en una columna (sin alternar): resalta, calcula agregados
+   * y sincroniza el desplegable de Formato. Es el nucleo que comparten el clic
+   * en la grilla y la eleccion en el desplegable.
+   */
+  private highlightColumn(colId: string): void {
+    if (!colId || colId === ROW_NUMBER_FIELD) return;
 
     const label = this.columnDefs.find(c => c.field === colId)?.headerName
       ?? humanizeColumnName(colId);
@@ -3239,10 +3258,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.selectedColumnId.set(colId);
     this.columnStats.set(computeColumnStats(this.visibleRows(), colId, label));
 
+    // Sincronizar el desplegable de Formato: asi los botones COP/USD/% aplican
+    // sobre esta columna sin volver a elegirla en el desplegable.
+    this.formatTargetCol = colId;
+    this.updateFmtColDropdown(colId);
+
     // Seleccionar tambien el rango de toda la columna, para poder copiarla
     this.rangeSelection?.selectWholeColumn(colId);
 
-    // Repintar para que se aplique el resaltado de la columna
     this.gridApi?.refreshCells({ force: true });
     this.gridApi?.refreshHeader();
   }
@@ -3493,8 +3516,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.closeGridSearch();
         break;
 
-      // -- Pestana Formato --
-      case 'fmt-col':     this.formatTargetCol = event.value ?? ''; break;
+      // -- Formato --
+      case 'fmt-col':
+        this.formatTargetCol = event.value ?? '';
+        this.fmtColValue.set(this.formatTargetCol);
+        // Reflejar la eleccion como columna seleccionada en la grilla. No usa
+        // selectColumn() porque ese alterna (deseleccionaria al re-elegir la
+        // misma); aqui siempre se fija la seleccion.
+        if (this.formatTargetCol) this.highlightColumn(this.formatTargetCol);
+        break;
       case 'fmt-text':    this.applyColumnFormat('text');    break;
       case 'fmt-number':  this.applyColumnFormat('number');  break;
       case 'fmt-integer': this.applyColumnFormat('integer'); break;
@@ -3561,9 +3591,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * Formato. Solo cambia el valueFormatter (como Excel: el dato no se altera).
    */
   private applyColumnFormat(format: ColumnFormat): void {
-    const colId = this.formatTargetCol;
+    // La columna a formatear se resuelve en este orden:
+    //   1. la elegida en el desplegable de Formato (fmt-col), o
+    //   2. la seleccionada en la grilla (clic en la letra / encabezado).
+    // Antes solo miraba el desplegable, asi que si el usuario seleccionaba la
+    // columna en la grilla (como en Excel) el formato daba "Primero seleccione
+    // una columna...". Ahora ambos caminos funcionan.
+    const colId = this.formatTargetCol || this.selectedColumnId() || '';
+
     if (!colId) {
-      alert('Primero seleccione una columna en el desplegable de la pestana Formato.');
+      alert(
+        'Seleccione primero una columna:\n\n' +
+        '• haga clic en la letra de la columna (A, B, C...) o en su encabezado, o\n' +
+        '• eligala en el desplegable "Seleccione columna" de la barra.'
+      );
       return;
     }
 
@@ -3578,15 +3619,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     colDef.cellClass = `bi-cell bi-cell--${isNumeric ? 'number' : format}`;
 
     this.applyColumnDefs();
-    this.gridApi?.refreshCells({ force: true, columns: [colId] });
+    this.gridApi?.refreshCells({ force: true });
     this.saveWorkbookState();
     console.log(`[Formato] ${colId} -> ${format}`);
   }
 
   /** Quita el formato personalizado de la columna seleccionada. */
   private resetColumnFormat(): void {
-    const colId = this.formatTargetCol;
-    if (!colId) return;
+    const colId = this.formatTargetCol || this.selectedColumnId() || '';
+    if (!colId) {
+      alert('Seleccione primero una columna (clic en su letra o en el desplegable).');
+      return;
+    }
 
     const colDef = this.columnDefs.find(c => c.field === colId);
     if (!colDef) return;
@@ -3613,7 +3657,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     colDef.cellClass = `bi-cell bi-cell--${type}`;
     this.applyColumnDefs();
-    this.gridApi?.refreshCells({ force: true, columns: [colId] });
+    this.gridApi?.refreshCells({ force: true });
     console.log(`[Formato] ${colId} restablecido a ${type}`);
   }
 
