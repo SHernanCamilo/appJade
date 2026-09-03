@@ -13,11 +13,24 @@ export type Periodicidad = 'anual' | 'mensual' | 'semestral' | 'trimestral' | 's
  * Tipo de inventario parametrizable.
  * Controla con qué frecuencia se puede registrar un activo.
  */
+/**
+ * Regla de validación configurable (Req. 5).
+ * Permite comportamiento futuro sin quemar periodicidades en código.
+ */
+export interface ReglaValidacion {
+  tipo: 'campana' | 'personalizada';
+  desde?: string;
+  hasta?: string;
+  meses?: number;
+  dias?: number;
+}
+
 export interface TipoInventario {
   id: number;
   nombre: string;
   periodicidad: Periodicidad;
   periodicidad_nombre: string;
+  regla_validacion?: ReglaValidacion | null;
   descripcion_restriccion: string;
   activo: boolean;
   descripcion: string | null;
@@ -30,6 +43,7 @@ export interface TipoInventario {
 export interface TipoInventarioPayload {
   nombre: string;
   periodicidad: Periodicidad;
+  regla_validacion?: ReglaValidacion | null;
   descripcion?: string | null;
   activo?: boolean;
 }
@@ -235,6 +249,24 @@ export class ActivosFijosService {
     );
   }
 
+  /** Descarga en Excel la línea de tiempo (historial) de UN activo por placa. */
+  exportarHistorialActivo(
+    placa: string,
+    filtros: { tipo_inventario_id?: number; desde?: string; hasta?: string } = {}
+  ): Observable<Blob> {
+    const params: Record<string, string> = {};
+    Object.entries(filtros).forEach(([clave, valor]) => {
+      if (valor !== null && valor !== undefined && valor !== '') {
+        params[clave] = String(valor);
+      }
+    });
+
+    return this.http.get(`${this.baseUrl}/${encodeURIComponent(placa)}/exportar`, {
+      params,
+      responseType: 'blob'
+    });
+  }
+
   trazabilidad(filtros: {
     placa?: string;
     estado_fisico?: string;
@@ -284,6 +316,38 @@ export class ActivosFijosService {
     });
 
     return this.http.get(`${this.baseUrl}/exportar`, {
+      params,
+      responseType: 'blob'
+    });
+  }
+
+  /** Exporta el reporte consolidado en el formato indicado (Req. 7). */
+  exportar(
+    formato: 'excel' | 'csv' | 'pdf',
+    filtros: {
+      tipo_inventario_id?: number;
+      placa?: string;
+      estado_fisico?: string;
+      desde?: string;
+      hasta?: string;
+      responsable?: string;
+      localizacion?: string;
+      resultado?: ResultadoInventario;
+      es_externo?: boolean;
+    }
+  ): Observable<Blob> {
+    const params: Record<string, string> = {};
+    Object.entries(filtros).forEach(([clave, valor]) => {
+      if (valor !== null && valor !== undefined && valor !== '') {
+        params[clave] = String(valor);
+      }
+    });
+
+    const ruta = formato === 'csv' ? 'exportar-csv'
+      : formato === 'pdf' ? 'exportar-pdf'
+      : 'exportar';
+
+    return this.http.get(`${this.baseUrl}/${ruta}`, {
       params,
       responseType: 'blob'
     });

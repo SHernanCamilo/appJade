@@ -89,7 +89,7 @@ const FORMULARIO_EXTERNO_VACIO: FormularioExterno = {
 };
 
 /** Índices de las pestañas. */
-const TAB_REGISTRAR    = 0;
+const TAB_REGISTRAR = 0;
 const TAB_TRAZABILIDAD = 1;
 
 /**
@@ -122,7 +122,7 @@ const TAB_TRAZABILIDAD = 1;
   styleUrl: './controlActivo.component.css'
 })
 export class ControlActivoComponent implements OnInit {
-  private readonly service  = inject(ActivosFijosService);
+  private readonly service = inject(ActivosFijosService);
   private readonly messages = inject(MessageService);
 
   /** 0 = Registrar toma, 1 = Trazabilidad */
@@ -137,10 +137,10 @@ export class ControlActivoComponent implements OnInit {
   buscando = false;
 
   readonly camposBusqueda: Array<{ valor: CampoBusqueda; etiqueta: string }> = [
-    { valor: 'placa',        etiqueta: 'Placa'       },
-    { valor: 'serie',        etiqueta: 'Serie'       },
-    { valor: 'responsable',  etiqueta: 'Responsable' },
-    { valor: 'articulo',     etiqueta: 'Artículo'    }
+    { valor: 'placa', etiqueta: 'Placa' },
+    { valor: 'serie', etiqueta: 'Serie' },
+    { valor: 'responsable', etiqueta: 'Responsable' },
+    { valor: 'articulo', etiqueta: 'Artículo' }
   ];
 
   resultados: ActivoFijo[] = [];
@@ -187,7 +187,7 @@ export class ControlActivoComponent implements OnInit {
   cargandoTraza = false;
   totalRegistros = 0;
   filasPorPagina = 25;
-  primeraFila    = 0;
+  primeraFila = 0;
 
   /** Filtros del reporte de trazabilidad. */
   filtros = {
@@ -205,12 +205,13 @@ export class ControlActivoComponent implements OnInit {
   readonly resultadosInventario: Array<{ valor: ResultadoInventario; etiqueta: string }> = [
     { valor: 'con_novedades', etiqueta: 'Con novedades' },
     { valor: 'sin_novedades', etiqueta: 'Sin novedades (coincide maestro)' },
-    { valor: 'externo',       etiqueta: 'Activo externo (no en Indigo)' }
+    { valor: 'externo', etiqueta: 'Activo externo (no en Indigo)' }
   ];
   resultadosInventarioOpciones: Array<{ label: string; value: ResultadoInventario }> =
     this.resultadosInventario.map(r => ({ label: r.etiqueta, value: r.valor }));
 
   exportando = false;
+  exportandoActivo = false;
   expandidas: Record<number, boolean> = {};
 
   // =========================================================================
@@ -257,11 +258,11 @@ export class ControlActivoComponent implements OnInit {
   consultar(): void {
     if (!this.puedeBuscar) return;
 
-    this.buscando        = true;
-    this.resultados      = [];
-    this.activo          = null;
-    this.historial       = [];
-    this.sinResultados   = false;
+    this.buscando = true;
+    this.resultados = [];
+    this.activo = null;
+    this.historial = [];
+    this.sinResultados = false;
     this.mostrarFormExterno = false;
     this.alertaPeriodicidad = null;
 
@@ -306,7 +307,7 @@ export class ControlActivoComponent implements OnInit {
   }
 
   seleccionar(activo: ActivoFijo): void {
-    this.activo     = activo;
+    this.activo = activo;
     this.resultados = [];
     this.formulario = { ...FORMULARIO_VACIO };
     this.alertaPeriodicidad = null;
@@ -321,14 +322,14 @@ export class ControlActivoComponent implements OnInit {
   }
 
   regresar(): void {
-    this.activo          = null;
-    this.resultados      = [];
-    this.historial       = [];
-    this.valorBusqueda   = '';
-    this.formulario      = { ...FORMULARIO_VACIO };
-    this.sinResultados   = false;
+    this.activo = null;
+    this.resultados = [];
+    this.historial = [];
+    this.valorBusqueda = '';
+    this.formulario = { ...FORMULARIO_VACIO };
+    this.sinResultados = false;
     this.mostrarFormExterno = false;
-    this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
+    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
     this.alertaPeriodicidad = null;
     this.validacionPeriodicidad = null;
   }
@@ -466,7 +467,7 @@ export class ControlActivoComponent implements OnInit {
   private cargarOpciones(): void {
     this.service.opciones().subscribe({
       next: respuesta => {
-        this.estadosFisicos  = respuesta.data?.estados_fisicos ?? [];
+        this.estadosFisicos = respuesta.data?.estados_fisicos ?? [];
         this.tiposInventario = respuesta.data?.tipos_inventario ?? [];
         this.tiposInventarioOpciones = this.tiposInventario.map(t => ({
           label: `${t.nombre} (${t.periodicidad_nombre})`,
@@ -474,7 +475,7 @@ export class ControlActivoComponent implements OnInit {
         }));
       },
       error: () => {
-        this.estadosFisicos  = ['En buen estado', 'Para Reparacion', 'Dar de baja'];
+        this.estadosFisicos = ['En buen estado', 'Para Reparacion', 'Dar de baja'];
         this.tiposInventario = [];
         this.tiposInventarioOpciones = [];
       }
@@ -522,7 +523,7 @@ export class ControlActivoComponent implements OnInit {
 
   abrirFormExterno(): void {
     this.mostrarFormExterno = true;
-    this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
+    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
     if (this.campoBusqueda === 'placa' && this.valorBusqueda.trim()) {
       this.formularioExterno.placa = this.valorBusqueda.trim();
     }
@@ -530,13 +531,13 @@ export class ControlActivoComponent implements OnInit {
 
   cerrarFormExterno(): void {
     this.mostrarFormExterno = false;
-    this.formularioExterno  = { ...FORMULARIO_EXTERNO_VACIO };
+    this.formularioExterno = { ...FORMULARIO_EXTERNO_VACIO };
   }
 
   get puedeRegistrarExterno(): boolean {
     return this.formularioExterno.placa.trim().length >= 2 &&
-           this.formularioExterno.tipo_inventario_id !== null &&
-           !this.guardandoExterno;
+      this.formularioExterno.tipo_inventario_id !== null &&
+      !this.guardandoExterno;
   }
 
   registrarExterno(): void {
@@ -594,31 +595,42 @@ export class ControlActivoComponent implements OnInit {
   // EXPORTAR EXCEL
   // =========================================================================
 
+  /** Compatibilidad: botón "Excel". */
   exportarExcel(): void {
+    this.exportar('excel');
+  }
+
+  /** Exporta el reporte consolidado en el formato indicado (Req. 7). */
+  exportar(formato: 'excel' | 'csv' | 'pdf'): void {
     this.exportando = true;
-    this.service.exportarExcel({
+
+    const extension = formato === 'excel' ? 'xlsx' : formato;
+    const etiqueta = formato === 'excel' ? 'Excel' : formato.toUpperCase();
+
+    this.service.exportar(formato, {
       tipo_inventario_id: this.filtros.tipo_inventario_id ?? undefined,
-      placa:              this.filtros.placa         || undefined,
-      estado_fisico:      this.filtros.estado_fisico || undefined,
-      desde:              this.filtros.desde         || undefined,
-      hasta:              this.filtros.hasta         || undefined,
-      responsable:        this.filtros.responsable   || undefined,
-      localizacion:       this.filtros.localizacion  || undefined,
-      resultado:          this.filtros.resultado     || undefined,
-      es_externo:         this.filtros.es_externo    || undefined
+      placa: this.filtros.placa || undefined,
+      estado_fisico: this.filtros.estado_fisico || undefined,
+      desde: this.filtros.desde || undefined,
+      hasta: this.filtros.hasta || undefined,
+      responsable: this.filtros.responsable || undefined,
+      localizacion: this.filtros.localizacion || undefined,
+      resultado: this.filtros.resultado || undefined,
+      es_externo: this.filtros.es_externo || undefined
     }).subscribe({
       next: (blob: Blob) => {
         this.exportando = false;
-        const url     = window.URL.createObjectURL(blob);
-        const enlace  = document.createElement('a');
-        enlace.href   = url;
-        enlace.download = `activos_fijos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        const url = window.URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        const prefijo = formato === 'excel' ? 'historial_activos' : 'reporte_inventario';
+        enlace.download = `${prefijo}_${new Date().toISOString().slice(0, 10)}.${extension}`;
         enlace.click();
         window.URL.revokeObjectURL(url);
         this.messages.add({
           severity: 'success',
           summary: 'Exportación completada',
-          detail: 'El archivo Excel se descargó correctamente.',
+          detail: `El archivo ${etiqueta} se descargó correctamente.`,
           life: 4000
         });
       },
@@ -627,7 +639,42 @@ export class ControlActivoComponent implements OnInit {
         this.messages.add({
           severity: 'error',
           summary: 'Error exportando',
-          detail: error.error?.message ?? 'No se pudo generar el archivo Excel.',
+          detail: error.error?.message ?? `No se pudo generar el archivo ${etiqueta}.`,
+          life: 7000
+        });
+      }
+    });
+  }
+
+  /** Descarga la línea de tiempo (historial) del activo actualmente seleccionado. */
+  exportarHistorialDeActivo(): void {
+    if (!this.activo?.placa || this.exportandoActivo) return;
+
+    this.exportandoActivo = true;
+    const placa = this.activo.placa;
+
+    this.service.exportarHistorialActivo(placa).subscribe({
+      next: (blob: Blob) => {
+        this.exportandoActivo = false;
+        const url = window.URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = `historial_activo_${placa}.xlsx`;
+        enlace.click();
+        window.URL.revokeObjectURL(url);
+        this.messages.add({
+          severity: 'success',
+          summary: 'Historial exportado',
+          detail: `Se descargó la línea de tiempo del activo ${placa}.`,
+          life: 4000
+        });
+      },
+      error: (error: HttpErrorResponse) => {
+        this.exportandoActivo = false;
+        this.messages.add({
+          severity: 'error',
+          summary: 'Error exportando',
+          detail: error.error?.message ?? 'No se pudo generar el historial del activo.',
           life: 7000
         });
       }
@@ -643,22 +690,22 @@ export class ControlActivoComponent implements OnInit {
     const pagina = Math.floor(this.primeraFila / this.filasPorPagina) + 1;
 
     this.service.trazabilidad({
-      placa:               this.filtros.placa         || undefined,
-      estado_fisico:       this.filtros.estado_fisico || undefined,
-      desde:               this.filtros.desde         || undefined,
-      hasta:               this.filtros.hasta         || undefined,
-      tipo_inventario_id:  this.filtros.tipo_inventario_id ?? undefined,
-      responsable:         this.filtros.responsable   || undefined,
-      localizacion:        this.filtros.localizacion  || undefined,
-      resultado:           this.filtros.resultado     || undefined,
-      es_externo:          this.filtros.es_externo    || undefined,
+      placa: this.filtros.placa || undefined,
+      estado_fisico: this.filtros.estado_fisico || undefined,
+      desde: this.filtros.desde || undefined,
+      hasta: this.filtros.hasta || undefined,
+      tipo_inventario_id: this.filtros.tipo_inventario_id ?? undefined,
+      responsable: this.filtros.responsable || undefined,
+      localizacion: this.filtros.localizacion || undefined,
+      resultado: this.filtros.resultado || undefined,
+      es_externo: this.filtros.es_externo || undefined,
       per_page: this.filasPorPagina,
-      page:     pagina
+      page: pagina
     }).subscribe({
       next: respuesta => {
-        this.cargandoTraza   = false;
-        this.registros       = respuesta.data ?? [];
-        this.totalRegistros  = respuesta.meta?.total ?? 0;
+        this.cargandoTraza = false;
+        this.registros = respuesta.data ?? [];
+        this.totalRegistros = respuesta.meta?.total ?? 0;
       },
       error: (error: HttpErrorResponse) => {
         this.cargandoTraza = false;
@@ -681,7 +728,7 @@ export class ControlActivoComponent implements OnInit {
   }
 
   onPageChange(evento: { first: number; rows: number }): void {
-    this.primeraFila    = evento.first;
+    this.primeraFila = evento.first;
     this.filasPorPagina = evento.rows;
     this.cargarTrazabilidad();
   }
@@ -708,15 +755,15 @@ export class ControlActivoComponent implements OnInit {
   }
 
   get hayFiltrosActivos(): boolean {
-    return this.filtros.placa            !== '' ||
-           this.filtros.estado_fisico    !== '' ||
-           this.filtros.desde            !== '' ||
-           this.filtros.hasta            !== '' ||
-           this.filtros.tipo_inventario_id !== null ||
-           this.filtros.responsable      !== '' ||
-           this.filtros.localizacion     !== '' ||
-           this.filtros.resultado        !== '' ||
-           this.filtros.es_externo;
+    return this.filtros.placa !== '' ||
+      this.filtros.estado_fisico !== '' ||
+      this.filtros.desde !== '' ||
+      this.filtros.hasta !== '' ||
+      this.filtros.tipo_inventario_id !== null ||
+      this.filtros.responsable !== '' ||
+      this.filtros.localizacion !== '' ||
+      this.filtros.resultado !== '' ||
+      this.filtros.es_externo;
   }
 
   alternar(id: number): void {
@@ -746,10 +793,10 @@ export class ControlActivoComponent implements OnInit {
 
   severidadEstadoFisico(estado: string | null): 'success' | 'warn' | 'danger' | 'info' {
     switch (estado) {
-      case 'En buen estado':   return 'success';
-      case 'Para Reparacion':  return 'warn';
-      case 'Dar de baja':      return 'danger';
-      default:                  return 'info';
+      case 'En buen estado': return 'success';
+      case 'Para Reparacion': return 'warn';
+      case 'Dar de baja': return 'danger';
+      default: return 'info';
     }
   }
 
