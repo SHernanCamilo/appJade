@@ -24,6 +24,7 @@ import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 import { TextareaModule } from 'primeng/textarea';
 import { SkeletonModule } from 'primeng/skeleton';
+import { CalendarModule } from 'primeng/calendar';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { SucursalService } from '../../../organizacion/empresa/services/sucursal.service';
 
@@ -41,7 +42,7 @@ interface AmbitoEmpresa {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DialogModule,
     ToastModule, ConfirmDialogModule, TagModule, TooltipModule,
-    TextareaModule, SkeletonModule, DataTableComponent
+    TextareaModule, SkeletonModule, DataTableComponent, CalendarModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './digitalizacion.component.html',
@@ -49,11 +50,14 @@ interface AmbitoEmpresa {
 })
 export class DigitalizacionEventosComponent implements OnInit {
   pendientes: EventSolicitud[] = [];
+  digitalizados: EventSolicitud[] = [];
   seleccion: EventSolicitud[] = [];
   columns: TableColumn[] = [];
+  columnsDigitalizados: TableColumn[] = [];
   isLoading = false;
   isProcesando = false;
   searchTerm = '';
+  searchTermDigitalizados = '';
 
   showDetalle = false;
   detalle?: EventSolicitud;
@@ -61,17 +65,23 @@ export class DigitalizacionEventosComponent implements OnInit {
   isLoadingHistorial = false;
 
   showExcelDialog = false;
+  showRangoDigitalizados = false;
   isImportando = false;
   isExportando = false;
   comentarioMasivo = '';
+  fechaDesde: Date | null = null;
+  fechaHasta: Date | null = null;
 
-  vista: 'selector' | 'cola' = 'selector';
+  vista: 'selector' | 'cola' | 'digitalizados' = 'selector';
+  vistaAnterior: 'selector' | 'cola' = 'selector';
   empresas: AmbitoEmpresa[] = [];
   empresasFiltradas: AmbitoEmpresa[] = [];
   isLoadingAmbitos = false;
   filtroAmbito = '';
   empresaSeleccionada: AmbitoEmpresa | null = null;
   sucursalSeleccionada: Sucursal | null = null;
+  private conteoPorEmpresa: Record<number, number> = {};
+  private conteoPorSucursal: Record<string, number> = {};
 
   constructor(
     private solicitudService: EventSolicitudService,
@@ -95,12 +105,18 @@ export class DigitalizacionEventosComponent implements OnInit {
       { field: 'horas', header: 'Horas' },
       { field: 'estado', header: 'Estado', sortable: true }
     ];
+    this.columnsDigitalizados = [
+      ...this.columns,
+      { field: 'fecha_digitalizacion', header: 'Digitalizado', sortable: true },
+      { field: 'user_digitalizador', header: 'Digitalizó' }
+    ];
     this.cargarAmbitos();
   }
 
   cargarAmbitos(): void {
     this.isLoadingAmbitos = true;
     this.contextoService.obtenerEmpresasDisponibles().pipe(
+      catchError(() => of([] as Empresa[])),
       switchMap((empresas: Empresa[]) => {
         if (empresas?.length) {
           return forkJoin(
@@ -135,8 +151,7 @@ export class DigitalizacionEventosComponent implements OnInit {
     ).subscribe({
       next: (empresas) => {
         this.empresas = empresas;
-        this.aplicarFiltroAmbito();
-        this.isLoadingAmbitos = false;
+        this.cargarConteosDigitalizar();
       },
       error: () => {
         this.empresas = [];
@@ -192,6 +207,9 @@ export class DigitalizacionEventosComponent implements OnInit {
   }
 
   entrarAmbito(empresa: AmbitoEmpresa, sucursal: Sucursal | null): void {
+    if (!this.ambitoHabilitado(empresa, sucursal)) {
+      return;
+    }
     this.empresaSeleccionada = empresa;
     this.sucursalSeleccionada = sucursal;
     this.vista = 'cola';
@@ -202,9 +220,168 @@ export class DigitalizacionEventosComponent implements OnInit {
 
   volverAlSelector(): void {
     this.vista = 'selector';
+    this.vistaAnterior = 'selector';
     this.pendientes = [];
+    this.digitalizados = [];
     this.seleccion = [];
     this.searchTerm = '';
+    this.searchTermDigitalizados = '';
+    this.cargarConteosDigitalizar();
+  }
+
+  abrirRangoDigitalizados(): void {
+    if (!this.fechaDesde || !this.fechaHasta) {
+      const hoy = new Date();
+      this.fechaDesde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      this.fechaHasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    }
+    this.showRangoDigitalizados = true;
+  }
+
+  consultarDigitalizados(): void {
+    if (!this.fechaDesde || !this.fechaHasta) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Rango requerido',
+        detail: 'Indique fecha desde y fecha hasta'
+      });
+      return;
+    }
+    if (this.fechaDesde > this.fechaHasta) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Rango inválido',
+        detail: 'La fecha desde no puede ser posterior a la hasta'
+      });
+      return;
+    }
+    if (this.vista === 'selector' || this.vista === 'cola') {
+      this.vistaAnterior = this.vista;
+    }
+    this.showRangoDigitalizados = false;
+    this.vista = 'digitalizados';
+    this.searchTermDigitalizados = '';
+    this.cargarDigitalizados();
+  }
+
+  volverDesdeDigitalizados(): void {
+    this.vista = this.vistaAnterior;
+    this.digitalizados = [];
+    if (this.vista === 'selector') {
+      this.cargarConteosDigitalizar();
+    }
+  }
+
+  get etiquetaRango(): string {
+    if (!this.fechaDesde || !this.fechaHasta) return '';
+    const fmt = (d: Date) => d.toLocaleDateString('es-CO', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    return `${fmt(this.fechaDesde)} – ${fmt(this.fechaHasta)}`;
+  }
+
+  private aIsoFecha(fecha: Date): string {
+    const y = fecha.getFullYear();
+    const m = String(fecha.getMonth() + 1).padStart(2, '0');
+    const d = String(fecha.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  cargarDigitalizados(): void {
+    if (!this.fechaDesde || !this.fechaHasta) return;
+    this.isLoading = true;
+    this.solicitudService.getDigitalizados({
+      fecha_desde: this.aIsoFecha(this.fechaDesde),
+      fecha_hasta: this.aIsoFecha(this.fechaHasta),
+      search: this.searchTermDigitalizados,
+      empresa_id: this.empresaSeleccionada?.id,
+      sucursal_id: this.sucursalSeleccionada?.id
+    }).subscribe({
+      next: (res) => {
+        this.digitalizados = (res.data || []).filter(ev => this.getEstadoCodigo(ev.estado) === 5);
+        this.isLoading = false;
+      },
+      error: (err) => {
+        this.digitalizados = [];
+        this.isLoading = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.error?.message || 'No se pudieron cargar los eventos digitalizados'
+        });
+      }
+    });
+  }
+
+  aplicarBusquedaDigitalizados(): void {
+    this.cargarDigitalizados();
+  }
+
+  limpiarBusquedaDigitalizados(): void {
+    this.searchTermDigitalizados = '';
+    this.cargarDigitalizados();
+  }
+
+  countEmpresa(empresaId: number): number {
+    return this.conteoPorEmpresa[empresaId] || 0;
+  }
+
+  countSucursal(empresaId: number, sucursalId: number): number {
+    return this.conteoPorSucursal[this.claveSucursal(empresaId, sucursalId)] || 0;
+  }
+
+  ambitoHabilitado(empresa: AmbitoEmpresa, sucursal: Sucursal | null): boolean {
+    if (!sucursal) {
+      return this.countEmpresa(empresa.id) > 0;
+    }
+    return this.countSucursal(empresa.id, sucursal.id) > 0;
+  }
+
+  etiquetaColaEmpresa(empresa: AmbitoEmpresa): string {
+    const n = this.countEmpresa(empresa.id);
+    return n > 0 ? `${n} por digitalizar` : 'Sin pendientes';
+  }
+
+  etiquetaColaSucursal(empresa: AmbitoEmpresa, sucursal: Sucursal): string {
+    const n = this.countSucursal(empresa.id, sucursal.id);
+    return n > 0 ? `${n} por digitalizar` : 'Sin pendientes';
+  }
+
+  private claveSucursal(empresaId: number, sucursalId: number): string {
+    return `${empresaId}-${sucursalId}`;
+  }
+
+  private cargarConteosDigitalizar(): void {
+    this.solicitudService.getPendientesDigitalizar({}).subscribe({
+      next: (res) => {
+        this.conteoPorEmpresa = {};
+        this.conteoPorSucursal = {};
+        const items = (res.data || []).filter(ev => this.esAutorizado(ev));
+        items.forEach(ev => {
+          const empresaId = Number(ev.empresa_id || 0);
+          const sucursalId = Number(ev.sucursal_id || 0);
+          if (empresaId > 0) {
+            this.conteoPorEmpresa[empresaId] = (this.conteoPorEmpresa[empresaId] || 0) + 1;
+          }
+          if (empresaId > 0 && sucursalId > 0) {
+            const clave = this.claveSucursal(empresaId, sucursalId);
+            this.conteoPorSucursal[clave] = (this.conteoPorSucursal[clave] || 0) + 1;
+          }
+        });
+        this.aplicarFiltroAmbito();
+        this.isLoadingAmbitos = false;
+      },
+      error: () => {
+        this.conteoPorEmpresa = {};
+        this.conteoPorSucursal = {};
+        this.aplicarFiltroAmbito();
+        this.isLoadingAmbitos = false;
+      }
+    });
+  }
+
+  private esAutorizado(ev: EventSolicitud): boolean {
+    return this.getEstadoCodigo(ev.estado) === 3;
   }
 
   colorCard(index: number): string {
@@ -220,7 +397,7 @@ export class DigitalizacionEventosComponent implements OnInit {
       sucursal_id: this.sucursalSeleccionada?.id
     }).subscribe({
       next: (res) => {
-        this.pendientes = res.data || [];
+        this.pendientes = (res.data || []).filter(ev => this.esAutorizado(ev));
         this.seleccion = this.seleccion.filter(s => this.pendientes.some(p => p.id === s.id));
         this.isLoading = false;
       },
@@ -313,7 +490,9 @@ export class DigitalizacionEventosComponent implements OnInit {
   }
 
   getEstadoSeverity(estado: EventSolicitud['estado']): 'success' | 'info' | 'warn' | 'danger' {
-    return this.getEstadoCodigo(estado) === 3 ? 'info' : 'warn';
+    const codigo = this.getEstadoCodigo(estado);
+    if (codigo === 5) return 'success';
+    return codigo === 3 ? 'info' : 'warn';
   }
 
   private getEstadoCodigo(estado: number | string): number {

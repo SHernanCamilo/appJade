@@ -12,6 +12,10 @@
         <i class="pi pi-arrow-left"></i>
         Cambiar sucursal
       </button>
+      <button class="btn-back-modern" *ngIf="vista === 'digitalizados'" type="button" (click)="volverDesdeDigitalizados()">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
     </div>
     <div class="header-main">
       <div class="header-title-section">
@@ -25,11 +29,20 @@
         <p class="page-subtitle-modern" *ngIf="vista === 'cola'">
           {{ etiquetaAmbito }}. Al digitalizar, nómina guarda el evento para realizar el pago.
         </p>
+        <p class="page-subtitle-modern" *ngIf="vista === 'digitalizados'">
+          Eventos digitalizados{{ etiquetaAmbito ? ' · ' + etiquetaAmbito : '' }}{{ etiquetaRango ? ' · ' + etiquetaRango : '' }}.
+        </p>
       </div>
-      <button class="btn-action btn-action-secondary" *ngIf="vista === 'selector'" (click)="showExcelDialog = true">
-        <i class="pi pi-upload"></i>
-        Cargue masivo
-      </button>
+      <div class="header-actions" *ngIf="vista === 'selector'">
+        <button class="btn-action btn-action-secondary" type="button" (click)="abrirRangoDigitalizados()">
+          <i class="pi pi-check-circle"></i>
+          Ver digitalizados
+        </button>
+        <button class="btn-action btn-action-secondary" (click)="showExcelDialog = true">
+          <i class="pi pi-upload"></i>
+          Cargue masivo
+        </button>
+      </div>
     </div>
   </div>
 
@@ -61,18 +74,27 @@
         </div>
       </div>
       <div class="ambito-grid">
-        <button type="button" class="ambito-card ambito-card-all" (click)="entrarAmbito(empresa, null)">
+        <button type="button" class="ambito-card ambito-card-all"
+          [class.is-disabled]="!ambitoHabilitado(empresa, null)"
+          [disabled]="!ambitoHabilitado(empresa, null)"
+          [pTooltip]="ambitoHabilitado(empresa, null) ? '' : 'No hay eventos autorizados'"
+          tooltipPosition="top"
+          (click)="entrarAmbito(empresa, null)">
           <span class="ambito-icon"><i class="pi pi-th-large"></i></span>
           <span class="ambito-name">Toda la empresa</span>
-          <span class="ambito-meta">{{ empresa.sucursales.length }} sucursal(es)</span>
+          <span class="ambito-meta">{{ etiquetaColaEmpresa(empresa) }}</span>
         </button>
         <button type="button" class="ambito-card"
           *ngFor="let sucursal of empresa.sucursales; let i = index"
           [ngClass]="'color-' + colorCard(i)"
+          [class.is-disabled]="!ambitoHabilitado(empresa, sucursal)"
+          [disabled]="!ambitoHabilitado(empresa, sucursal)"
+          [pTooltip]="ambitoHabilitado(empresa, sucursal) ? '' : 'No hay eventos autorizados'"
+          tooltipPosition="top"
           (click)="entrarAmbito(empresa, sucursal)">
           <span class="ambito-icon"><i class="pi pi-map-marker"></i></span>
           <span class="ambito-name">{{ sucursal.nombre }}</span>
-          <span class="ambito-meta">Entrar a la cola</span>
+          <span class="ambito-meta">{{ etiquetaColaSucursal(empresa, sucursal) }}</span>
         </button>
       </div>
     </section>
@@ -87,6 +109,10 @@
           <span class="count-badge" *ngIf="!isLoading">{{ pendientes.length }}</span>
         </h2>
         <div class="header-actions">
+          <button class="btn-action btn-action-secondary" (click)="abrirRangoDigitalizados()">
+            <i class="pi pi-check-circle"></i>
+            Ver digitalizados
+          </button>
           <button class="btn-action btn-action-secondary" (click)="exportarPendientes()"
             [disabled]="pendientes.length === 0 || isExportando">
             <i class="pi" [ngClass]="isExportando ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
@@ -191,6 +217,115 @@
     </div>
   </div>
 
+  <div class="dashboard-content" *ngIf="vista === 'digitalizados'">
+    <div class="section-card mb-3">
+      <div class="section-card-header">
+        <h2 class="section-card-title">
+          <i class="pi pi-check-circle me-2"></i>
+          Eventos digitalizados
+          <span class="count-badge" *ngIf="!isLoading">{{ digitalizados.length }}</span>
+        </h2>
+      </div>
+
+      <div class="section-card-body">
+        <div class="rango-row">
+          <div class="rango-field">
+            <label class="filter-label">Desde</label>
+            <p-calendar [(ngModel)]="fechaDesde" dateFormat="dd/mm/yy" [showIcon]="true"
+              [maxDate]="fechaHasta || undefined" appendTo="body" placeholder="Fecha desde"></p-calendar>
+          </div>
+          <div class="rango-field">
+            <label class="filter-label">Hasta</label>
+            <p-calendar [(ngModel)]="fechaHasta" dateFormat="dd/mm/yy" [showIcon]="true"
+              [minDate]="fechaDesde || undefined" appendTo="body" placeholder="Fecha hasta"></p-calendar>
+          </div>
+          <button class="btn-action btn-action-primary rango-consultar" type="button" (click)="consultarDigitalizados()">
+            <i class="pi pi-search"></i>Consultar
+          </button>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <input type="text" pInputText [(ngModel)]="searchTermDigitalizados"
+            (keyup.enter)="aplicarBusquedaDigitalizados()"
+            placeholder="Buscar por consecutivo o empleado..."
+            class="flex-grow-1">
+          <button class="btn-action btn-action-primary" (click)="aplicarBusquedaDigitalizados()">
+            <i class="pi pi-search"></i>Buscar
+          </button>
+          <button class="btn-action btn-action-secondary" (click)="limpiarBusquedaDigitalizados()" *ngIf="searchTermDigitalizados">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="modern-table-container" *ngIf="isLoading && digitalizados.length === 0">
+        <div class="p-4">
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="50px" styleClass="mb-2"></p-skeleton>
+          <p-skeleton width="100%" height="50px"></p-skeleton>
+        </div>
+      </div>
+
+      <div class="modern-table-container" *ngIf="!isLoading || digitalizados.length > 0">
+        <app-data-table
+          [value]="digitalizados"
+          [columns]="columnsDigitalizados"
+          [loading]="isLoading"
+          [selectable]="false"
+          dataKey="id"
+          [showCaption]="false"
+          [showGlobalSearch]="false"
+          [paginator]="digitalizados.length > 10"
+          [rows]="25"
+          styleClass="modern-table"
+          emptyMessage="No hay eventos digitalizados en el rango seleccionado"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} eventos"
+          actionsWidth="80px"
+          [tableStyle]="{ 'min-width': '100%' }">
+
+          <ng-template pTemplate="cell-empleado" let-row>
+            {{ nombreEmpleado(row) }}
+          </ng-template>
+          <ng-template pTemplate="cell-documento" let-row>
+            {{ documentoEmpleado(row) }}
+          </ng-template>
+          <ng-template pTemplate="cell-unidad_funcional" let-row>
+            {{ row.unidad_funcional || '—' }}
+          </ng-template>
+          <ng-template pTemplate="cell-novedad" let-row>
+            {{ novedadLabel(row) }}
+          </ng-template>
+          <ng-template pTemplate="cell-fecha_nov_ini" let-row>
+            {{ formatearFecha(row.fecha_nov_ini) }}
+          </ng-template>
+          <ng-template pTemplate="cell-fecha_nov_fin" let-row>
+            {{ formatearFecha(row.fecha_nov_fin) }}
+          </ng-template>
+          <ng-template pTemplate="cell-horas" let-row>
+            {{ calcularHoras(row.fecha_nov_ini, row.fecha_nov_fin) }}
+          </ng-template>
+          <ng-template pTemplate="cell-estado" let-row>
+            <p-tag [value]="getEstadoLabel(row.estado)" [severity]="getEstadoSeverity(row.estado)"></p-tag>
+          </ng-template>
+          <ng-template pTemplate="cell-fecha_digitalizacion" let-row>
+            {{ formatearFecha(row.fecha_digitalizacion) }}
+          </ng-template>
+          <ng-template pTemplate="cell-user_digitalizador" let-row>
+            {{ row.user_digitalizador || '—' }}
+          </ng-template>
+          <ng-template pTemplate="actions" let-row>
+            <div class="action-buttons">
+              <button type="button" class="btn-action-icon btn-action-secondary"
+                pTooltip="Ver detalle" tooltipPosition="top"
+                (click)="$event.stopPropagation(); abrirDetalle(row)">
+                <i class="pi pi-eye"></i>
+              </button>
+            </div>
+          </ng-template>
+        </app-data-table>
+      </div>
+    </div>
+  </div>
+
   <p-dialog header="Detalle del evento" [(visible)]="showDetalle" [modal]="true"
     [style]="{ width: '640px', maxWidth: '95vw' }" (onHide)="cerrarDetalle()">
     <div class="detalle-grid" *ngIf="detalle">
@@ -205,6 +340,12 @@
       <div class="detalle-item"><span>Inicio</span><strong>{{ formatearFecha(detalle.fecha_nov_ini) }}</strong></div>
       <div class="detalle-item"><span>Fin</span><strong>{{ formatearFecha(detalle.fecha_nov_fin) }}</strong></div>
       <div class="detalle-item"><span>Horas</span><strong>{{ calcularHoras(detalle.fecha_nov_ini, detalle.fecha_nov_fin) }}</strong></div>
+      <div class="detalle-item" *ngIf="detalle.fecha_digitalizacion">
+        <span>Digitalizado</span><strong>{{ formatearFecha(detalle.fecha_digitalizacion) }}</strong>
+      </div>
+      <div class="detalle-item" *ngIf="detalle.user_digitalizador">
+        <span>Digitalizó</span><strong>{{ detalle.user_digitalizador }}</strong>
+      </div>
     </div>
     <div class="mt-3" *ngIf="isLoadingHistorial">
       <p-skeleton width="100%" height="40px"></p-skeleton>
@@ -219,7 +360,8 @@
     </div>
     <ng-template pTemplate="footer">
       <button class="btn-action btn-action-secondary" (click)="cerrarDetalle()">Cerrar</button>
-      <button class="btn-action btn-action-success" [disabled]="isProcesando" (click)="detalle && digitalizarUno(detalle)">
+      <button class="btn-action btn-action-success" *ngIf="vista !== 'digitalizados'"
+        [disabled]="isProcesando" (click)="detalle && digitalizarUno(detalle)">
         <i class="pi pi-upload"></i> Digitalizar
       </button>
     </ng-template>
@@ -241,6 +383,34 @@
     <ng-template pTemplate="footer">
       <button class="btn-action btn-action-secondary" (click)="showExcelDialog = false" [disabled]="isImportando">
         Cancelar
+      </button>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog header="Ver digitalizados" [(visible)]="showRangoDigitalizados" [modal]="true"
+    [style]="{ width: '460px', maxWidth: '95vw' }" (onHide)="showRangoDigitalizados = false">
+    <p class="excel-hint">
+      Indique el rango de fechas. Se listan eventos en estado <strong>Digitalizado</strong>
+      según la fecha de digitalización (o la de inicio si no hay esa fecha).
+    </p>
+    <div class="rango-row rango-dialog">
+      <div class="rango-field">
+        <label class="filter-label">Desde</label>
+        <p-calendar [(ngModel)]="fechaDesde" dateFormat="dd/mm/yy" [showIcon]="true"
+          [maxDate]="fechaHasta || undefined" appendTo="body" placeholder="Fecha desde"></p-calendar>
+      </div>
+      <div class="rango-field">
+        <label class="filter-label">Hasta</label>
+        <p-calendar [(ngModel)]="fechaHasta" dateFormat="dd/mm/yy" [showIcon]="true"
+          [minDate]="fechaDesde || undefined" appendTo="body" placeholder="Fecha hasta"></p-calendar>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <button class="btn-action btn-action-secondary" type="button" (click)="showRangoDigitalizados = false">
+        Cancelar
+      </button>
+      <button class="btn-action btn-action-primary" type="button" (click)="consultarDigitalizados()">
+        <i class="pi pi-search"></i>Consultar
       </button>
     </ng-template>
   </p-dialog>

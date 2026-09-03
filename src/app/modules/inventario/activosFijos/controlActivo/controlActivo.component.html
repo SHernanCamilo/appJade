@@ -459,13 +459,27 @@
 
       <!-- ── Historial del activo ─────────────────────────────────── -->
       <section class="ti-card" *ngIf="activo">
-        <h3 class="ti-card__titulo">
-          <i class="pi pi-history"></i>
-          Historial de tomas de este activo
-          <span class="ti-contador-registros" *ngIf="historial.length">
-            {{ historial.length }} registro(s)
-          </span>
-        </h3>
+        <div class="ti-card__encabezado">
+          <h3 class="ti-card__titulo">
+            <i class="pi pi-history"></i>
+            Historial de tomas de este activo
+            <span class="ti-contador-registros" *ngIf="historial.length">
+              {{ historial.length }} registro(s)
+            </span>
+          </h3>
+
+          <button
+            type="button"
+            class="ti-btn ti-btn--excel"
+            *ngIf="historial.length > 0"
+            [disabled]="exportandoActivo"
+            (click)="exportarHistorialDeActivo()"
+            pTooltip="Descarga la línea de tiempo completa de este activo en Excel"
+            tooltipPosition="left">
+            <i class="pi" [ngClass]="exportandoActivo ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+            {{ exportandoActivo ? 'Exportando...' : 'Exportar historial (Excel)' }}
+          </button>
+        </div>
 
         <div class="ti-vacio" *ngIf="cargandoHistorial">
           <i class="pi pi-spin pi-spinner"></i>
@@ -643,9 +657,21 @@
           </button>
           <button type="button" class="ti-btn ti-btn--excel"
                   [disabled]="exportando"
-                  (click)="exportarExcel()">
+                  (click)="exportar('excel')">
             <i class="pi" [ngClass]="exportando ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
             {{ exportando ? 'Exportando...' : 'Exportar Excel' }}
+          </button>
+          <button type="button" class="ti-btn ti-btn--csv"
+                  [disabled]="exportando"
+                  (click)="exportar('csv')">
+            <i class="pi pi-file"></i>
+            CSV
+          </button>
+          <button type="button" class="ti-btn ti-btn--pdf"
+                  [disabled]="exportando"
+                  (click)="exportar('pdf')">
+            <i class="pi pi-file-pdf"></i>
+            PDF
           </button>
         </div>
       </section>

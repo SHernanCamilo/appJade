@@ -15,6 +15,7 @@ export interface EventSolicitud {
   unidad_funcional_codigo?: string;
   id_unidad_funcional?: number;
   empresa_id?: number;
+  sucursal_id?: number;
   novedad_id?: number;
   novedad?: { id: number; codigo?: string; descripcion?: string } | string;
   empleado_cubre_id?: number;
@@ -22,6 +23,8 @@ export interface EventSolicitud {
   fecha_nov_ini: string;
   fecha_nov_fin: string;
   fecha_solicitud?: string;
+  fecha_digitalizacion?: string;
+  user_digitalizador?: string;
   coment_solicitante?: string;
   coment_aprobador?: string;
   /** Alias legacy del comentario del solicitante */
@@ -348,6 +351,32 @@ export class EventSolicitudService {
     }
     return this.http.get<{ success: boolean; data: EventSolicitud[]; total: number }>(
       `${this.base}/solicitudes/pendientes`, { params }
+    );
+  }
+
+  /** Eventos ya digitalizados. Requiere rango de fechas. */
+  getDigitalizados(filtros: {
+    fecha_desde: string;
+    fecha_hasta: string;
+    search?: string;
+    empresa_id?: number | null;
+    sucursal_id?: number | null;
+  }): Observable<{ success: boolean; data: EventSolicitud[]; total: number }> {
+    let params = new HttpParams()
+      .set('fecha_desde', filtros.fecha_desde)
+      .set('fecha_hasta', filtros.fecha_hasta)
+      .set('per_page', '200');
+    if (filtros.search?.trim() && filtros.search.trim().length >= 2) {
+      params = params.set('search', filtros.search.trim());
+    }
+    if (filtros.empresa_id) {
+      params = params.set('empresa_id', String(filtros.empresa_id));
+    }
+    if (filtros.sucursal_id) {
+      params = params.set('sucursal_id', String(filtros.sucursal_id));
+    }
+    return this.http.get<{ success: boolean; data: EventSolicitud[]; total: number }>(
+      `${this.base}/solicitudes/digitalizados`, { params }
     );
   }
 

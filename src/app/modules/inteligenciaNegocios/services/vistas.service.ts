@@ -59,6 +59,16 @@ export interface FabricColumn {
   nullable: boolean;
 }
 
+export interface ViewRowCountsResponse {
+  success: boolean;
+  /** Filas desde las que la vista se abre en JadeOne Desktop en vez del navegador. */
+  threshold: number;
+  /** ["schema.view" en minúsculas] => filas */
+  counts: Record<string, number>;
+  /** Vistas sin parquet por exceso de volumen: nunca deben abrirse en el navegador. */
+  desktop_only: string[];
+}
+
 export interface DesktopLaunchResponse {
   success: boolean;
   ticket?: string;
@@ -203,13 +213,23 @@ export class VistasService {
   }
 
   /**
-   * Abre jadeone-desktop:// sin navegar fuera de la SPA. Si el protocolo no está
-   * registrado, onNotInstalled se ejecuta a los ~2s.
+   * Espera a que el SO/navegador pregunte “¿Abrir JadeOne Desktop?”.
+   * Si hay blur (la app o el diálogo tomaron el foco), no descarga.
+   * Si a los 5 s la pestaña sigue enfocada, se asume que no está instalada.
    */
+  static readonly DESKTOP_LAUNCH_WAIT_MS = 5000;
+
   openDesktopProtocol(protocolUrl: string, onNotInstalled: () => void): void {
-    let blurred = false;
-    const onBlur = (): void => { blurred = true; };
-    window.addEventListener('blur', onBlur, { once: true });
+    let opened = false;
+    const markOpened = (): void => { opened = true; };
+    const onHidden = (): void => {
+      if (document.hidden) {
+        markOpened();
+      }
+    };
+
+    window.addEventListener('blur', markOpened, { once: true });
+    document.addEventListener('visibilitychange', onHidden);
 
     const anchor = document.createElement('a');
     anchor.href = protocolUrl;
@@ -219,15 +239,25 @@ export class VistasService {
     document.body.removeChild(anchor);
 
     window.setTimeout(() => {
-      window.removeEventListener('blur', onBlur);
-      if (!blurred && document.hasFocus()) {
+      window.removeEventListener('blur', markOpened);
+      document.removeEventListener('visibilitychange', onHidden);
+      if (!opened && document.hasFocus()) {
         onNotInstalled();
       }
-    }, 2000);
+    }, VistasService.DESKTOP_LAUNCH_WAIT_MS);
   }
 
   getDesktopDownloadUrl(): string {
     return `${this.baseUrl}/desktop/download`;
+  }
+
+  /**
+   * Filas conocidas por vista (clave "schema.view" en minúsculas) y umbral a
+   * partir del cual la vista debe abrirse en JadeOne Desktop y no en el navegador.
+   * Las vistas sin parquet no vienen en el mapa: su tamaño es desconocido.
+   */
+  getRowCounts(): Observable<ViewRowCountsResponse> {
+    return this.http.get<ViewRowCountsResponse>(`${this.baseUrl}/views/row-counts`);
   }
 
   getContext(grupoTipo?: number): Observable<FabricViewerContext> {
