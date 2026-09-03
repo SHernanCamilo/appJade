@@ -38,7 +38,7 @@
       </div>
 
       <!-- Estado vacio inicial -->
-      <div *ngIf="progress().status === 'idle'" class="vr-empty">
+      <div *ngIf="progress().status === 'idle' && !requiresDesktop() && !requiresDateFilter()" class="vr-empty">
         <svg class="vr-empty__icon" viewBox="0 0 64 64" fill="none">
           <rect x="4" y="8" width="56" height="48" rx="3" stroke="#217346" stroke-width="2.5" fill="#f0fdf4" />
           <rect x="4" y="8" width="56" height="10" rx="3" fill="#217346" />
@@ -88,6 +88,31 @@
             <i class="pi pi-filter"></i>
             Aplicar filtro y cargar datos
           </button>
+        </div>
+      </div>
+
+      <!-- Vista grande: se abre en JadeOne Desktop en vez del navegador -->
+      <div *ngIf="requiresDesktop()" class="vr-mandatory-filter">
+        <div class="vr-mandatory-filter__card">
+          <i class="pi pi-desktop vr-mandatory-filter__icon"></i>
+          <h3 class="vr-mandatory-filter__title">Abrir en JadeOne Desktop</h3>
+          <p class="vr-mandatory-filter__desc">
+            <strong>{{ vista?.nombre || viewName }}</strong>
+            <ng-container *ngIf="estimatedRowCount() > 0">
+              tiene <strong>{{ estimatedRowCount() | number:'1.0-0' }}</strong> registros
+            </ng-container>
+            y supera el límite del visor web
+            ({{ webMaxRowsLabel }} filas).
+            El navegador no sostiene este volumen; la consulta continúa en JadeOne Desktop.
+          </p>
+          <p class="vr-progress-panel__message" *ngIf="progress().message">{{ progress().message }}</p>
+          <button *ngIf="permissionDesktop()" class="vr-btn vr-btn--green" (click)="abrirJadeOneDesktop()">
+            <i class="pi pi-external-link"></i>
+            Abrir JadeOne Desktop
+          </button>
+          <p *ngIf="!permissionDesktop()" class="vr-mandatory-filter__desc">
+            Solicite acceso a JadeOne Desktop para consultar esta vista.
+          </p>
         </div>
       </div>
 

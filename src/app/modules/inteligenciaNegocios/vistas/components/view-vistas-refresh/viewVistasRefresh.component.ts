@@ -19,6 +19,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { PermissionService } from '../../../../../core/services/permission.service';
 import { AgGridAngular } from 'ag-grid-angular';
 import type { ColDef, ColGroupDef, GridApi, GridReadyEvent, CellFocusedEvent } from 'ag-grid-community';
 import * as XLSX from 'xlsx';
@@ -456,6 +457,7 @@ export class ViewVistasRefreshComponent implements OnInit, OnDestroy {
   private readonly router         = inject(Router);
   private readonly vistasService  = inject(VistasService);
   private readonly http           = inject(HttpClient);
+  private readonly permissionService = inject(PermissionService);
   private readonly formulaEngine  = inject(FormulaEngineService);
   private readonly viewRegistry   = inject(ViewRegistryService);
 
@@ -945,6 +947,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     console.log('[ViewVistasRefresh] ngOnInit - schema:', this.schema, 'viewName:', this.viewName,
       this.currentWorkbookId ? `workbookId:${this.currentWorkbookId}` : '');
+    this.loadRowCountPolicy();
 
     if (!this.schema || !this.viewName) {
       console.error('[ViewVistasRefresh] No se proporcionaron schema y viewName');
@@ -1358,6 +1361,109 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   // -Metadatos de la vista -
+  private loadRowCountPolicy(): void {
+    this.vistasService.getRowCounts().subscribe({
+      next: res => {
+        if (res.threshold > 0) {
+          this.webMaxRows = res.threshold;
+        }
+        this.desktopOnlyViews = new Set((res.desktop_only ?? []).map(k => k.toLowerCase()));
+        this.filasPorVista = new Map(Object.entries(res.counts ?? {}));
+        const known = this.knownRowsForCurrentView();
+        if (this.shouldOpenDesktop(known)) {
+          this.openInDesktop(known);
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  private claveVistaActual(): string {
+    return `${this.schema}.${this.viewName}`.toLowerCase();
+  }
+
+  private knownRowsForCurrentView(): number | null {
+    return this.filasPorVista.get(this.claveVistaActual()) ?? null;
+  }
+
+  private shouldOpenDesktop(rows: number | null | undefined): boolean {
+    if (this.requiresDesktop()) {
+      return true;
+    }
+    if (this.desktopOnlyViews.has(this.claveVistaActual())) {
+      return true;
+    }
+    return rows != null && rows > this.webMaxRows;
+  }
+
+  permissionDesktop(): boolean {
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP');
+  }
+
+  /** Abre JadeOne Desktop y detiene la carga en el navegador. */
+  abrirJadeOneDesktop(): void {
+    this.openInDesktop(this.estimatedRowCount() || this.knownRowsForCurrentView());
+  }
+
+  private openInDesktop(rows: number | null | undefined): void {
+    const n = rows ?? 0;
+    if (n > 0) {
+      this.estimatedRowCount.set(n);
+    }
+    this.requiresDesktop.set(true);
+    this.requiresDateFilter.set(false);
+    this.clearTimers();
+    this.releaseLoadSlot();
+    this.progress.set({
+      status: 'idle',
+      message: n > 0
+        ? `La vista tiene ${n.toLocaleString('es-CO')} filas. Se abre en JadeOne Desktop.`
+        : 'Esta vista se abre en JadeOne Desktop.',
+      percent: 0,
+      rows: 0,
+      elapsed: 0,
+    });
+
+    if (!this.permissionDesktop()) {
+      return;
+    }
+    if (this.isLaunchingDesktop) {
+      return;
+    }
+    this.isLaunchingDesktop = true;
+
+    const label = this.vista?.nombre || this.viewName;
+    this.vistasService.launchDesktop(this.schema, this.viewName, label).subscribe({
+      next: res => {
+        if (!res.success || !res.protocol_url) {
+          this.isLaunchingDesktop = false;
+          this.progress.update(p => ({
+            ...p,
+            message: res.message ?? 'No se pudo abrir JadeOne Desktop. Intente de nuevo.',
+          }));
+          return;
+        }
+
+        const downloadUrl = res.download_url ?? this.vistasService.getDesktopDownloadUrl();
+        this.vistasService.openDesktopProtocol(res.protocol_url, () => {
+          this.progress.update(p => ({
+            ...p,
+            message: 'JadeOne Desktop no está instalado. Se iniciará la descarga.',
+          }));
+          window.open(downloadUrl, '_blank', 'noopener');
+        });
+        window.setTimeout(() => { this.isLaunchingDesktop = false; }, VistasService.DESKTOP_LAUNCH_WAIT_MS + 500);
+      },
+      error: err => {
+        this.isLaunchingDesktop = false;
+        this.progress.update(p => ({
+          ...p,
+          message: err?.error?.message ?? 'Sin permiso o error de red al abrir JadeOne Desktop.',
+        }));
+      },
+    });
+  }
+
   private loadMeta(): void {
     this.vistasService.getVista(this.schema, this.viewName).subscribe({
       next: res => {
@@ -1440,7 +1546,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   /** Controla el panel que pide filtro obligatorio */
   readonly requiresDateFilter = signal(false);
+  /** Vista demasiado grande para el navegador: se abre en JadeOne Desktop. */
+  readonly requiresDesktop = signal(false);
   readonly estimatedRowCount  = signal(0);
+  /** Umbral del backend: por encima, el visor web cede a JadeOne Desktop. */
+  private webMaxRows = 250_000;
+  private desktopOnlyViews = new Set<string>();
+  private filasPorVista = new Map<string, number>();
+  private isLaunchingDesktop = false;
+
+  get webMaxRowsLabel(): string {
+    return this.webMaxRows.toLocaleString('es-CO');
+  }
 
   /** Filtro de fechas obligatorio (cuando la vista tiene >1M filas) */
   mandatoryDateFrom = '';
@@ -1459,6 +1576,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const p = this.progress();
     if (p.status === 'queuing' || p.status === 'processing' || p.status === 'downloading') {
       return; // Ya esta en curso
+    }
+    if (this.requiresDesktop()) {
+      return;
     }
 
     // ── Sobre qué hoja se refresca ──────────────────────────────────────────
@@ -1540,6 +1660,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       elapsed: 0,
     });
 
+    const knownRows = this.knownRowsForCurrentView();
+    if (this.shouldOpenDesktop(knownRows)) {
+      this.openInDesktop(knownRows);
+      return;
+    }
+
     // Lanzar export: el backend maneja R2 warm internamente.
     // force_refresh=true le dice al backend que invalide el parquet y genere uno nuevo
     this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, true);
@@ -1593,6 +1719,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
    * @param forceRefresh Si true, invalida el parquet y genera uno nuevo desde Fabric
    */
   private doExport(maxRows: number, filters: Record<string, unknown>, forceRefresh = false): void {
+    if (this.requiresDesktop()) {
+      return;
+    }
     this.progress.update(p => ({ ...p, status: 'queuing', message: 'Verificando parquet en cache...', percent: 3 }));
 
     const body: Record<string, unknown> = {
@@ -1617,6 +1746,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     ).subscribe({
       next: res => {
         const r2 = res.r2_status;
+        const knownRows = res.rows ?? res.row_count ?? this.knownRowsForCurrentView();
+        if (this.shouldOpenDesktop(knownRows)) {
+          this.openInDesktop(knownRows);
+          return;
+        }
 
         // ── R2 GENERATING: el parquet se esta creando en background ──
         if (r2 === 'generating') {
@@ -1700,6 +1834,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           const status = res.r2_status;
           console.log('[R2Poll]', status, res.message);
 
+          if (this.shouldOpenDesktop(res.row_count)) {
+            this.stopR2Polling();
+            this.openInDesktop(res.row_count);
+            return;
+          }
+
           if (status === 'ready' || status === 'ready_stale') {
             this.stopR2Polling();
             this.progress.update(p => ({ ...p, message: 'Parquet listo, descargando datos...', percent: 50 }));
@@ -1782,6 +1922,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
         // En progreso - actualizar indicadores
         const rows    = Number(s['rows'] ?? 0);
+        if (this.shouldOpenDesktop(rows)) {
+          clearInterval(this.pollTimer!);
+          this.pollTimer = null;
+          this.openInDesktop(rows);
+          return;
+        }
         const pct     = Math.min(10 + (rows / 5000), 75); // heuristica progreso
         const progMsg = String(s['message'] ?? 'Exportando datos desde Fabric...');
 
@@ -1802,6 +1948,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   private onJobCompleted(jobId: string, statusData: Record<string, unknown>): void {
     const rows = Number(statusData['rows'] ?? 0);
+    if (this.shouldOpenDesktop(rows)) {
+      this.openInDesktop(rows);
+      return;
+    }
 
     // Recordar el jobId para "Descargar Excel": ese export ya tiene el .xlsx
     // con todos los registros listo en el servidor.

@@ -139,7 +139,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   }
 
   permissionDesktop(): boolean {
-    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP'); 
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP');
   }
 
   get totalRegistros(): number {
