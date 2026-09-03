@@ -293,10 +293,19 @@
   min-height: 118px;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
-.ambito-card:hover {
+.ambito-card:hover:not(:disabled):not(.is-disabled) {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
   border-color: transparent;
+}
+
+.ambito-card.is-disabled,
+.ambito-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: grayscale(0.35);
+  box-shadow: none;
+  transform: none;
 }
 
 .ambito-icon {
@@ -321,7 +330,7 @@
 }
 
 .ambito-card-all .ambito-icon { background: #f1f5f9; color: #334155; }
-.ambito-card-all:hover { background: #f8fafc; }
+.ambito-card-all:hover:not(:disabled):not(.is-disabled) { background: #f8fafc; }
 
 .color-blue .ambito-icon { background: #dbeafe; color: #1d4ed8; }
 .color-teal .ambito-icon { background: #ccfbf1; color: #0f766e; }
@@ -330,12 +339,12 @@
 .color-rose .ambito-icon { background: #ffe4e6; color: #be123c; }
 .color-indigo .ambito-icon { background: #e0e7ff; color: #4338ca; }
 
-.color-blue:hover { background: linear-gradient(180deg, #eff6ff 0%, #fff 70%); }
-.color-teal:hover { background: linear-gradient(180deg, #f0fdfa 0%, #fff 70%); }
-.color-violet:hover { background: linear-gradient(180deg, #f5f3ff 0%, #fff 70%); }
-.color-amber:hover { background: linear-gradient(180deg, #fffbeb 0%, #fff 70%); }
-.color-rose:hover { background: linear-gradient(180deg, #fff1f2 0%, #fff 70%); }
-.color-indigo:hover { background: linear-gradient(180deg, #eef2ff 0%, #fff 70%); }
+.color-blue:hover:not(:disabled):not(.is-disabled) { background: linear-gradient(180deg, #eff6ff 0%, #fff 70%); }
+.color-teal:hover:not(:disabled):not(.is-disabled) { background: linear-gradient(180deg, #f0fdfa 0%, #fff 70%); }
+.color-violet:hover:not(:disabled):not(.is-disabled) { background: linear-gradient(180deg, #f5f3ff 0%, #fff 70%); }
+.color-amber:hover:not(:disabled):not(.is-disabled) { background: linear-gradient(180deg, #fffbeb 0%, #fff 70%); }
+.color-rose:hover:not(:disabled):not(.is-disabled) { background: linear-gradient(180deg, #fff1f2 0%, #fff 70%); }
+.color-indigo:hover:not(:disabled):not(.is-disabled) { background: linear-gradient(180deg, #eef2ff 0%, #fff 70%); }
 
 .ambito-empty, .ambito-loading { margin-top: 0.5rem; }
 .ambito-empty {
@@ -344,6 +353,30 @@
   padding: 3rem 1rem;
 }
 .ambito-empty i { font-size: 2.2rem; color: #94a3b8; display: block; margin-bottom: 0.75rem; }
+
+.rango-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem;
+}
+
+.rango-field {
+  min-width: 180px;
+}
+
+.rango-field ::ng-deep .p-calendar,
+.rango-field ::ng-deep .p-inputtext {
+  width: 100%;
+}
+
+.rango-consultar {
+  height: 42px;
+}
+
+.rango-dialog {
+  margin-top: 0.25rem;
+}
 
 @media (max-width: 768px) {
   .dashboard-content { padding: 0 1rem 1rem; }

@@ -134,6 +134,13 @@
                        [severity]="vista.estado ? 'success' : 'warn'"
                        styleClass="tree-vista-tag">
                 </p-tag>
+                <p-tag *ngIf="!esEnMantenimiento(vista) && vista.estado && esVistaPesada(vista)"
+                       value="Solo Desktop"
+                       severity="info"
+                       styleClass="tree-vista-tag"
+                       [pTooltip]="tooltipVistaPesada(vista)"
+                       tooltipPosition="left">
+                </p-tag>
                 <i class="pi pi-external-link tree-vista-action" *ngIf="!esEnMantenimiento(vista)"></i>
                 <button
                   *ngIf="!esEnMantenimiento(vista) && vista.estado && permissionDesktop()"
@@ -188,6 +195,11 @@
                 <p-tag *ngIf="!esEnMantenimiento(vista)"
                        [value]="vista.estado ? 'Visible' : 'No visible'"
                        [severity]="vista.estado ? 'success' : 'warn'"></p-tag>
+                <p-tag *ngIf="!esEnMantenimiento(vista) && vista.estado && esVistaPesada(vista)"
+                       value="Solo Desktop"
+                       severity="info"
+                       [pTooltip]="tooltipVistaPesada(vista)"
+                       tooltipPosition="left"></p-tag>
               </td>
               <td class="text-center">
                 <button class="btn-action-icon btn-action-primary"
@@ -229,14 +241,5 @@
         </p-table>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- Overlay de navegación -->
-<div class="navigation-overlay" *ngIf="isNavigating">
-  <div class="navigation-loader">
-    <i class="pi pi-spin pi-spinner"></i>
-    <span>Abriendo vista...</span>
-    <small>Conectando con la fuente de datos</small>
   </div>
 </div>

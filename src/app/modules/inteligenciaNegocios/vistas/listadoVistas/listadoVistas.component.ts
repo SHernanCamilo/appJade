@@ -21,6 +21,9 @@ import { isVistaEnMantenimiento } from '../../helpers/fabric-error.helper';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
+/** Ruta fullscreen (fuera del layout) que renderiza la vista en modo Excel. */
+const VISTA_EXCEL_PATH = '/inteligenciaNegocios/viewVistaExcel';
+
 export interface EsquemaOption {
   code: string;
   label: string;
@@ -62,7 +65,6 @@ export interface GrupoVistas {
 export class ListadoVistasComponent implements OnInit {
   isLoadingContext = false;
   isLoadingVistas = false;
-  isNavigating = false;
   isLaunchingDesktop = false;
   searchTerm = '';
   vistas: VistaBi[] = [];
@@ -79,6 +81,13 @@ export class ListadoVistasComponent implements OnInit {
   private grupoTipo?: number;
   private vistasPorEsquema = new Map<string, VistaBi[]>();
   private gruposExpandidos = new Set<string>();
+
+  /** Filas conocidas por vista ("schema.view" en minúsculas). */
+  private filasPorVista = new Map<string, number>();
+  /** Vistas que el backend marca como demasiado grandes para el navegador. */
+  private vistasSoloDesktop = new Set<string>();
+  /** Se sobrescribe con el umbral que reporta el backend. */
+  private maxFilasWeb = 250000;
 
   constructor(
     private route: ActivatedRoute,
@@ -97,10 +106,28 @@ export class ListadoVistasComponent implements OnInit {
     this.pageTitle = (data['pageTitle'] as string) ?? this.pageTitle;
     this.pageSubtitle = (data['pageSubtitle'] as string) ?? this.pageSubtitle;
     this.cargarContexto();
+    this.cargarFilasPorVista();
+  }
+
+  /**
+   * Tamaño de cada vista para decidir navegador vs JadeOne Desktop. Si falla,
+   * el listado sigue funcionando y todas las vistas se abren en el navegador.
+   */
+  private cargarFilasPorVista(): void {
+    this.vistasService.getRowCounts().subscribe({
+      next: res => {
+        if (res.threshold > 0) {
+          this.maxFilasWeb = res.threshold;
+        }
+        this.filasPorVista = new Map(Object.entries(res.counts ?? {}));
+        this.vistasSoloDesktop = new Set(res.desktop_only ?? []);
+      },
+      error: () => {}
+    });
   }
 
   permissionDesktop(): boolean {
-    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP'); 
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP-ADMIN'); 
   }
 
   get isLoading(): boolean {
@@ -366,22 +393,13 @@ export class ListadoVistasComponent implements OnInit {
       return;
     }
 
-    // Mostrar loader de navegación
-    this.isNavigating = true;
-
-    this.router.navigate([
-      `${this.listPath}/viewVistas`,
-      vista.schema,
-      vista.view_name
-    ]);
+    this.abrirEnDestinoSegunTamano(vista);
   }
 
   /**
    * Abre la vista en el modo "Actualizar como Excel" en una NUEVA PESTAÑA
    * (sin sidebar, pantalla completa), igual que el modo fullscreen.
    * Descarga el dataset completo vía export/parquet con virtual scroll.
-   *
-   * URL: ...viewVistas/refresh/:schema/:viewName
    */
   abrirVistaRefresh(vista: VistaBi, event: Event): void {
     event.stopPropagation();
@@ -396,22 +414,84 @@ export class ListadoVistasComponent implements OnInit {
       return;
     }
 
-    // Abrir en nueva pestaña usando ruta genérica con query params
-    const urlTree = this.router.createUrlTree([
-      '/inteligenciaNegocios/viewVistaExcel'
-    ], {
-      queryParams: {
-        schema: vista.schema,
-        viewName: vista.view_name
-      }
+    this.abrirEnDestinoSegunTamano(vista);
+  }
+
+  /** Filas conocidas de la vista, o null si nunca se ha medido su parquet. */
+  filasDeVista(vista: VistaBi): number | null {
+    return this.filasPorVista.get(this.claveVista(vista)) ?? null;
+  }
+
+  esVistaPesada(vista: VistaBi): boolean {
+    if (this.vistasSoloDesktop.has(this.claveVista(vista))) {
+      return true;
+    }
+    const filas = this.filasDeVista(vista);
+    return filas !== null && filas > this.maxFilasWeb;
+  }
+
+  tooltipVistaPesada(vista: VistaBi): string {
+    const filas  = this.filasDeVista(vista);
+    const limite = this.formatearFilas(this.maxFilasWeb);
+    return filas !== null
+      ? `${this.formatearFilas(filas)} filas: supera el límite de ${limite} del visor web y se abre en JadeOne Desktop.`
+      : `Supera el límite de ${limite} filas del visor web y se abre en JadeOne Desktop.`;
+  }
+
+  private claveVista(vista: VistaBi): string {
+    return `${vista.schema}.${vista.view_name}`.toLowerCase();
+  }
+
+  /**
+   * El navegador no sostiene datasets grandes: por encima del umbral la vista
+   * se abre en JadeOne Desktop. Sin conteo conocido se asume que cabe en la web.
+   */
+  private abrirEnDestinoSegunTamano(vista: VistaBi): void {
+    if (!this.esVistaPesada(vista)) {
+      this.abrirVistaExcelEnPestanaNueva(vista);
+      return;
+    }
+
+    const filas   = this.filasDeVista(vista);
+    const limite  = this.formatearFilas(this.maxFilasWeb);
+    const detalle = filas !== null
+      ? `La vista tiene ${this.formatearFilas(filas)} filas y supera el límite de ${limite} del visor web.`
+      : `La vista supera el límite de ${limite} filas del visor web.`;
+
+    if (!this.permissionDesktop()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Vista disponible solo en JadeOne Desktop',
+        detail: `${detalle} Solicite acceso a JadeOne Desktop para consultarla.`,
+        life: 9000
+      });
+      return;
+    }
+
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Abriendo en JadeOne Desktop',
+      detail: detalle,
+      life: 7000
     });
-    const url      = this.router.serializeUrl(urlTree);
-    const fullUrl  = this.location.prepareExternalUrl(url);
+    this.abrirVistaEscritorio(vista);
+  }
+
+  private formatearFilas(filas: number): string {
+    return filas.toLocaleString('es-CO');
+  }
+
+  private abrirVistaExcelEnPestanaNueva(vista: VistaBi): void {
+    const urlTree = this.router.createUrlTree([VISTA_EXCEL_PATH], {
+      queryParams: { schema: vista.schema, viewName: vista.view_name }
+    });
+    const url     = this.router.serializeUrl(urlTree);
+    const fullUrl = this.location.prepareExternalUrl(url);
     window.open(fullUrl, '_blank', 'noopener');
   }
 
-  abrirVistaEscritorio(vista: VistaBi, event: Event): void {
-    event.stopPropagation();
+  abrirVistaEscritorio(vista: VistaBi, event?: Event): void {
+    event?.stopPropagation();
 
     if (isVistaEnMantenimiento(vista) || !vista.estado || this.isLaunchingDesktop) {
       return;
@@ -441,7 +521,7 @@ export class ListadoVistasComponent implements OnInit {
           });
           window.open(downloadUrl, '_blank', 'noopener');
         });
-        window.setTimeout(() => { this.isLaunchingDesktop = false; }, 2500);
+        window.setTimeout(() => { this.isLaunchingDesktop = false; }, VistasService.DESKTOP_LAUNCH_WAIT_MS + 500);
       },
       error: err => {
         this.isLaunchingDesktop = false;

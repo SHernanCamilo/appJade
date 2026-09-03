@@ -560,7 +560,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
           });
           window.open(downloadUrl, '_blank', 'noopener');
         });
-        window.setTimeout(() => { this.isLaunchingDesktop = false; }, 2500);
+        window.setTimeout(() => { this.isLaunchingDesktop = false; }, VistasService.DESKTOP_LAUNCH_WAIT_MS + 500);
       },
       error: err => {
         this.isLaunchingDesktop = false;
