@@ -273,33 +273,53 @@ export class ExcelColumnFilterComponent implements IFilterComp, AfterViewInit {
 
     // Extraer valores únicos de toda la data
     this.extractUniqueValues();
+
+    // El teclado del popup NO debe llegar al documento: el visor tiene atajos
+    // globales (Ctrl+C, Ctrl+V, Delete, Escape) y al escribir en el buscador
+    // saltaba la alerta de "solo lectura" o se borraba el filtro de la columna.
+    this.filterContainer?.nativeElement.addEventListener('keydown', (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') this.applyFilter();
+    });
+  }
+
+  /**
+   * AG Grid avisa cuando llegan filas nuevas (recarga, paginacion, refresco).
+   *
+   * Sin esto la lista de valores quedaba congelada con la de la primera carga:
+   * tras "Actualizar todo" el filtro ofrecia valores que ya no existian y
+   * ocultaba los nuevos.
+   */
+  onNewRowsLoaded(): void {
+    const previos = new Set(this.appliedSelected);
+    const eraActivo = this.isFilterActive();
+
+    this.extractUniqueValues();
+
+    if (!eraActivo) return;
+
+    // Conservar la seleccion del usuario, quedandose solo con los valores que
+    // siguen existiendo.
+    const vigentes = new Set([...previos].filter(v => this.allUniqueValues.has(v)));
+    if (vigentes.size === 0) return; // todo lo elegido desaparecio: mostrar todo
+
+    this.appliedSelected = vigentes;
+    this.pendingSelected = new Set(vigentes);
+    this.allItems.update(items => items.map(i => ({ ...i, selected: vigentes.has(i.value) })));
   }
 
   private extractUniqueValues(): void {
     this.allUniqueValues.clear();
 
     this.params.api.forEachNode(node => {
-      let value: unknown;
-
-      if (this.valueGetter) {
-        value = this.valueGetter({
-          node,
-          data: node.data,
-          column: this.params.column,
-          colDef: this.params.colDef
-        } as ValueGetterParams);
-      } else {
-        // Fallback: usar el field directamente
-        const field = this.params.colDef.field;
-        value = field ? node.data?.[field] : null;
-      }
-
-      const str = value != null ? String(value).trim() : '(Vacío)';
+      const str = this.cellText(node.data, node);
       this.allUniqueValues.add(str);
     });
 
+    // Orden natural: los numeros como numeros, no como texto ("2" antes de "10")
+    const sortedValues = Array.from(this.allUniqueValues).sort(compareNatural);
+
     // Por defecto: todos seleccionados
-    const sortedValues = Array.from(this.allUniqueValues).sort();
     this.pendingSelected = new Set(sortedValues);
     this.appliedSelected = new Set(sortedValues);
 
@@ -308,48 +328,80 @@ export class ExcelColumnFilterComponent implements IFilterComp, AfterViewInit {
     );
   }
 
+  /**
+   * Texto por el que se agrupa y compara una celda.
+   *
+   * Se usa el MISMO criterio al construir la lista y al filtrar; si difieren,
+   * marcar un valor no deja pasar ninguna fila (el filtro parecia roto).
+   */
+  private cellText(data: unknown, node: unknown): string {
+    let value: unknown;
+
+    if (this.valueGetter) {
+      value = this.valueGetter({
+        node,
+        data,
+        column: this.params.column,
+        colDef: this.params.colDef,
+      } as unknown as ValueGetterParams);
+    } else {
+      const field = this.params.colDef.field;
+      value = field ? (data as Record<string, unknown> | undefined)?.[field] : null;
+    }
+
+    if (value === null || value === undefined || value === '') return '(Vacío)';
+    return String(value).trim();
+  }
+
   isFilterActive(): boolean {
     // El filtro está activo si NO todos están seleccionados
     return this.appliedSelected.size < this.allUniqueValues.size;
   }
 
   doesFilterPass(params: IDoesFilterPassParams): boolean {
-    let value: unknown;
-
-    if (this.valueGetter) {
-      value = this.valueGetter({
-        node: params.node,
-        data: params.data,
-        column: this.params.column,
-        colDef: this.params.colDef
-      } as ValueGetterParams);
-    } else {
-      // Fallback: usar el field directamente
-      const field = this.params.colDef.field;
-      value = field ? params.data?.[field] : null;
-    }
-
-    const str = value != null ? String(value).trim() : '(Vacío)';
-    return this.appliedSelected.has(str);
+    return this.appliedSelected.has(this.cellText(params.data, params.node));
   }
 
-  getModel(): Set<string> | null {
-    return this.isFilterActive() ? this.appliedSelected : null;
+  /**
+   * Modelo del filtro. Es un OBJETO PLANO a proposito.
+   *
+   * Antes devolvia un `Set`, y eso rompia a todo el que lo consumiera:
+   *  - `api.getFilterModel()` entregaba `{ Banco: Set }`, asi que el codigo que
+   *    leia `m.filter` / `m.type` (para traducirlo a filtros del backend) no
+   *    encontraba nada y la consulta salia SIN filtro.
+   *  - un Set no sobrevive a JSON, asi que tampoco se podia guardar el estado
+   *    del workbook ni restaurarlo.
+   */
+  getModel(): ExcelColumnFilterModel | null {
+    if (!this.isFilterActive()) return null;
+    return {
+      filterType: 'excelValues',
+      values: [...this.appliedSelected],
+    };
   }
 
-  setModel(model: Set<string> | null): void {
-    if (model === null) {
+  /** Acepta el formato nuevo `{values}`, un array suelto o el Set antiguo. */
+  setModel(model: ExcelColumnFilterModel | string[] | Set<string> | null): void {
+    if (model === null || model === undefined) {
       // Reset: seleccionar todo
       this.pendingSelected = new Set(this.allUniqueValues);
       this.appliedSelected = new Set(this.allUniqueValues);
       this.allItems.update(items => items.map(i => ({ ...i, selected: true })));
-    } else {
-      this.appliedSelected = new Set(model);
-      this.pendingSelected = new Set(model);
-      this.allItems.update(items =>
-        items.map(i => ({ ...i, selected: model.has(i.value) }))
-      );
+      return;
     }
+
+    const values: string[] = Array.isArray(model)
+      ? model
+      : model instanceof Set
+        ? [...model]
+        : (model.values ?? []);
+
+    const selected = new Set(values);
+    this.appliedSelected = selected;
+    this.pendingSelected = new Set(selected);
+    this.allItems.update(items =>
+      items.map(i => ({ ...i, selected: selected.has(i.value) }))
+    );
   }
 
   // ── UI Events ────────────────────────────────────────────────────────────
@@ -388,24 +440,72 @@ export class ExcelColumnFilterComponent implements IFilterComp, AfterViewInit {
   }
 
   applyFilter(): void {
+    // Sin nada marcado el resultado seria una tabla vacia: Excel no lo permite
+    // y deja el boton Aceptar inactivo. Aqui se avisa y no se aplica.
+    if (this.pendingSelected.size === 0) {
+      this.searchTerm.set('');
+      return;
+    }
+
     // Confirmar selección temporal
     this.appliedSelected = new Set(this.pendingSelected);
 
     // Notificar AG Grid que el filtro cambió
     this.params.filterChangedCallback();
+
+    // Y cerrar el desplegable, como Excel al pulsar Aceptar.
+    this.closePopup();
   }
 
   cancel(): void {
-    // Cerrar sin aplicar cambios — restaurar estado previo
+    // Cerrar sin aplicar cambios: se restaura la seleccion confirmada.
+    //
+    // Antes llamaba a filterChangedCallback(), que dispara onFilterChanged en el
+    // visor (y en la vista paginada, una recarga al servidor) aunque el usuario
+    // no hubiera cambiado nada. Cancelar no debe tocar el filtro.
     this.pendingSelected = new Set(this.appliedSelected);
     this.allItems.update(items =>
       items.map(i => ({ ...i, selected: this.appliedSelected.has(i.value) }))
     );
+    this.searchTerm.set('');
 
-    this.params.filterChangedCallback();
+    this.closePopup();
+  }
+
+  /**
+   * Cierra el desplegable, como Excel al pulsar Aceptar.
+   *
+   * `hidePopupMenu()` existe en el GridApi de la v32, pero se registra por
+   * modulo: si no estuviera disponible solo deja un aviso en consola. Por eso hay
+   * un respaldo que simula el clic fuera, que es como AG Grid cierra sus popups.
+   */
+  private closePopup(): void {
+    const api = this.params.api as unknown as { hidePopupMenu?: () => void };
+    try {
+      api.hidePopupMenu?.();
+      return;
+    } catch { /* sin el modulo del menu: usar el respaldo */ }
+
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   }
 
   trackByValue(_index: number, item: { value: string }): string {
     return item.value;
   }
+}
+
+/** Modelo serializable del filtro de valores (compatible con JSON) */
+export interface ExcelColumnFilterModel {
+  filterType: 'excelValues';
+  values: string[];
+}
+
+/** Orden natural: "2" antes de "10", y el texto por locale español */
+function compareNatural(a: string, b: string): number {
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb) && a.trim() !== '' && b.trim() !== '') {
+    return na - nb;
+  }
+  return a.localeCompare(b, 'es');
 }

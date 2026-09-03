@@ -41,3 +41,14 @@
 }
 .code-expires { color: #f59e0b; font-size: 0.85rem; margin: 0.5rem 0; }
 .code-instructions { color: #64748b; font-size: 0.85rem; margin-top: 1rem; max-width: 350px; margin-left: auto; margin-right: auto; }
+
+/* Nota bajo el desplegable de Sede: las sedes vienen de la vista del tablero */
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #64748b;
+}
+.field label .field-hint { display: inline; margin-left: 0.4rem; }
+.field-hint a { color: #217346; text-decoration: underline; cursor: pointer; }

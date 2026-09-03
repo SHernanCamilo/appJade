@@ -59,6 +59,8 @@ import {
   emptyPivotConfig,
   isPivotConfigUsable,
   measureLabel,
+  distinctFieldValues,
+  pivotResultToCsv,
   PIVOT_KIND_FIELD,
   PIVOT_META_FIELDS,
   type PivotConfig,
@@ -201,6 +203,7 @@ function buildRibbon(
   colOptions: Array<{ label: string; value: string }>,
   showTotals: boolean,
   fmtColValue = '',
+  pivotState: { subtotals: boolean; grandTotals: boolean } = { subtotals: true, grandTotals: true },
 ): RibbonTab[] {
   return [
     {
@@ -387,9 +390,37 @@ function buildRibbon(
       label: 'Analisis',
       groups: [
         {
-          title: 'Tablas Dinamicas',
+          title: 'Tabla Dinamica',
           items: [
-            btn('pivot-table', 'Tabla\nDinamica', 'pi pi-table', 'lg', 'Crear tabla dinamica (pivot table) como Excel'),
+            btn('pivot-table', 'Campos', 'pi pi-table', 'lg', 'Abrir el panel de campos de la tabla dinamica'),
+          ],
+        },
+        // ── Herramientas de tabla dinamica, como la cinta "Analizar" de Excel ──
+        // Aplican sobre la hoja pivot activa (o su campo seleccionado). Si la
+        // hoja activa no es un pivot, cada accion avisa que hay que crearlo.
+        {
+          title: 'Campo activo',
+          items: [
+            btn('pivot-group',   'Agrupar',     'pi pi-sitemap',      'sm', 'Agrupar el campo (fechas por Año/Mes, numeros por rangos)'),
+            btn('pivot-ungroup', 'Desagrupar',  'pi pi-times-circle', 'sm', 'Quitar la agrupacion del campo'),
+            btn('pivot-collapse','Contraer',    'pi pi-minus-circle', 'sm', 'Contraer / expandir el campo de filas'),
+          ],
+        },
+        {
+          title: 'Mostrar',
+          items: [
+            { type: 'toggle', id: 'pivot-subtotals', label: 'Subtotales', icon: 'pi pi-list', size: 'sm' as const,
+              tooltip: 'Mostrar u ocultar los subtotales de cada campo de fila', active: pivotState.subtotals },
+            { type: 'toggle', id: 'pivot-grandtotals', label: 'Totales', icon: 'pi pi-calculator', size: 'sm' as const,
+              tooltip: 'Mostrar u ocultar la fila y columna de Total general', active: pivotState.grandTotals },
+            btn('pivot-refresh', 'Actualizar', 'pi pi-refresh', 'sm', 'Recalcular la tabla dinamica con los datos actuales'),
+          ],
+        },
+        {
+          title: 'Tabla Dinamica',
+          items: [
+            btn('pivot-clear', 'Limpiar\ndinamica', 'pi pi-trash', 'sm', 'Vaciar la configuracion de la tabla dinamica'),
+            btn('pivot-export', 'Exportar\ndinamica', 'pi pi-file-excel', 'lg', 'Exportar la tabla dinamica a Excel/CSV'),
           ],
         },
         {
@@ -397,12 +428,6 @@ function buildRibbon(
           items: [
             btn('quick-analysis', 'Analisis\nRapido', 'pi pi-chart-bar', 'lg', 'Agrupar y resumir datos (alternativa simple)'),
             btn('clear-analysis', 'Limpiar', 'pi pi-times', 'sm', 'Limpiar analisis'),
-          ],
-        },
-        {
-          title: 'Exportar',
-          items: [
-            btn('export-analysis', 'Exportar\nAnalisis', 'pi pi-download', 'lg', 'Exportar resultados del analisis'),
           ],
         },
       ],
@@ -455,7 +480,7 @@ readonly progress = signal<RefreshProgress>({
   private elapsedTimer: ReturnType<typeof setInterval> | null = null;
   private startTime = 0;
   private keyboardHandler?: (event: KeyboardEvent) => void;
-  private clickHandler?: () => void;
+  private clickHandler?: (e: Event) => void;
 
   // Datos en memoria --------------------
 
@@ -709,13 +734,27 @@ readonly perfMetrics = signal<{
       return;
     }
 
-    // Plantilla con la primera vista cargada como pista
+    // Plantilla con la primera vista cargada como pista. Los argumentos van
+    // vacios a proposito: el usuario los completa dentro de la celda.
     const sample = `=${name}("${views[0]}";"";"";"")`;
     const { rowIndex, colId } = this.focusedCell;
     const row = this.rowData[rowIndex];
     if (!row) return;
 
     row[colId] = sample;
+
+    // ── Registrar la formula en el MOTOR, no solo en la fila ─────────────────
+    //
+    // El valueGetter de las hojas de calculo, al ver un texto que empieza por
+    // '=', pide el resultado a HyperFormula. Si la formula nunca se escribio en
+    // el motor, ese resultado es null y la celda aparece VACIA: era el motivo de
+    // que "las funciones no funcionan" al insertarlas desde la cinta.
+    const colIndex = this.columnDefs.findIndex(c => c.field === colId) - 1;
+    if (this.activeFormulaSheet && colIndex >= 0) {
+      this.formulaEngine.ensureSheet(this.activeFormulaSheet, BLANK_SHEET_ROWS, BLANK_SHEET_COLS);
+      this.formulaEngine.setCellValue(this.activeFormulaSheet, rowIndex, colIndex, sample);
+    }
+
     this.cellInfo.update(ci => ({ ...ci, value: sample }));
     this.gridApi?.refreshCells({ force: true });
     this.gridApi?.startEditingCell({ rowIndex, colKey: colId });
@@ -784,7 +823,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           { label: 'Cerrar', icon: 'pi pi-times', action: 'close' },
         ],
       },
-      ribbonTabs: buildRibbon(this.colOptions(), this.showTotalsRow(), this.fmtColValue()),
+      ribbonTabs: buildRibbon(this.colOptions(), this.showTotalsRow(), this.fmtColValue(), this.activePivotState()),
 
       // Se le entregan COPIAS de las pestañas, no nuestros objetos.
       //
@@ -957,8 +996,17 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.keyboardHandler = this.handleKeyboardShortcut.bind(this);
     document.addEventListener('keydown', this.keyboardHandler);
     
-    // Cerrar context menu al hacer clic en cualquier parte
-    this.clickHandler = () => this.closeContextMenu();
+    // Clic fuera: cerrar el menu contextual y el desplegable de filtro de informe
+    this.clickHandler = (e: Event) => {
+      this.closeContextMenu();
+
+      // El desplegable de filtro de informe (barra de la tabla dinamica) se
+      // cierra al hacer clic fuera de la barra, como cualquier dropdown.
+      if (this.openReportFilter()) {
+        const t = e.target as HTMLElement | null;
+        if (!t?.closest('.vr-report-filters')) this.openReportFilter.set('');
+      }
+    };
     document.addEventListener('click', this.clickHandler);
   }
 
@@ -1156,8 +1204,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const activeSheet = this.sheets().find(s => s.id === this.currentSheetId)
       ?? this.sheets().find(s => s.active);
 
-    // Los pivots y hojas de calculo no tienen export de servidor: se bajan como
-    // CSV desde la grilla (son resumenes chicos, no vale la pena un job).
+    // ── Tabla dinamica: CSV limpio desde su receta ──────────────────────────
+    //
+    // Se recalcula el pivot y se serializa con pivotResultToCsv, que respeta las
+    // etiquetas de subtotal/total y el formato de %. Antes se usaba
+    // exportDataAsCsv de AG Grid, que sacaba las columnas tecnicas
+    // (__PIVOT_KIND__, __PIVOT_LEVEL__) y los porcentajes como numero crudo.
+    if (activeSheet && (activeSheet.kind ?? 'view') === 'pivot') {
+      this.exportPivotToCsv(activeSheet.id, activeSheet.label);
+      return;
+    }
+
+    // Hojas de calculo: CSV directo de la grilla (no hay pivot que recalcular).
     if (activeSheet && (activeSheet.kind ?? 'view') !== 'view') {
       this.gridApi?.exportDataAsCsv?.({ fileName: `${activeSheet.label}_${this.today()}.csv` });
       return;
@@ -2539,8 +2597,20 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   private applyColumnDefsFresh(): void {
     this.applyColumnDefs();
     if (!this.gridApi) return;
+
     this.gridApi.resetColumnState();
+
+    // resetColumnState tambien devuelve la VISIBILIDAD al valor de columnDefs,
+    // asi que borraba las columnas que el usuario habia ocultado en el panel
+    // "Columnas". Se vuelven a ocultar las que sigan existiendo en esta hoja.
+    const ocultas = this.hiddenColumnIds();
+    if (ocultas.length > 0) {
+      const existen = ocultas.filter(id => !!this.gridApi!.getColumn(id));
+      if (existen.length > 0) this.gridApi.setColumnsVisible(existen, false);
+    }
+
     this.gridApi.refreshHeader();
+    this.refreshColumnPanel();
   }
 
   /**
@@ -3012,8 +3082,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (this.showTotalsRow()) this.updateTotalsRow();
   }
 
+  /**
+   * Cambio el conjunto de columnas visibles (ocultar, mostrar, reordenar).
+   * Se sincroniza el panel "Columnas" para que sus casillas reflejen la realidad
+   * aunque el cambio venga del menu contextual o de AG Grid.
+   */
   onDisplayedColumnsChanged(): void {
-    // No-op: los encabezados de grupo de AG Grid mantienen las letras
+    if (this.showColumnPanel()) this.refreshColumnPanel();
   }
 
   // --- Navegacion y edicion tipo Excel ---
@@ -3174,6 +3249,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const colId = this.contextMenu().colId;
     if (colId && this.gridApi) {
       this.gridApi.setColumnsVisible([colId], false);
+      // Registrarla como oculta: si no, al cambiar de hoja reaparecia y el panel
+      // "Columnas" seguia mostrandola marcada.
+      this.hiddenColumnIds.update(ids => ids.includes(colId) ? ids : [...ids, colId]);
+      this.refreshColumnPanel();
+      this.saveWorkbookState();
     }
     this.closeContextMenu();
   }
@@ -3184,6 +3264,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       if (allCols) {
         this.gridApi.setColumnsVisible(allCols.map(c => c.getColId()), true);
         this.hiddenColumnIds.set([]);
+        this.refreshColumnPanel();
+        this.saveWorkbookState();
       }
     }
     this.closeContextMenu();
@@ -3197,7 +3279,31 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   onColumnHeaderClicked(event: any): void {
     const colId: string | undefined = event?.column?.getColId?.();
     if (!colId) return;
+
+    // ── No robarle el clic al menu de filtro ────────────────────────────────
+    //
+    // AG Grid emite columnHeaderClicked para CUALQUIER clic dentro del header,
+    // incluido el boton del embudo. Seleccionar la columna llama a
+    // refreshHeader(), que reconstruye las celdas de encabezado y con ellas
+    // DESTRUYE el popup que se acababa de abrir: el filtro "se cerraba solo" al
+    // primer clic. El guard del handler DOM no cubria este evento de AG Grid.
+    const target = (event?.event as MouseEvent | undefined)?.target as HTMLElement | undefined;
+    if (target?.closest(
+      '.ag-header-cell-menu-button, .ag-header-icon, .ag-filter-icon, ' +
+      '.ag-header-cell-filter-button, .ag-floating-filter, input, .ag-checkbox'
+    )) {
+      return;
+    }
+
+    // Tampoco si hay un popup de filtro abierto: el clic pudo nacer dentro.
+    if (this.isFilterPopupOpen()) return;
+
     this.selectColumn(colId);
+  }
+
+  /** true si AG Grid tiene abierto el popup del menu/filtro de columna */
+  private isFilterPopupOpen(): boolean {
+    return !!document.querySelector('.ag-popup .ag-menu, .ag-popup .excel-filter, .ag-popup .excel-date-filter');
   }
 
   /**
@@ -3219,7 +3325,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // columna y el reordenamiento cerraba el popup.
     if (target.closest(
       '.ag-header-cell-menu-button, .ag-header-icon, .ag-filter-icon, ' +
-      '.ag-header-cell-filter-button, input, .ag-checkbox, .ag-input-field-input'
+      '.ag-header-cell-filter-button, input, .ag-checkbox, .ag-input-field-input, ' +
+      // Todo el contenido del popup del filtro: hacer clic en una casilla o en
+      // "Aceptar" no debe interpretarse como clic en el encabezado.
+      '.ag-popup, .ag-menu, .excel-filter, .excel-date-filter'
     )) {
       return;
     }
@@ -3321,7 +3430,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.rangeSelection?.selectWholeColumn(colId);
 
     this.gridApi?.refreshCells({ force: true });
-    this.gridApi?.refreshHeader();
+    // refreshHeader reconstruye las celdas de encabezado y cerraria el popup del
+    // filtro si estuviera abierto: el resaltado del titulo puede esperar.
+    if (!this.isFilterPopupOpen()) this.gridApi?.refreshHeader();
   }
 
   /**
@@ -3381,7 +3492,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.columnStats.set(null);
     this.selectedColumnId.set(null);
     this.gridApi?.refreshCells({ force: true });
-    this.gridApi?.refreshHeader();
+    if (!this.isFilterPopupOpen()) this.gridApi?.refreshHeader();
   }
 
   /**
@@ -3469,38 +3580,60 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     this.closeContextMenu();
   }
 
+  /**
+   * Lista del panel "Columnas".
+   *
+   * Es un SIGNAL y no un metodo del template: con OnPush, un metodo se reevalua
+   * solo cuando Angular decide correr deteccion de cambios en este componente, y
+   * al ocultar una columna la casilla se quedaba como estaba (parecia que el
+   * panel "no funcionaba"). Ahora la lista se recalcula explicitamente cada vez
+   * que cambia la visibilidad o la hoja.
+   */
+  readonly columnPanelList = signal<Array<{ id: string; name: string; visible: boolean }>>([]);
+
+  /** Relee del grid el estado de visibilidad y repinta el panel */
+  private refreshColumnPanel(): void {
+    if (!this.gridApi) { this.columnPanelList.set([]); return; }
+
+    const allCols = this.gridApi.getColumns();
+    if (!allCols) { this.columnPanelList.set([]); return; }
+
+    this.columnPanelList.set(
+      allCols
+        .filter(c => c.getColId() !== ROW_NUMBER_FIELD)
+        .map(c => ({
+          id: c.getColId(),
+          name: c.getColDef().headerName || humanizeColumnName(c.getColId()),
+          visible: c.isVisible(),
+        }))
+    );
+  }
+
   /** Toggle visibilidad de una columna individual */
   toggleColumnVisibility(colId: string): void {
     if (!this.gridApi) return;
     const col = this.gridApi.getColumn(colId);
     if (!col) return;
-    
+
     const isVisible = col.isVisible();
     this.gridApi.setColumnsVisible([colId], !isVisible);
-    
+
     // Actualizar lista de ocultas
     if (isVisible) {
-      this.hiddenColumnIds.update(ids => [...ids, colId]);
+      this.hiddenColumnIds.update(ids => ids.includes(colId) ? ids : [...ids, colId]);
     } else {
       this.hiddenColumnIds.update(ids => ids.filter(id => id !== colId));
     }
-    
+
+    this.refreshColumnPanel();
     this.saveWorkbookState();
   }
 
-  /** Obtener lista de columnas con su estado de visibilidad */
-  getColumnVisibilityList(): Array<{ id: string; name: string; visible: boolean }> {
-    if (!this.gridApi) return [];
-    const allCols = this.gridApi.getColumns();
-    if (!allCols) return [];
-    
-    return allCols
-      .filter(c => c.getColId() !== '__ROW_NUMBER__')
-      .map(c => ({
-        id: c.getColId(),
-        name: c.getColDef().headerName || humanizeColumnName(c.getColId()),
-        visible: c.isVisible(),
-      }));
+  /** Muestra u oculta el panel de columnas, refrescando su contenido al abrir */
+  toggleColumnPanel(): void {
+    const abrir = !this.showColumnPanel();
+    if (abrir) this.refreshColumnPanel();
+    this.showColumnPanel.set(abrir);
   }
 
   // -Ribbon actions -
@@ -3518,7 +3651,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         this.ctxShowAllColumns();
         break;
       case 'column-panel':
-        this.showColumnPanel.update(v => !v);
+        this.toggleColumnPanel();
         break;
 
       case 'toggle-totals':  this.toggleTotalsRow(); break;
@@ -3606,13 +3739,263 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       case 'fx-contarvista': this.insertFormulaTemplate('CONTARVISTA'); break;
       case 'fx-sumarvista':  this.insertFormulaTemplate('SUMARVISTA');  break;
 
-      
       case 'pivot-table': this.openPivotPanel(); break;
+
+      // ── Herramientas de tabla dinamica (cinta Analizar de Excel) ───────────
+      case 'pivot-group':       this.pivotGroupActiveField(); break;
+      case 'pivot-ungroup':     this.pivotUngroupActiveField(); break;
+      case 'pivot-collapse':    this.pivotToggleCollapse(); break;
+      case 'pivot-subtotals':   this.pivotToggleSubtotals(); break;
+      case 'pivot-grandtotals': this.pivotToggleGrandTotals(); break;
+      case 'pivot-refresh':     this.pivotRefreshActive(); break;
+      case 'pivot-clear':       this.pivotClearActive(); break;
+      case 'pivot-export':      this.exportActivePivot(); break;
+
       case 'quick-analysis': this.openAnalysisPanel(); break;
       case 'clear-analysis': this.clearAnalysis(); break;
-      case 'export-analysis': this.exportAnalysis(); break;
     }
   }
+
+  // ── Acciones de tabla dinamica desde la barra de herramientas ──────────────
+
+  /**
+   * Devuelve la receta del pivot activo y su hoja fuente, o null con un aviso si
+   * la hoja activa no es un pivot.
+   */
+  private activePivotContext(): {
+    pivotSheetId: string;
+    def: { sourceSheetId: string; label: string; config: PivotConfig };
+    source: { id: string; schema: string; viewName: string; rowData?: Record<string, unknown>[] };
+  } | null {
+    const active = this.sheets().find(s => s.active);
+    if (!active || (active.kind ?? 'view') !== 'pivot') {
+      alert(
+        'Esta accion es para una tabla dinamica.\n\n' +
+        'Abra o cree una tabla dinamica (pestaña Analisis → Campos) y pruebe de nuevo.'
+      );
+      return null;
+    }
+
+    const def = this.pivotDefs.get(active.id);
+    if (!def) {
+      alert('La tabla dinamica no tiene configuracion todavia. Arrastre campos en el panel.');
+      return null;
+    }
+
+    const source = this.sheets().find(s => s.id === def.sourceSheetId);
+    if (!source) {
+      alert('No se encuentra la hoja de datos que alimenta esta tabla dinamica.');
+      return null;
+    }
+
+    return { pivotSheetId: active.id, def, source };
+  }
+
+  /**
+   * Campo por el que operan Agrupar/Desagrupar.
+   *
+   * Prioridad, como Excel (que agrupa el campo de la celda donde estas):
+   *   1. la columna del clic derecho / celda enfocada, si es un campo de fila
+   *   2. el primer campo de fila
+   *   3. el primer campo de columna
+   *
+   * En una tabla dinamica las columnas de etiqueta llevan como `field` el nombre
+   * del campo original (Banco, Fecha...), asi que el colId de la celda ya es el
+   * campo a agrupar.
+   */
+  private pivotTargetField(def: { config: PivotConfig }): string | null {
+    const clic = this.contextMenu().colId || this.gridApi?.getFocusedCell()?.column.getColId();
+    if (clic && (def.config.rowFields.includes(clic) || def.config.columnFields.includes(clic))) {
+      return clic;
+    }
+    return def.config.rowFields[0] ?? def.config.columnFields[0] ?? null;
+  }
+
+  /**
+   * Agrupa el campo activo (equivale al "Agrupar..." del clic derecho de Excel).
+   * Fechas → Año/Trimestre/Mes/Dia. Numeros → rangos. Texto → no aplica.
+   */
+  pivotGroupActiveField(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+
+    const field = this.pivotTargetField(ctx.def);
+    if (!field) { alert('Agregue un campo a Filas o Columnas para poder agruparlo.'); return; }
+
+    const cols = this.columnsForSheet(ctx.source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const meta = cols.find(c => c.name === field);
+    const esFecha = !!meta && /date|datetime|timestamp/i.test(meta.type ?? '');
+    const esNumero = !!meta && /int|decimal|numeric|float|double|money|real/i.test(meta.type ?? '');
+
+    ctx.def.config.fieldSettings ??= {};
+    ctx.def.config.fieldSettings[field] ??= {};
+
+    if (esFecha) {
+      // Ciclo Mes → Trimestre → Año → Dia, como al reagrupar repetido en Excel.
+      const actual = ctx.def.config.fieldSettings[field].dateGroup ?? 'none';
+      const siguiente = actual === 'month' ? 'quarter'
+                      : actual === 'quarter' ? 'year'
+                      : actual === 'year' ? 'day'
+                      : 'month';
+      ctx.def.config.fieldSettings[field].dateGroup = siguiente as any;
+      this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+      this.progress.update(p => ({ ...p, message: `Campo "${humanizeColumnName(field)}" agrupado por ${this.dateGroupLabel(siguiente)}` }));
+    } else if (esNumero) {
+      const step = prompt(`Agrupar "${humanizeColumnName(field)}" en rangos de tamaño:`, '100');
+      if (step === null) return;
+      const n = Number(step);
+      if (!Number.isFinite(n) || n <= 0) { alert('Ingrese un numero mayor que cero.'); return; }
+      ctx.def.config.fieldSettings[field].numericStep = n;
+      this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+      this.progress.update(p => ({ ...p, message: `Campo "${humanizeColumnName(field)}" agrupado en rangos de ${n}` }));
+    } else {
+      // Campo de TEXTO: agrupacion manual, como "Agrupar seleccion" de Excel.
+      // Se agrupa el valor de la fila donde se hizo clic derecho en un grupo con
+      // nombre; repetir sobre otras filas con el MISMO nombre las une (ej. juntar
+      // varios bancos en "Privados").
+      this.pivotGroupTextValue(ctx, field);
+    }
+  }
+
+  /**
+   * Agrupa manualmente el valor de la celda clicada de un campo de texto.
+   *
+   * Excel deja seleccionar varios valores y "Agrupar seleccion"; aqui se hace por
+   * el valor de la fila del clic. Escribir el mismo nombre de grupo en varias
+   * filas las une, que es el caso de uso ("juntar estos bancos en un grupo").
+   */
+  private pivotGroupTextValue(
+    ctx: { pivotSheetId: string; def: { sourceSheetId: string; label: string; config: PivotConfig }; source: any },
+    field: string,
+  ): void {
+    // Valor original de la fila del clic (la celda del pivot ya trae la etiqueta).
+    const focused = this.gridApi?.getFocusedCell();
+    const rowIdx = focused?.rowIndex ?? 0;
+    const valorActual = String(this.rowData[rowIdx]?.[field] ?? '').trim();
+
+    if (!valorActual || valorActual.endsWith('— Total') || valorActual === 'Total general') {
+      alert('Haga clic derecho sobre una fila de datos (no un subtotal) para agruparla.');
+      return;
+    }
+
+    const grupo = prompt(
+      `Agrupar "${valorActual}" en el grupo:\n\n` +
+      `Escriba el MISMO nombre en otras filas para unirlas en un solo grupo.`,
+      valorActual,
+    );
+    if (grupo === null) return;
+
+    const nombre = grupo.trim();
+    if (!nombre) return;
+
+    ctx.def.config.fieldSettings ??= {};
+    ctx.def.config.fieldSettings[field] ??= {};
+    ctx.def.config.fieldSettings[field].manualGroups ??= {};
+    ctx.def.config.fieldSettings[field].manualGroups![valorActual] = nombre;
+
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+    this.progress.update(p => ({ ...p, message: `"${valorActual}" agrupado en "${nombre}"` }));
+  }
+
+  /** Quita la agrupacion del campo activo (fecha exacta y sin rangos) */
+  pivotUngroupActiveField(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+
+    const field = this.pivotTargetField(ctx.def);
+    if (!field) return;
+
+    const s = ctx.def.config.fieldSettings?.[field];
+    const tieneManual = !!s?.manualGroups && Object.keys(s.manualGroups).length > 0;
+    if (!s || (s.dateGroup === 'none' && !s.numericStep && !tieneManual)) {
+      alert('El campo no esta agrupado.');
+      return;
+    }
+
+    ctx.def.config.fieldSettings![field] = {
+      ...s, dateGroup: 'none', numericStep: null, manualGroups: undefined,
+    };
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+    this.progress.update(p => ({ ...p, message: `Campo "${humanizeColumnName(field)}" desagrupado` }));
+  }
+
+  /** Contraer / expandir el primer campo de filas (el +/- de Excel) */
+  pivotToggleCollapse(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+
+    const first = ctx.def.config.rowFields[0];
+    if (!first) { alert('Agregue al menos un campo a Filas.'); return; }
+    if (ctx.def.config.rowFields.length < 2) {
+      alert('Contraer necesita al menos dos campos en Filas.');
+      return;
+    }
+
+    ctx.def.config.fieldSettings ??= {};
+    ctx.def.config.fieldSettings[first] ??= {};
+    const contraido = !ctx.def.config.fieldSettings[first].collapsed;
+    ctx.def.config.fieldSettings[first].collapsed = contraido;
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+    this.progress.update(p => ({ ...p, message: contraido ? 'Tabla dinamica contraida' : 'Tabla dinamica expandida' }));
+  }
+
+  pivotToggleSubtotals(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+    ctx.def.config.showSubtotals = ctx.def.config.showSubtotals === false;
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+  }
+
+  pivotToggleGrandTotals(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+    ctx.def.config.showGrandTotals = ctx.def.config.showGrandTotals === false;
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+  }
+
+  /** Recalcula la tabla dinamica activa con los datos actuales de su fuente */
+  pivotRefreshActive(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+    this.regeneratePivotFromDef(ctx.pivotSheetId, ctx.def);
+    this.progress.update(p => ({ ...p, message: 'Tabla dinamica actualizada' }));
+  }
+
+  /** Vacia la configuracion de la tabla dinamica activa */
+  pivotClearActive(): void {
+    const ctx = this.activePivotContext();
+    if (!ctx) return;
+    if (!confirm('¿Vaciar la configuracion de esta tabla dinamica?')) return;
+
+    this.pivotSourceSheetId = ctx.def.sourceSheetId;
+    this.clearPivotConfigAuto();
+  }
+
+  /** Exporta la tabla dinamica activa a CSV */
+  exportActivePivot(): void {
+    const active = this.sheets().find(s => s.active);
+    if (!active || (active.kind ?? 'view') !== 'pivot') {
+      alert('Abra una tabla dinamica para exportarla.');
+      return;
+    }
+    this.exportPivotToCsv(active.id, active.label);
+  }
+
+  private dateGroupLabel(g: string): string {
+    return ({ year: 'Año', quarter: 'Trimestre', month: 'Mes', day: 'Dia' } as Record<string, string>)[g] ?? g;
+  }
+
+  /** true si la hoja activa es una tabla dinamica (para el menu contextual) */
+  isPivotSheetActive(): boolean {
+    return (this.sheets().find(s => s.active)?.kind ?? 'view') === 'pivot';
+  }
+
+  // Agrupar/Desagrupar/etc. desde el clic derecho: reusan la logica del ribbon
+  ctxPivotGroup(): void { this.closeContextMenu(); this.pivotGroupActiveField(); }
+  ctxPivotUngroup(): void { this.closeContextMenu(); this.pivotUngroupActiveField(); }
+  ctxPivotCollapse(): void { this.closeContextMenu(); this.pivotToggleCollapse(); }
+  ctxPivotRefresh(): void { this.closeContextMenu(); this.pivotRefreshActive(); }
+  ctxPivotFields(): void { this.closeContextMenu(); this.openPivotPanel(); }
 
   private addFilterFromBuilder(): void {
     const col     = this.filterBuilder.col;
@@ -4297,6 +4680,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     console.log('[Pivot] Generado sobre', sourceLabel, '->', result.rows.length, 'filas |', pivotSheetId);
 
+    // La barra de filtros de informe (encima de la tabla) refleja los campos
+    // del cuadrante FILTROS del pivot recien generado.
+    this.refreshReportFilterBar(pivotSheetId);
+
     // Persistir la receta enseguida: si el usuario cierra la pestaña del
     // navegador antes del siguiente autosave, el pivot no se pierde.
     this.saveWorkbookState();
@@ -4321,6 +4708,182 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   /** Hoja fuente preseleccionada en el desplegable del panel */
   readonly pivotPanelSheetId = signal('');
+
+  /**
+   * Estado del pivot activo, para que los toggles del ribbon (Subtotales,
+   * Totales) reflejen la realidad. Se recalcula al generar/refrescar/cambiar de
+   * hoja. Es un signal para que el computed del ribbon reaccione.
+   */
+  readonly activePivotState = signal<{ subtotals: boolean; grandTotals: boolean }>({
+    subtotals: true, grandTotals: true,
+  });
+
+  // ── Filtros de informe SOBRE la tabla dinamica (como Excel) ───────────────
+  //
+  // En Excel los campos del cuadrante FILTROS aparecen como desplegables encima
+  // de la tabla ("Cuenta [(Todas) ▾]"), no dentro del panel de campos. Estas
+  // señales alimentan esa barra cuando la hoja activa es un pivot.
+
+  /** Filtros de informe del pivot activo, listos para pintar la barra superior */
+  readonly pivotReportFilters = signal<Array<{ field: string; label: string; badge: string }>>([]);
+  /** Campo cuyo desplegable de valores esta abierto en la barra */
+  readonly openReportFilter = signal('');
+  /** Valores disponibles del filtro abierto (con su estado marcado) */
+  readonly reportFilterValues = signal<Array<{ value: string; checked: boolean }>>([]);
+
+  /** true cuando la hoja activa es una tabla dinamica con filtros de informe */
+  readonly showReportFilterBar = computed(() =>
+    (this.sheets().find(s => s.active)?.kind ?? 'view') === 'pivot'
+    && this.pivotReportFilters().length > 0
+  );
+
+  /**
+   * Refresca la barra de filtros de informe con la config del pivot activo.
+   *
+   * Se llama cada vez que se genera o recalcula un pivot. Reproduce los
+   * desplegables que Excel pone ENCIMA de la tabla ("Cuenta [(Todas) ▾]").
+   */
+  private refreshReportFilterBar(pivotSheetId: string): void {
+    const def = this.pivotDefs.get(pivotSheetId);
+    const isActivePivot = this.sheets().find(s => s.active)?.id === pivotSheetId;
+
+    // Sincronizar los toggles del ribbon (Subtotales / Totales) con la receta.
+    if (def && isActivePivot) {
+      this.activePivotState.set({
+        subtotals: def.config.showSubtotals !== false,
+        grandTotals: def.config.showGrandTotals !== false,
+      });
+    }
+
+    if (!def || !isActivePivot || (def.config.filterFields?.length ?? 0) === 0) {
+      this.pivotReportFilters.set([]);
+      this.openReportFilter.set('');
+      return;
+    }
+
+    const sel = def.config.filterValues ?? {};
+    this.pivotReportFilters.set(
+      def.config.filterFields.map(field => {
+        const chosen = sel[field] ?? [];
+        return {
+          field,
+          label: humanizeColumnName(field),
+          badge: chosen.length === 0 ? '(Todas)' : `${chosen.length} sel.`,
+        };
+      })
+    );
+  }
+
+  /** Abre/cierra el desplegable de valores de un filtro de informe */
+  toggleReportFilter(field: string): void {
+    if (this.openReportFilter() === field) {
+      this.openReportFilter.set('');
+      return;
+    }
+
+    const def = this.pivotDefs.get(`sheet-pivot-${this.pivotSourceSheetIdFromActive()}`);
+    const source = this.sheets().find(s => s.id === def?.sourceSheetId);
+    if (!def || !source?.rowData) return;
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const values = distinctFieldValues(source.rowData, field, cols, def.config.fieldSettings?.[field]);
+    const chosen = new Set(def.config.filterValues?.[field] ?? []);
+
+    this.reportFilterValues.set(values.map(v => ({
+      value: v,
+      checked: chosen.size === 0 || chosen.has(v),
+    })));
+    this.openReportFilter.set(field);
+  }
+
+  /** Marca/desmarca un valor y recalcula el pivot con el nuevo filtro */
+  toggleReportFilterValue(field: string, value: string): void {
+    const pivotSheetId = `sheet-pivot-${this.pivotSourceSheetIdFromActive()}`;
+    const def = this.pivotDefs.get(pivotSheetId);
+    if (!def) return;
+
+    def.config.filterValues ??= {};
+    const source = this.sheets().find(s => s.id === def.sourceSheetId);
+    const cols = source?.rowData ? this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' })) : [];
+    const todos = source?.rowData ? distinctFieldValues(source.rowData, field, cols, def.config.fieldSettings?.[field]) : [];
+
+    const actual = def.config.filterValues[field] ?? [];
+    const base = actual.length === 0 ? todos : actual;
+    const next = base.includes(value) ? base.filter(v => v !== value) : [...base, value];
+
+    def.config.filterValues[field] = next.length === todos.length ? [] : next;
+
+    this.regeneratePivotFromDef(pivotSheetId, def);
+    this.toggleReportFilter(field); // cerrar
+    this.toggleReportFilter(field); // reabrir con el estado nuevo
+  }
+
+  /** "(Todas)": limpia el filtro de un campo */
+  clearReportFilter(field: string): void {
+    const pivotSheetId = `sheet-pivot-${this.pivotSourceSheetIdFromActive()}`;
+    const def = this.pivotDefs.get(pivotSheetId);
+    if (!def) return;
+    def.config.filterValues ??= {};
+    def.config.filterValues[field] = [];
+    this.regeneratePivotFromDef(pivotSheetId, def);
+    this.openReportFilter.set('');
+  }
+
+  /** Id de hoja fuente del pivot que se esta viendo ahora */
+  private pivotSourceSheetIdFromActive(): string {
+    const active = this.sheets().find(s => s.active);
+    if (active && (active.kind ?? 'view') === 'pivot') {
+      return active.id.replace(/^sheet-pivot-/, '');
+    }
+    return this.pivotSourceSheetId;
+  }
+
+  /**
+   * Exporta una tabla dinamica a CSV (Excel lo abre en columnas).
+   *
+   * Se recalcula desde su receta para que el archivo coincida EXACTAMENTE con lo
+   * que se ve: subtotales, total general y porcentajes incluidos.
+   */
+  private exportPivotToCsv(pivotSheetId: string, label: string): void {
+    const def = this.pivotDefs.get(pivotSheetId);
+    const source = def ? this.sheets().find(s => s.id === def.sourceSheetId) : undefined;
+
+    if (!def || !source?.rowData || source.rowData.length === 0) {
+      // Sin receta o sin datos de origen: respaldo con lo que haya en la grilla.
+      this.gridApi?.exportDataAsCsv?.({ fileName: `${label}_${this.today()}.csv` });
+      return;
+    }
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const result = computePivot(source.rowData, def.config, cols);
+    if (!result) {
+      this.gridApi?.exportDataAsCsv?.({ fileName: `${label}_${this.today()}.csv` });
+      return;
+    }
+
+    const csv = pivotResultToCsv(result);
+    const nombre = `${label.replace(/[^\w\- ]+/g, '').trim() || 'pivot'}_${this.today()}.csv`;
+    this.saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), nombre);
+
+    this.progress.update(p => ({ ...p, message: `Tabla dinamica exportada (${result.rows.length} filas)` }));
+  }
+
+  /** Recalcula y repinta un pivot desde su receta (tras cambiar un filtro) */
+  private regeneratePivotFromDef(
+    pivotSheetId: string,
+    def: { sourceSheetId: string; label: string; config: PivotConfig },
+  ): void {
+    const source = this.sheets().find(s => s.id === def.sourceSheetId);
+    if (!source?.rowData || source.rowData.length === 0) return;
+
+    const cols = this.columnsForSheet(source).map(c => ({ name: c.name, type: c.type ?? '' }));
+    const result = computePivot(source.rowData, def.config, cols);
+    if (!result) return;
+
+    this.applyPivotResult(pivotSheetId, def.label, source, result);
+    this.refreshReportFilterBar(pivotSheetId);
+    this.saveWorkbookState();
+  }
 
   /** Serializa las tablas dinamicas para guardarlas en el workbook */
   private collectPivotDefs(): SavedPivot[] {
@@ -4370,6 +4933,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       if (!result) return;
 
       this.applyPivotResult(pivotSheetId, def.label, source, result);
+      this.refreshReportFilterBar(pivotSheetId);
       console.log('[Pivot] Recalculado', pivotSheetId, '->', result.rows.length, 'filas');
     });
   }
@@ -5058,6 +5622,15 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Recuperar el contexto de formulas de la hoja: si es de calculo, sus
     // formulas siguen vivas en su propia hoja de HyperFormula.
     const kind = sheet.kind ?? 'view';
+
+    // La barra de filtros de informe (encima de la grilla) solo aplica a pivots:
+    // se refresca si la hoja nueva es dinamica, se limpia si no.
+    this.openReportFilter.set('');
+    if (kind === 'pivot') {
+      this.refreshReportFilterBar(sheet.id);
+    } else {
+      this.pivotReportFilters.set([]);
+    }
 
     // Hoja dinamica sin filas: viene de un workbook restaurado o de un refresco.
     // Se reconstruye desde su receta guardada; antes esta rama caia en el `else`

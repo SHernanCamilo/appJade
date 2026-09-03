@@ -45,6 +45,12 @@ export interface PivotFieldSetting {
   numericStep?: number | null;
   /** Contraer: solo aplica al primer campo de fila (muestra solo sus totales) */
   collapsed?: boolean;
+  /**
+   * Agrupacion MANUAL (como "Agrupar seleccion" de Excel sobre valores de texto).
+   * Mapea cada valor original al nombre del grupo. Los valores sin entrada se
+   * quedan tal cual. Ej: {"BANCO ITAU":"Privados","BANCO BBVA":"Privados"}.
+   */
+  manualGroups?: Record<string, string>;
 }
 
 export interface PivotConfig {
@@ -111,7 +117,10 @@ export function emptyPivotConfig(): PivotConfig {
     filterFields: [],
     filterValues: {},
     fieldSettings: {},
-    showSubtotals: true,
+    // Subtotales OFF por defecto: con dos campos de fila llenaban la tabla de
+    // filas "X — Total" y el usuario los pidio fuera. Se activan desde la cinta
+    // Analisis > Subtotales cuando de verdad hacen falta.
+    showSubtotals: false,
     showGrandTotals: true,
     sortBy: 'value',
     sortDir: 'desc',
@@ -121,7 +130,9 @@ export function emptyPivotConfig(): PivotConfig {
 /** Copia profunda de una config (evita compartir arrays entre panel y estado) */
 export function clonePivotConfig(config: PivotConfig): PivotConfig {
   const settings: Record<string, PivotFieldSetting> = {};
-  Object.entries(config?.fieldSettings ?? {}).forEach(([k, v]) => { settings[k] = { ...v }; });
+  Object.entries(config?.fieldSettings ?? {}).forEach(([k, v]) => {
+    settings[k] = { ...v, manualGroups: v.manualGroups ? { ...v.manualGroups } : undefined };
+  });
 
   const values: Record<string, string[]> = {};
   Object.entries(config?.filterValues ?? {}).forEach(([k, v]) => { values[k] = [...(v ?? [])]; });
@@ -616,6 +627,15 @@ function groupedValue(
   const raw = row?.[field];
   if (raw === null || raw === undefined || raw === '') return '(vacio)';
 
+  // Agrupacion MANUAL (texto): el valor cae en el grupo que le asigno el usuario.
+  // Es lo que permite "agrupar por cada banco" en un conjunto con nombre propio.
+  const manual = setting?.manualGroups;
+  if (manual) {
+    const clave = String(raw).trim();
+    const grupo = manual[clave];
+    if (grupo) return grupo;
+  }
+
   // Agrupacion numerica por rangos
   const step = setting?.numericStep ?? null;
   if (step && step > 0) {
@@ -711,4 +731,54 @@ export function isDateField(field: string, cols: PivotColumnMeta[]): boolean {
 export function isNumericField(field: string, cols: PivotColumnMeta[]): boolean {
   const meta = cols.find(c => c.name === field);
   return !!meta && /int|decimal|numeric|float|double|money|real/i.test(meta.type ?? '');
+}
+
+// ── Exportacion de la tabla dinamica ─────────────────────────────────────────
+
+/**
+ * Convierte el resultado de un pivot a CSV listo para abrir en Excel.
+ *
+ * Se hace aparte del `exportDataAsCsv` de AG Grid a proposito:
+ *  - AG Grid exportaba tambien las columnas tecnicas (__PIVOT_KIND__,
+ *    __PIVOT_LEVEL__), que no deben salir.
+ *  - No respetaba el formato: los porcentajes salian como el numero crudo y los
+ *    subtotales sin su etiqueta.
+ *
+ * El CSV usa `;` como separador (Excel en español lo abre en columnas) y numeros
+ * con coma decimal, coherente con el resto del visor.
+ */
+export function pivotResultToCsv(result: PivotResult): string {
+  const cols = result.columns.filter(c => !PIVOT_META_FIELDS.includes(c.field));
+
+  // Que medidas van en porcentaje, para anadir el "%" en la celda
+  const pctLabels = new Set(
+    result.config.valueFields
+      .filter(v => v.showAs && v.showAs !== 'value')
+      .map(v => measureLabel(v)),
+  );
+  const esPct = (field: string) =>
+    pctLabels.size > 0 && [...pctLabels].some(l => field === l || field.endsWith(`· ${l}`));
+
+  const esc = (s: string) => /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+
+  const fmt = (field: string, type: string | undefined, value: unknown): string => {
+    if (value === null || value === undefined || value === '') return '';
+    if (type === 'numericColumn') {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return String(value);
+      const txt = n.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+      return esPct(field) ? `${txt} %` : txt;
+    }
+    return String(value);
+  };
+
+  const lineas: string[] = [];
+  lineas.push(cols.map(c => esc(c.headerName)).join(';'));
+
+  for (const row of result.rows) {
+    lineas.push(cols.map(c => esc(fmt(c.field, c.type, row[c.field]))).join(';'));
+  }
+
+  // BOM para que Excel respete los acentos al abrir el CSV.
+  return '\uFEFF' + lineas.join('\r\n');
 }

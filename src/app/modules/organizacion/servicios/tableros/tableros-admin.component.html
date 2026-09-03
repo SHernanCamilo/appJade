@@ -95,15 +95,27 @@
     </div>
 
     <div class="field">
-      <label>Sede</label>
+      <label>
+        Sede
+        <small *ngIf="loadingSedes()" class="field-hint">
+          <i class="pi pi-spin pi-spinner"></i> cargando sedes...
+        </small>
+      </label>
+      <!-- Las sedes vienen de la vista del tablero, no de una lista fija -->
       <p-dropdown
         [(ngModel)]="newSede"
-        [options]="sedeOptions"
+        [options]="sedeOptions()"
         optionLabel="label"
         optionValue="value"
         placeholder="Seleccionar sede..."
+        [filter]="true"
+        filterBy="label"
         styleClass="w-full">
       </p-dropdown>
+      <small class="field-hint">
+        Sedes leídas de la vista del tablero. Si falta alguna, use
+        <a href="javascript:void(0)" (click)="loadSedes()">recargar</a>.
+      </small>
     </div>
 
     <div class="field">

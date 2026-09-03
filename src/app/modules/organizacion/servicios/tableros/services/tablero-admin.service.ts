@@ -13,6 +13,19 @@ export class TableroAdminService {
     return this.http.get<{ success: boolean; data: TableroDevice[] }>(this.baseUrl);
   }
 
+  /**
+   * Sedes que trae la vista del tablero ([UG].[VW_HC_TableroUrgencias]).
+   *
+   * Antes el desplegable del administrador tenia la lista escrita a mano en el
+   * componente, asi que no coincidia con la vista: faltaba TUNJA. Pidiendolas al
+   * backend la lista se mantiene sola cuando abre o cierra una sede.
+   */
+  sedes(): Observable<{ success: boolean; data: string[]; source?: string }> {
+    return this.http.get<{ success: boolean; data: string[]; source?: string }>(
+      `${this.baseUrl}/sedes`
+    );
+  }
+
   create(payload: CreateTableroPayload): Observable<CreateTableroResponse> {
     return this.http.post<CreateTableroResponse>(this.baseUrl, payload);
   }
