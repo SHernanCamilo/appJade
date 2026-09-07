@@ -83,6 +83,9 @@ export class PasoDatosComponent implements OnDestroy {
   /** Subject para debounce del filtro de búsqueda libre en el MultiSelect. */
   private readonly filtroBusqueda$ = new Subject<string>();
 
+  /** Evita re-hidratar la cabecera más de una vez al volver del paso 2. */
+  private _restaurado = false;
+
   protected readonly formulario = this.fb.nonNullable.group({
     id_agremiacion:    [null as number | null, Validators.required],
     id_objeto_contrato:[null as number | null, Validators.required],
@@ -148,11 +151,18 @@ export class PasoDatosComponent implements OnDestroy {
     });
 
     // ── Restaurar datos al volver del paso 2 ─────────────────────────────
-    // Si el padre pasa datosPrevios (cabecera guardada) re-hidrata sin consultar de nuevo
+    // El effect depende de datosPrevios() Y de opciones(): cuando ambas están
+    // disponibles se re-hidrata. Así, aunque las opciones lleguen después del
+    // input datosPrevios, la restauración ocurre igualmente (y los profesionales
+    // se resuelven bien por descripción de especialidad).
     effect(() => {
-      const prev = this.datosPrevios();
+      const prev     = this.datosPrevios();
+      const opciones = this.opciones();
       // No pisar si ya hay una ficha en modo edición
-      if (!prev || this.ficha()) return;
+      if (!prev || this.ficha() || !opciones) return;
+      // Evitar re-hidratar dos veces la misma cabecera
+      if (this._restaurado) return;
+      this._restaurado = true;
 
       this.formulario.patchValue({
         id_agremiacion:     prev.id_agremiacion,

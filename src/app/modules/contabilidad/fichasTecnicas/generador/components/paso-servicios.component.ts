@@ -101,35 +101,42 @@ export const PORCENTAJES: OpcionPorcentaje[] = (() => {
   return opciones;
 })();
 
-// ── Estructura interna de cada fila ──────────────────────────────────────────
+// ── Ítem del borrador de trabajo (formulario de captura) ──────────────────────
+interface ItemForm {
+  tipo_liquidacion: TipoLiquidacion;
+  tipo_servicio: string | null;
+  cups: string | null;
+  _cups_label: string | null;
+  grupo: string | null;
+  subgrupo: string | null;
+  forma_pago: string | null;
+  homologo: string | null;
+  _homologo_label: string | null;
+  variacion: string | null;
+  valor: number;
+  id_obs_item: number | null;
+}
+
+// ── Fila ya agregada a la tabla de previsualización ──────────────────────────
 export interface FilaServicio extends DetallePayload {
-  // ID interno para trackBy
   _id: number;
-  // Labels de display (no se envían al backend)
-  _cups_label?: string;
-  _homologo_label?: string;
-  _obs_label?: string;
-  // Caché de homólogos cargados para esta fila
-  _homologos?: Homologo[];
-  // Caché de observaciones para esta fila
-  _observaciones?: ObsItem[];
-  // Estado de carga
-  _cargandoHomologos?: boolean;
-  _cargandoObs?: boolean;
+  _cups_label?: string | null;
+  _homologo_label?: string | null;
+  _obs_label?: string | null;
 }
 
 /**
- * Paso 2 del generador: tabla editable de servicios/procedimientos.
+ * Paso 2 del generador — patrón legacy (form2.php):
+ *   [ Formulario de captura arriba ]  → botón "Agregar ítem a la ficha"
+ *   [ Tabla de previsualización abajo ] con los ítems ya agregados
  *
- * Replicamos la lógica condicional de form_liquidacion.php del legacy:
- *   - TIPO DE SERVICIO → tipo_servicio + forma_pago de turno → valor o %
- *   - CUPS → autocomplete CUPS → homólogos → forma_pago ISS/SOAT/tarifa → valor o %
- *   - GRUPO → select grupo → forma_pago ISS/SOAT → %
- *   - SUBGRUPO → select subgrupo → forma_pago ISS/SOAT → %
+ * El formulario cambia según tipo_liquidacion:
+ *   - TIPO DE SERVICIO → servicio + forma pago turno → valor o %
+ *   - CUPS → autocomplete → homólogos → forma pago ISS/SOAT/tarifa → valor o %
+ *   - GRUPO / SUBGRUPO → forma pago → grupo/subgrupo → %
  *
- * Cada fila es independiente con su propia lógica de visibilidad.
- *
- * Fix persistencia: recibe [detallesPrevios] del padre para restaurar al volver.
+ * Los ítems agregados se conservan en el signal `filas` y se emiten al padre;
+ * al volver del paso 3 el padre los reinyecta vía [detallesPrevios].
  */
 @Component({
   selector: 'app-paso-servicios',
@@ -158,39 +165,41 @@ export class PasoServiciosComponent implements OnInit {
   private readonly mensajes   = inject(MessageService);
 
   // ── Inputs ──────────────────────────────────────────────────────────────
-  /** Detalles existentes (modo edición de una ficha). */
-  readonly detallesExistentes  = input<DetalleFicha[]>([]);
-  /** Detalles previos del paso 2 — restaurar al volver del paso 3. */
-  readonly detallesPrevios     = input<DetallePayload[]>([]);
-  readonly guardando           = input<boolean>(false);
+  readonly detallesExistentes = input<DetalleFicha[]>([]);
+  readonly detallesPrevios    = input<DetallePayload[]>([]);
+  readonly guardando          = input<boolean>(false);
 
   // ── Outputs ─────────────────────────────────────────────────────────────
   readonly continuar = output<DetallePayload[]>();
   readonly volver    = output<void>();
 
-  // ── Estado ──────────────────────────────────────────────────────────────
+  // ── Estado: catálogos y tabla ─────────────────────────────────────────────
   protected readonly opciones        = signal<OpcionesFormulario | null>(null);
   protected readonly filas           = signal<FilaServicio[]>([]);
   protected readonly sugerenciasCups = signal<{ subcategoria: string; desc_subcat: string; grupo?: string | null; subgrupo?: string | null }[]>([]);
   protected readonly grupos          = signal<CupsGrupo[]>([]);
   protected readonly subgrupos       = signal<CupsSubgrupo[]>([]);
+  protected readonly homologos       = signal<Homologo[]>([]);
+  protected readonly observaciones   = signal<ObsItem[]>([]);
+  protected readonly cargandoHomologos = signal<boolean>(false);
 
-  protected readonly tiposServicio = computed(() => this.opciones()?.tipos_servicio ?? []);
-  protected readonly valorTotal    = computed(() =>
+  // ── Estado: formulario de captura (un solo ítem en edición) ───────────────
+  protected readonly item = signal<ItemForm>(this.itemVacio());
+
+  protected readonly valorTotal = computed(() =>
     this.filas().reduce((s, f) => s + (f.valor ?? 0), 0)
   );
 
   // Constantes expuestas al template
-  protected readonly TIPOS_LIQ        = TIPOS_LIQUIDACION;
-  protected readonly FP_TS_NORMAL     = FORMAS_PAGO_TIPO_SERVICIO_NORMAL;
-  protected readonly FP_TS_CONJUNTO   = FORMAS_PAGO_CONJUNTO;
-  protected readonly FP_ISS_SOAT      = FORMAS_PAGO_ISS_SOAT;
-  protected readonly TS_NORMALES      = TIPOS_SERVICIO_NORMAL;
-  protected readonly TS_CONJUNTO      = TIPO_SERVICIO_CONJUNTO;
-  protected readonly PORCENTAJES      = PORCENTAJES;
+  protected readonly TIPOS_LIQ      = TIPOS_LIQUIDACION;
+  protected readonly FP_TS_NORMAL   = FORMAS_PAGO_TIPO_SERVICIO_NORMAL;
+  protected readonly FP_TS_CONJUNTO = FORMAS_PAGO_CONJUNTO;
+  protected readonly FP_ISS_SOAT    = FORMAS_PAGO_ISS_SOAT;
+  protected readonly SERVICIOS_TS   = [...TIPOS_SERVICIO_NORMAL, TIPO_SERVICIO_CONJUNTO];
+  protected readonly PORCENTAJES    = PORCENTAJES;
 
   private contadorId = 0;
-  private gruposCargados   = false;
+  private gruposCargados = false;
   private subgruposCargados = false;
 
   // ── Ciclo de vida ────────────────────────────────────────────────────────
@@ -198,7 +207,6 @@ export class PasoServiciosComponent implements OnInit {
   ngOnInit(): void {
     this.parametros.opcionesFormulario().subscribe((o) => this.opciones.set(o));
 
-    // Prioridad: detallesExistentes (edición) > detallesPrevios (volver del paso 3)
     const existentes = this.detallesExistentes();
     if (existentes.length > 0) {
       this.filas.set(existentes.map((d) => this.detalleAFila(d)));
@@ -211,234 +219,204 @@ export class PasoServiciosComponent implements OnInit {
     }
   }
 
-  // ── Acciones de tabla ────────────────────────────────────────────────────
+  // ── Helpers de estado del formulario ──────────────────────────────────────
 
-  protected agregarFila(): void {
-    this.filas.update((prev) => [
-      ...prev,
-      {
-        _id: ++this.contadorId,
-        tipo_liquidacion: null,
-        tipo_servicio: null,
-        id_tipo_servicio: null,
-        cups: null,
-        grupo: null,
-        subgrupo: null,
-        forma_pago: null,
-        homologo: null,
-        variacion: null,
-        valor: 0,
-        id_obs_item: null,
-        novedad: null,
-        _homologos: [],
-        _observaciones: [],
-        _cargandoHomologos: false,
-        _cargandoObs: false,
-      } as FilaServicio,
-    ]);
+  private itemVacio(): ItemForm {
+    return {
+      tipo_liquidacion: '',
+      tipo_servicio: null,
+      cups: null,
+      _cups_label: null,
+      grupo: null,
+      subgrupo: null,
+      forma_pago: null,
+      homologo: null,
+      _homologo_label: null,
+      variacion: null,
+      valor: 0,
+      id_obs_item: null,
+    };
+  }
+
+  /** Actualiza un campo del ítem en edición (inmutable para OnPush). */
+  protected patch(cambios: Partial<ItemForm>): void {
+    this.item.set({ ...this.item(), ...cambios });
+  }
+
+  // ── Cambios en el formulario de captura ────────────────────────────────────
+
+  protected onTipoLiquidacionCambia(): void {
+    // Reiniciar el ítem conservando solo el tipo
+    const tipo = this.item().tipo_liquidacion;
+    this.item.set({ ...this.itemVacio(), tipo_liquidacion: tipo });
+    this.homologos.set([]);
+    this.observaciones.set([]);
+
+    switch (tipo) {
+      case 'GRUPO':
+        this.cargarGrupos();
+        this.cargarObservaciones(3);
+        break;
+      case 'SUBGRUPO':
+        this.cargarSubgrupos();
+        this.cargarObservaciones(3);
+        break;
+    }
+  }
+
+  protected onTipoServicioCambia(): void {
+    this.patch({ forma_pago: null, variacion: null, valor: 0, id_obs_item: null });
+    this.observaciones.set([]);
+
+    const servicio = this.item().tipo_servicio;
+    if (!servicio) return;
+
+    if (TIPOS_SERVICIO_NORMAL.includes(servicio)) {
+      this.cargarObservaciones(1);
+    } else if (servicio === TIPO_SERVICIO_CONJUNTO) {
+      this.cargarObservaciones(2);
+    }
+  }
+
+  protected onFormaPagoConjuntoCambia(): void {
+    this.patch({ variacion: null, valor: 0 });
+  }
+
+  // ── CUPS ───────────────────────────────────────────────────────────────────
+
+  protected buscarCups(evento: AutoCompleteCompleteEvent): void {
+    if ((evento.query ?? '').length < 2) return;
+    this.cups.autocompletarCups(evento.query).subscribe((lista) => {
+      this.sugerenciasCups.set(Array.isArray(lista) ? lista : []);
+    });
+  }
+
+  protected seleccionarCups(item: { subcategoria: string; desc_subcat: string; grupo?: string | null; subgrupo?: string | null }): void {
+    this.patch({
+      cups: item.subcategoria,
+      _cups_label: `${item.subcategoria} — ${item.desc_subcat}`,
+      grupo: item.grupo ?? null,
+      subgrupo: item.subgrupo ?? null,
+      homologo: null,
+      _homologo_label: null,
+    });
+
+    this.homologos.set([]);
+    this.cargandoHomologos.set(true);
+    this.cargarObservaciones(3);
+
+    this.cups.homologosDeCups(item.subcategoria).subscribe({
+      next: (h) => { this.homologos.set(Array.isArray(h) ? h : []); this.cargandoHomologos.set(false); },
+      error: () => this.cargandoHomologos.set(false),
+    });
+  }
+
+  protected seleccionarHomologo(codeManual: string | null): void {
+    if (!codeManual) {
+      this.patch({ homologo: null, _homologo_label: null });
+      return;
+    }
+    const h = this.homologos().find((x) => x.code_manual === codeManual) ?? null;
+    this.patch({
+      homologo: codeManual,
+      _homologo_label: h ? `${h.code_manual} — ${h.desc_manual}` : codeManual,
+      valor: h?.valor ? Number(h.valor) : this.item().valor,
+    });
+  }
+
+  protected onFormaPagoCupsCambia(): void {
+    this.patch({ variacion: null, valor: 0 });
+  }
+
+  // ── GRUPO / SUBGRUPO ───────────────────────────────────────────────────────
+
+  protected onFormaPagoGrupoCambia(): void {
+    this.patch({ variacion: null });
+  }
+
+  // ── Visibilidad de campos (según tipo del ítem en edición) ─────────────────
+
+  protected esTipoServicioNormal(): boolean {
+    const s = this.item().tipo_servicio;
+    return s != null && TIPOS_SERVICIO_NORMAL.includes(s);
+  }
+
+  protected esTipoServicioConjunto(): boolean {
+    return this.item().tipo_servicio === TIPO_SERVICIO_CONJUNTO;
+  }
+
+  protected cupsUsaPorcentaje(): boolean {
+    return this.item().tipo_liquidacion === 'CUPS' && ISS_USA_PORCENTAJE.has(this.item().forma_pago ?? '');
+  }
+
+  protected cupsUsaValor(): boolean {
+    const fp = this.item().forma_pago;
+    return this.item().tipo_liquidacion === 'CUPS' && (fp === 'TARIFA EVENTO' || fp === 'TARIFA BAJO COTIZACIÓN');
+  }
+
+  protected conjuntoUsaValor(): boolean {
+    const fp = this.item().forma_pago;
+    return this.esTipoServicioConjunto() && (fp === 'MONTO FIJO MES CON EVENTOS' || fp === 'VALOR HORA CON EVENTOS');
+  }
+
+  protected conjuntoUsaPorcentaje(): boolean {
+    return this.esTipoServicioConjunto() && this.item().forma_pago === 'PORCENTAJE DEL VALOR FACTURADO';
+  }
+
+  protected grupoUsaPorcentaje(): boolean {
+    const t = this.item().tipo_liquidacion;
+    return (t === 'GRUPO' || t === 'SUBGRUPO') && !!this.item().forma_pago;
+  }
+
+  // ── Agregar ítem a la ficha (tabla) ────────────────────────────────────────
+
+  protected agregarItem(): void {
+    const it = this.item();
+
+    if (!this.itemValido(it)) {
+      this.mensajes.add({
+        severity: 'warn',
+        summary: 'Ítem incompleto',
+        detail: 'Complete todos los campos requeridos del ítem antes de agregarlo.',
+        life: 4000,
+      });
+      return;
+    }
+
+    const fila: FilaServicio = {
+      _id: ++this.contadorId,
+      tipo_liquidacion: it.tipo_liquidacion || null,
+      tipo_servicio: it.tipo_servicio,
+      id_tipo_servicio: null,
+      cups: it.cups,
+      _cups_label: it._cups_label,
+      grupo: it.grupo,
+      subgrupo: it.subgrupo,
+      forma_pago: it.forma_pago,
+      homologo: it.homologo,
+      _homologo_label: it._homologo_label,
+      _obs_label: this.observaciones().find((o) => o.id === it.id_obs_item)?.descripcion ?? null,
+      variacion: it.variacion,
+      valor: it.valor ?? 0,
+      id_obs_item: it.id_obs_item,
+      novedad: null,
+    };
+
+    this.filas.update((prev) => [...prev, fila]);
+
+    // Resetear el formulario para el siguiente ítem
+    this.item.set(this.itemVacio());
+    this.homologos.set([]);
+    this.observaciones.set([]);
+
+    this.mensajes.add({ severity: 'success', summary: 'Ítem agregado', life: 2000 });
   }
 
   protected eliminarFila(fila: FilaServicio): void {
     this.filas.update((prev) => prev.filter((f) => f._id !== fila._id));
   }
 
-  protected duplicarFila(fila: FilaServicio): void {
-    const nueva: FilaServicio = {
-      ...fila,
-      _id: ++this.contadorId,
-      _homologos: [...(fila._homologos ?? [])],
-      _observaciones: [...(fila._observaciones ?? [])],
-    };
-    this.filas.update((prev) => [...prev, nueva]);
-  }
-
-  // ── Lógica condicional por tipo_liquidacion ───────────────────────────────
-
-  /**
-   * Llamado cuando cambia tipo_liquidacion en una fila.
-   * Limpia los campos que no aplican a la nueva rama y precarga datos necesarios.
-   */
-  protected onTipoLiquidacionCambia(fila: FilaServicio): void {
-    // Limpiar todos los campos dependientes
-    fila.tipo_servicio    = null;
-    fila.id_tipo_servicio = null;
-    fila.cups             = null;
-    fila._cups_label      = undefined;
-    fila.grupo            = null;
-    fila.subgrupo         = null;
-    fila.forma_pago       = null;
-    fila.homologo         = null;
-    fila._homologo_label  = undefined;
-    fila.variacion        = null;
-    fila.valor            = 0;
-    fila.id_obs_item      = null;
-    fila._homologos       = [];
-    fila._observaciones   = [];
-
-    switch (fila.tipo_liquidacion) {
-      case 'GRUPO':
-        this.cargarGrupos();
-        this.cargarObservaciones(fila, 3);
-        break;
-      case 'SUBGRUPO':
-        this.cargarSubgrupos();
-        this.cargarObservaciones(fila, 3);
-        break;
-    }
-
-    this.filas.set([...this.filas()]);
-  }
-
-  // ── RAMA: TIPO DE SERVICIO ────────────────────────────────────────────────
-
-  protected onTipoServicioCambia(fila: FilaServicio): void {
-    fila.forma_pago = null;
-    fila.variacion  = null;
-    fila.valor      = 0;
-    fila.id_obs_item = null;
-    fila._observaciones = [];
-
-    const servicio = fila.tipo_servicio;
-    if (!servicio) { this.filas.set([...this.filas()]); return; }
-
-    let codigoObs = 0;
-    if (TIPOS_SERVICIO_NORMAL.includes(servicio)) {
-      codigoObs = 1;
-    } else if (servicio === TIPO_SERVICIO_CONJUNTO) {
-      codigoObs = 2;
-    }
-
-    if (codigoObs > 0) this.cargarObservaciones(fila, codigoObs);
-    this.filas.set([...this.filas()]);
-  }
-
-  protected onFormaPagoConjuntoCambia(fila: FilaServicio): void {
-    fila.variacion = null;
-    fila.valor     = 0;
-    this.filas.set([...this.filas()]);
-  }
-
-  // ── RAMA: CUPS ────────────────────────────────────────────────────────────
-
-  protected buscarCups(evento: AutoCompleteCompleteEvent): void {
-    if ((evento.query ?? '').length < 2) return;
-    this.cups.autocompletarCups(evento.query).subscribe((lista) => {
-      this.sugerenciasCups.set(lista);
-    });
-  }
-
-  protected seleccionarCups(
-    fila: FilaServicio,
-    item: { subcategoria: string; desc_subcat: string; grupo?: string | null; subgrupo?: string | null }
-  ): void {
-    fila.cups          = item.subcategoria;
-    fila.grupo         = item.grupo ?? null;
-    fila.subgrupo      = item.subgrupo ?? null;
-    fila._cups_label   = `${item.subcategoria} — ${item.desc_subcat}`;
-    fila.homologo      = null;
-    fila._homologo_label = undefined;
-    fila._homologos    = [];
-    fila._cargandoHomologos = true;
-
-    this.cargarObservaciones(fila, 3);
-    this.filas.set([...this.filas()]);
-
-    this.cups.homologosDeCups(item.subcategoria).subscribe({
-      next: (homologos) => {
-        fila._homologos = homologos;
-        fila._cargandoHomologos = false;
-        this.filas.set([...this.filas()]);
-      },
-      error: () => {
-        fila._cargandoHomologos = false;
-        this.filas.set([...this.filas()]);
-      },
-    });
-  }
-
-  /** Busca un homólogo en la caché de la fila por su code_manual. */
-  protected findHomologo(fila: FilaServicio, codeManual: string): Homologo | null {
-    return (fila._homologos ?? []).find((h) => h.code_manual === codeManual) ?? null;
-  }
-
-  protected seleccionarHomologo(fila: FilaServicio, homologo: Homologo | null): void {
-    if (!homologo) {
-      fila.homologo       = null;
-      fila._homologo_label = undefined;
-      fila.valor          = 0;
-    } else {
-      fila.homologo        = homologo.code_manual;
-      fila._homologo_label = `${homologo.code_manual} — ${homologo.desc_manual}`;
-      fila.valor           = Number(homologo.valor ?? 0);
-    }
-    this.filas.set([...this.filas()]);
-  }
-
-  protected onFormaPagoCupsCambia(fila: FilaServicio): void {
-    fila.variacion = null;
-    fila.valor     = 0;
-    this.filas.set([...this.filas()]);
-  }
-
-  // ── RAMA: GRUPO / SUBGRUPO ────────────────────────────────────────────────
-
-  protected onGrupoCambia(fila: FilaServicio): void {
-    // La forma de pago se elige antes que el grupo (orden legacy); no la limpiamos.
-    this.filas.set([...this.filas()]);
-  }
-
-  protected onSubgrupoCambia(fila: FilaServicio): void {
-    this.filas.set([...this.filas()]);
-  }
-
-  protected onFormaPagoGrupoCambia(fila: FilaServicio): void {
-    // Al cambiar la forma de pago se resetea el porcentaje
-    fila.variacion = null;
-    this.filas.set([...this.filas()]);
-  }
-
-  // ── Helpers de visibilidad expuestos al template ──────────────────────────
-
-  /** TIPO DE SERVICIO: sub-rama normal (coordinación, presencialidad, disponibilidad). */
-  protected esTipoServicioNormal(fila: FilaServicio): boolean {
-    return fila.tipo_servicio != null && TIPOS_SERVICIO_NORMAL.includes(fila.tipo_servicio);
-  }
-
-  /** TIPO DE SERVICIO: sub-rama conjunto. */
-  protected esTipoServicioConjunto(fila: FilaServicio): boolean {
-    return fila.tipo_servicio === TIPO_SERVICIO_CONJUNTO;
-  }
-
-  /** CUPS con forma_pago ISS/SOAT → muestra porcentaje. */
-  protected cupsUsaPorcentaje(fila: FilaServicio): boolean {
-    return fila.tipo_liquidacion === 'CUPS' && ISS_USA_PORCENTAJE.has(fila.forma_pago ?? '');
-  }
-
-  /** CUPS con tarifa → muestra valor. */
-  protected cupsUsaValor(fila: FilaServicio): boolean {
-    return fila.tipo_liquidacion === 'CUPS' &&
-      (fila.forma_pago === 'TARIFA EVENTO' || fila.forma_pago === 'TARIFA BAJO COTIZACIÓN');
-  }
-
-  /** CONJUNTO con MONTO o VALOR HORA → muestra valor. */
-  protected conjuntoUsaValor(fila: FilaServicio): boolean {
-    return fila.tipo_servicio === TIPO_SERVICIO_CONJUNTO &&
-      (fila.forma_pago === 'MONTO FIJO MES CON EVENTOS' || fila.forma_pago === 'VALOR HORA CON EVENTOS');
-  }
-
-  /** CONJUNTO con PORCENTAJE → muestra variacion. */
-  protected conjuntoUsaPorcentaje(fila: FilaServicio): boolean {
-    return fila.tipo_servicio === TIPO_SERVICIO_CONJUNTO &&
-      fila.forma_pago === 'PORCENTAJE DEL VALOR FACTURADO';
-  }
-
-  /** GRUPO/SUBGRUPO con forma_pago → muestra porcentaje. */
-  protected grupoUsaPorcentaje(fila: FilaServicio): boolean {
-    return (fila.tipo_liquidacion === 'GRUPO' || fila.tipo_liquidacion === 'SUBGRUPO') &&
-      !!fila.forma_pago;
-  }
-
-  // ── Navegación del wizard ─────────────────────────────────────────────────
+  // ── Navegación ─────────────────────────────────────────────────────────────
 
   protected enviar(): void {
     const items = this.filas();
@@ -447,30 +425,8 @@ export class PasoServiciosComponent implements OnInit {
       this.mensajes.add({
         severity: 'warn',
         summary: 'Sin servicios',
-        detail: 'Agregue al menos un servicio/procedimiento antes de continuar.',
+        detail: 'Agregue al menos un ítem a la ficha antes de continuar.',
         life: 4000,
-      });
-      return;
-    }
-
-    const sinTipo = items.filter((f) => !f.tipo_liquidacion);
-    if (sinTipo.length > 0) {
-      this.mensajes.add({
-        severity: 'warn',
-        summary: 'Tipo de liquidación requerido',
-        detail: `${sinTipo.length} fila(s) sin tipo de liquidación. Seleccione el tipo en cada ítem.`,
-        life: 5000,
-      });
-      return;
-    }
-
-    const sinValorOPct = items.filter((f) => !this.filaEsValida(f));
-    if (sinValorOPct.length > 0) {
-      this.mensajes.add({
-        severity: 'warn',
-        summary: 'Datos incompletos',
-        detail: `${sinValorOPct.length} ítem(s) sin valor o porcentaje. Verifique la tabla.`,
-        life: 5000,
       });
       return;
     }
@@ -493,12 +449,12 @@ export class PasoServiciosComponent implements OnInit {
     );
   }
 
-  // ── Carga de datos ────────────────────────────────────────────────────────
+  // ── Carga de catálogos ─────────────────────────────────────────────────────
 
   private cargarGrupos(): void {
     if (this.gruposCargados) return;
     this.cups.grupos().subscribe({
-      next: (g) => { this.grupos.set(g); this.gruposCargados = true; },
+      next: (g) => { this.grupos.set(Array.isArray(g) ? g : []); this.gruposCargados = true; },
       error: () => {},
     });
   }
@@ -506,48 +462,59 @@ export class PasoServiciosComponent implements OnInit {
   private cargarSubgrupos(): void {
     if (this.subgruposCargados) return;
     this.cups.subgrupos().subscribe({
-      next: (s) => { this.subgrupos.set(s); this.subgruposCargados = true; },
+      next: (s) => { this.subgrupos.set(Array.isArray(s) ? s : []); this.subgruposCargados = true; },
       error: () => {},
     });
   }
 
-  private cargarObservaciones(fila: FilaServicio, codigoServicio: number): void {
-    fila._cargandoObs = true;
+  private cargarObservaciones(codigoServicio: number): void {
     this.parametros.observacionesPorTipoServicio(codigoServicio).subscribe({
-      next: (obs) => {
-        fila._observaciones = obs;
-        fila._cargandoObs   = false;
-        this.filas.set([...this.filas()]);
-      },
-      error: () => {
-        fila._cargandoObs = false;
-        this.filas.set([...this.filas()]);
-      },
+      next: (obs) => this.observaciones.set(Array.isArray(obs) ? obs : []),
+      error: () => this.observaciones.set([]),
     });
   }
 
-  // ── Validación por fila ───────────────────────────────────────────────────
+  // ── Validación del ítem en edición ─────────────────────────────────────────
 
-  private filaEsValida(fila: FilaServicio): boolean {
-    switch (fila.tipo_liquidacion) {
+  private itemValido(it: ItemForm): boolean {
+    switch (it.tipo_liquidacion) {
       case 'TIPO DE SERVICIO':
-        if (!fila.tipo_servicio || !fila.forma_pago) return false;
-        if (TIPOS_SERVICIO_NORMAL.includes(fila.tipo_servicio)) return (fila.valor ?? 0) > 0;
-        if (fila.tipo_servicio === TIPO_SERVICIO_CONJUNTO) {
-          if (fila.forma_pago === 'PORCENTAJE DEL VALOR FACTURADO') return !!fila.variacion;
-          return (fila.valor ?? 0) > 0;
+        if (!it.tipo_servicio || !it.forma_pago) return false;
+        if (TIPOS_SERVICIO_NORMAL.includes(it.tipo_servicio)) return (it.valor ?? 0) > 0;
+        if (it.tipo_servicio === TIPO_SERVICIO_CONJUNTO) {
+          if (it.forma_pago === 'PORCENTAJE DEL VALOR FACTURADO') return !!it.variacion;
+          return (it.valor ?? 0) > 0;
         }
         return true;
       case 'CUPS':
-        if (!fila.cups || !fila.forma_pago) return false;
-        if (ISS_USA_PORCENTAJE.has(fila.forma_pago)) return !!fila.variacion;
-        return (fila.valor ?? 0) > 0;
+        if (!it.cups || !it.forma_pago) return false;
+        if (ISS_USA_PORCENTAJE.has(it.forma_pago)) return !!it.variacion;
+        return (it.valor ?? 0) > 0;
       case 'GRUPO':
+        return !!it.grupo && !!it.forma_pago && !!it.variacion;
       case 'SUBGRUPO':
-        return !!(fila.grupo || fila.subgrupo) && !!fila.forma_pago && !!fila.variacion;
+        return !!it.subgrupo && !!it.forma_pago && !!it.variacion;
       default:
         return false;
     }
+  }
+
+  // ── Etiqueta de concepto para la tabla ─────────────────────────────────────
+
+  protected conceptoFila(f: FilaServicio): string {
+    switch (f.tipo_liquidacion) {
+      case 'TIPO DE SERVICIO': return f.tipo_servicio ?? '—';
+      case 'CUPS':             return f._cups_label ?? f.cups ?? '—';
+      case 'GRUPO':            return f.grupo ?? '—';
+      case 'SUBGRUPO':         return f.subgrupo ?? '—';
+      default:                 return '—';
+    }
+  }
+
+  /** Etiqueta legible del porcentaje (ej. "MÁS 72%"). */
+  protected labelPorcentaje(valor: string | null): string {
+    if (valor == null || valor === '') return '—';
+    return PORCENTAJES.find((p) => p.value === valor)?.label ?? `${valor}%`;
   }
 
   // ── Conversión DetalleFicha / DetallePayload → FilaServicio ──────────────
@@ -555,11 +522,9 @@ export class PasoServiciosComponent implements OnInit {
   private detalleAFila(d: DetalleFicha): FilaServicio {
     return {
       _id: ++this.contadorId,
-      _cups_label:     d.cups ? `${d.cups} — ${d.cups_descripcion ?? ''}` : undefined,
-      _homologo_label: d.homologo ? `${d.homologo} — ${d.homologo_descripcion ?? ''}` : undefined,
-      _obs_label:      d.obs_item_descripcion ?? undefined,
-      _homologos:      [],
-      _observaciones:  [],
+      _cups_label:     d.cups ? `${d.cups} — ${d.cups_descripcion ?? ''}` : null,
+      _homologo_label: d.homologo ? `${d.homologo} — ${d.homologo_descripcion ?? ''}` : null,
+      _obs_label:      d.obs_item_descripcion ?? null,
       tipo_liquidacion:  d.tipo_liquidacion,
       tipo_servicio:     d.tipo_servicio,
       id_tipo_servicio:  d.id_tipo_servicio,
@@ -578,10 +543,8 @@ export class PasoServiciosComponent implements OnInit {
   private payloadAFila(p: DetallePayload): FilaServicio {
     return {
       _id: ++this.contadorId,
-      _cups_label:     p.cups ?? undefined,
-      _homologo_label: p.homologo ?? undefined,
-      _homologos:      [],
-      _observaciones:  [],
+      _cups_label:     p.cups ?? null,
+      _homologo_label: p.homologo ?? null,
       tipo_liquidacion:  p.tipo_liquidacion,
       tipo_servicio:     p.tipo_servicio,
       id_tipo_servicio:  p.id_tipo_servicio,
