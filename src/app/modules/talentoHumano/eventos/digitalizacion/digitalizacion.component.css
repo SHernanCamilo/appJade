@@ -136,6 +136,13 @@
 }
 .btn-action-secondary:hover:not(:disabled) { background: #e5e7eb; }
 
+.btn-action-danger { background: #ef4444; color: white; }
+.btn-action-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
 .btn-action-icon {
   width: 36px;
   height: 36px;
@@ -151,7 +158,25 @@
 .btn-action-icon.btn-action-primary:hover:not(:disabled) { background: #3b82f6; color: white; }
 .btn-action-icon.btn-action-secondary { background: #f3f4f6; color: #374151; }
 .btn-action-icon.btn-action-secondary:hover { background: #e5e7eb; }
+.btn-action-icon.btn-action-danger { background: #fee2e2; color: #ef4444; }
+.btn-action-icon.btn-action-danger:hover:not(:disabled) { background: #ef4444; color: white; }
 .btn-action-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.rechazo-detalle {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.rechazo-detalle .form-label { color: #b91c1c; font-weight: 600; }
 
 .filter-label {
   display: block;

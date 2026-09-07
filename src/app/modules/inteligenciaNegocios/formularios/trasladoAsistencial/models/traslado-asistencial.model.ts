@@ -141,7 +141,7 @@ export interface HistoriaTrasladoAsistencial {
   edad: string;
   edadUnidad: '' | 'anos' | 'meses' | 'dias' | 'horas';
   sexo: '' | 'femenino' | 'masculino';
-  tipoIdentificacion: '' | 'msi' | 'rc' | 'ti' | 'cc' | 'ce' | 'otro';
+  tipoIdentificacion: '' | 'as' | 'ms' | 'msi' | 'rc' | 'ti' | 'cc' | 'ce' | 'otro';
   tipoIdentificacionOtro: string;
   numeroIdentificacion: string;
   fechaNacimiento: string;

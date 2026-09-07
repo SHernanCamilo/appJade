@@ -134,24 +134,23 @@
                        [severity]="vista.estado ? 'success' : 'warn'"
                        styleClass="tree-vista-tag">
                 </p-tag>
-                <p-tag *ngIf="!esEnMantenimiento(vista) && vista.estado && esVistaPesada(vista)"
+                <p-tag *ngIf="permissionDesktopAdm() && !esEnMantenimiento(vista) && vista.estado && esVistaPesada(vista)"
                        value="Solo Desktop"
                        severity="info"
                        styleClass="tree-vista-tag"
                        [pTooltip]="tooltipVistaPesada(vista)"
                        tooltipPosition="left">
                 </p-tag>
-                <i class="pi pi-external-link tree-vista-action" *ngIf="!esEnMantenimiento(vista)"></i>
-                <button
-                  *ngIf="!esEnMantenimiento(vista) && vista.estado && permissionDesktop()"
-                  type="button"
-                  class="btn-action-icon btn-action-desktop tree-vista-btn"
-                  (click)="abrirVistaEscritorio(vista, $event)"
-                  [disabled]="isLaunchingDesktop"
-                  pTooltip="Abrir en JadeOne Desktop (recomendado +30.000 filas)"
-                  tooltipPosition="left">
+                <button *ngIf="permissionDesktopAdm() && !esEnMantenimiento(vista) && vista.estado"
+                        type="button"
+                        class="btn-action-icon btn-action-desktop tree-vista-btn"
+                        (click)="abrirVistaEscritorio(vista, $event)"
+                        [disabled]="isLaunchingDesktop"
+                        pTooltip="Abrir en JadeOne Desktop"
+                        tooltipPosition="left">
                   <i class="pi pi-desktop"></i>
                 </button>
+                <i class="pi pi-external-link tree-vista-action" *ngIf="!esEnMantenimiento(vista)"></i>
               </div>
             </div>
           </div>
@@ -195,7 +194,7 @@
                 <p-tag *ngIf="!esEnMantenimiento(vista)"
                        [value]="vista.estado ? 'Visible' : 'No visible'"
                        [severity]="vista.estado ? 'success' : 'warn'"></p-tag>
-                <p-tag *ngIf="!esEnMantenimiento(vista) && vista.estado && esVistaPesada(vista)"
+                <p-tag *ngIf="permissionDesktopAdm() && !esEnMantenimiento(vista) && vista.estado && esVistaPesada(vista)"
                        value="Solo Desktop"
                        severity="info"
                        [pTooltip]="tooltipVistaPesada(vista)"
@@ -220,11 +219,11 @@
                   <i class="pi pi-table"></i>
                 </button>
                 <button
-                  *ngIf="!esEnMantenimiento(vista) && vista.estado"
+                  *ngIf="permissionDesktopAdm() && !esEnMantenimiento(vista) && vista.estado"
                   class="btn-action-icon btn-action-desktop"
                   (click)="abrirVistaEscritorio(vista, $event)"
                   [disabled]="isLaunchingDesktop"
-                  pTooltip="Abrir en JadeOne Desktop (recomendado +30.000 filas)"
+                  pTooltip="Abrir en JadeOne Desktop"
                   tooltipPosition="left"
                   style="margin-left: 4px;">
                   <i class="pi pi-desktop"></i>

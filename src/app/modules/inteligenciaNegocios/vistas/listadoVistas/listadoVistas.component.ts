@@ -126,8 +126,9 @@ export class ListadoVistasComponent implements OnInit {
     });
   }
 
-  permissionDesktop(): boolean {
-    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP');
+  /** Botón de JadeOne Desktop en el catálogo. BI-VISTAS-DESKTOP no muestra botón. */
+  permissionDesktopAdm(): boolean {
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP-ADM');
   }
 
   get isLoading(): boolean {
@@ -393,7 +394,7 @@ export class ListadoVistasComponent implements OnInit {
       return;
     }
 
-    this.abrirEnDestinoSegunTamano(vista);
+    this.abrirVistaExcelEnPestanaNueva(vista);
   }
 
   /**
@@ -414,7 +415,7 @@ export class ListadoVistasComponent implements OnInit {
       return;
     }
 
-    this.abrirEnDestinoSegunTamano(vista);
+    this.abrirVistaExcelEnPestanaNueva(vista);
   }
 
   /** Filas conocidas de la vista, o null si nunca se ha medido su parquet. */
@@ -440,41 +441,6 @@ export class ListadoVistasComponent implements OnInit {
 
   private claveVista(vista: VistaBi): string {
     return `${vista.schema}.${vista.view_name}`.toLowerCase();
-  }
-
-  /**
-   * El navegador no sostiene datasets grandes: por encima del umbral la vista
-   * se abre en JadeOne Desktop. Sin conteo conocido se asume que cabe en la web.
-   */
-  private abrirEnDestinoSegunTamano(vista: VistaBi): void {
-    if (!this.esVistaPesada(vista)) {
-      this.abrirVistaExcelEnPestanaNueva(vista);
-      return;
-    }
-
-    const filas   = this.filasDeVista(vista);
-    const limite  = this.formatearFilas(this.maxFilasWeb);
-    const detalle = filas !== null
-      ? `La vista tiene ${this.formatearFilas(filas)} filas y supera el límite de ${limite} del visor web.`
-      : `La vista supera el límite de ${limite} filas del visor web.`;
-
-    if (!this.permissionDesktop()) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Vista disponible solo en JadeOne Desktop',
-        detail: `${detalle} Solicite acceso a JadeOne Desktop para consultarla.`,
-        life: 9000
-      });
-      return;
-    }
-
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Abriendo en JadeOne Desktop',
-      detail: detalle,
-      life: 7000
-    });
-    this.abrirVistaEscritorio(vista);
   }
 
   private formatearFilas(filas: number): string {
