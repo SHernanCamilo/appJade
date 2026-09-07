@@ -56,6 +56,27 @@ export class PasoRevisionComponent {
     return this.detalles().reduce((s, d) => s + (d.valor ?? 0), 0);
   }
 
+  /** Actualiza el signal de observación desde el textarea. */
+  protected setObservacion(valor: string): void {
+    this.observacion.set(valor);
+  }
+
+  /** Resuelve el "concepto" de un detalle según su tipo de liquidación. */
+  protected conceptoDetalle(d: DetallePayload): string {
+    switch (d.tipo_liquidacion) {
+      case 'TIPO DE SERVICIO':
+        return d.tipo_servicio ?? '—';
+      case 'CUPS':
+        return d.cups ?? '—';
+      case 'GRUPO':
+        return d.grupo ?? '—';
+      case 'SUBGRUPO':
+        return d.subgrupo ?? '—';
+      default:
+        return '—';
+    }
+  }
+
   protected enviar(): void {
     this.confirmar.emit(this.observacion().trim());
   }

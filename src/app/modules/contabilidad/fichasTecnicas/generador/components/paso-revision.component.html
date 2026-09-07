@@ -49,7 +49,8 @@
       <ng-template pTemplate="header">
         <tr>
           <th style="width: 3rem">#</th>
-          <th>CUPS</th>
+          <th style="width: 11rem">Tipo liquidación</th>
+          <th>Concepto</th>
           <th>Homólogo</th>
           <th>Forma de pago</th>
           <th style="width: 5rem">%</th>
@@ -59,7 +60,8 @@
       <ng-template pTemplate="body" let-d let-i="rowIndex">
         <tr>
           <td>{{ i + 1 }}</td>
-          <td>{{ d.cups ?? '—' }}</td>
+          <td>{{ d.tipo_liquidacion ?? '—' }}</td>
+          <td>{{ conceptoDetalle(d) }}</td>
           <td>{{ d.homologo ?? '—' }}</td>
           <td>{{ d.forma_pago ?? '—' }}</td>
           <td class="ft-td-center">{{ d.variacion ?? '—' }}</td>
@@ -68,7 +70,7 @@
       </ng-template>
       <ng-template pTemplate="footer">
         <tr>
-          <td colspan="5" class="ft-td-right"><strong>TOTAL</strong></td>
+          <td colspan="6" class="ft-td-right"><strong>TOTAL</strong></td>
           <td class="ft-td-right"><strong>{{ totalServicios | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</strong></td>
         </tr>
       </ng-template>
@@ -79,7 +81,8 @@
   <p-panel header="Observaciones (opcional)" [toggleable]="true" [collapsed]="true">
     <textarea
       pTextarea
-      [(ngModel)]="observacion"
+      [ngModel]="observacion()"
+      (ngModelChange)="setObservacion($event)"
       [autoResize]="true"
       rows="3"
       maxlength="500"
