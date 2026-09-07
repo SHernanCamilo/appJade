@@ -56,6 +56,7 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
             [guardando]="guardando()"
             [datosPrevios]="cabecera()"
             (continuar)="onPaso1($event)"
+            (profesionalesInfo)="nombresProfesionales.set($event)"
           />
         }
         @case (1) {
@@ -73,8 +74,10 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
               [detalles]="detallesPayload()"
               [opciones]="opciones()"
               [guardando]="guardando()"
+              [nombresProfesionales]="nombresProfesionales()"
               (confirmar)="onConfirmar($event)"
               (volver)="pasoActual = 1"
+              (volverADatos)="pasoActual = 0"
             />
           }
         }
@@ -126,6 +129,8 @@ export class GeneradorFichaComponent {
   protected readonly detallesPayload = signal<DetallePayload[]>([]);
   protected readonly opciones = signal<OpcionesFormulario | null>(null);
   protected readonly conflictos = signal<ConflictoProfesional[]>([]);
+  /** Mapa código→nombre de profesionales para mostrar en la revisión. */
+  protected readonly nombresProfesionales = signal<Record<string, string>>({});
   protected mostrarConflictos = false;
 
   constructor() {

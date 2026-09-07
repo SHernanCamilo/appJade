@@ -183,6 +183,28 @@ export class PasoServiciosComponent implements OnInit {
   protected readonly observaciones   = signal<ObsItem[]>([]);
   protected readonly cargandoHomologos = signal<boolean>(false);
 
+  /**
+   * Homólogos filtrados por la forma de pago (tipo_manual) seleccionada.
+   * Si eligió "ISS 2001" solo muestra homólogos ISS; si "SOAT 2024" solo SOAT.
+   * Las tarifas (TARIFA EVENTO/COTIZACIÓN) no filtran por manual — muestran todo.
+   */
+  protected readonly homologosFiltrados = computed<Homologo[]>(() => {
+    const fp = this.item().forma_pago;
+    const todos = this.homologos();
+    if (!fp) return todos;
+
+    // Determinar el "tipo_manual" objetivo según la forma de pago
+    const fpUpper = fp.toUpperCase();
+    if (fpUpper.startsWith('ISS')) {
+      return todos.filter((h) => (h.tipo_manual ?? '').toUpperCase().includes('ISS'));
+    }
+    if (fpUpper.startsWith('SOAT')) {
+      return todos.filter((h) => (h.tipo_manual ?? '').toUpperCase().includes('SOAT'));
+    }
+    // Tarifas / porcentaje EAPB → sin filtro por manual
+    return todos;
+  });
+
   // ── Estado: formulario de captura (un solo ítem en edición) ───────────────
   protected readonly item = signal<ItemForm>(this.itemVacio());
 
@@ -292,6 +314,7 @@ export class PasoServiciosComponent implements OnInit {
   }
 
   protected seleccionarCups(item: { subcategoria: string; desc_subcat: string; grupo?: string | null; subgrupo?: string | null }): void {
+    // Conserva la forma de pago ya elegida (va antes que el homólogo).
     this.patch({
       cups: item.subcategoria,
       _cups_label: `${item.subcategoria} — ${item.desc_subcat}`,
@@ -325,7 +348,8 @@ export class PasoServiciosComponent implements OnInit {
   }
 
   protected onFormaPagoCupsCambia(): void {
-    this.patch({ variacion: null, valor: 0 });
+    // Al cambiar la forma de pago cambia el filtro de homólogos → limpiar homólogo
+    this.patch({ variacion: null, valor: 0, homologo: null, _homologo_label: null });
   }
 
   // ── GRUPO / SUBGRUPO ───────────────────────────────────────────────────────
@@ -366,6 +390,21 @@ export class PasoServiciosComponent implements OnInit {
   protected grupoUsaPorcentaje(): boolean {
     const t = this.item().tipo_liquidacion;
     return (t === 'GRUPO' || t === 'SUBGRUPO') && !!this.item().forma_pago;
+  }
+
+  /**
+   * Muestra el campo de observación del ítem cuando el usuario ya avanzó
+   * lo suficiente en la rama como para haber disparado la carga de observaciones.
+   */
+  protected mostrarObservacion(): boolean {
+    const it = this.item();
+    switch (it.tipo_liquidacion) {
+      case 'TIPO DE SERVICIO': return !!it.tipo_servicio;
+      case 'CUPS':             return !!it.cups;
+      case 'GRUPO':            return !!it.grupo || !!it.forma_pago;
+      case 'SUBGRUPO':         return !!it.subgrupo || !!it.forma_pago;
+      default:                 return false;
+    }
   }
 
   // ── Agregar ítem a la ficha (tabla) ────────────────────────────────────────

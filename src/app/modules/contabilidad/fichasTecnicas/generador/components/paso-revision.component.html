@@ -28,11 +28,18 @@
         <label>Vigencia</label>
         <span>{{ cabecera().fecha_ini | date: 'dd/MM/yyyy' }} — {{ cabecera().fecha_fin | date: 'dd/MM/yyyy' }}</span>
       </div>
-      <div class="ft-resumen__campo">
-        <label>Profesionales</label>
-        <span>
-          <p-tag [value]="cabecera().profesionales.length + ' asignado(s)'" severity="info" />
-        </span>
+      <div class="ft-resumen__campo ft-resumen__campo--ancho">
+        <label>Profesionales asignados ({{ cabecera().profesionales.length }})</label>
+        <div class="ft-profs">
+          @for (cod of cabecera().profesionales; track cod) {
+            <p-tag [value]="nombreProfesional(cod)" severity="info" styleClass="ft-prof-tag" />
+          } @empty {
+            <span class="ft-obs__vacio">Sin profesionales asignados.</span>
+          }
+        </div>
+        <button type="button" class="ft-editar-link" (click)="volverADatos.emit()">
+          <i class="pi pi-pencil"></i> Editar profesionales / datos del contrato
+        </button>
       </div>
       @if (cabecera().obs_os) {
         <div class="ft-resumen__campo ft-resumen__campo--ancho">

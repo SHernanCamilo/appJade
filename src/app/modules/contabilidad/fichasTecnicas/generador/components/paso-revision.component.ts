@@ -34,10 +34,20 @@ export class PasoRevisionComponent {
   readonly detalles = input.required<DetallePayload[]>();
   readonly opciones = input<OpcionesFormulario | null>(null);
   readonly guardando = input<boolean>(false);
+  /** Mapa código→nombre de profesionales, para mostrar sus nombres en la revisión. */
+  readonly nombresProfesionales = input<Record<string, string>>({});
 
   /** Emite la lista de observaciones generales al confirmar. */
   readonly confirmar = output<string[]>();
+  /** Volver al paso 2 (servicios). */
   readonly volver = output<void>();
+  /** Volver al paso 1 (datos del contrato / profesionales). */
+  readonly volverADatos = output<void>();
+
+  /** Nombre legible de un profesional por su código (o el código si no hay nombre). */
+  protected nombreProfesional(codigo: string): string {
+    return this.nombresProfesionales()[codigo] ?? codigo;
+  }
 
   /** Lista de observaciones generales agregadas (como en el legacy form3). */
   protected readonly observaciones = signal<string[]>([]);

@@ -82,7 +82,7 @@
         }
       }
 
-      <!-- ═══ RAMA: CUPS ═══ -->
+      <!-- ═══ RAMA: CUPS (CUPS → forma pago → homólogo filtrado → %/valor) ═══ -->
       @if (item().tipo_liquidacion === 'CUPS') {
         <div class="ft-campo ft-campo--ancho">
           <label>Código CUPS <span aria-hidden="true">*</span></label>
@@ -115,32 +115,7 @@
         </div>
 
         @if (item().cups) {
-          <div class="ft-campo">
-            <label>Homologación</label>
-            @if (cargandoHomologos()) {
-              <span class="ft-hint"><i class="pi pi-spin pi-spinner"></i> Cargando homólogos…</span>
-            } @else {
-              <p-select
-                [ngModel]="item().homologo"
-                (ngModelChange)="seleccionarHomologo($event)"
-                [options]="homologos()"
-                optionLabel="desc_manual"
-                optionValue="code_manual"
-                placeholder="Seleccione homólogo"
-                [showClear]="true"
-                appendTo="body"
-                [style]="{ width: '100%' }"
-              >
-                <ng-template let-h pTemplate="item">
-                  <div class="ft-cups-item">
-                    <strong>{{ h.code_manual }}</strong>
-                    <span>{{ h.desc_manual }} ({{ h.tipo_manual }})</span>
-                  </div>
-                </ng-template>
-              </p-select>
-            }
-          </div>
-
+          <!-- 1º Forma de pago (define el filtro de homólogos) -->
           <div class="ft-campo">
             <label>Forma de pago <span aria-hidden="true">*</span></label>
             <p-select [ngModel]="item().forma_pago"
@@ -148,6 +123,35 @@
               [options]="FP_ISS_SOAT" [filter]="true" placeholder="Seleccione forma de pago"
               appendTo="body" [style]="{ width: '100%' }" />
           </div>
+
+          <!-- 2º Homologación filtrada por la forma de pago elegida -->
+          @if (item().forma_pago) {
+            <div class="ft-campo">
+              <label>Homologación</label>
+              @if (cargandoHomologos()) {
+                <span class="ft-hint"><i class="pi pi-spin pi-spinner"></i> Cargando homólogos…</span>
+              } @else {
+                <p-select
+                  [ngModel]="item().homologo"
+                  (ngModelChange)="seleccionarHomologo($event)"
+                  [options]="homologosFiltrados()"
+                  optionLabel="desc_manual"
+                  optionValue="code_manual"
+                  [placeholder]="homologosFiltrados().length ? 'Seleccione homólogo' : 'Sin homólogos para esta forma de pago'"
+                  [showClear]="true"
+                  appendTo="body"
+                  [style]="{ width: '100%' }"
+                >
+                  <ng-template let-h pTemplate="item">
+                    <div class="ft-cups-item">
+                      <strong>{{ h.code_manual }}</strong>
+                      <span>{{ h.desc_manual }} ({{ h.tipo_manual }})</span>
+                    </div>
+                  </ng-template>
+                </p-select>
+              }
+            </div>
+          }
 
           @if (cupsUsaPorcentaje()) {
             <div class="ft-campo">
@@ -220,14 +224,18 @@
         }
       }
 
-      <!-- Observación (cualquier rama con opciones) -->
-      @if (item().tipo_liquidacion && observaciones().length > 0) {
+      <!-- Observación del ítem (parametrizable: fich_obs_items ↔ fich_tipos_servicio) -->
+      @if (mostrarObservacion()) {
         <div class="ft-campo ft-campo--ancho">
           <label>Observación del ítem</label>
-          <p-select [ngModel]="item().id_obs_item" (ngModelChange)="patch({ id_obs_item: $event })"
-            [options]="observaciones()" optionLabel="descripcion" optionValue="id"
-            placeholder="Seleccione observación (opcional)" [showClear]="true"
-            appendTo="body" [style]="{ width: '100%' }" />
+          @if (observaciones().length > 0) {
+            <p-select [ngModel]="item().id_obs_item" (ngModelChange)="patch({ id_obs_item: $event })"
+              [options]="observaciones()" optionLabel="descripcion" optionValue="id"
+              placeholder="Seleccione observación (opcional)" [showClear]="true" [filter]="true"
+              appendTo="body" [style]="{ width: '100%' }" />
+          } @else {
+            <span class="ft-hint">Sin observaciones parametrizadas para este servicio.</span>
+          }
         </div>
       }
     </div>

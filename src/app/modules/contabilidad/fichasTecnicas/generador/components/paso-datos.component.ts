@@ -75,6 +75,8 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
 
   // ── Output ──────────────────────────────────────────────────────────────
   readonly continuar = output<CrearFichaPayload>();
+  /** Mapa código→nombre de los profesionales seleccionados (para la revisión). */
+  readonly profesionalesInfo = output<Record<string, string>>();
 
   // ── Estado local ────────────────────────────────────────────────────────
   protected readonly profesionales          = signal<ProfesionalDeEspecialidad[]>([]);
@@ -214,6 +216,16 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
 
     if (!inicio || !fin) return;
 
+    const codigos = v.profesionales as string[];
+
+    // Emitir el mapa código→nombre para que la revisión muestre los nombres
+    const mapa: Record<string, string> = {};
+    for (const cod of codigos) {
+      const prof = this.profesionales().find((p) => p.codigo === cod);
+      mapa[cod] = prof?.nombre ?? cod;
+    }
+    this.profesionalesInfo.emit(mapa);
+
     this.continuar.emit({
       id_agremiacion:     v.id_agremiacion!,
       id_objeto_contrato: v.id_objeto_contrato!,
@@ -221,7 +233,7 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
       vlr_contrato:       v.vlr_contrato!,
       fecha_ini:          this.aIso(inicio),
       fecha_fin:          this.aIso(fin),
-      profesionales:      v.profesionales as string[],
+      profesionales:      codigos,
       obs_os:             v.obs_os.trim() || null,
     });
   }
