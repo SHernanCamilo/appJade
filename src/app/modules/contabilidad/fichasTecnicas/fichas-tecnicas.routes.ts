@@ -39,6 +39,12 @@ export const FICHAS_TECNICAS_ROUTES: Routes = [
     }
   },
   {
+    // Redirect si se navega a /bandeja sin parámetro (ej. desde sidebar legacy)
+    path: 'bandeja',
+    redirectTo: 'bandeja/borradores',
+    pathMatch: 'full',
+  },
+  {
     // Crear nueva ficha (sin :id).
     path: 'formulario',
     loadComponent: () =>

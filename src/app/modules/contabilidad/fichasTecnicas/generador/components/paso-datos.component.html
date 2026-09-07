@@ -50,24 +50,7 @@
         }
       </div>
 
-      <div class="ft-campo">
-        <label for="especialidad">Especialidad contratada <span aria-hidden="true">*</span></label>
-        <p-select
-          inputId="especialidad"
-          formControlName="id_especialidad"
-          [options]="opciones()!.especialidades"
-          optionLabel="descripcion"
-          optionValue="id"
-          placeholder="Seleccione la especialidad"
-          [filter]="true"
-          filterBy="descripcion"
-          appendTo="body"
-        />
-        @if (control('id_especialidad')) {
-          <small class="ft-campo__error">Seleccione una especialidad.</small>
-        }
-      </div>
-
+      <!-- Valor y Vigencia en la misma fila -->
       <div class="ft-campo">
         <label for="valor">Valor estimado del contrato <span aria-hidden="true">*</span></label>
         <p-inputnumber
@@ -102,6 +85,25 @@
           <small class="ft-campo__error">Seleccione el rango de vigencia.</small>
         }
         <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
+      </div>
+
+      <!-- Especialidad ocupa fila completa, debajo de valor/vigencia -->
+      <div class="ft-campo ft-campo--ancho">
+        <label for="especialidad">Especialidad contratada <span aria-hidden="true">*</span></label>
+        <p-select
+          inputId="especialidad"
+          formControlName="id_especialidad"
+          [options]="opciones()!.especialidades"
+          optionLabel="descripcion"
+          optionValue="id"
+          placeholder="Seleccione la especialidad"
+          [filter]="true"
+          filterBy="descripcion"
+          appendTo="body"
+        />
+        @if (control('id_especialidad')) {
+          <small class="ft-campo__error">Seleccione una especialidad.</small>
+        }
       </div>
 
       <div class="ft-campo ft-campo--ancho">

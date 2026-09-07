@@ -80,6 +80,11 @@
   font-size: 0.72rem;
 }
 
+.ft-prof__firma {
+  color: #198754;
+  font-weight: 600;
+}
+
 .ft-paso__acciones {
   display: flex;
   justify-content: flex-end;
