@@ -84,6 +84,23 @@ const ISS_USA_PORCENTAJE = new Set([
 export const TIPOS_SERVICIO_NORMAL = ['COORDINACIÓN', 'PRESENCIALIDAD', 'DISPONIBILIDAD'];
 export const TIPO_SERVICIO_CONJUNTO = 'CONJUNTO DE SERVICIOS';
 
+// ── Porcentajes de variación (replicados del legacy form2-edit.php) ───────────
+export interface OpcionPorcentaje { label: string; value: string; }
+
+export const PORCENTAJES: OpcionPorcentaje[] = (() => {
+  const mas = [80, 72, 45, 40, 37, 35, 34, 32, 31, 30, 28, 27, 26, 25, 24, 23, 22, 21, 20,
+    18, 17, 16, 15, 14, 13, 12, 11, 10, 8, 7, 6, 5, 4, 3];
+  const menos = [3, 4, 5, 8, 10, 12, 14, 15, 18, 20, 22, 25, 27, 28, 30, 32, 33, 34, 35, 36,
+    37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 48, 49, 50, 52, 55, 62, 65, 66, 67, 68, 70, 71,
+    72, 73, 74, 75, 76, 77];
+
+  const opciones: OpcionPorcentaje[] = mas.map((n) => ({ label: `MÁS ${n}%`, value: String(n) }));
+  opciones.push({ label: 'SIN VARIACIÓN 0%', value: '0' });
+  menos.forEach((n) => opciones.push({ label: `MENOS -${n}%`, value: String(-n) }));
+
+  return opciones;
+})();
+
 // ── Estructura interna de cada fila ──────────────────────────────────────────
 export interface FilaServicio extends DetallePayload {
   // ID interno para trackBy
@@ -170,6 +187,7 @@ export class PasoServiciosComponent implements OnInit {
   protected readonly FP_ISS_SOAT      = FORMAS_PAGO_ISS_SOAT;
   protected readonly TS_NORMALES      = TIPOS_SERVICIO_NORMAL;
   protected readonly TS_CONJUNTO      = TIPO_SERVICIO_CONJUNTO;
+  protected readonly PORCENTAJES      = PORCENTAJES;
 
   private contadorId = 0;
   private gruposCargados   = false;
@@ -365,20 +383,16 @@ export class PasoServiciosComponent implements OnInit {
   // ── RAMA: GRUPO / SUBGRUPO ────────────────────────────────────────────────
 
   protected onGrupoCambia(fila: FilaServicio): void {
-    fila.forma_pago = null;
-    fila.variacion  = null;
-    fila.valor      = 0;
+    // La forma de pago se elige antes que el grupo (orden legacy); no la limpiamos.
     this.filas.set([...this.filas()]);
   }
 
   protected onSubgrupoCambia(fila: FilaServicio): void {
-    fila.forma_pago = null;
-    fila.variacion  = null;
-    fila.valor      = 0;
     this.filas.set([...this.filas()]);
   }
 
   protected onFormaPagoGrupoCambia(fila: FilaServicio): void {
+    // Al cambiar la forma de pago se resetea el porcentaje
     fila.variacion = null;
     this.filas.set([...this.filas()]);
   }

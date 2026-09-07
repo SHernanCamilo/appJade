@@ -110,8 +110,9 @@
             @if (conjuntoUsaPorcentaje(fila)) {
               <div class="ft-campo">
                 <label>Porcentaje <span aria-hidden="true">*</span></label>
-                <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
-                  placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+                <p-select [(ngModel)]="fila.variacion" [options]="PORCENTAJES"
+                  optionLabel="label" optionValue="value" [filter]="true"
+                  placeholder="Seleccione %" appendTo="body" [style]="{ width: '100%' }" />
               </div>
             }
           }
@@ -192,8 +193,9 @@
             @if (cupsUsaPorcentaje(fila)) {
               <div class="ft-campo">
                 <label>Porcentaje <span aria-hidden="true">*</span></label>
-                <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
-                  placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+                <p-select [(ngModel)]="fila.variacion" [options]="PORCENTAJES"
+                  optionLabel="label" optionValue="value" [filter]="true"
+                  placeholder="Seleccione %" appendTo="body" [style]="{ width: '100%' }" />
               </div>
             }
             @if (cupsUsaValor(fila)) {
@@ -207,8 +209,20 @@
           }
         }
 
-        <!-- ═══════════ RAMA: GRUPO ═══════════ -->
+        <!-- ═══════════ RAMA: GRUPO (orden legacy: forma pago → grupo → %) ═══════════ -->
         @if (fila.tipo_liquidacion === 'GRUPO') {
+          <div class="ft-campo">
+            <label>Forma de pago <span aria-hidden="true">*</span></label>
+            <p-select
+              [(ngModel)]="fila.forma_pago"
+              [options]="FP_ISS_SOAT"
+              placeholder="Seleccione forma de pago"
+              appendTo="body"
+              [filter]="true"
+              (onChange)="onFormaPagoGrupoCambia(fila)"
+              [style]="{ width: '100%' }"
+            />
+          </div>
           <div class="ft-campo">
             <label>Grupo <span aria-hidden="true">*</span></label>
             <p-select
@@ -224,6 +238,18 @@
               [style]="{ width: '100%' }"
             />
           </div>
+          @if (grupoUsaPorcentaje(fila)) {
+            <div class="ft-campo">
+              <label>Porcentaje <span aria-hidden="true">*</span></label>
+              <p-select [(ngModel)]="fila.variacion" [options]="PORCENTAJES"
+                optionLabel="label" optionValue="value" [filter]="true"
+                placeholder="Seleccione %" appendTo="body" [style]="{ width: '100%' }" />
+            </div>
+          }
+        }
+
+        <!-- ═══════════ RAMA: SUBGRUPO (orden legacy: forma pago → subgrupo → %) ═══════════ -->
+        @if (fila.tipo_liquidacion === 'SUBGRUPO') {
           <div class="ft-campo">
             <label>Forma de pago <span aria-hidden="true">*</span></label>
             <p-select
@@ -236,17 +262,6 @@
               [style]="{ width: '100%' }"
             />
           </div>
-          @if (grupoUsaPorcentaje(fila)) {
-            <div class="ft-campo">
-              <label>Porcentaje <span aria-hidden="true">*</span></label>
-              <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
-                placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
-            </div>
-          }
-        }
-
-        <!-- ═══════════ RAMA: SUBGRUPO ═══════════ -->
-        @if (fila.tipo_liquidacion === 'SUBGRUPO') {
           <div class="ft-campo">
             <label>Subgrupo <span aria-hidden="true">*</span></label>
             <p-select
@@ -262,23 +277,12 @@
               [style]="{ width: '100%' }"
             />
           </div>
-          <div class="ft-campo">
-            <label>Forma de pago <span aria-hidden="true">*</span></label>
-            <p-select
-              [(ngModel)]="fila.forma_pago"
-              [options]="FP_ISS_SOAT"
-              placeholder="Seleccione forma de pago"
-              appendTo="body"
-              [filter]="true"
-              (onChange)="onFormaPagoGrupoCambia(fila)"
-              [style]="{ width: '100%' }"
-            />
-          </div>
           @if (grupoUsaPorcentaje(fila)) {
             <div class="ft-campo">
               <label>Porcentaje <span aria-hidden="true">*</span></label>
-              <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
-                placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+              <p-select [(ngModel)]="fila.variacion" [options]="PORCENTAJES"
+                optionLabel="label" optionValue="value" [filter]="true"
+                placeholder="Seleccione %" appendTo="body" [style]="{ width: '100%' }" />
             </div>
           }
         }
