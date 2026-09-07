@@ -18,6 +18,7 @@ import {
   IndicadoresFichas,
   ObservacionFicha,
   PaginatedResponse,
+  ResumenBandeja,
   ResumenPorSucursal,
   RespuestaConflictos,
 } from '../models/ficha.model';
@@ -115,14 +116,14 @@ export class FichasTecnicasService {
   // PROFESIONALES
   // ═════════════════════════════════════════════════════════════════════════
 
-  sincronizarProfesionales(idFicha: number, profesionales: number[]): Observable<Ficha> {
+  sincronizarProfesionales(idFicha: number, profesionales: string[]): Observable<Ficha> {
     return this.http
       .put<ApiResponse<Ficha>>(`${this.base}/fichas/${idFicha}/profesionales`, { profesionales })
       .pipe(map((r) => r.data));
   }
 
   verificarConflictos(
-    profesionales: number[],
+    profesionales: string[],
     fechaIni: string,
     fechaFin: string,
     excluirFicha?: number,
@@ -211,6 +212,13 @@ export class FichasTecnicasService {
       .get<ApiResponse<FichaProximaVencer[]>>(`${this.base}/dashboard/proximas-vencer`, {
         params: { limite: String(limite) },
       })
+      .pipe(map((r) => r.data));
+  }
+
+  /** KPIs compactos para las tarjetas de la bandeja. */
+  resumenBandeja(): Observable<ResumenBandeja> {
+    return this.http
+      .get<ApiResponse<ResumenBandeja>>(`${this.base}/dashboard/resumen-bandeja`)
       .pipe(map((r) => r.data));
   }
 

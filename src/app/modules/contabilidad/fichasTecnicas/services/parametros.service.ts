@@ -55,11 +55,37 @@ export class ParametrosService {
     return this.opciones$;
   }
 
-  /** Profesionales que atienden una especialidad (cascada del paso 1). */
-  profesionalesPorEspecialidad(idEspecialidad: number): Observable<ProfesionalDeEspecialidad[]> {
+  /**
+   * Busca profesionales desde Fabric por nombre o código (autocomplete).
+   *
+   * Reemplaza el antiguo `profesionalesPorEspecialidad` que consultaba la
+   * tabla local `fich_profesionales` (ahora vacía). El maestro de profesionales
+   * vive en Fabric (dc.VW_AD_Profesionales) y se consulta en vivo.
+   *
+   * @param q  Texto de búsqueda (mín. 2 caracteres: nombre o código)
+   */
+  buscarProfesionales(q: string, limit = 50): Observable<ProfesionalDeEspecialidad[]> {
     return this.http
-      .get<ApiResponse<ProfesionalDeEspecialidad[]>>(`${this.base}/especialidades/${idEspecialidad}/profesionales`)
-      .pipe(map((r) => r.data));
+      .get<ApiResponse<ProfesionalDeEspecialidad[]>>(`${this.base}/profesionales/buscar`, {
+        params: new HttpParams().set('q', q).set('limit', String(limit)),
+      })
+      .pipe(map((r) => (Array.isArray(r.data) ? r.data : [])));
+  }
+
+  /**
+   * Carga profesionales activos de una especialidad desde Fabric.
+   * Se usa en la cascada del paso-1: al cambiar especialidad, recarga la lista.
+   *
+   * @param especialidad  Texto de la especialidad (ej: 'ANESTESIOLOGIA')
+   */
+  profesionalesPorEspecialidad(especialidad: string, limit = 100): Observable<ProfesionalDeEspecialidad[]> {
+    const params = new HttpParams()
+      .set('especialidad', especialidad)
+      .set('limit', String(limit));
+
+    return this.http
+      .get<ApiResponse<ProfesionalDeEspecialidad[]>>(`${this.base}/profesionales/buscar`, { params })
+      .pipe(map((r) => (Array.isArray(r.data) ? r.data : [])));
   }
 
   /** Observaciones aplicables a un tipo de servicio (cascada del paso 2). */

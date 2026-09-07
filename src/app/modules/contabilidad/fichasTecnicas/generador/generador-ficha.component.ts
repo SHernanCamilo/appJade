@@ -52,6 +52,7 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
       @switch (pasoActual) {
         @case (0) {
           <app-paso-datos
+            [opciones]="opciones()"
             [guardando]="guardando()"
             (continuar)="onPaso1($event)"
           />

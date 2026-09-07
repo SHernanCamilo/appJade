@@ -115,38 +115,39 @@
           inputId="profesionales"
           formControlName="profesionales"
           [options]="profesionales()"
-          optionLabel="profesional_nombre"
-          optionValue="id_profesional"
+          optionLabel="nombre"
+          optionValue="codigo"
           [filter]="true"
-          filterBy="profesional_nombre,documento"
-          [showToggleAll]="true"
+          filterBy="nombre,codigo,profesion,sucursal_sede"
+          [showToggleAll]="false"
           display="chip"
           appendTo="body"
-          [placeholder]="
-            formulario.controls.id_especialidad.value
-              ? 'Seleccione uno o más profesionales'
-              : 'Elija primero una especialidad'
-          "
-          [disabled]="!formulario.controls.id_especialidad.value"
-          emptyMessage="La especialidad no tiene profesionales asignados"
+          [placeholder]="cargandoProfesionales() ? 'Cargando profesionales...' : (profesionales().length === 0 ? 'Seleccione primero una especialidad' : 'Seleccione uno o más profesionales')"
+          emptyMessage="Sin resultados — escriba en el filtro para buscar en Fabric"
+          emptyFilterMessage="Sin resultados — siga escribiendo para buscar más"
+          (onFilter)="onFiltroMultiselect($event)"
         >
           <ng-template let-p pTemplate="item">
             <div class="ft-prof">
-              <span class="ft-prof__nombre">{{ p.profesional_nombre }}</span>
+              <span class="ft-prof__nombre">{{ p.nombre }}</span>
               <small class="ft-prof__meta">
-                CC {{ p.documento }}
-                @if (p.tarjeta_profesional) {
-                  · TP {{ p.tarjeta_profesional }}
-                }
+                Doc. {{ p.codigo }}
+                @if (p.profesion) { · {{ p.profesion }} }
+                @if (p.sucursal_sede) { · {{ p.sucursal_sede }} }
+                @if (p.tiene_firma) { · <span class="ft-prof__firma">✓ Firma</span> }
               </small>
             </div>
+          </ng-template>
+          <ng-template let-p pTemplate="chip">
+            {{ p.nombre || p.codigo }}
           </ng-template>
         </p-multiselect>
         @if (control('profesionales')) {
           <small class="ft-campo__error">Asigne al menos un profesional.</small>
         }
         <small class="ft-campo__ayuda">
-          Al guardar se verifica que ninguno tenga otra ficha vigente en este periodo.
+          Al cambiar la especialidad se cargan los profesionales activos de esa especialidad.
+          También puede buscar escribiendo nombre o código en el filtro.
         </small>
       </div>
 

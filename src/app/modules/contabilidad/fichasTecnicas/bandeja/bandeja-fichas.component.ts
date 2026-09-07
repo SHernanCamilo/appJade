@@ -13,6 +13,7 @@ import { interpretarErrorFicha } from '../shared/ficha-error.util';
 import { TablaFichasComponent } from './components/tabla-fichas.component';
 import type { AccionFicha } from './components/tabla-fichas.component';
 import { FiltrosBandejaComponent } from './components/filtros-bandeja.component';
+import { KpisBandejaComponent } from './components/kpis-bandeja.component';
 
 interface MetaBandeja {
   titulo: string;
@@ -83,7 +84,7 @@ const METADATOS: Record<BandejaFichas, MetaBandeja> = {
 @Component({
   selector: 'app-bandeja-fichas',
   standalone: true,
-  imports: [CommonModule, ToastModule, TablaFichasComponent, FiltrosBandejaComponent],
+  imports: [CommonModule, ToastModule, TablaFichasComponent, FiltrosBandejaComponent, KpisBandejaComponent],
   providers: [MessageService],
   templateUrl: './bandeja-fichas.component.html',
   styleUrl: './bandeja-fichas.component.css',

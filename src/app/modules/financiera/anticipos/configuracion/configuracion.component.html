@@ -25,12 +25,11 @@
           <div class="modern-table-container">
             <p-table [value]="grupos" [loading]="isLoading" styleClass="modern-table">
               <ng-template pTemplate="header">
-                <tr><th>Código</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr>
+                <tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr>
               </ng-template>
               <ng-template pTemplate="body" let-g>
                 <tr [class.row-selected]="grupoSeleccionado?.id === g.id">
-                  <td><code>{{ g.codigo }}</code></td>
-                  <td>{{ g.nombre }}</td>
+                  <td><strong>{{ g.nombre }}</strong></td>
                   <td class="text-muted">{{ g.descripcion || '—' }}</td>
                   <td><p-tag [value]="getEstadoTexto(g.estado)" [severity]="getSeverity(g.estado)"></p-tag></td>
                   <td>
@@ -43,7 +42,7 @@
                 </tr>
               </ng-template>
               <ng-template pTemplate="emptymessage">
-                <tr><td colspan="5" class="text-center py-4"><i class="pi pi-inbox" style="font-size:2.5rem;color:#d1d5db"></i><p class="text-muted mt-2">Sin grupos configurados. Cree grupos como "Asistencial", "Administrativo", "Directivo".</p></td></tr>
+                <tr><td colspan="4" class="text-center py-4"><i class="pi pi-inbox" style="font-size:2.5rem;color:#d1d5db"></i><p class="text-muted mt-2">Sin grupos configurados. Cree grupos como "Asistencial", "Administrativo", "Directivo".</p></td></tr>
               </ng-template>
             </p-table>
           </div>
@@ -167,9 +166,8 @@
 <!-- Modal Grupo -->
 <p-dialog header="Grupo de Aprobación" [(visible)]="mostrarModalGrupo" [modal]="true" [style]="{width:'500px'}">
   <div class="row g-3">
-    <div class="col-12"><label class="form-label">Código</label><input pInputText [(ngModel)]="grupoForm.codigo" class="w-100" placeholder="ej: asistencial"></div>
     <div class="col-12"><label class="form-label">Nombre</label><input pInputText [(ngModel)]="grupoForm.nombre" class="w-100" placeholder="ej: Asistencial"></div>
-    <div class="col-12"><label class="form-label">Descripción</label><input pInputText [(ngModel)]="grupoForm.descripcion" class="w-100"></div>
+    <div class="col-12"><label class="form-label">Descripción</label><input pInputText [(ngModel)]="grupoForm.descripcion" class="w-100" placeholder="ej: Personal asistencial (médicos, enfermeros)"></div>
   </div>
   <ng-template pTemplate="footer">
     <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [outlined]="true" (onClick)="mostrarModalGrupo=false"></p-button>

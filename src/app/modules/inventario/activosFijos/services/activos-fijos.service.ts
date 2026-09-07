@@ -186,6 +186,38 @@ export interface NovedadExternaPayload {
   observacion?: string | null;
 }
 
+/** Localidad del maestro con su conteo de activos. */
+export interface Localidad {
+  localizacion: string;
+  total_activos: number;
+}
+
+/** Un activo de una localidad con su estado de inventario. */
+export interface ActivoLocalidad {
+  placa: string;
+  articulo: string;
+  serie: string;
+  responsable: string;
+  localizacion: string;
+  sucursal: string;
+  estado: string;
+  inventariado: boolean;
+  tomas: number;
+  ultima_toma: string | null;
+}
+
+/** Cobertura de inventario de una localidad. */
+export interface CoberturaLocalidad {
+  localizacion: string;
+  items: ActivoLocalidad[];
+  resumen: {
+    total: number;
+    inventariados: number;
+    faltantes: number;
+    cobertura: number;
+  };
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -398,6 +430,45 @@ export class ActivosFijosService {
   /** @deprecated Usar localizaciones() desde DetalleActivos. */
   centrosCosto(): Observable<ApiResponse<{ code: string; unidad_funcional: string }[]>> {
     return this.http.get<ApiResponse<{ code: string; unidad_funcional: string }[]>>(`${this.baseUrl}/centros-costo`);
+  }
+
+  // ── Localidades / Ubicaciones (cobertura de inventario) ──────────────────
+
+  /** Lista de localidades del maestro con su conteo de activos. */
+  localidadesLista(): Observable<ApiResponse<Localidad[]>> {
+    return this.http.get<ApiResponse<Localidad[]>>(`${this.baseUrl}/localidades`);
+  }
+
+  /** Activos de una localidad marcando inventariados vs faltantes. */
+  activosPorLocalidad(filtros: {
+    localizacion: string;
+    tipo_inventario_id?: number;
+    desde?: string;
+    hasta?: string;
+  }): Observable<ApiResponse<CoberturaLocalidad>> {
+    const params: Record<string, string> = { localizacion: filtros.localizacion };
+    if (filtros.tipo_inventario_id) params['tipo_inventario_id'] = String(filtros.tipo_inventario_id);
+    if (filtros.desde) params['desde'] = filtros.desde;
+    if (filtros.hasta) params['hasta'] = filtros.hasta;
+
+    return this.http.get<ApiResponse<CoberturaLocalidad>>(`${this.baseUrl}/localidades/activos`, { params });
+  }
+
+  /** Exporta a Excel la cobertura por localidad (una localidad o todas). */
+  exportarLocalidades(filtros: {
+    localizacion?: string;
+    tipo_inventario_id?: number;
+    desde?: string;
+    hasta?: string;
+  } = {}): Observable<Blob> {
+    const params: Record<string, string> = {};
+    Object.entries(filtros).forEach(([clave, valor]) => {
+      if (valor !== null && valor !== undefined && valor !== '') {
+        params[clave] = String(valor);
+      }
+    });
+
+    return this.http.get(`${this.baseUrl}/localidades/exportar`, { params, responseType: 'blob' });
   }
 
   // ── Tipos de Inventario (CRUD) ───────────────────────────────────────────
