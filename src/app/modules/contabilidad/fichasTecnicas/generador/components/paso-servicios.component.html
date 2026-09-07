@@ -4,10 +4,10 @@
   <header class="ft-paso2__header">
     <div>
       <h2>Servicios y procedimientos</h2>
-      <p>Agregue los ítems del contrato con su código CUPS y tarifa homologada.</p>
+      <p>Agregue los ítems del contrato. Cada ítem define su tipo de liquidación (Tipo de servicio, CUPS, Grupo o Subgrupo).</p>
     </div>
     <p-button
-      label="Agregar servicio"
+      label="Agregar ítem"
       icon="pi pi-plus"
       severity="success"
       [outlined]="true"
@@ -15,212 +15,298 @@
     />
   </header>
 
-  <p-table
-    [value]="filas()"
-    [scrollable]="true"
-    scrollHeight="28rem"
-    dataKey="_id"
-    styleClass="p-datatable-sm ft-tabla-servicios"
-  >
-    <ng-template pTemplate="header">
-      <tr>
-        <th style="width: 3rem">#</th>
-        <th style="width: 22rem">CUPS</th>
-        <th style="width: 11rem">Tipo servicio</th>
-        <th style="width: 15rem">Homólogo</th>
-        <th style="width: 9rem">Forma pago</th>
-        <th style="width: 5rem">%</th>
-        <th style="width: 10rem">Valor</th>
-        <th style="width: 12rem">Observación</th>
-        <th style="width: 7rem">Acciones</th>
-      </tr>
-    </ng-template>
+  @if (filas().length === 0) {
+    <div class="ft-vacio">
+      <i class="pi pi-list"></i>
+      <p>No hay ítems agregados. Use <strong>"Agregar ítem"</strong> para comenzar.</p>
+    </div>
+  }
 
-    <ng-template pTemplate="body" let-fila let-i="rowIndex">
-      <tr>
-        <!-- # -->
-        <td class="ft-td-center">{{ i + 1 }}</td>
+  <!-- Cada ítem es una tarjeta con campos que cambian según tipo_liquidacion -->
+  @for (fila of filas(); track fila._id; let i = $index) {
+    <div class="ft-item">
+      <div class="ft-item__head">
+        <span class="ft-item__num">Ítem {{ i + 1 }}</span>
+        <div class="ft-item__acciones">
+          <p-button icon="pi pi-copy" [rounded]="true" [text]="true" severity="secondary"
+            pTooltip="Duplicar" (onClick)="duplicarFila(fila)" />
+          <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger"
+            pTooltip="Eliminar" (onClick)="eliminarFila(fila)" />
+        </div>
+      </div>
 
-        <!-- CUPS (autocompletado) -->
-        <td>
-          <p-autocomplete
-            [(ngModel)]="fila._cups_label"
-            [suggestions]="sugerenciasCups()"
-            (completeMethod)="buscarCups($event)"
-            (onSelect)="seleccionarCups(fila, $event.value)"
-            field="subcategoria"
-            [forceSelection]="false"
-            [minLength]="2"
-            placeholder="Buscar CUPS…"
-            [style]="{ width: '100%' }"
-            [inputStyle]="{ width: '100%', fontSize: '0.82rem' }"
-          >
-            <ng-template let-item pTemplate="item">
-              <div class="ft-cups-item">
-                <strong>{{ item.subcategoria }}</strong>
-                <span>{{ item.desc_subcat }}</span>
-              </div>
-            </ng-template>
-          </p-autocomplete>
-        </td>
-
-        <!-- Tipo servicio -->
-        <td>
+      <div class="ft-item__grid">
+        <!-- ── Campo 1: Tipo de liquidación (siempre visible) ── -->
+        <div class="ft-campo">
+          <label>Tipo de liquidación <span aria-hidden="true">*</span></label>
           <p-select
-            [(ngModel)]="fila.id_tipo_servicio"
-            [options]="tiposServicio()"
-            optionLabel="descripcion"
-            optionValue="id"
-            placeholder="Tipo"
-            [showClear]="true"
-            appendTo="body"
-            (onChange)="onTipoServicioCambia(fila)"
-            [style]="{ width: '100%', fontSize: '0.82rem' }"
-          />
-        </td>
-
-        <!-- Homólogo (select de opciones cargadas al elegir CUPS) -->
-        <td>
-          @if (sugerenciasHomologos().length > 0 && fila.cups) {
-            <p-select
-              [(ngModel)]="fila.homologo"
-              [options]="sugerenciasHomologos()"
-              optionLabel="desc_manual"
-              optionValue="code_manual"
-              placeholder="Seleccione"
-              [showClear]="true"
-              appendTo="body"
-              (onChange)="seleccionarHomologo(fila, $event.value)"
-              [style]="{ width: '100%', fontSize: '0.82rem' }"
-            >
-              <ng-template let-h pTemplate="item">
-                <div class="ft-cups-item">
-                  <strong>{{ h.code_manual }}</strong>
-                  <span>{{ h.desc_manual }} ({{ h.tipo_manual }})</span>
-                </div>
-              </ng-template>
-            </p-select>
-          } @else {
-            <input
-              pInputText
-              [(ngModel)]="fila.homologo"
-              placeholder="Código"
-              style="width: 100%; font-size: 0.82rem"
-            />
-          }
-        </td>
-
-        <!-- Forma de pago -->
-        <td>
-          <p-select
-            [(ngModel)]="fila.forma_pago"
-            [options]="formasPago()"
+            [(ngModel)]="fila.tipo_liquidacion"
+            [options]="TIPOS_LIQ"
             optionLabel="label"
             optionValue="value"
-            placeholder="—"
-            [showClear]="true"
+            placeholder="Seleccione tipo"
             appendTo="body"
-            [style]="{ width: '100%', fontSize: '0.82rem' }"
+            (onChange)="onTipoLiquidacionCambia(fila)"
+            [style]="{ width: '100%' }"
           />
-        </td>
+        </div>
 
-        <!-- Variación (%) -->
-        <td>
-          <input
-            pInputText
-            [(ngModel)]="fila.variacion"
-            placeholder="%"
-            maxlength="6"
-            style="width: 100%; font-size: 0.82rem; text-align: center"
-          />
-        </td>
+        <!-- ═══════════ RAMA: TIPO DE SERVICIO ═══════════ -->
+        @if (fila.tipo_liquidacion === 'TIPO DE SERVICIO') {
+          <div class="ft-campo">
+            <label>Servicio <span aria-hidden="true">*</span></label>
+            <p-select
+              [(ngModel)]="fila.tipo_servicio"
+              [options]="['COORDINACIÓN','PRESENCIALIDAD','DISPONIBILIDAD','CONJUNTO DE SERVICIOS']"
+              placeholder="Seleccione servicio"
+              appendTo="body"
+              (onChange)="onTipoServicioCambia(fila)"
+              [style]="{ width: '100%' }"
+            />
+          </div>
 
-        <!-- Valor -->
-        <td>
-          <p-inputnumber
-            [(ngModel)]="fila.valor"
-            mode="currency"
-            currency="COP"
-            locale="es-CO"
-            [minFractionDigits]="0"
-            [min]="0"
-            [inputStyle]="{ width: '100%', fontSize: '0.82rem' }"
-          />
-        </td>
+          <!-- Sub-rama: normal (coordinación/presencialidad/disponibilidad) -->
+          @if (esTipoServicioNormal(fila)) {
+            <div class="ft-campo">
+              <label>Forma de pago <span aria-hidden="true">*</span></label>
+              <p-select
+                [(ngModel)]="fila.forma_pago"
+                [options]="FP_TS_NORMAL"
+                placeholder="Seleccione forma de pago"
+                appendTo="body"
+                [filter]="true"
+                [style]="{ width: '100%' }"
+              />
+            </div>
+            <div class="ft-campo">
+              <label>Valor <span aria-hidden="true">*</span></label>
+              <p-inputnumber [(ngModel)]="fila.valor" mode="currency" currency="COP"
+                locale="es-CO" [minFractionDigits]="0" [min]="0" placeholder="$ 0"
+                [inputStyle]="{ width: '100%' }" />
+            </div>
+          }
 
-        <!-- Observación -->
-        <td>
-          @if (observaciones().length > 0) {
+          <!-- Sub-rama: conjunto de servicios -->
+          @if (esTipoServicioConjunto(fila)) {
+            <div class="ft-campo">
+              <label>Forma de pago <span aria-hidden="true">*</span></label>
+              <p-select
+                [(ngModel)]="fila.forma_pago"
+                [options]="FP_TS_CONJUNTO"
+                placeholder="Seleccione forma de pago"
+                appendTo="body"
+                (onChange)="onFormaPagoConjuntoCambia(fila)"
+                [style]="{ width: '100%' }"
+              />
+            </div>
+            @if (conjuntoUsaValor(fila)) {
+              <div class="ft-campo">
+                <label>Valor <span aria-hidden="true">*</span></label>
+                <p-inputnumber [(ngModel)]="fila.valor" mode="currency" currency="COP"
+                  locale="es-CO" [minFractionDigits]="0" [min]="0" placeholder="$ 0"
+                  [inputStyle]="{ width: '100%' }" />
+              </div>
+            }
+            @if (conjuntoUsaPorcentaje(fila)) {
+              <div class="ft-campo">
+                <label>Porcentaje <span aria-hidden="true">*</span></label>
+                <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
+                  placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+              </div>
+            }
+          }
+        }
+
+        <!-- ═══════════ RAMA: CUPS ═══════════ -->
+        @if (fila.tipo_liquidacion === 'CUPS') {
+          <div class="ft-campo ft-campo--ancho">
+            <label>Código CUPS <span aria-hidden="true">*</span></label>
+            <p-autocomplete
+              [(ngModel)]="fila._cups_label"
+              [suggestions]="sugerenciasCups()"
+              (completeMethod)="buscarCups($event)"
+              (onSelect)="seleccionarCups(fila, $event.value)"
+              field="subcategoria"
+              [forceSelection]="false"
+              [minLength]="2"
+              placeholder="Buscar CUPS por código o descripción…"
+              [style]="{ width: '100%' }"
+              [inputStyle]="{ width: '100%' }"
+            >
+              <ng-template let-item pTemplate="item">
+                <div class="ft-cups-item">
+                  <strong>{{ item.subcategoria }}</strong>
+                  <span>{{ item.desc_subcat }}</span>
+                </div>
+              </ng-template>
+            </p-autocomplete>
+          </div>
+
+          @if (fila.cups) {
+            <div class="ft-campo">
+              <label>Homologación</label>
+              @if (fila._cargandoHomologos) {
+                <span class="ft-hint"><i class="pi pi-spin pi-spinner"></i> Cargando homólogos…</span>
+              } @else {
+                <p-select
+                  [ngModel]="fila.homologo"
+                  [options]="fila._homologos ?? []"
+                  optionLabel="desc_manual"
+                  optionValue="code_manual"
+                  placeholder="Seleccione homólogo"
+                  [showClear]="true"
+                  appendTo="body"
+                  (onChange)="seleccionarHomologo(fila, $event.value ? findHomologo(fila, $event.value) : null)"
+                  [style]="{ width: '100%' }"
+                >
+                  <ng-template let-h pTemplate="item">
+                    <div class="ft-cups-item">
+                      <strong>{{ h.code_manual }}</strong>
+                      <span>{{ h.desc_manual }} ({{ h.tipo_manual }})</span>
+                    </div>
+                  </ng-template>
+                </p-select>
+              }
+            </div>
+
+            <div class="ft-campo">
+              <label>Forma de pago <span aria-hidden="true">*</span></label>
+              <p-select
+                [(ngModel)]="fila.forma_pago"
+                [options]="FP_ISS_SOAT"
+                placeholder="Seleccione forma de pago"
+                appendTo="body"
+                [filter]="true"
+                (onChange)="onFormaPagoCupsCambia(fila)"
+                [style]="{ width: '100%' }"
+              />
+            </div>
+
+            @if (cupsUsaPorcentaje(fila)) {
+              <div class="ft-campo">
+                <label>Porcentaje <span aria-hidden="true">*</span></label>
+                <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
+                  placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+              </div>
+            }
+            @if (cupsUsaValor(fila)) {
+              <div class="ft-campo">
+                <label>Valor <span aria-hidden="true">*</span></label>
+                <p-inputnumber [(ngModel)]="fila.valor" mode="currency" currency="COP"
+                  locale="es-CO" [minFractionDigits]="0" [min]="0" placeholder="$ 0"
+                  [inputStyle]="{ width: '100%' }" />
+              </div>
+            }
+          }
+        }
+
+        <!-- ═══════════ RAMA: GRUPO ═══════════ -->
+        @if (fila.tipo_liquidacion === 'GRUPO') {
+          <div class="ft-campo">
+            <label>Grupo <span aria-hidden="true">*</span></label>
+            <p-select
+              [(ngModel)]="fila.grupo"
+              [options]="grupos()"
+              optionLabel="desc_grup"
+              optionValue="grupo"
+              placeholder="Seleccione grupo"
+              [filter]="true"
+              filterBy="grupo,desc_grup"
+              appendTo="body"
+              (onChange)="onGrupoCambia(fila)"
+              [style]="{ width: '100%' }"
+            />
+          </div>
+          <div class="ft-campo">
+            <label>Forma de pago <span aria-hidden="true">*</span></label>
+            <p-select
+              [(ngModel)]="fila.forma_pago"
+              [options]="FP_ISS_SOAT"
+              placeholder="Seleccione forma de pago"
+              appendTo="body"
+              [filter]="true"
+              (onChange)="onFormaPagoGrupoCambia(fila)"
+              [style]="{ width: '100%' }"
+            />
+          </div>
+          @if (grupoUsaPorcentaje(fila)) {
+            <div class="ft-campo">
+              <label>Porcentaje <span aria-hidden="true">*</span></label>
+              <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
+                placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+            </div>
+          }
+        }
+
+        <!-- ═══════════ RAMA: SUBGRUPO ═══════════ -->
+        @if (fila.tipo_liquidacion === 'SUBGRUPO') {
+          <div class="ft-campo">
+            <label>Subgrupo <span aria-hidden="true">*</span></label>
+            <p-select
+              [(ngModel)]="fila.subgrupo"
+              [options]="subgrupos()"
+              optionLabel="desc_subg"
+              optionValue="subgrupo"
+              placeholder="Seleccione subgrupo"
+              [filter]="true"
+              filterBy="subgrupo,desc_subg"
+              appendTo="body"
+              (onChange)="onSubgrupoCambia(fila)"
+              [style]="{ width: '100%' }"
+            />
+          </div>
+          <div class="ft-campo">
+            <label>Forma de pago <span aria-hidden="true">*</span></label>
+            <p-select
+              [(ngModel)]="fila.forma_pago"
+              [options]="FP_ISS_SOAT"
+              placeholder="Seleccione forma de pago"
+              appendTo="body"
+              [filter]="true"
+              (onChange)="onFormaPagoGrupoCambia(fila)"
+              [style]="{ width: '100%' }"
+            />
+          </div>
+          @if (grupoUsaPorcentaje(fila)) {
+            <div class="ft-campo">
+              <label>Porcentaje <span aria-hidden="true">*</span></label>
+              <p-select [(ngModel)]="fila.variacion" [options]="['-1','0','1']"
+                placeholder="%" appendTo="body" [style]="{ width: '100%' }" />
+            </div>
+          }
+        }
+
+        <!-- ── Observación (todas las ramas, cuando hay opciones) ── -->
+        @if (fila.tipo_liquidacion && (fila._observaciones?.length ?? 0) > 0) {
+          <div class="ft-campo ft-campo--ancho">
+            <label>Observación del ítem</label>
             <p-select
               [(ngModel)]="fila.id_obs_item"
-              [options]="observaciones()"
+              [options]="fila._observaciones ?? []"
               optionLabel="descripcion"
               optionValue="id"
-              placeholder="—"
+              placeholder="Seleccione observación (opcional)"
               [showClear]="true"
               appendTo="body"
-              (onChange)="seleccionarObservacion(fila, $event.value)"
-              [style]="{ width: '100%', fontSize: '0.78rem' }"
+              [style]="{ width: '100%' }"
             />
-          } @else {
-            <span class="ft-td-placeholder">—</span>
-          }
-        </td>
+          </div>
+        }
+      </div>
+    </div>
+  }
 
-        <!-- Acciones -->
-        <td class="ft-td-center">
-          <p-button
-            icon="pi pi-copy"
-            [rounded]="true"
-            [text]="true"
-            severity="secondary"
-            pTooltip="Duplicar"
-            (onClick)="duplicarFila(fila)"
-          />
-          <p-button
-            icon="pi pi-trash"
-            [rounded]="true"
-            [text]="true"
-            severity="danger"
-            pTooltip="Eliminar"
-            (onClick)="eliminarFila(fila)"
-          />
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="9" class="ft-tabla-servicios__vacio">
-          <i class="pi pi-list"></i>
-          <p>No hay servicios agregados. Use el botón <strong>"Agregar servicio"</strong> para comenzar.</p>
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="footer">
-      <tr class="ft-tabla-servicios__total">
-        <td colspan="6" style="text-align: right; font-weight: 700">TOTAL ({{ filas().length }} ítems)</td>
-        <td style="font-weight: 700; text-align: right">{{ valorTotal() | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td>
-        <td colspan="2"></td>
-      </tr>
-    </ng-template>
-  </p-table>
+  @if (filas().length > 0) {
+    <div class="ft-total">
+      <span>TOTAL ({{ filas().length }} ítem{{ filas().length === 1 ? '' : 's' }})</span>
+      <strong>{{ valorTotal() | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</strong>
+    </div>
+  }
 
   <footer class="ft-paso2__acciones">
-    <p-button
-      label="Volver"
-      icon="pi pi-arrow-left"
-      severity="secondary"
-      [outlined]="true"
-      (onClick)="volver.emit()"
-    />
-    <p-button
-      label="Continuar a revisión"
-      icon="pi pi-arrow-right"
-      iconPos="right"
-      [loading]="guardando()"
-      (onClick)="enviar()"
-    />
+    <p-button label="Volver" icon="pi pi-arrow-left" severity="secondary" [outlined]="true"
+      (onClick)="volver.emit()" />
+    <p-button label="Continuar a revisión" icon="pi pi-arrow-right" iconPos="right"
+      [loading]="guardando()" (onClick)="enviar()" />
   </footer>
 </section>

@@ -24,13 +24,82 @@
   color: #6c757d;
 }
 
-.ft-td-center {
+/* ── Estado vacío ── */
+.ft-vacio {
   text-align: center;
+  padding: 2.5rem 1rem;
+  color: #6c757d;
+  border: 2px dashed #dee2e6;
+  border-radius: 10px;
 }
 
-.ft-td-placeholder {
-  color: #adb5bd;
+.ft-vacio i {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+/* ── Tarjeta de ítem ── */
+.ft-item {
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ft-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.ft-item__num {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #495057;
+}
+
+.ft-item__acciones {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.ft-item__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
+  padding: 1rem;
+}
+
+.ft-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ft-campo--ancho {
+  grid-column: 1 / -1;
+}
+
+.ft-campo label {
   font-size: 0.8rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.ft-campo label span {
+  color: #dc3545;
+}
+
+.ft-hint {
+  font-size: 0.8rem;
+  color: #0d6efd;
+  padding: 0.4rem 0;
 }
 
 .ft-cups-item {
@@ -46,28 +115,27 @@
 
 .ft-cups-item span {
   color: #495057;
-  max-width: 28rem;
+  max-width: 30rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:host ::ng-deep .ft-tabla-servicios__vacio {
-  text-align: center;
-  padding: 2.5rem 1rem;
-  color: #6c757d;
-}
-
-:host ::ng-deep .ft-tabla-servicios__vacio i {
-  font-size: 2rem;
-  display: block;
-  margin-bottom: 0.5rem;
-  opacity: 0.5;
-}
-
-:host ::ng-deep .ft-tabla-servicios__total td {
+/* ── Total ── */
+.ft-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
   background: #f8f9fa;
-  border-top: 2px solid #dee2e6;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.ft-total strong {
+  font-size: 1.1rem;
+  color: #198754;
 }
 
 .ft-paso2__acciones {
@@ -76,4 +144,17 @@
   gap: 0.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e9ecef;
+}
+
+:host ::ng-deep .ft-campo p-select,
+:host ::ng-deep .ft-campo p-autocomplete,
+:host ::ng-deep .ft-campo p-inputnumber,
+:host ::ng-deep .ft-campo input {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ft-item__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

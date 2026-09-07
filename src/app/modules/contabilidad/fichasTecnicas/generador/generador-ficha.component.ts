@@ -54,12 +54,14 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
           <app-paso-datos
             [opciones]="opciones()"
             [guardando]="guardando()"
+            [datosPrevios]="cabecera()"
             (continuar)="onPaso1($event)"
           />
         }
         @case (1) {
           <app-paso-servicios
             [guardando]="guardando()"
+            [detallesPrevios]="detallesPayload()"
             (continuar)="onPaso2($event)"
             (volver)="pasoActual = 0"
           />

@@ -67,6 +67,11 @@ export class PasoDatosComponent implements OnDestroy {
   /** Ficha existente en modo edición. */
   readonly ficha     = input<Ficha | null>(null);
   readonly guardando = input<boolean>(false);
+  /**
+   * Datos previos del paso 1 — se reciben cuando el usuario vuelve del paso 2.
+   * Al recibirlos se re-hidrata el formulario sin perder los valores ingresados.
+   */
+  readonly datosPrevios = input<CrearFichaPayload | null>(null);
 
   // ── Output ──────────────────────────────────────────────────────────────
   readonly continuar = output<CrearFichaPayload>();
@@ -141,6 +146,30 @@ export class PasoDatosComponent implements OnDestroy {
       // Cargar profesionales de la especialidad guardada
       this.cargarPorEspecialidad(ficha.id_especialidad);
     });
+
+    // ── Restaurar datos al volver del paso 2 ─────────────────────────────
+    // Si el padre pasa datosPrevios (cabecera guardada) re-hidrata sin consultar de nuevo
+    effect(() => {
+      const prev = this.datosPrevios();
+      // No pisar si ya hay una ficha en modo edición
+      if (!prev || this.ficha()) return;
+
+      this.formulario.patchValue({
+        id_agremiacion:     prev.id_agremiacion,
+        id_objeto_contrato: prev.id_objeto_contrato,
+        id_especialidad:    prev.id_especialidad,
+        vlr_contrato:       prev.vlr_contrato,
+        vigencia: [
+          new Date(`${prev.fecha_ini}T00:00:00`),
+          new Date(`${prev.fecha_fin}T00:00:00`),
+        ],
+        profesionales: prev.profesionales ?? [],
+        obs_os: prev.obs_os ?? '',
+      }, { emitEvent: false }); // emitEvent: false evita re-disparar valueChanges de especialidad
+
+      // Cargar la lista de profesionales para poder mostrar los chips seleccionados
+      this.cargarPorEspecialidadSinLimpiar(prev.id_especialidad, prev.profesionales ?? []);
+    });
   }
 
   ngOnDestroy(): void {
@@ -199,6 +228,10 @@ export class PasoDatosComponent implements OnDestroy {
    * Carga profesionales filtrando por el texto de la especialidad seleccionada.
    * Busca la descripción en el catálogo local de opciones para pasarla a Fabric.
    */
+  /**
+   * Carga profesionales filtrando por el texto de la especialidad seleccionada.
+   * Limpia los profesionales seleccionados (se usa al cambiar especialidad).
+   */
   private cargarPorEspecialidad(idEspecialidad: number | null): void {
     if (!idEspecialidad) {
       this.profesionales.set([]);
@@ -216,12 +249,51 @@ export class PasoDatosComponent implements OnDestroy {
 
     obs$.pipe(takeUntil(this.destroy$)).subscribe({
       next: (lista) => {
-        // Garantizar que siempre sea un array plano antes de asignar al signal
         this.profesionales.set(Array.isArray(lista) ? lista : []);
         this.cargandoProfesionales.set(false);
       },
       error: () => {
         this.profesionales.set([]);
+        this.cargandoProfesionales.set(false);
+      },
+    });
+  }
+
+  /**
+   * Carga profesionales SIN limpiar los seleccionados.
+   * Se usa al restaurar el formulario desde datosPrevios para que los chips
+   * sigan visibles aunque Fabric tarde en responder.
+   */
+  private cargarPorEspecialidadSinLimpiar(idEspecialidad: number | null, codigosSeleccionados: string[]): void {
+    if (!idEspecialidad) return;
+
+    const descripcion = this.opciones()?.especialidades
+      ?.find((e) => e.id === idEspecialidad)?.descripcion ?? '';
+
+    this.cargandoProfesionales.set(true);
+
+    const obs$ = descripcion.trim()
+      ? this.parametros.profesionalesPorEspecialidad(descripcion, 100)
+      : this.parametros.buscarProfesionales('a', 80);
+
+    obs$.pipe(takeUntil(this.destroy$)).subscribe({
+      next: (lista) => {
+        const arr = Array.isArray(lista) ? lista : [];
+        // Asegurarse de que los seleccionados estén en la lista aunque no vengan de Fabric
+        const codigos = new Set(arr.map((p) => p.codigo));
+        const extras = codigosSeleccionados
+          .filter((c) => !codigos.has(c))
+          .map((c): ProfesionalDeEspecialidad => ({ codigo: c, nombre: c, profesion: null, sucursal_sede: null }));
+
+        this.profesionales.set([...arr, ...extras]);
+        this.cargandoProfesionales.set(false);
+      },
+      error: () => {
+        // En caso de error, crear entries mínimas para que los chips sean visibles
+        const minimos = codigosSeleccionados.map(
+          (c): ProfesionalDeEspecialidad => ({ codigo: c, nombre: c, profesion: null, sucursal_sede: null })
+        );
+        this.profesionales.set(minimos);
         this.cargandoProfesionales.set(false);
       },
     });
