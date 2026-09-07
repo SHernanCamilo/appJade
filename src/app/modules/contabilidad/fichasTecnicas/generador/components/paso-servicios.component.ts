@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
@@ -26,11 +27,13 @@ import {
   CupsSubgrupo,
   DetalleFicha,
   DetallePayload,
+  Ficha,
   Homologo,
   ObsItem,
   OpcionesFormulario,
 } from '../../models/ficha.model';
 import { CupsService } from '../../services/cups.service';
+import { FichasTecnicasService } from '../../services/fichas-tecnicas.service';
 import { ParametrosService } from '../../services/parametros.service';
 
 // ── Tipos de liquidación (replicados del legacy form_liquidacion.php) ─────────
@@ -150,6 +153,7 @@ export interface FilaServicio extends DetallePayload {
     InputNumberModule,
     InputTextModule,
     ButtonModule,
+    DialogModule,
     TagModule,
     ToastModule,
     TooltipModule,
@@ -162,6 +166,7 @@ export interface FilaServicio extends DetallePayload {
 export class PasoServiciosComponent implements OnInit {
   private readonly cups       = inject(CupsService);
   private readonly parametros = inject(ParametrosService);
+  private readonly fichas     = inject(FichasTecnicasService);
   private readonly mensajes   = inject(MessageService);
 
   // ── Inputs ──────────────────────────────────────────────────────────────
@@ -182,6 +187,15 @@ export class PasoServiciosComponent implements OnInit {
   protected readonly homologos       = signal<Homologo[]>([]);
   protected readonly observaciones   = signal<ObsItem[]>([]);
   protected readonly cargandoHomologos = signal<boolean>(false);
+
+  // ── Estado: importación de servicios desde otra ficha ─────────────────────
+  /** Estados importables (legacy import.php: id_estado in 5,11). */
+  private static readonly ESTADOS_IMPORTABLES = [5, 11];
+  protected readonly mostrarImportar     = signal<boolean>(false);
+  protected readonly cargandoFichas       = signal<boolean>(false);
+  protected readonly fichasImportables    = signal<Ficha[]>([]);
+  protected readonly fichaOrigen          = signal<number | null>(null);
+  protected readonly importando           = signal<boolean>(false);
 
   /**
    * Homólogos filtrados por la forma de pago (tipo_manual) seleccionada.
@@ -453,6 +467,86 @@ export class PasoServiciosComponent implements OnInit {
 
   protected eliminarFila(fila: FilaServicio): void {
     this.filas.update((prev) => prev.filter((f) => f._id !== fila._id));
+  }
+
+  // ── Importar servicios de otra ficha (legacy import.php) ───────────────────
+
+  /** Abre el diálogo y carga las fichas importables (estados 5 y 11). */
+  protected abrirImportar(): void {
+    this.fichaOrigen.set(null);
+    this.mostrarImportar.set(true);
+
+    if (this.fichasImportables().length > 0) return; // ya cargadas
+
+    this.cargandoFichas.set(true);
+    this.fichas
+      .listar({ id_estado: PasoServiciosComponent.ESTADOS_IMPORTABLES, per_page: 200 })
+      .subscribe({
+        next: (resp) => {
+          this.fichasImportables.set(Array.isArray(resp.data) ? resp.data : []);
+          this.cargandoFichas.set(false);
+        },
+        error: () => {
+          this.fichasImportables.set([]);
+          this.cargandoFichas.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudieron cargar las fichas',
+            detail: 'Intente nuevamente en unos segundos.',
+            life: 4000,
+          });
+        },
+      });
+  }
+
+  /** Etiqueta legible de una ficha para el desplegable ("consecutivo — agremiación — especialidad"). */
+  protected etiquetaFicha(f: Ficha): string {
+    const consecutivo = f.consecutivo ?? `Ficha #${f.id}`;
+    const agrem = f.agremiacion?.nombre ?? 's/agremiación';
+    const esp = f.especialidad?.descripcion ?? 's/especialidad';
+    return `${consecutivo} — ${agrem} — ${esp}`;
+  }
+
+  /** Trae los detalles de la ficha origen y los agrega a la tabla actual. */
+  protected confirmarImportar(): void {
+    const idOrigen = this.fichaOrigen();
+    if (!idOrigen) {
+      this.mensajes.add({
+        severity: 'warn',
+        summary: 'Seleccione una ficha',
+        detail: 'Elija la ficha de la que desea importar los servicios.',
+        life: 3500,
+      });
+      return;
+    }
+
+    this.importando.set(true);
+    this.fichas.detalles(idOrigen).subscribe({
+      next: (detalles) => {
+        const nuevas = (Array.isArray(detalles) ? detalles : []).map((d) => this.detalleAFila(d));
+        this.filas.update((prev) => [...prev, ...nuevas]);
+        this.importando.set(false);
+        this.mostrarImportar.set(false);
+
+        this.mensajes.add({
+          severity: nuevas.length > 0 ? 'success' : 'info',
+          summary: nuevas.length > 0 ? 'Servicios importados' : 'Sin servicios',
+          detail: nuevas.length > 0
+            ? `Se agregaron ${nuevas.length} servicio(s) desde la ficha seleccionada.`
+            : 'La ficha seleccionada no tiene servicios para importar.',
+          life: 3500,
+        });
+      },
+      error: () => {
+        this.importando.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'Error al importar',
+          detail: 'No se pudieron obtener los servicios de la ficha seleccionada.',
+          life: 4000,
+        });
+      },
+    });
   }
 
   // ── Navegación ─────────────────────────────────────────────────────────────

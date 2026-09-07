@@ -6,6 +6,13 @@
       <h2>Servicios y procedimientos</h2>
       <p>Configure cada ítem y agréguelo a la ficha. Puede agregar varios ítems.</p>
     </div>
+    <p-button
+      label="Importar de otra ficha"
+      icon="pi pi-download"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="abrirImportar()"
+    />
   </header>
 
   <!-- ════════════════ FORMULARIO DE CAPTURA ════════════════ -->
@@ -315,4 +322,56 @@
     <p-button label="Continuar a revisión" icon="pi pi-arrow-right" iconPos="right"
       [loading]="guardando()" (onClick)="enviar()" />
   </footer>
+
+  <!-- ════════════════ DIÁLOGO: IMPORTAR DE OTRA FICHA ════════════════ -->
+  <p-dialog
+    header="Importar servicios de otra ficha"
+    [(visible)]="mostrarImportar"
+    [modal]="true"
+    [style]="{ width: '640px', maxWidth: '95vw' }"
+    [dismissableMask]="true"
+  >
+    <p class="ft-import__ayuda">
+      Seleccione una ficha aprobada o vigente. Sus servicios (con homólogos y
+      observaciones) se agregarán a la tabla actual; podrá editarlos o eliminarlos después.
+    </p>
+
+    @if (cargandoFichas()) {
+      <div class="ft-import__estado">
+        <i class="pi pi-spin pi-spinner"></i> Cargando fichas disponibles…
+      </div>
+    } @else {
+      <div class="ft-campo">
+        <label>Ficha de origen</label>
+        <p-select
+          [ngModel]="fichaOrigen()"
+          (ngModelChange)="fichaOrigen.set($event)"
+          [options]="fichasImportables()"
+          optionLabel="consecutivo"
+          optionValue="id"
+          [filter]="true"
+          filterBy="consecutivo"
+          [placeholder]="fichasImportables().length ? 'Seleccione la ficha a importar' : 'No hay fichas disponibles para importar'"
+          [showClear]="true"
+          appendTo="body"
+          [style]="{ width: '100%' }"
+        >
+          <ng-template let-f pTemplate="item">
+            <div class="ft-cups-item">
+              <strong>{{ f.consecutivo ?? ('Ficha #' + f.id) }}</strong>
+              <span>{{ etiquetaFicha(f) }}</span>
+            </div>
+          </ng-template>
+        </p-select>
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <p-button label="Cancelar" icon="pi pi-times" severity="secondary" [text]="true"
+        (onClick)="mostrarImportar.set(false)" />
+      <p-button label="Cargar servicios" icon="pi pi-download"
+        [disabled]="!fichaOrigen()" [loading]="importando()"
+        (onClick)="confirmarImportar()" />
+    </ng-template>
+  </p-dialog>
 </section>
