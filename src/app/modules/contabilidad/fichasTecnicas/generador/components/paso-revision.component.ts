@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DividerModule } from 'primeng/divider';
-import { Textarea } from 'primeng/textarea';
+import { InputTextModule } from 'primeng/inputtext';
 import { PanelModule } from 'primeng/panel';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
@@ -23,7 +23,7 @@ import { CrearFichaPayload, DetallePayload, OpcionesFormulario } from '../../mod
     TagModule,
     ButtonModule,
     DividerModule,
-    Textarea,
+    InputTextModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './paso-revision.component.html',
@@ -35,10 +35,14 @@ export class PasoRevisionComponent {
   readonly opciones = input<OpcionesFormulario | null>(null);
   readonly guardando = input<boolean>(false);
 
-  readonly confirmar = output<string>();
+  /** Emite la lista de observaciones generales al confirmar. */
+  readonly confirmar = output<string[]>();
   readonly volver = output<void>();
 
-  protected readonly observacion = signal<string>('');
+  /** Lista de observaciones generales agregadas (como en el legacy form3). */
+  protected readonly observaciones = signal<string[]>([]);
+  /** Texto en edición del input de nueva observación. */
+  protected readonly nuevaObservacion = signal<string>('');
 
   protected get agremiacion(): string {
     return this.opciones()?.agremiaciones.find((a) => a.id === this.cabecera().id_agremiacion)?.nombre ?? '—';
@@ -56,9 +60,21 @@ export class PasoRevisionComponent {
     return this.detalles().reduce((s, d) => s + (d.valor ?? 0), 0);
   }
 
-  /** Actualiza el signal de observación desde el textarea. */
-  protected setObservacion(valor: string): void {
-    this.observacion.set(valor);
+  protected setNuevaObservacion(valor: string): void {
+    this.nuevaObservacion.set(valor);
+  }
+
+  /** Agrega la observación en edición a la lista (Enter o botón). */
+  protected agregarObservacion(): void {
+    const texto = this.nuevaObservacion().trim();
+    if (texto === '') return;
+
+    this.observaciones.update((prev) => [...prev, texto.toUpperCase()]);
+    this.nuevaObservacion.set('');
+  }
+
+  protected eliminarObservacion(indice: number): void {
+    this.observaciones.update((prev) => prev.filter((_, i) => i !== indice));
   }
 
   /** Resuelve el "concepto" de un detalle según su tipo de liquidación. */
@@ -78,6 +94,12 @@ export class PasoRevisionComponent {
   }
 
   protected enviar(): void {
-    this.confirmar.emit(this.observacion().trim());
+    // Si quedó texto sin agregar en el input, lo incluye igualmente.
+    const pendiente = this.nuevaObservacion().trim();
+    const lista = [...this.observaciones()];
+    if (pendiente !== '') {
+      lista.push(pendiente.toUpperCase());
+    }
+    this.confirmar.emit(lista);
   }
 }

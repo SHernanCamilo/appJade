@@ -77,19 +77,49 @@
     </p-table>
   </p-panel>
 
-  <!-- Observaciones generales -->
-  <p-panel header="Observaciones (opcional)" [toggleable]="true" [collapsed]="true">
-    <textarea
-      pTextarea
-      [ngModel]="observacion()"
-      (ngModelChange)="setObservacion($event)"
-      [autoResize]="true"
-      rows="3"
-      maxlength="500"
-      placeholder="Ingrese notas adicionales que desee registrar con la ficha…"
-      class="ft-paso3__textarea"
-    ></textarea>
-    <small class="ft-paso3__counter">{{ observacion().length }}/500</small>
+  <!-- Observaciones generales (varias, como el legacy form3) -->
+  <p-panel header="Observaciones generales ({{ observaciones().length }})" [toggleable]="true">
+    <div class="ft-obs">
+      <div class="ft-obs__input">
+        <input
+          pInputText
+          [ngModel]="nuevaObservacion()"
+          (ngModelChange)="setNuevaObservacion($event)"
+          (keyup.enter)="agregarObservacion()"
+          maxlength="500"
+          placeholder="Escriba una observación corta y presione Agregar (puede añadir varias)…"
+          class="ft-obs__field"
+        />
+        <p-button
+          label="Agregar"
+          icon="pi pi-plus"
+          severity="success"
+          [outlined]="true"
+          (onClick)="agregarObservacion()"
+        />
+      </div>
+
+      @if (observaciones().length > 0) {
+        <ul class="ft-obs__lista">
+          @for (obs of observaciones(); track $index) {
+            <li class="ft-obs__item">
+              <span class="ft-obs__num">{{ $index + 1 }}</span>
+              <span class="ft-obs__texto">{{ obs }}</span>
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                pTooltip="Eliminar"
+                (onClick)="eliminarObservacion($index)"
+              />
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="ft-obs__vacio">Sin observaciones. Puede continuar sin agregar ninguna (es opcional).</p>
+      }
+    </div>
   </p-panel>
 
   <p-divider />

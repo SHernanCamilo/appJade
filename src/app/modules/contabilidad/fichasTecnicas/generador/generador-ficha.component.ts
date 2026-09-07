@@ -163,7 +163,7 @@ export class GeneradorFichaComponent {
     this.pasoActual = 2;
   }
 
-  protected onConfirmar(observacion: string): void {
+  protected onConfirmar(observaciones: string[]): void {
     const cabecera = this.cabecera();
 
     if (!cabecera) {
@@ -175,23 +175,33 @@ export class GeneradorFichaComponent {
     // 1. Crear la ficha con sus profesionales.
     this.fichaService.crear(cabecera).subscribe({
       next: (ficha) => {
+        // Guard defensivo: si el backend no devolvió un id válido, abortar.
+        if (!ficha?.id) {
+          this.guardando.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudo crear la ficha',
+            detail: 'El servidor no devolvió el identificador de la ficha.',
+            life: 6000,
+          });
+          return;
+        }
+
         // 2. Guardar servicios en lote.
         this.fichaService.guardarDetalles(ficha.id, this.detallesPayload()).subscribe({
           next: () => {
-            // 3. Observación (opcional).
-            if (observacion) {
-              this.fichaService.agregarObservacion(ficha.id, observacion).subscribe();
-            }
-
-            this.guardando.set(false);
-            this.mensajes.add({
-              severity: 'success',
-              summary: 'Ficha creada',
-              detail: `La ficha #${ficha.id} fue creada y enviada a validación.`,
-              life: 5000,
+            // 3. Observaciones generales (varias, opcionales) — en secuencia.
+            const obs = observaciones.filter((o) => o.trim() !== '');
+            this.guardarObservaciones(ficha.id, obs, () => {
+              this.guardando.set(false);
+              this.mensajes.add({
+                severity: 'success',
+                summary: 'Ficha creada',
+                detail: `La ficha #${ficha.id} fue creada y enviada a validación.`,
+                life: 5000,
+              });
+              void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
             });
-
-            void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
           },
           error: (err: unknown) => {
             this.guardando.set(false);
@@ -211,6 +221,30 @@ export class GeneradorFichaComponent {
 
         this.mostrarError(err);
       },
+    });
+  }
+
+  /**
+   * Guarda las observaciones una a una (el backend acepta una por request).
+   * Al terminar (con o sin observaciones) invoca el callback.
+   */
+  private guardarObservaciones(idFicha: number, observaciones: string[], onDone: () => void): void {
+    if (observaciones.length === 0) {
+      onDone();
+      return;
+    }
+
+    let pendientes = observaciones.length;
+    observaciones.forEach((texto) => {
+      this.fichaService.agregarObservacion(idFicha, texto).subscribe({
+        next: () => {
+          if (--pendientes === 0) onDone();
+        },
+        error: () => {
+          // No bloqueamos el flujo por una observación fallida
+          if (--pendientes === 0) onDone();
+        },
+      });
     });
   }
 

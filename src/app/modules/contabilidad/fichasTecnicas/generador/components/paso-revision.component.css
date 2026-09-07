@@ -71,6 +71,68 @@
   gap: 0.5rem;
 }
 
+/* ── Observaciones múltiples ── */
+.ft-obs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ft-obs__input {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ft-obs__field {
+  flex: 1;
+}
+
+.ft-obs__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ft-obs__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.ft-obs__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  background: #0d6efd;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.ft-obs__texto {
+  flex: 1;
+  font-size: 0.88rem;
+  color: #212529;
+}
+
+.ft-obs__vacio {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #adb5bd;
+  font-style: italic;
+}
+
 @media (max-width: 900px) {
   .ft-resumen {
     grid-template-columns: minmax(0, 1fr);

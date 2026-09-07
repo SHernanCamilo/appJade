@@ -57,15 +57,16 @@ export class FichasTecnicasService {
   }
 
   crear(payload: CrearFichaPayload): Observable<Ficha> {
+    // El backend responde { success, data: { ficha, alertas } }.
     return this.http
-      .post<ApiResponse<Ficha>>(`${this.base}/fichas`, payload)
-      .pipe(map((r) => r.data));
+      .post<ApiResponse<{ ficha: Ficha; alertas: unknown[] }>>(`${this.base}/fichas`, payload)
+      .pipe(map((r) => r.data.ficha));
   }
 
   actualizar(id: number, payload: ActualizarFichaPayload): Observable<Ficha> {
     return this.http
-      .put<ApiResponse<Ficha>>(`${this.base}/fichas/${id}`, payload)
-      .pipe(map((r) => r.data));
+      .put<ApiResponse<{ ficha: Ficha; alertas: unknown[] }>>(`${this.base}/fichas/${id}`, payload)
+      .pipe(map((r) => r.data.ficha));
   }
 
   cancelar(id: number, motivo?: string): Observable<Ficha> {
