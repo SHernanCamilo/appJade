@@ -127,7 +127,7 @@ export class ListadoVistasComponent implements OnInit {
   }
 
   permissionDesktop(): boolean {
-    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP-ADMIN'); 
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP');
   }
 
   get isLoading(): boolean {
