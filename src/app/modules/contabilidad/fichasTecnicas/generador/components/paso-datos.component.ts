@@ -3,7 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnDestroy,
-  effect,
+  OnInit,
   inject,
   input,
   output,
@@ -56,7 +56,7 @@ import { ParametrosService } from '../../services/parametros.service';
   templateUrl: './paso-datos.component.html',
   styleUrl: './paso-datos.component.css',
 })
-export class PasoDatosComponent implements OnDestroy {
+export class PasoDatosComponent implements OnInit, OnDestroy {
   private readonly fb         = inject(FormBuilder);
   private readonly parametros = inject(ParametrosService);
   private readonly destroy$   = new Subject<void>();
@@ -82,9 +82,6 @@ export class PasoDatosComponent implements OnDestroy {
 
   /** Subject para debounce del filtro de búsqueda libre en el MultiSelect. */
   private readonly filtroBusqueda$ = new Subject<string>();
-
-  /** Evita re-hidratar la cabecera más de una vez al volver del paso 2. */
-  private _restaurado = false;
 
   protected readonly formulario = this.fb.nonNullable.group({
     id_agremiacion:    [null as number | null, Validators.required],
@@ -128,42 +125,45 @@ export class PasoDatosComponent implements OnDestroy {
       error: () => this.cargandoProfesionales.set(false),
     });
 
-    // ── Pre-carga en modo edición ────────────────────────────────────────
-    effect(() => {
-      const ficha = this.ficha();
-      if (!ficha) return;
+  }
 
+  /**
+   * Restaura el formulario al crearse el componente:
+   *  - Modo edición (ficha existente): pre-carga desde la ficha.
+   *  - Volver del paso 2 (datosPrevios): re-hidrata la cabecera guardada.
+   *
+   * Los inputs signal ya tienen su valor cuando corre ngOnInit (el padre
+   * los enlaza antes del primer render), por eso es determinístico —
+   * a diferencia de effect(), que dependía del orden de detección.
+   */
+  ngOnInit(): void {
+    const ficha = this.ficha();
+    const prev  = this.datosPrevios();
+
+    // ── Modo edición ──
+    if (ficha) {
       this.formulario.patchValue({
-        id_agremiacion:    ficha.id_agremiacion,
+        id_agremiacion:     ficha.id_agremiacion,
         id_objeto_contrato: ficha.id_objeto_contrato,
-        id_especialidad:   ficha.id_especialidad,
-        vlr_contrato:      Number(ficha.vlr_contrato),
+        id_especialidad:    ficha.id_especialidad,
+        vlr_contrato:       Number(ficha.vlr_contrato),
         vigencia: [
           new Date(`${ficha.fecha_ini}T00:00:00`),
           new Date(`${ficha.fecha_fin}T00:00:00`),
         ],
         profesionales: (ficha.profesionales ?? []).map((p) => p.codigo ?? String(p.id)),
         obs_os: ficha.obs_os ?? '',
-      });
+      }, { emitEvent: false });
 
-      // Cargar profesionales de la especialidad guardada
-      this.cargarPorEspecialidad(ficha.id_especialidad);
-    });
+      this.cargarPorEspecialidadSinLimpiar(
+        ficha.id_especialidad,
+        (ficha.profesionales ?? []).map((p) => p.codigo ?? String(p.id)),
+      );
+      return;
+    }
 
-    // ── Restaurar datos al volver del paso 2 ─────────────────────────────
-    // El effect depende de datosPrevios() Y de opciones(): cuando ambas están
-    // disponibles se re-hidrata. Así, aunque las opciones lleguen después del
-    // input datosPrevios, la restauración ocurre igualmente (y los profesionales
-    // se resuelven bien por descripción de especialidad).
-    effect(() => {
-      const prev     = this.datosPrevios();
-      const opciones = this.opciones();
-      // No pisar si ya hay una ficha en modo edición
-      if (!prev || this.ficha() || !opciones) return;
-      // Evitar re-hidratar dos veces la misma cabecera
-      if (this._restaurado) return;
-      this._restaurado = true;
-
+    // ── Volver del paso 2: restaurar cabecera guardada ──
+    if (prev) {
       this.formulario.patchValue({
         id_agremiacion:     prev.id_agremiacion,
         id_objeto_contrato: prev.id_objeto_contrato,
@@ -175,11 +175,10 @@ export class PasoDatosComponent implements OnDestroy {
         ],
         profesionales: prev.profesionales ?? [],
         obs_os: prev.obs_os ?? '',
-      }, { emitEvent: false }); // emitEvent: false evita re-disparar valueChanges de especialidad
+      }, { emitEvent: false }); // no dispara la cascada de especialidad
 
-      // Cargar la lista de profesionales para poder mostrar los chips seleccionados
       this.cargarPorEspecialidadSinLimpiar(prev.id_especialidad, prev.profesionales ?? []);
-    });
+    }
   }
 
   ngOnDestroy(): void {
