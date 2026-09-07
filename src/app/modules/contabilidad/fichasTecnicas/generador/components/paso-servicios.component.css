@@ -102,6 +102,14 @@
   padding: 0.4rem 0;
 }
 
+.ft-hint-ok {
+  font-size: 0.75rem;
+  color: #198754;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .ft-cups-item {
   display: flex;
   flex-direction: column;
@@ -150,6 +158,20 @@
 :host ::ng-deep .ft-campo p-autocomplete,
 :host ::ng-deep .ft-campo p-inputnumber,
 :host ::ng-deep .ft-campo input {
+  width: 100%;
+}
+
+/* El autocomplete y su input deben ocupar el 100% del campo */
+:host ::ng-deep .ft-campo .p-autocomplete {
+  display: flex;
+}
+
+:host ::ng-deep .ft-campo .p-autocomplete .p-autocomplete-input {
+  width: 100%;
+}
+
+/* El select debe ocupar todo el ancho del campo */
+:host ::ng-deep .ft-campo .p-select {
   width: 100%;
 }
 

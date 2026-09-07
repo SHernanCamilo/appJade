@@ -129,9 +129,13 @@
               field="subcategoria"
               [forceSelection]="false"
               [minLength]="2"
-              placeholder="Buscar CUPS por código o descripción…"
+              [delay]="350"
+              scrollHeight="240px"
+              placeholder="Escriba código o descripción del CUPS (mín. 2 caracteres)…"
+              styleClass="ft-ac"
               [style]="{ width: '100%' }"
               [inputStyle]="{ width: '100%' }"
+              [panelStyle]="{ maxWidth: '90vw' }"
             >
               <ng-template let-item pTemplate="item">
                 <div class="ft-cups-item">
@@ -140,6 +144,9 @@
                 </div>
               </ng-template>
             </p-autocomplete>
+            @if (fila.cups) {
+              <small class="ft-hint-ok"><i class="pi pi-check-circle"></i> {{ fila._cups_label }}</small>
+            }
           </div>
 
           @if (fila.cups) {
