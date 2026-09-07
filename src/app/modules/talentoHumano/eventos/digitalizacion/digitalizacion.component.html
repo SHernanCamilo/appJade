@@ -122,6 +122,12 @@
             <i class="pi pi-upload"></i>
             Cargue masivo
           </button>
+          <button class="btn-action btn-action-danger"
+            [disabled]="seleccion.length === 0 || isProcesando"
+            (click)="abrirRechazoSeleccionados()">
+            <i class="pi pi-ban"></i>
+            Rechazar seleccionados ({{ seleccion.length }})
+          </button>
           <button class="btn-action btn-action-success"
             [disabled]="seleccion.length === 0 || isProcesando"
             (click)="digitalizarSeleccionados()">
@@ -170,7 +176,7 @@
           styleClass="modern-table"
           emptyMessage="No hay eventos autorizados pendientes de digitalizar"
           currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} eventos"
-          actionsWidth="140px"
+          actionsWidth="220px"
           [tableStyle]="{ 'min-width': '100%' }">
 
           <ng-template pTemplate="cell-empleado" let-row>
@@ -209,6 +215,12 @@
                 [disabled]="isProcesando"
                 (click)="$event.stopPropagation(); digitalizarUno(row)">
                 <i class="pi pi-upload"></i>
+              </button>
+              <button type="button" class="btn-action-icon btn-action-danger"
+                pTooltip="Rechazar" tooltipPosition="top"
+                [disabled]="isProcesando"
+                (click)="$event.stopPropagation(); abrirRechazo(row)">
+                <i class="pi pi-ban"></i>
               </button>
             </div>
           </ng-template>
@@ -347,6 +359,32 @@
         <span>Digitalizó</span><strong>{{ detalle.user_digitalizador }}</strong>
       </div>
     </div>
+    <div *ngIf="vista !== 'digitalizados' && mostrarMotivoRechazoDetalle" class="rechazo-detalle mt-3">
+      <label class="form-label"><i class="pi pi-exclamation-triangle me-1"></i>Motivo del rechazo <span class="text-danger">*</span></label>
+      <p-dropdown
+        [options]="motivosRechazoOptions"
+        [(ngModel)]="rechazoMotivoId"
+        placeholder="Seleccione el motivo de rechazo"
+        optionLabel="label"
+        optionValue="value"
+        [filter]="true"
+        filterPlaceholder="Buscar motivo..."
+        emptyMessage="No hay motivos de rechazo"
+        emptyFilterMessage="Sin coincidencias"
+        [loading]="isLoadingMotivosRechazo"
+        [showClear]="true"
+        styleClass="w-100"
+        [appendTo]="'body'"
+        [ngModelOptions]="{standalone: true}">
+      </p-dropdown>
+      <small class="text-danger d-block mt-1" *ngIf="!rechazoMotivoId">Debe seleccionar un motivo</small>
+
+      <label class="form-label mt-3"><i class="pi pi-comment me-1"></i>Comentario adicional</label>
+      <textarea pInputText [(ngModel)]="rechazoComentario" rows="3"
+        placeholder="Opcional: agregue un comentario adicional"
+        class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
+      </textarea>
+    </div>
     <div class="mt-3" *ngIf="isLoadingHistorial">
       <p-skeleton width="100%" height="40px"></p-skeleton>
     </div>
@@ -359,11 +397,88 @@
       </div>
     </div>
     <ng-template pTemplate="footer">
-      <button class="btn-action btn-action-secondary" (click)="cerrarDetalle()">Cerrar</button>
-      <button class="btn-action btn-action-success" *ngIf="vista !== 'digitalizados'"
-        [disabled]="isProcesando" (click)="detalle && digitalizarUno(detalle)">
-        <i class="pi pi-upload"></i> Digitalizar
-      </button>
+      <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
+        <button class="btn-action btn-action-secondary" type="button" (click)="cerrarDetalle()">Cerrar</button>
+        <div class="d-flex gap-2" *ngIf="detalle && vista !== 'digitalizados'">
+          <ng-container *ngIf="!mostrarMotivoRechazoDetalle">
+            <button class="btn-action btn-action-danger" type="button"
+              [disabled]="isProcesando"
+              (click)="mostrarMotivoRechazoDetalle = true; loadMotivosRechazo()">
+              <i class="pi pi-ban"></i> Rechazar
+            </button>
+            <button class="btn-action btn-action-success" type="button"
+              [disabled]="isProcesando" (click)="digitalizarUno(detalle)">
+              <i class="pi pi-upload"></i> Digitalizar
+            </button>
+          </ng-container>
+          <ng-container *ngIf="mostrarMotivoRechazoDetalle">
+            <button class="btn-action btn-action-secondary" type="button"
+              (click)="mostrarMotivoRechazoDetalle = false; resetFormularioRechazo()">
+              <i class="pi pi-arrow-left"></i> Cancelar
+            </button>
+            <button class="btn-action btn-action-danger" type="button"
+              [disabled]="!rechazoMotivoId || isProcesando"
+              (click)="confirmarRechazoDesdeDetalle()">
+              <i class="pi pi-ban"></i> Confirmar rechazo
+            </button>
+          </ng-container>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    [header]="rechazoMasivo ? 'Rechazar eventos seleccionados' : 'Rechazar Evento'"
+    [(visible)]="showRechazoDialog"
+    [modal]="true"
+    [closable]="true"
+    [style]="{width: '520px', maxWidth: '95vw'}">
+    <div class="mb-2">
+      <p class="text-muted small mb-3" *ngIf="rechazoMasivo">
+        Se rechazarán <strong>{{ eventosARechazar.length }}</strong> evento(s):
+        {{ consecutivosRechazo }}.
+      </p>
+      <p class="text-muted small mb-3" *ngIf="!rechazoMasivo && rechazoTarget">
+        Evento <strong>{{ rechazoTarget.consecutivo }}</strong>
+      </p>
+
+      <label class="form-label">Motivo del rechazo <span class="text-danger">*</span></label>
+      <p-dropdown
+        [options]="motivosRechazoOptions"
+        [(ngModel)]="rechazoMotivoId"
+        placeholder="Seleccione el motivo de rechazo"
+        optionLabel="label"
+        optionValue="value"
+        [filter]="true"
+        filterPlaceholder="Buscar motivo..."
+        emptyMessage="No hay motivos de rechazo"
+        emptyFilterMessage="Sin coincidencias"
+        [loading]="isLoadingMotivosRechazo"
+        [showClear]="true"
+        styleClass="w-100"
+        [appendTo]="'body'"
+        [ngModelOptions]="{standalone: true}">
+      </p-dropdown>
+      <small class="text-danger d-block mt-1" *ngIf="!rechazoMotivoId">Debe seleccionar un motivo</small>
+
+      <label class="form-label mt-3">Descripción / comentario</label>
+      <textarea pInputText [(ngModel)]="rechazoComentario" rows="3"
+        placeholder="Opcional: agregue una descripción o comentario adicional"
+        class="w-100" [ngModelOptions]="{standalone: true}" style="resize: vertical;">
+      </textarea>
+    </div>
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-end gap-2">
+        <button class="btn-action btn-action-secondary" type="button" (click)="cerrarDialogoRechazo()">
+          Cancelar
+        </button>
+        <button class="btn-action btn-action-danger" type="button"
+          [disabled]="!rechazoMotivoId || isProcesando"
+          (click)="confirmarRechazo()">
+          <i class="pi" [ngClass]="isProcesando ? 'pi-spin pi-spinner' : 'pi-ban'"></i>
+          {{ rechazoMasivo ? 'Rechazar seleccionados' : 'Rechazar' }}
+        </button>
+      </div>
     </ng-template>
   </p-dialog>
 

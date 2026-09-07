@@ -1396,8 +1396,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     return rows != null && rows > this.webMaxRows;
   }
 
+  /** BI-VISTAS-DESKTOP lanza Desktop al superar el umbral; ADM también puede lanzarlo. */
   permissionDesktop(): boolean {
-    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP');
+    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP')
+      || this.permissionService.hasPermission('BI-VISTAS-DESKTOP-ADM');
   }
 
   /** Abre JadeOne Desktop y detiene la carga en el navegador. */

@@ -19,13 +19,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ExcelColumnFilterComponent } from '../excel-column-filter/excel-column-filter.component';
 import { ExcelDateFilterComponent } from '../excel-date-filter/excel-date-filter.component';
 
-import { PermissionService } from '../../../../../core/services/permission.service';
-import { HasPermissionDirective } from '../../../../../core/directives/has-permission.directive';
-
 @Component({
   selector: 'app-view-vistas',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, AgGridAngular, ToastModule, TooltipModule, GridLoaderComponent, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, RouterModule, AgGridAngular, ToastModule, TooltipModule, GridLoaderComponent],
   providers: [MessageService],
   templateUrl: './viewVistas.component.html',
   styleUrl: './viewVistas.component.css',
@@ -98,7 +95,6 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   private exportSub?: Subscription;
   private filterDebounce: ReturnType<typeof setTimeout> | null = null;
   exportEnSegundoPlano = false;
-  isLaunchingDesktop = false;
 
   private listPath = '/inteligenciaNegocios/vistas';
 
@@ -108,8 +104,7 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     private location: Location,
     private vistasService: VistasService,
     private fabricExportService: FabricExportService,
-    private messageService: MessageService,
-    public permissionService: PermissionService
+    private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
@@ -136,10 +131,6 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.exportSub?.unsubscribe();
     if (this.filterDebounce) clearTimeout(this.filterDebounce);
-  }
-
-  permissionDesktop(): boolean {
-    return this.permissionService.hasPermission('BI-VISTAS-DESKTOP');
   }
 
   get totalRegistros(): number {
@@ -529,49 +520,6 @@ export class ViewVistasComponent implements OnInit, OnDestroy {
     const url = this.router.serializeUrl(urlTree);
     const fullUrl = this.location.prepareExternalUrl(url);
     window.open(fullUrl, '_blank', 'noopener');
-  }
-
-  abrirEnEscritorio(): void {
-    if (!this.vista || this.isLaunchingDesktop) {
-      return;
-    }
-
-    this.isLaunchingDesktop = true;
-    this.vistasService.launchDesktop(this.schema, this.viewName, this.vista.nombre).subscribe({
-      next: res => {
-        if (!res.success || !res.protocol_url) {
-          this.isLaunchingDesktop = false;
-          this.messageService.add({
-            severity: 'error',
-            summary: 'No se pudo abrir el escritorio',
-            detail: res.message ?? 'Intente de nuevo.',
-            life: 5000
-          });
-          return;
-        }
-
-        const downloadUrl = res.download_url ?? this.vistasService.getDesktopDownloadUrl();
-        this.vistasService.openDesktopProtocol(res.protocol_url, () => {
-          this.messageService.add({
-            severity: 'warn',
-            summary: 'JadeOne Desktop no está instalado',
-            detail: 'Se iniciará la descarga. Instale el .exe y vuelva a pulsar Escritorio.',
-            life: 8000
-          });
-          window.open(downloadUrl, '_blank', 'noopener');
-        });
-        window.setTimeout(() => { this.isLaunchingDesktop = false; }, VistasService.DESKTOP_LAUNCH_WAIT_MS + 500);
-      },
-      error: err => {
-        this.isLaunchingDesktop = false;
-        this.messageService.add({
-          severity: 'error',
-          summary: 'No se pudo abrir el escritorio',
-          detail: err?.error?.message ?? 'Sin permiso o error de red.',
-          life: 5000
-        });
-      }
-    });
   }
 
   abrirPivot(): void {

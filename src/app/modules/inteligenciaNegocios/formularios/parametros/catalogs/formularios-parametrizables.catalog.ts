@@ -17,13 +17,17 @@ const PROCEDIMIENTOS: CampoFormularioDef[] = [
   { key: 'cupsTraslado', seccion: 'Procedimientos, medicamentos y código de traslado', label: 'Código de traslado (CUPS)', tipo: 'text', requeridoPorDefecto: true }
 ];
 
-const ORIGEN_COMUN: CampoFormularioDef[] = [
-  { key: 'origenReps', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Código REPS', tipo: 'text', requeridoPorDefecto: true },
+const ORIGEN_SIN_REPS: CampoFormularioDef[] = [
   { key: 'origenDepartamento', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Departamento', tipo: 'text', requeridoPorDefecto: false },
   { key: 'origenMunicipio', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Municipio', tipo: 'text', requeridoPorDefecto: false },
   { key: 'origenLocalidad', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Localidad', tipo: 'text', requeridoPorDefecto: false },
   { key: 'origenBarrio', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Barrio', tipo: 'text', requeridoPorDefecto: false },
   { key: 'origenDireccion', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Dirección', tipo: 'text', requeridoPorDefecto: false }
+];
+
+const ORIGEN_COMUN: CampoFormularioDef[] = [
+  { key: 'origenReps', seccion: 'Origen, destino y estado', label: 'Lugar de origen — Código REPS', tipo: 'text', requeridoPorDefecto: true },
+  ...ORIGEN_SIN_REPS
 ];
 
 const ACOMPANANTE: CampoFormularioDef[] = [
@@ -33,16 +37,20 @@ const ACOMPANANTE: CampoFormularioDef[] = [
   { key: 'parentesco', seccion: 'Acompañante', label: 'Relación / parentesco', tipo: 'text', requeridoPorDefecto: false }
 ];
 
-const TRIPULACION: CampoFormularioDef[] = [
-  { key: 'medico1.nombre', seccion: 'Tripulación', label: 'Médico — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
-  { key: 'medico1.tipoDocumento', seccion: 'Tripulación', label: 'Médico — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
-  { key: 'medico1.documento', seccion: 'Tripulación', label: 'Médico — Número de documento', tipo: 'text', requeridoPorDefecto: false },
+const TRIPULACION_SIN_MEDICO: CampoFormularioDef[] = [
   { key: 'auxiliar1.nombre', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
   { key: 'auxiliar1.tipoDocumento', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
   { key: 'auxiliar1.documento', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Número de documento', tipo: 'text', requeridoPorDefecto: false },
   { key: 'comandante1.nombre', seccion: 'Tripulación', label: 'Comandante / conductor — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
   { key: 'comandante1.tipoDocumento', seccion: 'Tripulación', label: 'Comandante / conductor — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
   { key: 'comandante1.documento', seccion: 'Tripulación', label: 'Comandante / conductor — Número de documento', tipo: 'text', requeridoPorDefecto: false }
+];
+
+const TRIPULACION: CampoFormularioDef[] = [
+  { key: 'medico1.nombre', seccion: 'Tripulación', label: 'Médico — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
+  { key: 'medico1.tipoDocumento', seccion: 'Tripulación', label: 'Médico — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'medico1.documento', seccion: 'Tripulación', label: 'Médico — Número de documento', tipo: 'text', requeridoPorDefecto: false },
+  ...TRIPULACION_SIN_MEDICO
 ];
 
 const PROFESIONAL_RECIBE: CampoFormularioDef[] = [
@@ -71,18 +79,16 @@ export const CATALOGO_TRASLADO_PRIMARIO: CampoFormularioDef[] = [
   { key: 'signosInicio.pupilaDerecha', seccion: 'Examen físico', label: 'Pupila derecha', tipo: 'text', requeridoPorDefecto: false },
   { key: 'signosInicio.pupilaIzquierda', seccion: 'Examen físico', label: 'Pupila izquierda', tipo: 'text', requeridoPorDefecto: false },
   { key: 'signosInicio.spo2', seccion: 'Examen físico', label: 'SPO2', tipo: 'text', requeridoPorDefecto: false },
-  { key: 'signosInicio.peso', seccion: 'Examen físico', label: 'Peso', tipo: 'text', requeridoPorDefecto: false },
-  { key: 'signosInicio.pesoUnidad', seccion: 'Examen físico', label: 'Unidad de peso', tipo: 'radio', requeridoPorDefecto: false },
   { key: 'glasgow', seccion: 'Examen físico', label: 'Escala de Glasgow', tipo: 'tabla', requeridoPorDefecto: false },
   { key: 'motivoConsulta', seccion: 'Examen físico', label: 'Motivo de consulta', tipo: 'textarea', requeridoPorDefecto: false },
   { key: 'enfermedadActual', seccion: 'Examen físico', label: 'Enfermedad actual', tipo: 'textarea', requeridoPorDefecto: false },
-  ...ORIGEN_COMUN.map(c => ({ ...c, seccion: 'Origen, destino y estado' })),
+  ...ORIGEN_SIN_REPS.map(c => ({ ...c, seccion: 'Origen, destino y estado' })),
   { key: 'horaLlegadaServicio', seccion: 'Origen, destino y estado', label: 'Hora de llegada de la ambulancia al servicio', tipo: 'time', requeridoPorDefecto: true },
   { key: 'destino1Reps', seccion: 'Origen, destino y estado', label: 'Código REPS de la institución receptora', tipo: 'text', requeridoPorDefecto: true },
   { key: 'horaRecepcion', seccion: 'Origen, destino y estado', label: 'Hora de recepción del paciente por la institución', tipo: 'time', requeridoPorDefecto: true },
   { key: 'estadoFinal', seccion: 'Origen, destino y estado', label: 'Estado del paciente al ingreso', tipo: 'radio', requeridoPorDefecto: true },
   ...ACOMPANANTE,
-  ...TRIPULACION,
+  ...TRIPULACION_SIN_MEDICO,
   ...PROFESIONAL_RECIBE
 ];
 

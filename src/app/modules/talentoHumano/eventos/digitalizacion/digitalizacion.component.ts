@@ -8,7 +8,8 @@ import { catchError, map, switchMap } from 'rxjs/operators';
 import * as XLSX from 'xlsx';
 import {
   EventSolicitud,
-  EventSolicitudService
+  EventSolicitudService,
+  formatMotivoRechazoLabel
 } from '../services/event-solicitud.service';
 import { ContextoService, Empresa, Sucursal } from '../../../../core/services/contexto.service';
 import { ExcelColumn, ExcelExportService } from '../../../../core/services/excel-export.service';
@@ -25,6 +26,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { TextareaModule } from 'primeng/textarea';
 import { SkeletonModule } from 'primeng/skeleton';
 import { CalendarModule } from 'primeng/calendar';
+import { DropdownModule } from 'primeng/dropdown';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { SucursalService } from '../../../organizacion/empresa/services/sucursal.service';
 
@@ -42,7 +44,7 @@ interface AmbitoEmpresa {
     CommonModule, RouterModule, FormsModule,
     ButtonModule, InputTextModule, DialogModule,
     ToastModule, ConfirmDialogModule, TagModule, TooltipModule,
-    TextareaModule, SkeletonModule, DataTableComponent, CalendarModule
+    TextareaModule, SkeletonModule, DataTableComponent, CalendarModule, DropdownModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './digitalizacion.component.html',
@@ -66,11 +68,20 @@ export class DigitalizacionEventosComponent implements OnInit {
 
   showExcelDialog = false;
   showRangoDigitalizados = false;
+  showRechazoDialog = false;
   isImportando = false;
   isExportando = false;
   comentarioMasivo = '';
   fechaDesde: Date | null = null;
   fechaHasta: Date | null = null;
+
+  rechazoMotivoId: number | null = null;
+  rechazoComentario = '';
+  rechazoTarget?: EventSolicitud;
+  rechazoTargets: EventSolicitud[] = [];
+  motivosRechazoOptions: { label: string; value: number }[] = [];
+  isLoadingMotivosRechazo = false;
+  mostrarMotivoRechazoDetalle = false;
 
   vista: 'selector' | 'cola' | 'digitalizados' = 'selector';
   vistaAnterior: 'selector' | 'cola' = 'selector';
@@ -505,6 +516,157 @@ export class DigitalizacionEventosComponent implements OnInit {
     return map[(estado || '').toString().toLowerCase().trim()] ?? 0;
   }
 
+  loadMotivosRechazo(): void {
+    this.isLoadingMotivosRechazo = true;
+    this.solicitudService.getMotivosRechazo().subscribe({
+      next: (data) => {
+        this.motivosRechazoOptions = (data || []).map(m => ({
+          label: formatMotivoRechazoLabel(m),
+          value: m.id
+        }));
+        this.isLoadingMotivosRechazo = false;
+      },
+      error: () => {
+        this.motivosRechazoOptions = [];
+        this.isLoadingMotivosRechazo = false;
+      }
+    });
+  }
+
+  resetFormularioRechazo(): void {
+    this.rechazoMotivoId = null;
+    this.rechazoComentario = '';
+  }
+
+  get rechazoMasivo(): boolean {
+    return this.rechazoTargets.length > 0;
+  }
+
+  get eventosARechazar(): EventSolicitud[] {
+    return this.rechazoMasivo
+      ? this.rechazoTargets
+      : (this.rechazoTarget ? [this.rechazoTarget] : []);
+  }
+
+  get consecutivosRechazo(): string {
+    return this.eventosARechazar.map(e => e.consecutivo).join(', ');
+  }
+
+  abrirRechazo(evento: EventSolicitud): void {
+    this.rechazoTarget = evento;
+    this.rechazoTargets = [];
+    this.resetFormularioRechazo();
+    this.loadMotivosRechazo();
+    this.showRechazoDialog = true;
+  }
+
+  abrirRechazoSeleccionados(): void {
+    if (this.seleccion.length === 0 || this.isProcesando) return;
+    this.rechazoTarget = undefined;
+    this.rechazoTargets = [...this.seleccion];
+    this.resetFormularioRechazo();
+    this.loadMotivosRechazo();
+    this.showRechazoDialog = true;
+  }
+
+  cerrarDialogoRechazo(): void {
+    this.showRechazoDialog = false;
+    this.rechazoTarget = undefined;
+    this.rechazoTargets = [];
+    this.resetFormularioRechazo();
+  }
+
+  confirmarRechazo(): void {
+    const eventos = this.eventosARechazar;
+    if (!eventos.length || !this.rechazoMotivoId) return;
+    this.ejecutarRechazo(eventos);
+  }
+
+  confirmarRechazoDesdeDetalle(): void {
+    if (!this.detalle || !this.rechazoMotivoId) return;
+    this.ejecutarRechazo([this.detalle]);
+  }
+
+  private ejecutarRechazo(eventos: EventSolicitud[]): void {
+    if (!eventos.length || !this.rechazoMotivoId) return;
+
+    const payload = {
+      id_motivo_rechazo: this.rechazoMotivoId,
+      comentario: this.rechazoComentario.trim() || undefined
+    };
+
+    this.isProcesando = true;
+
+    if (eventos.length === 1) {
+      this.solicitudService.rechazarEvento(eventos[0].id, payload).subscribe({
+        next: () => {
+          this.messageService.add({ severity: 'success', summary: 'Éxito', detail: 'Evento rechazado' });
+          this.finalizarRechazo();
+        },
+        error: (err) => {
+          this.isProcesando = false;
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: err.error?.message || 'Error al rechazar'
+          });
+        }
+      });
+      return;
+    }
+
+    forkJoin(
+      eventos.map(evento =>
+        this.solicitudService.rechazarEvento(evento.id, payload).pipe(
+          map(() => ({ ok: true as const, evento })),
+          catchError(err => of({
+            ok: false as const,
+            evento,
+            message: err.error?.message || 'Error al rechazar'
+          }))
+        )
+      )
+    ).subscribe({
+      next: (results) => {
+        const exitosos = results.filter(r => r.ok).length;
+        const fallidos = results.filter(r => !r.ok);
+
+        if (exitosos > 0) {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: exitosos === 1 ? '1 evento rechazado' : `${exitosos} eventos rechazados`
+          });
+        }
+        if (fallidos.length > 0) {
+          this.messageService.add({
+            severity: fallidos.length === eventos.length ? 'error' : 'warn',
+            summary: 'Algunos eventos no se rechazaron',
+            detail: fallidos.map(f => `${f.evento.consecutivo}: ${f.message}`).join('; ')
+          });
+        }
+        this.finalizarRechazo();
+      },
+      error: () => {
+        this.isProcesando = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Error al rechazar la selección'
+        });
+      }
+    });
+  }
+
+  private finalizarRechazo(): void {
+    this.isProcesando = false;
+    this.mostrarMotivoRechazoDetalle = false;
+    this.cerrarDialogoRechazo();
+    this.cerrarDetalle();
+    this.seleccion = [];
+    this.cargarPendientes();
+  }
+
   digitalizarUno(evento: EventSolicitud): void {
     this.confirmationService.confirm({
       message: `¿Digitalizar el evento ${evento.consecutivo}? Nómina lo tomará para el pago.`,
@@ -574,6 +736,8 @@ export class DigitalizacionEventosComponent implements OnInit {
   abrirDetalle(evento: EventSolicitud): void {
     this.detalle = evento;
     this.historial = [];
+    this.mostrarMotivoRechazoDetalle = false;
+    this.resetFormularioRechazo();
     this.showDetalle = true;
     this.isLoadingHistorial = true;
     this.solicitudService.getHistorial(evento.id).subscribe({
@@ -592,6 +756,8 @@ export class DigitalizacionEventosComponent implements OnInit {
     this.showDetalle = false;
     this.detalle = undefined;
     this.historial = [];
+    this.mostrarMotivoRechazoDetalle = false;
+    this.resetFormularioRechazo();
   }
 
   async exportarPendientes(): Promise<void> {
