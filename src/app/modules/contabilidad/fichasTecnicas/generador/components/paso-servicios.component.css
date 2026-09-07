@@ -18,10 +18,26 @@
 
 /* ── Formulario de captura ── */
 .ft-form {
-  border: 1px solid #dee2e6;
-  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   background: #fff;
-  padding: 1.1rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.ft-form::before {
+  content: 'Configuración del ítem';
+  position: absolute;
+  top: -0.62rem;
+  left: 1rem;
+  background: #fff;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #2563eb;
 }
 
 .ft-form__grid {
@@ -126,6 +142,26 @@
 
 .ft-td-center { text-align: center; }
 .ft-td-right  { text-align: right; }
+
+/* Encabezado de tabla más marcado */
+:host ::ng-deep .ft-tabla .p-datatable-thead > tr > th {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+:host ::ng-deep .ft-tabla .p-datatable-tbody > tr > td {
+  font-size: 0.84rem;
+  vertical-align: middle;
+}
+
+:host ::ng-deep .ft-tabla .p-datatable-tbody > tr:hover {
+  background: #eff6ff !important;
+}
 
 .ft-td-concepto {
   max-width: 22rem;

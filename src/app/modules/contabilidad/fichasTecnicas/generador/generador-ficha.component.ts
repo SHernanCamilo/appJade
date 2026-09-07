@@ -47,7 +47,12 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
         <p>Complete los tres pasos para crear una ficha y enviarla a validación.</p>
       </header>
 
-      <p-steps [model]="pasos" [activeIndex]="pasoActual" [readonly]="true" />
+      <p-steps
+        [model]="pasos"
+        [activeIndex]="pasoActual"
+        [readonly]="true"
+        styleClass="ft-steps"
+      />
 
       @switch (pasoActual) {
         @case (0) {
@@ -108,6 +113,66 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
         margin: 0.2rem 0 0;
         font-size: 0.85rem;
         color: #6c757d;
+      }
+
+      /* ══ Steps más notorios ══════════════════════════════════════════ */
+      :host ::ng-deep .ft-steps {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.1rem 1rem 0.6rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+
+      /* Línea de conexión entre pasos (más gruesa y visible) */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item::before {
+        border-top: 3px solid #e2e8f0;
+        top: 45%;
+      }
+
+      /* Número del paso: círculo grande */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item .p-menuitem-link .p-steps-number {
+        width: 2.6rem;
+        height: 2.6rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border: 2px solid #cbd5e1;
+        background: #f8fafc;
+        color: #64748b;
+        transition: all 0.25s ease;
+      }
+
+      /* Etiqueta del paso */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item .p-menuitem-link .p-steps-title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #94a3b8;
+        margin-top: 0.45rem;
+        transition: color 0.25s ease;
+      }
+
+      /* Pasos ya completados (antes del activo) */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item:not(.p-highlight):not(.p-disabled) .p-steps-number {
+        border-color: #34d399;
+        background: #34d399;
+        color: #ffffff;
+      }
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item:not(.p-highlight):not(.p-disabled) .p-steps-title {
+        color: #059669;
+      }
+
+      /* Paso ACTIVO: destacado con color primario y escala */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item.p-highlight .p-steps-number {
+        border-color: #2563eb;
+        background: #2563eb;
+        color: #ffffff;
+        transform: scale(1.15);
+        box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.15);
+      }
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item.p-highlight .p-steps-title {
+        color: #1d4ed8;
+        font-weight: 700;
+        font-size: 0.95rem;
       }
     `,
   ],
