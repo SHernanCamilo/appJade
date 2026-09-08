@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
@@ -85,8 +86,8 @@ const METADATOS: Record<BandejaFichas, MetaBandeja> = {
 @Component({
   selector: 'app-bandeja-fichas',
   standalone: true,
-  imports: [CommonModule, ToastModule, ProgressSpinnerModule, TablaFichasComponent, FiltrosBandejaComponent, KpisBandejaComponent],
-  providers: [MessageService],
+  imports: [CommonModule, ToastModule, ConfirmDialogModule, ProgressSpinnerModule, TablaFichasComponent, FiltrosBandejaComponent, KpisBandejaComponent],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './bandeja-fichas.component.html',
   styleUrl: './bandeja-fichas.component.css',
 })
@@ -95,6 +96,7 @@ export class BandejaFichasComponent {
   private readonly ruta = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly mensajes = inject(MessageService);
+  private readonly confirmacion = inject(ConfirmationService);
 
   /** Bandeja activa tomada de la ruta; el componente reacciona al cambio. */
   protected readonly bandeja = toSignal(
@@ -214,15 +216,31 @@ export class BandejaFichasComponent {
   }
 
   private cancelar(ficha: Ficha): void {
+    const codigo = ficha.consecutivo
+      ? `la ficha «${ficha.consecutivo}»`
+      : `el borrador${ficha.objetoContrato?.descripcion ? ` «${ficha.objetoContrato.descripcion}»` : ''}`;
+
+    this.confirmacion.confirm({
+      header: 'Eliminar borrador',
+      message: `¿Seguro que deseas eliminar ${codigo}? Esta acción no se puede deshacer.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => this.ejecutarCancelar(ficha),
+    });
+  }
+
+  private ejecutarCancelar(ficha: Ficha): void {
     this.fichaService.cancelar(ficha.id).subscribe({
       next: () => {
-        this.mensajes.add({ severity: 'success', summary: 'Ficha cancelada', life: 3000 });
+        this.mensajes.add({ severity: 'success', summary: 'Borrador eliminado', life: 3000 });
         this.cargar();
       },
       error: (error: unknown) => {
         this.mensajes.add({
           severity: 'error',
-          summary: 'No se pudo cancelar',
+          summary: 'No se pudo eliminar',
           detail: interpretarErrorFicha(error).mensaje,
           life: 6000,
         });
