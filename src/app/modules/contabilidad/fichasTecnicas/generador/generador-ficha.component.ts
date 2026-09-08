@@ -246,8 +246,16 @@ export class GeneradorFichaComponent {
 
     this.guardando.set(true);
 
+    // Adjunta el mapa código→nombre para que el backend guarde el nombre real
+    // del profesional (en lugar del placeholder "PROF-documento").
+    const nombres = this.nombresProfesionales();
+    const cabeceraConNombres: CrearFichaPayload = {
+      ...cabecera,
+      profesionales_info: Object.keys(nombres).length > 0 ? nombres : undefined,
+    };
+
     // 1. Crear la ficha con sus profesionales.
-    this.fichaService.crear(cabecera).subscribe({
+    this.fichaService.crear(cabeceraConNombres).subscribe({
       next: (ficha) => {
         // Guard defensivo: si el backend no devolvió un id válido, abortar.
         if (!ficha?.id) {

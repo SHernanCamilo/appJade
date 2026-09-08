@@ -367,6 +367,8 @@ export interface CrearFichaPayload {
   fecha_fin: string;
   /** Códigos de documento de los profesionales (desde Fabric). */
   profesionales: string[];
+  /** Mapa opcional código→nombre para guardar el nombre real del profesional. */
+  profesionales_info?: Record<string, string>;
   id_empresa?: number | null;
   id_sucursal?: number | null;
   sucursal_legacy?: string | null;
