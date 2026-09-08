@@ -286,8 +286,13 @@ export class GeneradorFichaComponent {
             });
           },
           error: (err: unknown) => {
-            this.guardando.set(false);
-            this.mostrarError(err);
+            // Los servicios fallaron: la ficha quedaría huérfana (sin ítems).
+            // La cancelamos para no dejar borradores vacíos y devolvemos al
+            // paso 2 para que el usuario corrija los servicios.
+            this.fichaService.cancelar(ficha.id, 'Creación revertida: error al guardar los servicios').subscribe({
+              next: () => this.finalizarConErrorDetalles(err),
+              error: () => this.finalizarConErrorDetalles(err),
+            });
           },
         });
       },
@@ -328,6 +333,23 @@ export class GeneradorFichaComponent {
         },
       });
     });
+  }
+
+  /**
+   * Cierra el flujo cuando fallaron los servicios: informa el error y regresa
+   * al paso 2 para corregir, tras haber revertido la ficha huérfana.
+   */
+  private finalizarConErrorDetalles(err: unknown): void {
+    this.guardando.set(false);
+    const { mensaje } = interpretarErrorFicha(err);
+    this.mensajes.add({
+      severity: 'error',
+      summary: 'No se guardaron los servicios',
+      detail: `${mensaje} La ficha no se creó; corrija los servicios e intente de nuevo.`,
+      life: 8000,
+    });
+    // Regresar al paso 2 para corregir los ítems.
+    this.pasoActual = 1;
   }
 
   private mostrarError(err: unknown): void {

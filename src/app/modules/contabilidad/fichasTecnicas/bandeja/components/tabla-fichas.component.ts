@@ -103,13 +103,13 @@ export interface AccionFicha {
                 />
               }
 
-              @if (puedeValidar()) {
+              @if (puedeValidar() || f.estado?.es_editable) {
                 <p-button
                   icon="pi pi-check-square"
                   [rounded]="true"
                   [text]="true"
                   severity="success"
-                  pTooltip="Validar"
+                  [pTooltip]="f.estado?.es_editable ? 'Enviar a validación' : 'Validar'"
                   (onClick)="accion.emit({ tipo: 'validar', ficha: f })"
                 />
               }
