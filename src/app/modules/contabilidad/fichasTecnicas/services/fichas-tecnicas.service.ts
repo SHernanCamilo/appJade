@@ -145,6 +145,11 @@ export class FichasTecnicasService {
   // correcta según el estado actual de la ficha y los permisos del usuario.
   // ═════════════════════════════════════════════════════════════════════════
 
+  /** Envía un borrador a validación (inicia el flujo de aprobación). */
+  enviar(idFicha: number, observacion?: string): Observable<Ficha> {
+    return this.validar(idFicha, 'enviar', { observacion: observacion ?? null });
+  }
+
   autorizar(idFicha: number, observacion: string): Observable<Ficha> {
     return this.validar(idFicha, 'autorizar', { observacion });
   }

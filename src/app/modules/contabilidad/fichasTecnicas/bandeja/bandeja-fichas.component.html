@@ -1,5 +1,14 @@
 <p-toast position="top-right" />
 
+@if (generandoPdf()) {
+  <div class="ft-pdf-overlay">
+    <div class="ft-pdf-overlay__box">
+      <p-progressSpinner strokeWidth="4" ariaLabel="Generando PDF" />
+      <span>Generando PDF…</span>
+    </div>
+  </div>
+}
+
 <section class="ft-bandeja">
   <header class="ft-bandeja__header">
     <div>
@@ -12,8 +21,8 @@
     }
   </header>
 
-  <!-- Tarjetas KPI: total / en proceso / aprobadas / rechazadas / próximas a vencer -->
-  <app-kpis-bandeja />
+  <!-- Tarjetas KPI: la primera refleja la bandeja activa (Borradores, Vigentes…) -->
+  <app-kpis-bandeja [bandeja]="bandeja()" [conteoActual]="meta()?.total ?? null" />
 
   <app-filtros-bandeja (cambio)="onFiltros($event)" />
 

@@ -237,7 +237,8 @@ export class GeneradorFichaComponent {
     this.pasoActual = 2;
   }
 
-  protected onConfirmar(observaciones: string[]): void {
+  protected onConfirmar(evento: { observaciones: string[]; enviar: boolean }): void {
+    const { observaciones, enviar } = evento;
     const cabecera = this.cabecera();
 
     if (!cabecera) {
@@ -275,14 +276,12 @@ export class GeneradorFichaComponent {
             // 3. Observaciones generales (varias, opcionales) — en secuencia.
             const obs = observaciones.filter((o) => o.trim() !== '');
             this.guardarObservaciones(ficha.id, obs, () => {
-              this.guardando.set(false);
-              this.mensajes.add({
-                severity: 'success',
-                summary: 'Ficha creada',
-                detail: `La ficha #${ficha.id} fue creada y enviada a validación.`,
-                life: 5000,
-              });
-              void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
+              // 4. Si el usuario eligió "Guardar y enviar", se envía a validación.
+              if (enviar) {
+                this.enviarAValidacion(ficha.id);
+              } else {
+                this.finalizarCreacion(ficha.id, false);
+              }
             });
           },
           error: (err: unknown) => {
@@ -333,6 +332,41 @@ export class GeneradorFichaComponent {
         },
       });
     });
+  }
+
+  /** Envía la ficha recién creada a validación; si falla, queda como borrador. */
+  private enviarAValidacion(idFicha: number): void {
+    this.fichaService.enviar(idFicha).subscribe({
+      next: () => this.finalizarCreacion(idFicha, true),
+      error: (err: unknown) => {
+        // La ficha quedó creada como borrador; informamos que no se pudo enviar.
+        this.guardando.set(false);
+        const { mensaje } = interpretarErrorFicha(err);
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Ficha guardada como borrador',
+          detail: `Se creó la ficha #${idFicha}, pero no se pudo enviar a validación: ${mensaje}`,
+          life: 8000,
+        });
+        void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
+      },
+    });
+  }
+
+  /** Cierra el flujo exitoso: muestra el mensaje según la acción y navega. */
+  private finalizarCreacion(idFicha: number, enviada: boolean): void {
+    this.guardando.set(false);
+    this.mensajes.add({
+      severity: 'success',
+      summary: enviada ? 'Ficha enviada a validación' : 'Borrador guardado',
+      detail: enviada
+        ? `La ficha #${idFicha} fue creada y enviada a validación.`
+        : `La ficha #${idFicha} se guardó como borrador. Puede enviarla a validación más tarde.`,
+      life: 5000,
+    });
+    void this.router.navigate([
+      '/contabilidad/fichas-tecnicas/bandeja/' + (enviada ? 'procesando' : 'borradores'),
+    ]);
   }
 
   /**

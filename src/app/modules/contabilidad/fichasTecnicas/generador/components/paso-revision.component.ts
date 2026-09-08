@@ -42,8 +42,12 @@ export class PasoRevisionComponent implements OnInit {
    */
   readonly observacionesPrevias = input<string[]>([]);
 
-  /** Emite la lista de observaciones generales al confirmar. */
-  readonly confirmar = output<string[]>();
+  /**
+   * Emite al confirmar: las observaciones y si además debe enviarse a validación.
+   *  - enviar=false → solo guarda el borrador.
+   *  - enviar=true  → guarda y envía a validación (crea el consecutivo/flujo).
+   */
+  readonly confirmar = output<{ observaciones: string[]; enviar: boolean }>();
   /** Notifica al padre el estado actual de las observaciones (para conservarlas). */
   readonly observacionesCambian = output<string[]>();
   /** Volver al paso 2 (servicios). */
@@ -130,8 +134,14 @@ export class PasoRevisionComponent implements OnInit {
     return lista;
   }
 
-  protected enviar(): void {
-    this.confirmar.emit(this.observacionesConPendiente());
+  /** Guarda solo el borrador (sin enviar a validación). */
+  protected guardarBorrador(): void {
+    this.confirmar.emit({ observaciones: this.observacionesConPendiente(), enviar: false });
+  }
+
+  /** Guarda y envía a validación (inicia el flujo de aprobación). */
+  protected guardarYEnviar(): void {
+    this.confirmar.emit({ observaciones: this.observacionesConPendiente(), enviar: true });
   }
 
   /** Vuelve al paso 2 conservando las observaciones (incluido el pendiente). */

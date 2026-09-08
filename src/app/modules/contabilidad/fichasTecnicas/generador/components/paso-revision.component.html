@@ -149,14 +149,25 @@
       icon="pi pi-arrow-left"
       severity="secondary"
       [outlined]="true"
+      [disabled]="guardando()"
       (onClick)="onVolver()"
     />
-    <p-button
-      label="Enviar a validación"
-      icon="pi pi-send"
-      iconPos="right"
-      [loading]="guardando()"
-      (onClick)="enviar()"
-    />
+    <div class="ft-paso3__acciones-final">
+      <p-button
+        label="Guardar borrador"
+        icon="pi pi-save"
+        severity="secondary"
+        [outlined]="true"
+        [loading]="guardando()"
+        (onClick)="guardarBorrador()"
+      />
+      <p-button
+        label="Guardar y enviar a validación"
+        icon="pi pi-send"
+        iconPos="right"
+        [loading]="guardando()"
+        (onClick)="guardarYEnviar()"
+      />
+    </div>
   </footer>
 </section>

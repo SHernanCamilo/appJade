@@ -3,14 +3,16 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
   inject,
+  input,
   signal,
 } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { SkeletonModule } from 'primeng/skeleton';
 import { TooltipModule } from 'primeng/tooltip';
 
-import { ResumenBandeja } from '../../models/ficha.model';
+import { BandejaFichas, ResumenBandeja } from '../../models/ficha.model';
 import { FichasTecnicasService } from '../../services/fichas-tecnicas.service';
 
 interface KpiCard {
@@ -137,9 +139,33 @@ interface KpiCard {
 export class KpisBandejaComponent implements OnInit {
   private readonly fichasService = inject(FichasTecnicasService);
 
+  /** Bandeja activa: define el rótulo/valor de la primera tarjeta. */
+  readonly bandeja = input<BandejaFichas>('borradores');
+  /** Conteo de la bandeja activa (viene del meta.total del listado). */
+  readonly conteoActual = input<number | null>(null);
+
   protected readonly cargando = signal(true);
   protected readonly error    = signal(false);
-  protected readonly tarjetas = signal<KpiCard[]>([]);
+  protected readonly resumen  = signal<ResumenBandeja | null>(null);
+
+  /** Rótulo de la primera tarjeta según la bandeja activa. */
+  private readonly TITULOS: Record<BandejaFichas, string> = {
+    borradores: 'Borradores',
+    procesando: 'En validación',
+    'por-autorizar': 'Por autorizar',
+    'por-aprobar': 'Por aprobar',
+    rechazados: 'Rechazadas',
+    finalizadas: 'Vigentes',
+    vencidas: 'Vencidas',
+    'proximas-vencer': 'Próx. a vencer',
+  };
+
+  /** Tarjetas reactivas: la primera refleja la bandeja activa. */
+  protected readonly tarjetas = computed<KpiCard[]>(() => {
+    const r = this.resumen();
+    if (!r) return [];
+    return this.construirTarjetas(r);
+  });
 
   private readonly BASE = '/contabilidad/fichas-tecnicas';
 
@@ -153,7 +179,7 @@ export class KpisBandejaComponent implements OnInit {
 
     this.fichasService.resumenBandeja().subscribe({
       next: (res) => {
-        this.tarjetas.set(this.construirTarjetas(res));
+        this.resumen.set(res);
         this.cargando.set(false);
       },
       error: () => {
@@ -164,13 +190,16 @@ export class KpisBandejaComponent implements OnInit {
   }
 
   private construirTarjetas(r: ResumenBandeja): KpiCard[] {
+    // Primera tarjeta contextual: usa el conteo de la bandeja activa si llegó,
+    // si no, el total general del resumen.
+    const conteo = this.conteoActual();
     return [
       {
         icono:    'pi-file',
-        etiqueta: 'Total fichas',
-        valor:    r.total,
+        etiqueta: this.TITULOS[this.bandeja()] ?? 'Total fichas',
+        valor:    conteo ?? r.total,
         clase:    'ft-kpis__card--total',
-        tooltip:  'Total de fichas en tu alcance',
+        tooltip:  'Fichas en la bandeja actual',
       },
       {
         icono:    'pi-clock',

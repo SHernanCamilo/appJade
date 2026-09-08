@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableLazyLoadEvent } from 'primeng/table';
 import { ToastModule } from 'primeng/toast';
 import { map } from 'rxjs';
@@ -84,7 +85,7 @@ const METADATOS: Record<BandejaFichas, MetaBandeja> = {
 @Component({
   selector: 'app-bandeja-fichas',
   standalone: true,
-  imports: [CommonModule, ToastModule, TablaFichasComponent, FiltrosBandejaComponent, KpisBandejaComponent],
+  imports: [CommonModule, ToastModule, ProgressSpinnerModule, TablaFichasComponent, FiltrosBandejaComponent, KpisBandejaComponent],
   providers: [MessageService],
   templateUrl: './bandeja-fichas.component.html',
   styleUrl: './bandeja-fichas.component.css',
@@ -104,6 +105,8 @@ export class BandejaFichasComponent {
   protected readonly fichas = signal<Ficha[]>([]);
   protected readonly meta = signal<PaginationMeta | null>(null);
   protected readonly cargando = signal<boolean>(true);
+  /** Overlay mientras se genera/descarga el PDF (puede tardar unos segundos). */
+  protected readonly generandoPdf = signal<boolean>(false);
   protected readonly filtros = signal<FiltrosFichas>({ per_page: 20, page: 1 });
 
   protected readonly info = computed<MetaBandeja>(() => METADATOS[this.bandeja()]);
@@ -180,13 +183,26 @@ export class BandejaFichasComponent {
   }
 
   private abrirPdf(id: number): void {
+    // Abrimos la pestaña ANTES de la petición para no ser bloqueados por el
+    // navegador (popup blocker). Mientras el PDF se genera mostramos el overlay.
+    this.generandoPdf.set(true);
+    const ventana = window.open('', '_blank');
+
     this.fichaService.descargarPdf(id).subscribe({
       next: (blob) => {
+        this.generandoPdf.set(false);
         const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+        if (ventana) {
+          ventana.location.href = url;
+        } else {
+          // Si el popup fue bloqueado, forzamos la descarga en la misma pestaña.
+          window.open(url, '_blank');
+        }
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
       },
       error: (error: unknown) => {
+        this.generandoPdf.set(false);
+        ventana?.close();
         this.mensajes.add({
           severity: 'error',
           summary: 'No se pudo generar el PDF',
