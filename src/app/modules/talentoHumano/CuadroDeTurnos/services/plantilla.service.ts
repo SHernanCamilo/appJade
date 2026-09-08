@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 
 export interface Plantilla {
@@ -33,12 +33,52 @@ export class PlantillaService {
 
   private apiUrl = `${environment.URL_SERVICIOS}/turnos/plantillas`;
 
+  /**
+   * Cache en memoria de las listas de plantillas por combinacion de parametros.
+   * Al ser un servicio singleton (providedIn: 'root'), persiste mientras la
+   * app este viva, evitando volver a pedir al backend cada vez que se reentra
+   * al modulo. Se invalida al crear/actualizar/eliminar.
+   */
+  private cachePlantillas = new Map<string, Plantilla[]>();
+
   constructor(private http: HttpClient) { }
 
-  // Obtener todas las plantillas
-  getPlantillas(params?: { id_empresa?: number; estado?: boolean }): Observable<Plantilla[]> {
+  /** Genera una clave estable de cache a partir de los parametros de consulta. */
+  private cacheKey(params?: { id_empresa?: number; estado?: boolean }): string {
+    if (!params) return 'all';
+    const emp = params.id_empresa ?? '';
+    const est = params.estado ?? '';
+    return `emp:${emp}|est:${est}`;
+  }
+
+  /** Limpia toda la cache de plantillas (usar tras mutaciones). */
+  invalidarCache(): void {
+    this.cachePlantillas.clear();
+  }
+
+  /** Indica si hay datos cacheados para los parametros dados. */
+  tieneCache(params?: { id_empresa?: number; estado?: boolean }): boolean {
+    return this.cachePlantillas.has(this.cacheKey(params));
+  }
+
+  /** Devuelve los datos cacheados (o null) para los parametros dados, sin pedir al backend. */
+  getCache(params?: { id_empresa?: number; estado?: boolean }): Plantilla[] | null {
+    return this.cachePlantillas.get(this.cacheKey(params)) ?? null;
+  }
+
+  // Obtener todas las plantillas (con cache en memoria)
+  getPlantillas(params?: { id_empresa?: number; estado?: boolean }, forzarRecarga = false): Observable<Plantilla[]> {
+    const key = this.cacheKey(params);
+
+    if (!forzarRecarga && this.cachePlantillas.has(key)) {
+      return of(this.cachePlantillas.get(key)!);
+    }
+
     return this.http.get<{ success: boolean; data: Plantilla[]; message?: string }>(this.apiUrl, { params: params as Record<string, string | number | boolean> }).pipe(
-      map(response => (response.success && Array.isArray(response.data)) ? response.data : [])
+      map(response => (response.success && Array.isArray(response.data)) ? response.data : []),
+      // Solo cachear cuando hay datos reales. Asi una lista vacia (posible
+      // fallo transitorio) nunca queda "pegada" en cache.
+      tap(plantillas => { if (plantillas.length) this.cachePlantillas.set(key, plantillas); })
     );
   }
 
@@ -52,19 +92,23 @@ export class PlantillaService {
   // Crear una nueva plantilla
   createPlantilla(plantilla: Partial<Plantilla>): Observable<Plantilla> {
     return this.http.post<any>(this.apiUrl, plantilla).pipe(
-      map(response => response.success ? response.data : null)
+      map(response => response.success ? response.data : null),
+      tap(() => this.invalidarCache())
     );
   }
 
   // Actualizar una plantilla
   updatePlantilla(id: number, plantilla: Partial<Plantilla>): Observable<Plantilla> {
     return this.http.put<any>(`${this.apiUrl}/${id}`, plantilla).pipe(
-      map(response => response.success ? response.data : null)
+      map(response => response.success ? response.data : null),
+      tap(() => this.invalidarCache())
     );
   }
 
   // Eliminar una plantilla
   deletePlantilla(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/${id}`);
+    return this.http.delete(`${this.apiUrl}/${id}`).pipe(
+      tap(() => this.invalidarCache())
+    );
   }
 }

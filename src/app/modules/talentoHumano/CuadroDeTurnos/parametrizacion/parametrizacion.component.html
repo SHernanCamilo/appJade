@@ -23,8 +23,19 @@
         class="p-button-sm p-button-outlined" (click)="abrirJornadaDialog()"></button>
     </div>
 
+    <!-- Skeleton de carga -->
+    <div *ngIf="isLoading" class="skeleton-card">
+      <div class="skeleton-line skeleton-badge"></div>
+      <div class="skeleton-grid">
+        <div class="skeleton-item" *ngFor="let i of [1,2,3,4,5,6]">
+          <div class="skeleton-line skeleton-label"></div>
+          <div class="skeleton-line skeleton-value"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Vigente actual (card destacado) -->
-    <div *ngIf="parametroVigente" class="vigente-card">
+    <div *ngIf="!isLoading && parametroVigente" class="vigente-card">
       <div class="vigente-badge">Vigente actual</div>
       <div class="vigente-grid">
         <div class="vigente-item">

@@ -587,6 +587,36 @@
   z-index: 1;
 }
 
+.report-table th.col-ident,
+.report-table td.col-ident {
+  text-align: left;
+  min-width: 120px;
+  white-space: nowrap;
+  padding-left: 0.5rem;
+}
+
+.report-table th.col-unidad,
+.report-table td.col-unidad {
+  text-align: left;
+  min-width: 150px;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 0.5rem;
+}
+
+.report-table th.col-sede,
+.report-table td.col-sede {
+  text-align: left;
+  min-width: 120px;
+  max-width: 170px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 0.5rem;
+}
+
 .report-table th.col-dia {
   min-width: 32px;
   width: 32px;

@@ -369,6 +369,21 @@ export class CuadroGrillaComponent implements OnInit {
     return this.mesOptions[this.selectedMes - 1]?.label || '';
   }
 
+  /** Nombre de la unidad funcional seleccionada (para las filas del reporte). */
+  getNombreUnidad(): string {
+    return this.unidadOptions.find(u => u.value === this.selectedUnidad)?.label || '—';
+  }
+
+  /** Nombre de la sede seleccionada (para las filas del reporte). */
+  getNombreSede(): string {
+    return this.sedesOptions.find(s => s.value === this.selectedSede)?.label || '—';
+  }
+
+  /** Identificación de la persona (numero_identificacion del tercero). */
+  getIdentificacion(emp: any): string {
+    return emp?.numero_identificacion || emp?.identificacion || '—';
+  }
+
   // ═══════════════════════════════════════════════════════════
   // UTILIDADES
   // ═══════════════════════════════════════════════════════════

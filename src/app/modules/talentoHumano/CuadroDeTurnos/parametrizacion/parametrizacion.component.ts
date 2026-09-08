@@ -49,7 +49,7 @@ export class ParametrizacionComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.cargarTiposRecargo();
+    // Solo parámetros de jornada — los recargos se movieron al tab "Conceptos Cuadro"
     this.cargarParametrosJornada();
   }
 
@@ -118,12 +118,14 @@ export class ParametrizacionComponent implements OnInit {
   // ═══════════════════════════════════════════════════════
 
   cargarParametrosJornada(): void {
+    this.isLoading = true;
     this.service.getParametrosJornada().subscribe({
       next: (data) => {
         this.parametrosJornada = data;
         this.parametroVigente = data.find(p => p.activo && !p.vigente_hasta) || data[0] || null;
+        this.isLoading = false;
       },
-      error: () => this.toast('error', 'Error al cargar parámetros de jornada')
+      error: () => { this.isLoading = false; this.toast('error', 'Error al cargar parámetros de jornada'); }
     });
   }
 

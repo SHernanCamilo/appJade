@@ -14,9 +14,10 @@
     </div>
   </div>
 
-  <!-- Tabs -->
+  <!-- Tabs: los 3 se renderizan y su data se precarga en paralelo al entrar.
+       Cada hijo muestra su propio skeleton mientras su data llega. -->
   <p-tabView styleClass="config-tabs">
-    <p-tabPanel [cache]="true">
+    <p-tabPanel>
       <ng-template pTemplate="header">
         <i class="pi pi-clock tab-icon"></i>
         <span>Parámetros de Jornada</span>

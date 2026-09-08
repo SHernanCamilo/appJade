@@ -64,17 +64,29 @@
       <span class="badge-empleados">{{ empleados.length }} empleados</span>
     </div>
 
+    <!-- Datos de contexto del reporte: unidad funcional y sede -->
+    <div class="reporte-contexto">
+      <span class="ctx-item"><strong>Unidad Funcional:</strong> {{ getNombreUnidad() }}</span>
+      <span class="ctx-item"><strong>Sede:</strong> {{ getNombreSede() }}</span>
+    </div>
+
     <div class="grilla-scroll">
       <table class="grilla-table">
         <thead>
           <tr>
-            <th class="col-empleado">Empleado</th>
+            <th class="col-ident">Identificación</th>
+            <th class="col-empleado">Nombre Completo</th>
+            <th class="col-unidad">Unidad Funcional</th>
+            <th class="col-sede">Sede</th>
             <th *ngFor="let dia of diasMes" class="col-dia">{{ dia }}</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let emp of empleados">
+            <td class="col-ident">{{ getIdentificacion(emp) }}</td>
             <td class="col-empleado">{{ emp.nombre }}</td>
+            <td class="col-unidad">{{ getNombreUnidad() }}</td>
+            <td class="col-sede">{{ getNombreSede() }}</td>
             <td *ngFor="let dia of diasMes" class="col-dia"
               [style.background-color]="getTurnoColor(emp, dia) ? getTurnoColor(emp, dia) + '22' : ''"
               [pTooltip]="getTurno(emp, dia)?.plantilla?.nombre || (getTurno(emp, dia)?.es_descanso ? 'Descanso' : '')"

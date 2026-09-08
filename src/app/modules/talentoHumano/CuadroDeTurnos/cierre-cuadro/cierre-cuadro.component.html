@@ -9,8 +9,19 @@
     </div>
   </div>
 
+  <!-- Skeleton de carga -->
+  <div class="section-card config-card" *ngIf="!parametroCargado">
+    <div class="ck-line ck-title"></div>
+    <div class="ck-grid">
+      <div class="ck-field" *ngFor="let i of [1,2,3,4,5]">
+        <div class="ck-line ck-label"></div>
+        <div class="ck-line ck-input"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Configuración -->
-  <div class="section-card config-card">
+  <div class="section-card config-card" *ngIf="parametroCargado">
     <h3><i class="pi pi-cog"></i> Configuración de Cierre</h3>
     <div class="config-grid">
       <div class="config-field">
