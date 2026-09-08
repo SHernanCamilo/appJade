@@ -50,61 +50,63 @@
         }
       </div>
 
-      <!-- Valor y Vigencia en la misma fila -->
-      <div class="ft-campo">
-        <label for="valor">Valor estimado del contrato <span aria-hidden="true">*</span></label>
-        <p-inputnumber
-          inputId="valor"
-          formControlName="vlr_contrato"
-          mode="currency"
-          currency="COP"
-          locale="es-CO"
-          [minFractionDigits]="0"
-          [maxFractionDigits]="2"
-          [min]="0"
-          placeholder="$ 0"
-        />
-        @if (control('vlr_contrato')) {
-          <small class="ft-campo__error">Ingrese un valor mayor que cero.</small>
-        }
-      </div>
+      <!-- Valor, Vigencia y Forma de pago en la misma fila (3 columnas) -->
+      <div class="ft-campo--ancho ft-fila3">
+        <div class="ft-campo">
+          <label for="valor">Valor estimado del contrato <span aria-hidden="true">*</span></label>
+          <p-inputnumber
+            inputId="valor"
+            formControlName="vlr_contrato"
+            mode="currency"
+            currency="COP"
+            locale="es-CO"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            [min]="0"
+            placeholder="$ 0"
+          />
+          @if (control('vlr_contrato')) {
+            <small class="ft-campo__error">Ingrese un valor mayor que cero.</small>
+          }
+        </div>
 
-      <div class="ft-campo">
-        <label for="vigencia">Vigencia del contrato <span aria-hidden="true">*</span></label>
-        <p-datepicker
-          inputId="vigencia"
-          formControlName="vigencia"
-          selectionMode="range"
-          [readonlyInput]="true"
-          dateFormat="dd/mm/yy"
-          placeholder="Fecha inicio — Fecha fin"
-          [showButtonBar]="true"
-          appendTo="body"
-        />
-        @if (control('vigencia')) {
-          <small class="ft-campo__error">Seleccione el rango de vigencia.</small>
-        }
-        <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
-      </div>
+        <div class="ft-campo">
+          <label for="vigencia">Vigencia del contrato <span aria-hidden="true">*</span></label>
+          <p-datepicker
+            inputId="vigencia"
+            formControlName="vigencia"
+            selectionMode="range"
+            [readonlyInput]="true"
+            dateFormat="dd/mm/yy"
+            placeholder="Fecha inicio — Fecha fin"
+            [showButtonBar]="true"
+            appendTo="body"
+          />
+          @if (control('vigencia')) {
+            <small class="ft-campo__error">Seleccione el rango de vigencia.</small>
+          }
+          <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
+        </div>
 
-      <!-- Forma de pago (plazo) — catálogo parametrizable (60/90/120 días) -->
-      <div class="ft-campo">
-        <label for="formaPago">Forma de pago (plazo) <span aria-hidden="true">*</span></label>
-        <p-select
-          inputId="formaPago"
-          formControlName="id_forma_pago"
-          [options]="opciones()!.formas_pago"
-          optionLabel="descripcion"
-          optionValue="id"
-          placeholder="Seleccione el plazo de pago"
-          [filter]="true"
-          filterBy="descripcion"
-          appendTo="body"
-        />
-        @if (control('id_forma_pago')) {
-          <small class="ft-campo__error">Seleccione la forma de pago.</small>
-        }
-        <small class="ft-campo__ayuda">Administrable en Parámetros → Formas de pago.</small>
+        <!-- Forma de pago (plazo) — catálogo parametrizable (60/90/120 días) -->
+        <div class="ft-campo">
+          <label for="formaPago">Forma de pago (plazo) <span aria-hidden="true">*</span></label>
+          <p-select
+            inputId="formaPago"
+            formControlName="id_forma_pago"
+            [options]="opciones()!.formas_pago"
+            optionLabel="descripcion"
+            optionValue="id"
+            placeholder="Seleccione el plazo de pago"
+            [filter]="true"
+            filterBy="descripcion"
+            appendTo="body"
+          />
+          @if (control('id_forma_pago')) {
+            <small class="ft-campo__error">Seleccione la forma de pago.</small>
+          }
+          <small class="ft-campo__ayuda">Administrable en Parámetros → Formas de pago.</small>
+        </div>
       </div>
 
       <!-- Especialidad ocupa fila completa, debajo de valor/vigencia -->
