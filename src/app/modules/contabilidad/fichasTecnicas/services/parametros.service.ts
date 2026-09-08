@@ -10,6 +10,8 @@ import {
   PaginatedResponse,
   Profesional,
   ProfesionalDeEspecialidad,
+  Sede,
+  Sucursal,
 } from '../models/ficha.model';
 
 /** Registro genérico de un catálogo administrable. */
@@ -93,6 +95,22 @@ export class ParametrosService {
     return this.http
       .get<ApiResponse<ObsItem[]>>(`${this.base}/tipos-servicio/${idTipoServicio}/observaciones`)
       .pipe(map((r) => r.data));
+  }
+
+  /** Sucursales de una empresa (alcance del paso 1). */
+  sucursalesPorEmpresa(idEmpresa: number): Observable<Sucursal[]> {
+    return this.http
+      .get<ApiResponse<Sucursal[]>>(`${this.base}/empresas/${idEmpresa}/sucursales`)
+      .pipe(map((r) => (Array.isArray(r.data) ? r.data : [])));
+  }
+
+  /** Sedes de una o varias sucursales (alcance del paso 1). */
+  sedesPorSucursales(idsSucursales: number[]): Observable<Sede[]> {
+    let params = new HttpParams();
+    idsSucursales.forEach((id) => (params = params.append('sucursales[]', String(id))));
+    return this.http
+      .get<ApiResponse<Sede[]>>(`${this.base}/sedes`, { params })
+      .pipe(map((r) => (Array.isArray(r.data) ? r.data : [])));
   }
 
   // ── CRUD genérico ─────────────────────────────────────────────────────

@@ -21,6 +21,10 @@
         <span class="ft-cab__valor">{{ objeto }}</span>
       </div>
       <div class="ft-cab__celda">
+        <span class="ft-cab__label">Alcance</span>
+        <span class="ft-cab__valor">{{ alcance }}</span>
+      </div>
+      <div class="ft-cab__celda">
         <span class="ft-cab__label">Valor estimado</span>
         <span class="ft-cab__valor ft-cab__valor--num">
           {{ cabecera().vlr_contrato | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}

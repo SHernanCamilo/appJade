@@ -157,12 +157,30 @@ export interface FormaPago {
   estado?: boolean;
 }
 
+/** Alcance de la ficha. */
+export type TipoAlcance = 'nacional' | 'sucursal' | 'sede';
+
+/** Sucursal de una empresa (para el alcance). */
+export interface Sucursal {
+  id: number;
+  nombre: string;
+  id_Empresa?: number;
+}
+
+/** Sede de una sucursal (para el alcance). */
+export interface Sede {
+  id: number;
+  nombre: string;
+  id_Sucursal?: number;
+}
+
 export interface OpcionesFormulario {
   agremiaciones: Agremiacion[];
   especialidades: Especialidad[];
   objetos_contrato: ObjetoContrato[];
   tipos_servicio: TipoServicio[];
   formas_pago: FormaPago[];
+  sucursales: Sucursal[];
   perfiles: OpcionSimple[];
 }
 
@@ -327,6 +345,7 @@ export interface Ficha {
   id_objeto_contrato: number;
   id_forma_pago: number | null;
   id_especialidad: number;
+  tipo_alcance?: TipoAlcance;
   vlr_contrato: string;
   fecha_ini: string;
   fecha_fin: string;
@@ -352,6 +371,8 @@ export interface Ficha {
   especialidad?: Especialidad;
   objetoContrato?: ObjetoContrato;
   formaPago?: FormaPago | null;
+  sucursales?: Sucursal[];
+  sedes?: Sede[];
   empresa?: { id: number; nombre: string; prefijo: string } | null;
   sucursal?: { id: number; nombre: string } | null;
   generador?: { id: number; name: string; email: string } | null;
@@ -377,6 +398,12 @@ export interface CrearFichaPayload {
   vlr_contrato: number;
   fecha_ini: string;
   fecha_fin: string;
+  /** Alcance de la ficha: nacional (todo), sucursal(es) o sede(s). */
+  tipo_alcance?: TipoAlcance;
+  /** IDs de sucursales del alcance (si tipo_alcance = 'sucursal'). */
+  sucursales?: number[];
+  /** IDs de sedes del alcance (si tipo_alcance = 'sede'). */
+  sedes?: number[];
   /** Códigos de documento de los profesionales (desde Fabric). */
   profesionales: string[];
   /** Mapa opcional código→nombre para guardar el nombre real del profesional. */

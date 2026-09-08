@@ -35,6 +35,14 @@
   align-items: start;
 }
 
+/* Alcance: Tipo · Sucursales · Sedes en fila (según lo que aplique) */
+.ft-alcance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 1.15rem;
+  align-items: start;
+}
+
 .ft-campo label {
   font-size: 0.82rem;
   font-weight: 600;
@@ -101,9 +109,10 @@
   border-top: 1px solid #e9ecef;
 }
 
-/* Tablet: la fila de 3 baja a 2 columnas */
+/* Tablet: las filas de 3 bajan a 2 columnas */
 @media (max-width: 1100px) {
-  .ft-fila3 {
+  .ft-fila3,
+  .ft-alcance {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -117,7 +126,8 @@
 
 /* Móvil: todo a una columna */
 @media (max-width: 640px) {
-  .ft-fila3 {
+  .ft-fila3,
+  .ft-alcance {
     grid-template-columns: minmax(0, 1fr);
   }
 }

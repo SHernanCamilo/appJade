@@ -85,6 +85,28 @@ export class PasoRevisionComponent implements OnInit {
     return this.opciones()?.objetos_contrato.find((o) => o.id === this.cabecera().id_objeto_contrato)?.descripcion ?? '—';
   }
 
+  /** Etiqueta legible del alcance de la ficha (para la revisión). */
+  protected get alcance(): string {
+    const c = this.cabecera();
+    switch (c.tipo_alcance) {
+      case 'nacional':
+        return 'Nacional (todas las sucursales)';
+      case 'sede': {
+        const n = (c.sedes ?? []).length;
+        return `Por sede(s) — ${n} seleccionada(s)`;
+      }
+      case 'sucursal':
+      default: {
+        const nombres = (c.sucursales ?? [])
+          .map((id) => this.opciones()?.sucursales.find((s) => s.id === id)?.nombre)
+          .filter((x): x is string => !!x);
+        return nombres.length > 0
+          ? `Sucursales: ${nombres.join(', ')}`
+          : 'Por sucursal(es)';
+      }
+    }
+  }
+
   protected get totalServicios(): number {
     return this.detalles().reduce((s, d) => s + (d.valor ?? 0), 0);
   }

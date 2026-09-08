@@ -25,6 +25,8 @@ import {
   Ficha,
   OpcionesFormulario,
   ProfesionalDeEspecialidad,
+  Sede,
+  TipoAlcance,
 } from '../../models/ficha.model';
 import { ParametrosService } from '../../services/parametros.service';
 
@@ -90,11 +92,25 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
     id_objeto_contrato:[null as number | null, Validators.required],
     id_forma_pago:     [null as number | null, Validators.required],
     id_especialidad:   [null as number | null, Validators.required],
+    tipo_alcance:      ['sucursal' as TipoAlcance, Validators.required],
+    sucursales:        [[] as number[]],
+    sedes:             [[] as number[]],
     vlr_contrato:      [null as number | null, [Validators.required, Validators.min(1)]],
     vigencia:          [null as unknown,        Validators.required],
     profesionales:     [[] as string[],         [Validators.required, Validators.minLength(1)]],
     obs_os:            [''],
   });
+
+  /** Opciones de alcance para el select. */
+  protected readonly OPCIONES_ALCANCE: { label: string; value: TipoAlcance }[] = [
+    { label: 'Nacional (todas las sucursales)', value: 'nacional' },
+    { label: 'Por sucursal(es)',                value: 'sucursal' },
+    { label: 'Por sede(s)',                     value: 'sede' },
+  ];
+
+  /** Sedes disponibles según las sucursales elegidas (cascada). */
+  protected readonly sedes = signal<Sede[]>([]);
+  protected readonly cargandoSedes = signal<boolean>(false);
 
   constructor() {
     // ── Cascada: especialidad → profesionales ────────────────────────────
@@ -104,6 +120,16 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
         this.formulario.controls.profesionales.setValue([]);
         this.cargarPorEspecialidad(id);
       });
+
+    // ── Alcance: ajustar validadores requeridos según el tipo ────────────
+    this.formulario.controls.tipo_alcance.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((tipo) => this.aplicarValidadoresAlcance(tipo, true));
+
+    // ── Cascada: sucursales → sedes ──────────────────────────────────────
+    this.formulario.controls.sucursales.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((ids) => this.cargarSedes(ids ?? []));
 
     // ── Búsqueda libre en MultiSelect (debounce 400 ms) ──────────────────
     this.filtroBusqueda$.pipe(
@@ -168,11 +194,15 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
 
     // ── Volver del paso 2: restaurar cabecera guardada ──
     if (prev) {
+      const tipoPrev = (prev.tipo_alcance ?? 'sucursal') as TipoAlcance;
       this.formulario.patchValue({
         id_agremiacion:     prev.id_agremiacion,
         id_objeto_contrato: prev.id_objeto_contrato,
         id_forma_pago:      prev.id_forma_pago ?? null,
         id_especialidad:    prev.id_especialidad,
+        tipo_alcance:       tipoPrev,
+        sucursales:         prev.sucursales ?? [],
+        sedes:              prev.sedes ?? [],
         vlr_contrato:       prev.vlr_contrato,
         vigencia: [
           new Date(`${prev.fecha_ini}T00:00:00`),
@@ -180,8 +210,12 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
         ],
         profesionales: prev.profesionales ?? [],
         obs_os: prev.obs_os ?? '',
-      }, { emitEvent: false }); // no dispara la cascada de especialidad
+      }, { emitEvent: false }); // no dispara las cascadas
 
+      this.aplicarValidadoresAlcance(tipoPrev, false);
+      if ((prev.sucursales ?? []).length > 0) {
+        this.cargarSedes(prev.sucursales ?? []);
+      }
       this.cargarPorEspecialidadSinLimpiar(prev.id_especialidad, prev.profesionales ?? []);
     }
   }
@@ -229,11 +263,16 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
     }
     this.profesionalesInfo.emit(mapa);
 
+    const tipoAlcance = v.tipo_alcance as TipoAlcance;
+
     this.continuar.emit({
       id_agremiacion:     v.id_agremiacion!,
       id_objeto_contrato: v.id_objeto_contrato!,
       id_forma_pago:      v.id_forma_pago ?? null,
       id_especialidad:    v.id_especialidad!,
+      tipo_alcance:       tipoAlcance,
+      sucursales:         tipoAlcance === 'nacional' ? [] : (v.sucursales as number[]),
+      sedes:              tipoAlcance === 'sede' ? (v.sedes as number[]) : [],
       vlr_contrato:       v.vlr_contrato!,
       fecha_ini:          this.aIso(inicio),
       fecha_fin:          this.aIso(fin),
@@ -348,5 +387,65 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
 
   private aIso(fecha: Date): string {
     return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
+   * Ajusta los validadores requeridos de sucursales/sedes según el alcance.
+   *  - nacional → ninguno requerido, limpia selecciones.
+   *  - sucursal → sucursales requerido.
+   *  - sede     → sucursales (para filtrar) + sedes requeridos.
+   */
+  private aplicarValidadoresAlcance(tipo: TipoAlcance, limpiar: boolean): void {
+    const suc = this.formulario.controls.sucursales;
+    const sed = this.formulario.controls.sedes;
+
+    suc.clearValidators();
+    sed.clearValidators();
+
+    if (tipo === 'sucursal') {
+      suc.setValidators([Validators.required, Validators.minLength(1)]);
+    } else if (tipo === 'sede') {
+      suc.setValidators([Validators.required, Validators.minLength(1)]);
+      sed.setValidators([Validators.required, Validators.minLength(1)]);
+    }
+
+    if (limpiar && tipo === 'nacional') {
+      suc.setValue([], { emitEvent: false });
+      sed.setValue([], { emitEvent: false });
+      this.sedes.set([]);
+    }
+
+    suc.updateValueAndValidity({ emitEvent: false });
+    sed.updateValueAndValidity({ emitEvent: false });
+  }
+
+  /** Carga las sedes de las sucursales seleccionadas (cascada del alcance). */
+  private cargarSedes(idsSucursales: number[]): void {
+    // Al cambiar de sucursales, descarta sedes que ya no pertenecen.
+    if (idsSucursales.length === 0) {
+      this.sedes.set([]);
+      this.formulario.controls.sedes.setValue([], { emitEvent: false });
+      return;
+    }
+
+    this.cargandoSedes.set(true);
+    this.parametros.sedesPorSucursales(idsSucursales).subscribe({
+      next: (lista) => {
+        const arr = Array.isArray(lista) ? lista : [];
+        this.sedes.set(arr);
+        // Conservar solo las sedes seleccionadas que sigan disponibles.
+        const validas = new Set(arr.map((s) => s.id));
+        const actuales = this.formulario.controls.sedes.value as number[];
+        this.formulario.controls.sedes.setValue(
+          actuales.filter((id) => validas.has(id)),
+          { emitEvent: false },
+        );
+        this.cargandoSedes.set(false);
+      },
+      error: () => {
+        this.sedes.set([]);
+        this.cargandoSedes.set(false);
+      },
+    });
   }
 }

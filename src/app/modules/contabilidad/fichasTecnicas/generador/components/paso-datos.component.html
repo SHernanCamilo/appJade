@@ -128,6 +128,76 @@
         }
       </div>
 
+      <!-- Alcance de la ficha: nacional / sucursal(es) / sede(s) -->
+      <div class="ft-campo ft-campo--ancho ft-alcance">
+        <div class="ft-campo">
+          <label for="alcance">Alcance de la ficha <span aria-hidden="true">*</span></label>
+          <p-select
+            inputId="alcance"
+            formControlName="tipo_alcance"
+            [options]="OPCIONES_ALCANCE"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Seleccione el alcance"
+            appendTo="body"
+          />
+          <small class="ft-campo__ayuda">
+            Nacional aplica a todas las sucursales; también puede limitar a sucursales o sedes específicas.
+          </small>
+        </div>
+
+        @if (formulario.controls.tipo_alcance.value !== 'nacional') {
+          <div class="ft-campo">
+            <label for="sucursales">
+              Sucursales <span aria-hidden="true">*</span>
+            </label>
+            <p-multiselect
+              inputId="sucursales"
+              formControlName="sucursales"
+              [options]="opciones()!.sucursales"
+              optionLabel="nombre"
+              optionValue="id"
+              [filter]="true"
+              filterBy="nombre"
+              display="chip"
+              placeholder="Seleccione una o más sucursales"
+              appendTo="body"
+              emptyMessage="Sin sucursales para la empresa"
+            />
+            @if (control('sucursales')) {
+              <small class="ft-campo__error">Seleccione al menos una sucursal.</small>
+            }
+          </div>
+        }
+
+        @if (formulario.controls.tipo_alcance.value === 'sede') {
+          <div class="ft-campo">
+            <label for="sedes">
+              Sedes <span aria-hidden="true">*</span>
+              @if (cargandoSedes()) {
+                <i class="pi pi-spin pi-spinner ft-campo__spinner"></i>
+              }
+            </label>
+            <p-multiselect
+              inputId="sedes"
+              formControlName="sedes"
+              [options]="sedes()"
+              optionLabel="nombre"
+              optionValue="id"
+              [filter]="true"
+              filterBy="nombre"
+              display="chip"
+              [placeholder]="sedes().length === 0 ? 'Seleccione primero las sucursales' : 'Seleccione una o más sedes'"
+              appendTo="body"
+              emptyMessage="Sin sedes para las sucursales elegidas"
+            />
+            @if (control('sedes')) {
+              <small class="ft-campo__error">Seleccione al menos una sede.</small>
+            }
+          </div>
+        }
+      </div>
+
       <div class="ft-campo ft-campo--ancho">
         <label for="profesionales">
           Profesionales asignados <span aria-hidden="true">*</span>
