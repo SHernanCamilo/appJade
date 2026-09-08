@@ -88,6 +88,7 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
   protected readonly formulario = this.fb.nonNullable.group({
     id_agremiacion:    [null as number | null, Validators.required],
     id_objeto_contrato:[null as number | null, Validators.required],
+    id_forma_pago:     [null as number | null, Validators.required],
     id_especialidad:   [null as number | null, Validators.required],
     vlr_contrato:      [null as number | null, [Validators.required, Validators.min(1)]],
     vigencia:          [null as unknown,        Validators.required],
@@ -147,6 +148,7 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
       this.formulario.patchValue({
         id_agremiacion:     ficha.id_agremiacion,
         id_objeto_contrato: ficha.id_objeto_contrato,
+        id_forma_pago:      ficha.id_forma_pago ?? null,
         id_especialidad:    ficha.id_especialidad,
         vlr_contrato:       Number(ficha.vlr_contrato),
         vigencia: [
@@ -169,6 +171,7 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
       this.formulario.patchValue({
         id_agremiacion:     prev.id_agremiacion,
         id_objeto_contrato: prev.id_objeto_contrato,
+        id_forma_pago:      prev.id_forma_pago ?? null,
         id_especialidad:    prev.id_especialidad,
         vlr_contrato:       prev.vlr_contrato,
         vigencia: [
@@ -229,6 +232,7 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
     this.continuar.emit({
       id_agremiacion:     v.id_agremiacion!,
       id_objeto_contrato: v.id_objeto_contrato!,
+      id_forma_pago:      v.id_forma_pago ?? null,
       id_especialidad:    v.id_especialidad!,
       vlr_contrato:       v.vlr_contrato!,
       fecha_ini:          this.aIso(inicio),

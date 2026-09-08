@@ -149,12 +149,20 @@ export interface OpcionSimple {
   label: string;
 }
 
+/** Forma de pago (plazo) parametrizable del contrato. */
+export interface FormaPago {
+  id: number;
+  descripcion: string;
+  dias?: number | null;
+  estado?: boolean;
+}
+
 export interface OpcionesFormulario {
   agremiaciones: Agremiacion[];
   especialidades: Especialidad[];
   objetos_contrato: ObjetoContrato[];
   tipos_servicio: TipoServicio[];
-  formas_pago: OpcionSimple[];
+  formas_pago: FormaPago[];
   perfiles: OpcionSimple[];
 }
 
@@ -166,7 +174,8 @@ export type CatalogoNombre =
   | 'tipos-servicio'
   | 'objetos-contrato'
   | 'obs-items'
-  | 'homologos';
+  | 'homologos'
+  | 'formas-pago';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Tarifarios
@@ -316,6 +325,7 @@ export interface Ficha {
   sucursal_legacy: string | null;
   id_agremiacion: number;
   id_objeto_contrato: number;
+  id_forma_pago: number | null;
   id_especialidad: number;
   vlr_contrato: string;
   fecha_ini: string;
@@ -341,6 +351,7 @@ export interface Ficha {
   agremiacion?: Agremiacion;
   especialidad?: Especialidad;
   objetoContrato?: ObjetoContrato;
+  formaPago?: FormaPago | null;
   empresa?: { id: number; nombre: string; prefijo: string } | null;
   sucursal?: { id: number; nombre: string } | null;
   generador?: { id: number; name: string; email: string } | null;
@@ -362,6 +373,7 @@ export interface CrearFichaPayload {
   id_agremiacion: number;
   id_objeto_contrato: number;
   id_especialidad: number;
+  id_forma_pago?: number | null;
   vlr_contrato: number;
   fecha_ini: string;
   fecha_fin: string;

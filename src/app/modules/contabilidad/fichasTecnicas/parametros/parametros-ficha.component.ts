@@ -70,21 +70,9 @@ export class ParametrosFichaComponent implements OnInit {
         { campo: 'telefono',  header: 'Teléfono',           width: '9rem' },
       ],
     },
-    {
-      catalogo: 'profesionales', titulo: 'Profesionales',
-      columnas: [
-        { campo: 'documento',           header: 'Documento',  width: '10rem' },
-        { campo: 'nombre',              header: 'Nombre' },
-        { campo: 'tarjeta_profesional', header: 'RETHUS',     width: '10rem' },
-      ],
-    },
-    {
-      catalogo: 'especialidades', titulo: 'Especialidades',
-      columnas: [
-        { campo: 'descripcion', header: 'Descripción' },
-        { campo: 'perfil',      header: 'Perfil',            width: '10rem' },
-      ],
-    },
+    // Profesionales y Especialidades ya NO se administran aquí:
+    // se consumen directamente desde Microsoft Fabric (vistas/dc.VW_AD_*),
+    // por lo que su edición manual quedó fuera de este parametrizador.
     {
       catalogo: 'tipos-servicio', titulo: 'Tipos de servicio',
       columnas: [{ campo: 'descripcion', header: 'Descripción' }],
@@ -92,6 +80,13 @@ export class ParametrosFichaComponent implements OnInit {
     {
       catalogo: 'objetos-contrato', titulo: 'Objetos de contrato',
       columnas: [{ campo: 'descripcion', header: 'Descripción' }],
+    },
+    {
+      catalogo: 'formas-pago', titulo: 'Formas de pago',
+      columnas: [
+        { campo: 'descripcion', header: 'Descripción' },
+        { campo: 'dias',        header: 'Días', width: '8rem' },
+      ],
     },
     {
       catalogo: 'obs-items', titulo: 'Observaciones',

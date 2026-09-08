@@ -87,6 +87,26 @@
         <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
       </div>
 
+      <!-- Forma de pago (plazo) — catálogo parametrizable (60/90/120 días) -->
+      <div class="ft-campo">
+        <label for="formaPago">Forma de pago (plazo) <span aria-hidden="true">*</span></label>
+        <p-select
+          inputId="formaPago"
+          formControlName="id_forma_pago"
+          [options]="opciones()!.formas_pago"
+          optionLabel="descripcion"
+          optionValue="id"
+          placeholder="Seleccione el plazo de pago"
+          [filter]="true"
+          filterBy="descripcion"
+          appendTo="body"
+        />
+        @if (control('id_forma_pago')) {
+          <small class="ft-campo__error">Seleccione la forma de pago.</small>
+        }
+        <small class="ft-campo__ayuda">Administrable en Parámetros → Formas de pago.</small>
+      </div>
+
       <!-- Especialidad ocupa fila completa, debajo de valor/vigencia -->
       <div class="ft-campo ft-campo--ancho">
         <label for="especialidad">Especialidad contratada <span aria-hidden="true">*</span></label>
