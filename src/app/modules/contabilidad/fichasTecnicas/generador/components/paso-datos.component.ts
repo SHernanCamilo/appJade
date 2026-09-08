@@ -4,6 +4,7 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  computed,
   inject,
   input,
   output,
@@ -17,6 +18,7 @@ import { MessageModule } from 'primeng/message';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { SelectModule } from 'primeng/select';
 import { SkeletonModule } from 'primeng/skeleton';
+import { TooltipModule } from 'primeng/tooltip';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -54,6 +56,7 @@ import { ParametrosService } from '../../services/parametros.service';
     ButtonModule,
     MessageModule,
     SkeletonModule,
+    TooltipModule,
   ],
   templateUrl: './paso-datos.component.html',
   styleUrl: './paso-datos.component.css',
@@ -83,6 +86,21 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
   // ── Estado local ────────────────────────────────────────────────────────
   protected readonly profesionales          = signal<ProfesionalDeEspecialidad[]>([]);
   protected readonly cargandoProfesionales  = signal<boolean>(false);
+  /** Códigos seleccionados (espejo reactivo del form control para la lista). */
+  protected readonly codigosSeleccionados   = signal<string[]>([]);
+
+  /**
+   * Profesionales seleccionados con su info completa, para listarlos abajo
+   * del multiselect con opción de quitar. Si el objeto no está en la lista
+   * cargada, se muestra al menos el código.
+   */
+  protected readonly profesionalesSeleccionados = computed<ProfesionalDeEspecialidad[]>(() => {
+    const cargados = this.profesionales();
+    return this.codigosSeleccionados().map(
+      (cod) => cargados.find((p) => p.codigo === cod)
+        ?? ({ codigo: cod, nombre: cod, profesion: null, sucursal_sede: null } as ProfesionalDeEspecialidad),
+    );
+  });
 
   /** Subject para debounce del filtro de búsqueda libre en el MultiSelect. */
   private readonly filtroBusqueda$ = new Subject<string>();
@@ -130,6 +148,11 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
     this.formulario.controls.sucursales.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe((ids) => this.cargarSedes(ids ?? []));
+
+    // ── Espejo reactivo de los profesionales seleccionados (para la lista) ─
+    this.formulario.controls.profesionales.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((codigos) => this.codigosSeleccionados.set([...(codigos ?? [])]));
 
     // ── Búsqueda libre en MultiSelect (debounce 400 ms) ──────────────────
     this.filtroBusqueda$.pipe(
@@ -185,6 +208,8 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
         obs_os: ficha.obs_os ?? '',
       }, { emitEvent: false });
 
+      this.codigosSeleccionados.set((ficha.profesionales ?? []).map((p) => p.codigo ?? String(p.id)));
+
       this.cargarPorEspecialidadSinLimpiar(
         ficha.id_especialidad,
         (ficha.profesionales ?? []).map((p) => p.codigo ?? String(p.id)),
@@ -212,6 +237,8 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
         obs_os: prev.obs_os ?? '',
       }, { emitEvent: false }); // no dispara las cascadas
 
+      this.codigosSeleccionados.set([...(prev.profesionales ?? [])]);
+
       this.aplicarValidadoresAlcance(tipoPrev, false);
       if ((prev.sucursales ?? []).length > 0) {
         this.cargarSedes(prev.sucursales ?? []);
@@ -237,6 +264,15 @@ export class PasoDatosComponent implements OnInit, OnDestroy {
    */
   protected onFiltroMultiselect(evento: { filter: string }): void {
     this.filtroBusqueda$.next(evento.filter ?? '');
+  }
+
+  /** Quita un profesional de la selección desde la lista de abajo. */
+  protected quitarProfesional(codigo: string): void {
+    const actuales = this.formulario.controls.profesionales.value as string[];
+    const nuevos = actuales.filter((c) => c !== codigo);
+    this.formulario.controls.profesionales.setValue(nuevos);
+    this.formulario.controls.profesionales.markAsDirty();
+    // valueChanges actualiza codigosSeleccionados automáticamente.
   }
 
   // ── Envío del formulario ────────────────────────────────────────────────

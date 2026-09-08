@@ -133,6 +133,100 @@
   font-weight: 600;
 }
 
+/* ── Lista de profesionales seleccionados (con quitar) ── */
+.ft-prof-lista {
+  margin-top: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.ft-prof-lista__cab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #eff6ff;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ft-prof-lista__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.4rem;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+
+.ft-prof-lista__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.ft-prof-lista__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.ft-prof-lista__item:last-child {
+  border-bottom: none;
+}
+
+.ft-prof-lista__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ft-prof-lista__nombre {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.ft-prof-lista__meta {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.ft-prof-lista__quitar {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #b91c1c;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  transition: background 0.15s;
+}
+
+.ft-prof-lista__quitar:hover {
+  background: #fecaca;
+}
+
 .ft-paso__acciones {
   display: flex;
   justify-content: flex-end;

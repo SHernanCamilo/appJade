@@ -212,9 +212,12 @@
           [filter]="true"
           filterBy="nombre,codigo,profesion,sucursal_sede"
           [showToggleAll]="false"
-          display="chip"
+          [showClear]="true"
+          display="comma"
+          [maxSelectedLabels]="0"
+          [selectedItemsLabel]="'{0} profesional(es) seleccionado(s)'"
           appendTo="body"
-          [placeholder]="cargandoProfesionales() ? 'Cargando profesionales...' : (profesionales().length === 0 ? 'Seleccione primero una especialidad' : 'Seleccione uno o más profesionales')"
+          [placeholder]="cargandoProfesionales() ? 'Cargando profesionales...' : (profesionales().length === 0 ? 'Seleccione primero una especialidad' : 'Buscar y seleccionar profesionales')"
           emptyMessage="Sin resultados — escriba en el filtro para buscar en Fabric"
           emptyFilterMessage="Sin resultados — siga escribiendo para buscar más"
           (onFilter)="onFiltroMultiselect($event)"
@@ -230,9 +233,6 @@
               </small>
             </div>
           </ng-template>
-          <ng-template let-p pTemplate="chip">
-            {{ p.nombre || p.codigo }}
-          </ng-template>
         </p-multiselect>
         @if (control('profesionales')) {
           <small class="ft-campo__error">Asigne al menos un profesional.</small>
@@ -241,6 +241,39 @@
           Al cambiar la especialidad se cargan los profesionales activos de esa especialidad.
           También puede buscar escribiendo nombre o código en el filtro.
         </small>
+
+        <!-- Lista visible de profesionales seleccionados (con opción de quitar) -->
+        @if (profesionalesSeleccionados().length > 0) {
+          <div class="ft-prof-lista">
+            <div class="ft-prof-lista__cab">
+              <span>Profesionales asignados</span>
+              <span class="ft-prof-lista__badge">{{ profesionalesSeleccionados().length }}</span>
+            </div>
+            <ul class="ft-prof-lista__items">
+              @for (p of profesionalesSeleccionados(); track p.codigo) {
+                <li class="ft-prof-lista__item">
+                  <div class="ft-prof-lista__info">
+                    <span class="ft-prof-lista__nombre">{{ p.nombre || p.codigo }}</span>
+                    <small class="ft-prof-lista__meta">
+                      Doc. {{ p.codigo }}
+                      @if (p.profesion) { · {{ p.profesion }} }
+                      @if (p.sucursal_sede) { · {{ p.sucursal_sede }} }
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    class="ft-prof-lista__quitar"
+                    (click)="quitarProfesional(p.codigo)"
+                    [attr.aria-label]="'Quitar ' + (p.nombre || p.codigo)"
+                    pTooltip="Quitar"
+                  >
+                    <i class="pi pi-times"></i>
+                  </button>
+                </li>
+              }
+            </ul>
+          </div>
+        }
       </div>
 
       @if (esActualizacion) {
