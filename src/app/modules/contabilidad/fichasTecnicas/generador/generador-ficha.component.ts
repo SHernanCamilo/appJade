@@ -80,6 +80,8 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
               [opciones]="opciones()"
               [guardando]="guardando()"
               [nombresProfesionales]="nombresProfesionales()"
+              [observacionesPrevias]="observacionesGenerales()"
+              (observacionesCambian)="observacionesGenerales.set($event)"
               (confirmar)="onConfirmar($event)"
               (volver)="pasoActual = 1"
               (volverADatos)="pasoActual = 0"
@@ -196,6 +198,8 @@ export class GeneradorFichaComponent {
   protected readonly conflictos = signal<ConflictoProfesional[]>([]);
   /** Mapa código→nombre de profesionales para mostrar en la revisión. */
   protected readonly nombresProfesionales = signal<Record<string, string>>({});
+  /** Observaciones generales del paso 3, conservadas al navegar entre pasos. */
+  protected readonly observacionesGenerales = signal<string[]>([]);
   protected mostrarConflictos = false;
 
   constructor() {
