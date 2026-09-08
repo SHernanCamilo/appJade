@@ -79,7 +79,18 @@ export interface AccionFicha {
               <small class="ft-tabla__sub">{{ f.especialidad?.perfil }}</small>
             }
           </td>
-          <td>{{ f.fecha_ini | date: 'dd/MM/yy' }} — {{ f.fecha_fin | date: 'dd/MM/yy' }}</td>
+          <td>
+            <span class="ft-tabla__fechas">
+              {{ f.fecha_ini | date: 'dd/MM/yy' }} — {{ f.fecha_fin | date: 'dd/MM/yy' }}
+            </span>
+            @if (f.dias_restantes === null) {
+              <small class="ft-tabla__sub">Vigencia al aprobar</small>
+            } @else if (f.dias_restantes >= 0) {
+              <small class="ft-tabla__sub">{{ f.dias_restantes }} día(s) restantes</small>
+            } @else {
+              <small class="ft-tabla__sub ft-tabla__sub--vencida">Vencida</small>
+            }
+          </td>
           <td class="ft-tabla__num">{{ f.vlr_contrato | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</td>
           <td class="ft-tabla__num">{{ f.total_detalles }}</td>
           <td>
@@ -133,6 +144,17 @@ export interface AccionFicha {
                 pTooltip="Ver PDF"
                 (onClick)="accion.emit({ tipo: 'pdf', ficha: f })"
               />
+
+              @if (f.estado?.es_editable) {
+                <p-button
+                  icon="pi pi-trash"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="danger"
+                  pTooltip="Eliminar borrador"
+                  (onClick)="accion.emit({ tipo: 'cancelar', ficha: f })"
+                />
+              }
             </div>
           </td>
         </tr>
@@ -177,9 +199,36 @@ export interface AccionFicha {
         font-size: 0.72rem;
       }
 
+      .ft-tabla__sub--vencida {
+        color: #dc3545;
+        font-weight: 600;
+      }
+
+      .ft-tabla__fechas {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+
       .ft-tabla__acciones {
         display: flex;
         gap: 0.1rem;
+        flex-wrap: nowrap;
+      }
+
+      :host ::ng-deep .ft-tabla .p-datatable-thead > tr > th {
+        background: #f4f5fb;
+        color: #1e1b4b;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      :host ::ng-deep .ft-tabla .p-datatable-tbody > tr > td {
+        vertical-align: middle;
+      }
+
+      :host ::ng-deep .ft-tabla .p-button.p-button-text {
+        width: 2rem;
+        height: 2rem;
       }
 
       .ft-tabla__vacio {
