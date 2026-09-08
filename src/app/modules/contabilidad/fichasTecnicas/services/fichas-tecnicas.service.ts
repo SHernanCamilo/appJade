@@ -18,6 +18,7 @@ import {
   IndicadoresFichas,
   ObservacionFicha,
   PaginatedResponse,
+  ResumenBandeja,
   ResumenPorSucursal,
   RespuestaConflictos,
 } from '../models/ficha.model';
@@ -56,15 +57,16 @@ export class FichasTecnicasService {
   }
 
   crear(payload: CrearFichaPayload): Observable<Ficha> {
+    // El backend responde { success, data: { ficha, alertas } }.
     return this.http
-      .post<ApiResponse<Ficha>>(`${this.base}/fichas`, payload)
-      .pipe(map((r) => r.data));
+      .post<ApiResponse<{ ficha: Ficha; alertas: unknown[] }>>(`${this.base}/fichas`, payload)
+      .pipe(map((r) => r.data.ficha));
   }
 
   actualizar(id: number, payload: ActualizarFichaPayload): Observable<Ficha> {
     return this.http
-      .put<ApiResponse<Ficha>>(`${this.base}/fichas/${id}`, payload)
-      .pipe(map((r) => r.data));
+      .put<ApiResponse<{ ficha: Ficha; alertas: unknown[] }>>(`${this.base}/fichas/${id}`, payload)
+      .pipe(map((r) => r.data.ficha));
   }
 
   cancelar(id: number, motivo?: string): Observable<Ficha> {
@@ -115,14 +117,14 @@ export class FichasTecnicasService {
   // PROFESIONALES
   // ═════════════════════════════════════════════════════════════════════════
 
-  sincronizarProfesionales(idFicha: number, profesionales: number[]): Observable<Ficha> {
+  sincronizarProfesionales(idFicha: number, profesionales: string[]): Observable<Ficha> {
     return this.http
       .put<ApiResponse<Ficha>>(`${this.base}/fichas/${idFicha}/profesionales`, { profesionales })
       .pipe(map((r) => r.data));
   }
 
   verificarConflictos(
-    profesionales: number[],
+    profesionales: string[],
     fechaIni: string,
     fechaFin: string,
     excluirFicha?: number,
@@ -142,6 +144,11 @@ export class FichasTecnicasService {
   // La acción es semántica ("autorizar") y el backend aplica la transición
   // correcta según el estado actual de la ficha y los permisos del usuario.
   // ═════════════════════════════════════════════════════════════════════════
+
+  /** Envía un borrador a validación (inicia el flujo de aprobación). */
+  enviar(idFicha: number, observacion?: string): Observable<Ficha> {
+    return this.validar(idFicha, 'enviar', { observacion: observacion ?? null });
+  }
 
   autorizar(idFicha: number, observacion: string): Observable<Ficha> {
     return this.validar(idFicha, 'autorizar', { observacion });
@@ -211,6 +218,13 @@ export class FichasTecnicasService {
       .get<ApiResponse<FichaProximaVencer[]>>(`${this.base}/dashboard/proximas-vencer`, {
         params: { limite: String(limite) },
       })
+      .pipe(map((r) => r.data));
+  }
+
+  /** KPIs compactos para las tarjetas de la bandeja. */
+  resumenBandeja(): Observable<ResumenBandeja> {
+    return this.http
+      .get<ApiResponse<ResumenBandeja>>(`${this.base}/dashboard/resumen-bandeja`)
       .pipe(map((r) => r.data));
   }
 

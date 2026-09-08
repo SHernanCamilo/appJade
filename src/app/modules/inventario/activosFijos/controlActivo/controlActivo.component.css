@@ -1045,3 +1045,49 @@ textarea.ti-input {
   color: #1e40af;
   text-align: center;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* TAB LOCALIDADES — cobertura de inventario                                 */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+/* Icono de alerta animado (activos faltantes) */
+.ti-alerta-icono {
+  color: #d9534f;
+  margin-left: .35rem;
+  animation: ti-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ti-pulse {
+  0%   { transform: scale(1);   opacity: 1;   }
+  50%  { transform: scale(1.25); opacity: .55; }
+  100% { transform: scale(1);   opacity: 1;   }
+}
+
+/* Estado de inventario en la tabla */
+.ti-estado-inv {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+.ti-estado-inv--ok {
+  background: #e4f5ea;
+  color: #1e7a44;
+}
+.ti-estado-inv--falta {
+  background: #fde4e4;
+  color: #d9534f;
+}
+
+/* Resaltado sutil de la fila faltante */
+.ti-fila--faltante > td {
+  background: #fff8f8;
+}
+
+.ti-filtro--ancho {
+  min-width: 22rem;
+  flex: 1 1 22rem;
+}

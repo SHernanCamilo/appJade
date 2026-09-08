@@ -61,6 +61,8 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   readonly sucursalUsuario = signal<string | null>(null);
   readonly logoEmpresa = signal<string>('assets/media/tablero-urgencias/Logo-Medilaser.png');
   readonly connected = signal(true);
+  /** true cuando el backend sirve el ultimo dato bueno porque Python fallo */
+  readonly dataStale = signal(false);
 
   // Emparejamiento
   readonly pairingCode = signal('');
@@ -428,14 +430,15 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
   }
 
   private fetchPublicData(url: string): void {
-    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sede?: string; timestamp?: string; error?: string }>(url).subscribe({
+    this.http.get<{ success: boolean; data: UnidadUrgencias[]; sede?: string; timestamp?: string; error?: string; stale?: boolean; reason?: string }>(url).subscribe({
       next: (res) => {
-        // El backend devuelve HTTP 200 con success:false cuando la API Python
-        // (LH_INTEGRATIONS) falla. Eso NO es un éxito: si se contara como tal,
-        // lastSuccessAt se renueva y el watchdog cree que todo está bien mientras
-        // los datos llevan minutos sin actualizarse. Se trata como fallo.
+        // El backend devuelve HTTP 200 con success:false SOLO cuando Python fallo
+        // y ademas no hay dato en cache (arranque en frio con el servicio caido).
+        // Eso NO es exito: no renovar lastSuccessAt y reintentar con backoff.
         if (res.success === false) {
+          console.warn('[Tablero] Sin datos (Python caido, sin cache). Motivo:', res.reason);
           this.connected.set(false);
+          this.dataStale.set(false);
           if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
           this.scheduleRetryWithBackoff();
           return;
@@ -448,8 +451,12 @@ export class TableroUrgenciasComponent implements OnInit, OnDestroy {
           if (res.sede) this.sucursalUsuario.set(res.sede);
         }
 
-        // Éxito real (con datos, o vacío legítimo porque no hay pacientes):
-        // marcar viva la conexión y volver al ciclo normal de 15s.
+        // `stale:true` = Python fallo pero el backend sirvio el ultimo dato bueno.
+        // La TV sigue mostrando informacion en vez de ponerse en rojo por un pico;
+        // se marca "datos en cache" en el footer para que se sepa que no es fresco.
+        // La conexion se considera VIVA (hay datos), asi el watchdog no reinicia.
+        this.dataStale.set(res.stale === true);
+
         this.connected.set(true);
         this.isLoading.set(false);
         this.lastSuccessAt = Date.now();

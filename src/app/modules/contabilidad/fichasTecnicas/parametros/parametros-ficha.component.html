@@ -6,7 +6,7 @@
     <p>Administración de catálogos maestros del módulo</p>
   </header>
 
-  <p-tabView [(activeIndex)]="tabActiva" (activeIndexChange)="onCambioTab($event)">
+  <p-tabView [activeIndex]="tabActiva()" (activeIndexChange)="onCambioTab($event)">
     @for (tab of tabs; track tab.catalogo) {
       <p-tabPanel [header]="tab.titulo">
         <div class="ft-params__toolbar">

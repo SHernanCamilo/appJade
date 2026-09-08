@@ -27,7 +27,8 @@ import {
 } from '../../../sistema/flujos/models/workflow.models';
 
 // Interfaces para grupos de aprobación
-interface WfGrupo { id: number; codigo: string; nombre: string; descripcion?: string; id_empresa?: number; estado: boolean; cargos?: GrupoCargo[]; }
+// NOTA: la tabla wf_grupos NO tiene columna `codigo`, solo nombre/descripcion.
+interface WfGrupo { id: number; nombre: string; descripcion?: string; id_empresa?: number; estado: boolean; cargos?: GrupoCargo[]; }
 interface GrupoCargo { id: number; id_grupo: number; id_cargo: number; cargo?: { id_cargo: number; nombre_cargo: string; nivel_jerarquico?: number }; }
 
 @Component({
@@ -53,7 +54,7 @@ export class ConfiguracionAnticiposComponent implements OnInit {
   grupos: WfGrupo[] = [];
   grupoSeleccionado: WfGrupo | null = null;
   mostrarModalGrupo = false;
-  grupoForm = { codigo: '', nombre: '', descripcion: '', estado: true };
+  grupoForm = { nombre: '', descripcion: '', estado: true };
   editandoGrupoId: number | null = null;
   cargosDelGrupo: GrupoCargo[] = [];
   isLoadingCargos = false;
@@ -127,13 +128,13 @@ export class ConfiguracionAnticiposComponent implements OnInit {
   }
 
   abrirModalGrupo(grupo?: WfGrupo): void {
-    if (grupo) { this.editandoGrupoId = grupo.id; this.grupoForm = { codigo: grupo.codigo, nombre: grupo.nombre, descripcion: grupo.descripcion || '', estado: grupo.estado }; }
-    else { this.editandoGrupoId = null; this.grupoForm = { codigo: '', nombre: '', descripcion: '', estado: true }; }
+    if (grupo) { this.editandoGrupoId = grupo.id; this.grupoForm = { nombre: grupo.nombre, descripcion: grupo.descripcion || '', estado: grupo.estado }; }
+    else { this.editandoGrupoId = null; this.grupoForm = { nombre: '', descripcion: '', estado: true }; }
     this.mostrarModalGrupo = true;
   }
 
   guardarGrupo(): void {
-    if (!this.grupoForm.codigo || !this.grupoForm.nombre) { this.toast('warn', 'Código y nombre son obligatorios'); return; }
+    if (!this.grupoForm.nombre) { this.toast('warn', 'El nombre es obligatorio'); return; }
     this.isSaving = true;
     const op = this.editandoGrupoId
       ? this.http.put<any>(`/workflow/grupos/${this.editandoGrupoId}`, this.grupoForm)

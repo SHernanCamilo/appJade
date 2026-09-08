@@ -34,6 +34,74 @@
         }
       </div>
 
+      <!-- Alcance de la ficha: nacional / sucursal(es) / sede(s) — va arriba -->
+      <div class="ft-campo ft-campo--ancho ft-alcance">
+        <div class="ft-campo">
+          <label for="alcance">Alcance de la ficha <span aria-hidden="true">*</span></label>
+          <p-select
+            inputId="alcance"
+            formControlName="tipo_alcance"
+            [options]="OPCIONES_ALCANCE"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Seleccione el alcance"
+            appendTo="body"
+          />
+          <small class="ft-campo__ayuda">
+            Nacional aplica a todas las sucursales; también puede limitar a sucursales o sedes específicas.
+          </small>
+        </div>
+
+        @if (formulario.controls.tipo_alcance.value !== 'nacional') {
+          <div class="ft-campo">
+            <label for="sucursales">Sucursales <span aria-hidden="true">*</span></label>
+            <p-multiselect
+              inputId="sucursales"
+              formControlName="sucursales"
+              [options]="opciones()!.sucursales"
+              optionLabel="nombre"
+              optionValue="id"
+              [filter]="true"
+              filterBy="nombre"
+              display="chip"
+              placeholder="Seleccione una o más sucursales"
+              appendTo="body"
+              emptyMessage="Sin sucursales disponibles"
+            />
+            @if (control('sucursales')) {
+              <small class="ft-campo__error">Seleccione al menos una sucursal.</small>
+            }
+          </div>
+        }
+
+        @if (formulario.controls.tipo_alcance.value === 'sede') {
+          <div class="ft-campo">
+            <label for="sedes">
+              Sedes <span aria-hidden="true">*</span>
+              @if (cargandoSedes()) {
+                <i class="pi pi-spin pi-spinner ft-campo__spinner"></i>
+              }
+            </label>
+            <p-multiselect
+              inputId="sedes"
+              formControlName="sedes"
+              [options]="sedes()"
+              optionLabel="nombre"
+              optionValue="id"
+              [filter]="true"
+              filterBy="nombre"
+              display="chip"
+              [placeholder]="sedes().length === 0 ? 'Seleccione primero las sucursales' : 'Seleccione una o más sedes'"
+              appendTo="body"
+              emptyMessage="Sin sedes para las sucursales elegidas"
+            />
+            @if (control('sedes')) {
+              <small class="ft-campo__error">Seleccione al menos una sede.</small>
+            }
+          </div>
+        }
+      </div>
+
       <div class="ft-campo ft-campo--ancho">
         <label for="objeto">Objeto del contrato <span aria-hidden="true">*</span></label>
         <p-select
@@ -50,7 +118,67 @@
         }
       </div>
 
-      <div class="ft-campo">
+      <!-- Valor, Vigencia y Forma de pago en la misma fila (3 columnas) -->
+      <div class="ft-campo--ancho ft-fila3">
+        <div class="ft-campo">
+          <label for="valor">Valor estimado del contrato <span aria-hidden="true">*</span></label>
+          <p-inputnumber
+            inputId="valor"
+            formControlName="vlr_contrato"
+            mode="currency"
+            currency="COP"
+            locale="es-CO"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            [min]="0"
+            placeholder="$ 0"
+          />
+          @if (control('vlr_contrato')) {
+            <small class="ft-campo__error">Ingrese un valor mayor que cero.</small>
+          }
+        </div>
+
+        <div class="ft-campo">
+          <label for="vigencia">Vigencia del contrato <span aria-hidden="true">*</span></label>
+          <p-datepicker
+            inputId="vigencia"
+            formControlName="vigencia"
+            selectionMode="range"
+            [readonlyInput]="true"
+            dateFormat="dd/mm/yy"
+            placeholder="Fecha inicio — Fecha fin"
+            [showButtonBar]="true"
+            appendTo="body"
+          />
+          @if (control('vigencia')) {
+            <small class="ft-campo__error">Seleccione el rango de vigencia.</small>
+          }
+          <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
+        </div>
+
+        <!-- Forma de pago (plazo) — catálogo parametrizable (60/90/120 días) -->
+        <div class="ft-campo">
+          <label for="formaPago">Forma de pago (plazo) <span aria-hidden="true">*</span></label>
+          <p-select
+            inputId="formaPago"
+            formControlName="id_forma_pago"
+            [options]="opciones()!.formas_pago"
+            optionLabel="descripcion"
+            optionValue="id"
+            placeholder="Seleccione el plazo de pago"
+            [filter]="true"
+            filterBy="descripcion"
+            appendTo="body"
+          />
+          @if (control('id_forma_pago')) {
+            <small class="ft-campo__error">Seleccione la forma de pago.</small>
+          }
+          <small class="ft-campo__ayuda">Administrable en Parámetros → Formas de pago.</small>
+        </div>
+      </div>
+
+      <!-- Especialidad ocupa fila completa, debajo de valor/vigencia -->
+      <div class="ft-campo ft-campo--ancho">
         <label for="especialidad">Especialidad contratada <span aria-hidden="true">*</span></label>
         <p-select
           inputId="especialidad"
@@ -68,42 +196,6 @@
         }
       </div>
 
-      <div class="ft-campo">
-        <label for="valor">Valor estimado del contrato <span aria-hidden="true">*</span></label>
-        <p-inputnumber
-          inputId="valor"
-          formControlName="vlr_contrato"
-          mode="currency"
-          currency="COP"
-          locale="es-CO"
-          [minFractionDigits]="0"
-          [maxFractionDigits]="2"
-          [min]="0"
-          placeholder="$ 0"
-        />
-        @if (control('vlr_contrato')) {
-          <small class="ft-campo__error">Ingrese un valor mayor que cero.</small>
-        }
-      </div>
-
-      <div class="ft-campo">
-        <label for="vigencia">Vigencia del contrato <span aria-hidden="true">*</span></label>
-        <p-datepicker
-          inputId="vigencia"
-          formControlName="vigencia"
-          selectionMode="range"
-          [readonlyInput]="true"
-          dateFormat="dd/mm/yy"
-          placeholder="Fecha inicio — Fecha fin"
-          [showButtonBar]="true"
-          appendTo="body"
-        />
-        @if (control('vigencia')) {
-          <small class="ft-campo__error">Seleccione el rango de vigencia.</small>
-        }
-        <small class="ft-campo__ayuda">La fecha final debe ser posterior a la inicial.</small>
-      </div>
-
       <div class="ft-campo ft-campo--ancho">
         <label for="profesionales">
           Profesionales asignados <span aria-hidden="true">*</span>
@@ -115,29 +207,29 @@
           inputId="profesionales"
           formControlName="profesionales"
           [options]="profesionales()"
-          optionLabel="profesional_nombre"
-          optionValue="id_profesional"
+          optionLabel="nombre"
+          optionValue="codigo"
           [filter]="true"
-          filterBy="profesional_nombre,documento"
-          [showToggleAll]="true"
-          display="chip"
+          filterBy="nombre,codigo,profesion,sucursal_sede"
+          [showToggleAll]="false"
+          [showClear]="true"
+          display="comma"
+          [maxSelectedLabels]="0"
+          [selectedItemsLabel]="'{0} profesional(es) seleccionado(s)'"
           appendTo="body"
-          [placeholder]="
-            formulario.controls.id_especialidad.value
-              ? 'Seleccione uno o más profesionales'
-              : 'Elija primero una especialidad'
-          "
-          [disabled]="!formulario.controls.id_especialidad.value"
-          emptyMessage="La especialidad no tiene profesionales asignados"
+          [placeholder]="cargandoProfesionales() ? 'Cargando profesionales...' : (profesionales().length === 0 ? 'Seleccione primero una especialidad' : 'Buscar y seleccionar profesionales')"
+          emptyMessage="Sin resultados — escriba en el filtro para buscar en Fabric"
+          emptyFilterMessage="Sin resultados — siga escribiendo para buscar más"
+          (onFilter)="onFiltroMultiselect($event)"
         >
           <ng-template let-p pTemplate="item">
             <div class="ft-prof">
-              <span class="ft-prof__nombre">{{ p.profesional_nombre }}</span>
+              <span class="ft-prof__nombre">{{ p.nombre }}</span>
               <small class="ft-prof__meta">
-                CC {{ p.documento }}
-                @if (p.tarjeta_profesional) {
-                  · TP {{ p.tarjeta_profesional }}
-                }
+                Doc. {{ p.codigo }}
+                @if (p.profesion) { · {{ p.profesion }} }
+                @if (p.sucursal_sede) { · {{ p.sucursal_sede }} }
+                @if (p.tiene_firma) { · <span class="ft-prof__firma">✓ Firma</span> }
               </small>
             </div>
           </ng-template>
@@ -146,8 +238,42 @@
           <small class="ft-campo__error">Asigne al menos un profesional.</small>
         }
         <small class="ft-campo__ayuda">
-          Al guardar se verifica que ninguno tenga otra ficha vigente en este periodo.
+          Al cambiar la especialidad se cargan los profesionales activos de esa especialidad.
+          También puede buscar escribiendo nombre o código en el filtro.
         </small>
+
+        <!-- Lista visible de profesionales seleccionados (con opción de quitar) -->
+        @if (profesionalesSeleccionados().length > 0) {
+          <div class="ft-prof-lista">
+            <div class="ft-prof-lista__cab">
+              <span>Profesionales asignados</span>
+              <span class="ft-prof-lista__badge">{{ profesionalesSeleccionados().length }}</span>
+            </div>
+            <ul class="ft-prof-lista__items">
+              @for (p of profesionalesSeleccionados(); track p.codigo) {
+                <li class="ft-prof-lista__item">
+                  <div class="ft-prof-lista__info">
+                    <span class="ft-prof-lista__nombre">{{ p.nombre || p.codigo }}</span>
+                    <small class="ft-prof-lista__meta">
+                      Doc. {{ p.codigo }}
+                      @if (p.profesion) { · {{ p.profesion }} }
+                      @if (p.sucursal_sede) { · {{ p.sucursal_sede }} }
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    class="ft-prof-lista__quitar"
+                    (click)="quitarProfesional(p.codigo)"
+                    [attr.aria-label]="'Quitar ' + (p.nombre || p.codigo)"
+                    pTooltip="Quitar"
+                  >
+                    <i class="pi pi-times"></i>
+                  </button>
+                </li>
+              }
+            </ul>
+          </div>
+        }
       </div>
 
       @if (esActualizacion) {

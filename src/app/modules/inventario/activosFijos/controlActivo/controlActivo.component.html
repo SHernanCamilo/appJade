@@ -809,6 +809,188 @@
       </section>
 
     </p-tabPanel>
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3 — LOCALIDADES / UBICACIONES                               -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <p-tabPanel header="Localidades" leftIcon="pi pi-map-marker">
+
+      <!-- ── Filtros ──────────────────────────────────────────────── -->
+      <section class="ti-card ti-filtros">
+        <div class="ti-filtro ti-filtro--ancho">
+          <label>Localidad / Ubicación</label>
+          <p-dropdown
+            [(ngModel)]="filtrosLoc.localizacion"
+            [options]="localidadesOpcionesTab"
+            optionLabel="label"
+            optionValue="value"
+            [filter]="true"
+            filterBy="label"
+            [showClear]="true"
+            [loading]="cargandoLocalidades"
+            placeholder="Seleccione o busque una localidad..."
+            styleClass="ti-dropdown-prime ti-dropdown-prime--filtro"
+            (onChange)="consultarCobertura()">
+          </p-dropdown>
+        </div>
+
+        <div class="ti-filtro">
+          <label>Tipo de inventario <small>(opcional)</small></label>
+          <p-dropdown
+            [(ngModel)]="filtrosLoc.tipo_inventario_id"
+            [options]="tiposInventarioOpciones"
+            optionLabel="label"
+            optionValue="value"
+            [showClear]="true"
+            placeholder="Todos los tipos"
+            styleClass="ti-dropdown-prime ti-dropdown-prime--filtro">
+          </p-dropdown>
+        </div>
+
+        <div class="ti-filtro">
+          <label for="fLocDesde">Desde</label>
+          <input id="fLocDesde" type="date" [(ngModel)]="filtrosLoc.desde" class="ti-input" />
+        </div>
+
+        <div class="ti-filtro">
+          <label for="fLocHasta">Hasta</label>
+          <input id="fLocHasta" type="date" [(ngModel)]="filtrosLoc.hasta" class="ti-input" />
+        </div>
+
+        <div class="ti-filtros__acciones">
+          <button type="button" class="ti-btn ti-btn--primary"
+                  [disabled]="!filtrosLoc.localizacion || cargandoCobertura"
+                  (click)="consultarCobertura()">
+            <i class="pi" [ngClass]="cargandoCobertura ? 'pi-spin pi-spinner' : 'pi-search'"></i>
+            {{ cargandoCobertura ? 'Consultando...' : 'Consultar' }}
+          </button>
+          <button type="button" class="ti-btn ti-btn--excel"
+                  [disabled]="exportandoLoc || !filtrosLoc.localizacion"
+                  (click)="exportarCobertura(false)"
+                  pTooltip="Exporta la cobertura de la localidad seleccionada">
+            <i class="pi" [ngClass]="exportandoLoc ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i>
+            Exportar localidad
+          </button>
+          <button type="button" class="ti-btn ti-btn--secondary"
+                  [disabled]="exportandoLoc"
+                  (click)="exportarCobertura(true)"
+                  pTooltip="Exporta la cobertura de TODAS las localidades">
+            <i class="pi pi-download"></i>
+            Exportar todas
+          </button>
+        </div>
+      </section>
+
+      <!-- ── Estado vacío ──────────────────────────────────────────── -->
+      <div class="ti-vacio" *ngIf="!cobertura && !cargandoCobertura">
+        <i class="pi pi-map-marker"></i>
+        Seleccione una localidad para ver qué activos se han inventariado y cuáles faltan.
+      </div>
+
+      <div class="ti-vacio" *ngIf="cargandoCobertura">
+        <i class="pi pi-spin pi-spinner"></i>
+        Consultando cobertura de la localidad...
+      </div>
+
+      <!-- ── Cobertura ─────────────────────────────────────────────── -->
+      <ng-container *ngIf="cobertura && !cargandoCobertura">
+
+        <!-- KPIs -->
+        <section class="ti-resumen">
+          <div class="ti-kpi">
+            <span class="ti-kpi__valor">{{ cobertura.resumen.total | number }}</span>
+            <span class="ti-kpi__label">Activos en la localidad</span>
+          </div>
+          <div class="ti-kpi ti-kpi--bueno">
+            <span class="ti-kpi__valor">{{ cobertura.resumen.inventariados | number }}</span>
+            <span class="ti-kpi__label">Inventariados</span>
+          </div>
+          <div class="ti-kpi ti-kpi--baja">
+            <span class="ti-kpi__valor">
+              {{ cobertura.resumen.faltantes | number }}
+              <i class="pi pi-exclamation-triangle ti-alerta-icono"
+                 *ngIf="cobertura.resumen.faltantes > 0"></i>
+            </span>
+            <span class="ti-kpi__label">Faltan por inventariar</span>
+          </div>
+          <div class="ti-kpi ti-kpi--hoy">
+            <span class="ti-kpi__valor">{{ cobertura.resumen.cobertura }}%</span>
+            <span class="ti-kpi__label">Cobertura</span>
+          </div>
+        </section>
+
+        <!-- Toggle solo faltantes -->
+        <section class="ti-card ti-filtros">
+          <div class="ti-filtro ti-filtro--check">
+            <label class="ti-check-label">
+              <input type="checkbox" [(ngModel)]="soloFaltantes" />
+              Ver solo faltantes
+            </label>
+          </div>
+          <div class="ti-filtro" style="flex:1; align-self:center;">
+            <span class="ti-subtitulo">
+              <i class="pi pi-map-marker"></i> {{ cobertura.localizacion }}
+            </span>
+          </div>
+        </section>
+
+        <!-- Tabla de activos -->
+        <section class="ti-card">
+          <p-table [value]="coberturaItems" styleClass="ti-tabla"
+                   [paginator]="true" [rows]="25" [rowsPerPageOptions]="[25, 50, 100]"
+                   [scrollable]="true" scrollHeight="480px"
+                   currentPageReportTemplate="{first} - {last} de {totalRecords}"
+                   [showCurrentPageReport]="true">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width: 5rem">Estado</th>
+                <th>Placa</th>
+                <th>Artículo</th>
+                <th>Serie</th>
+                <th>Responsable</th>
+                <th>Tomas</th>
+                <th>Última toma</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-item>
+              <tr [class.ti-fila--faltante]="!item.inventariado">
+                <td>
+                  <span *ngIf="item.inventariado" class="ti-estado-inv ti-estado-inv--ok"
+                        pTooltip="Inventariado" tooltipPosition="right">
+                    <i class="pi pi-check-circle"></i>
+                  </span>
+                  <span *ngIf="!item.inventariado" class="ti-estado-inv ti-estado-inv--falta"
+                        pTooltip="Falta inventariar" tooltipPosition="right">
+                    <i class="pi pi-exclamation-triangle ti-alerta-icono"></i>
+                  </span>
+                </td>
+                <td><strong>{{ valor(item.placa) }}</strong></td>
+                <td>{{ valor(item.articulo) }}</td>
+                <td>{{ valor(item.serie) }}</td>
+                <td>{{ valor(item.responsable) }}</td>
+                <td>
+                  <span class="ti-conteo" [class.ti-conteo--cero]="item.tomas === 0">{{ item.tomas }}</span>
+                </td>
+                <td class="ti-fecha">{{ item.ultima_toma || '—' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="7">
+                  <div class="ti-vacio">
+                    <i class="pi pi-inbox"></i>
+                    <span *ngIf="soloFaltantes">No hay activos faltantes en esta localidad. ¡Todo inventariado!</span>
+                    <span *ngIf="!soloFaltantes">Esta localidad no tiene activos en el maestro.</span>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </section>
+
+      </ng-container>
+
+    </p-tabPanel>
   </p-tabView>
 
 </div>

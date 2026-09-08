@@ -22,7 +22,10 @@ import {
   ValidacionPeriodicidad,
   TipoInventario,
   TrazabilidadActivo,
-  ResultadoInventario
+  ResultadoInventario,
+  Localidad,
+  ActivoLocalidad,
+  CoberturaLocalidad
 } from '../services/activos-fijos.service';
 
 /**
@@ -91,6 +94,7 @@ const FORMULARIO_EXTERNO_VACIO: FormularioExterno = {
 /** Índices de las pestañas. */
 const TAB_REGISTRAR = 0;
 const TAB_TRAZABILIDAD = 1;
+const TAB_LOCALIDADES = 2;
 
 /**
  * Control de Activos Fijos — módulo único con dos pestañas.
@@ -215,6 +219,27 @@ export class ControlActivoComponent implements OnInit {
   expandidas: Record<number, boolean> = {};
 
   // =========================================================================
+  // PESTAÑA 3 — LOCALIDADES / UBICACIONES
+  // =========================================================================
+
+  localidades: Localidad[] = [];
+  localidadesOpcionesTab: Array<{ label: string; value: string }> = [];
+  cargandoLocalidades = false;
+
+  /** Filtros del tab de localidades. */
+  filtrosLoc = {
+    localizacion: '' as string,
+    tipo_inventario_id: null as number | null,
+    desde: '',
+    hasta: ''
+  };
+
+  cobertura: CoberturaLocalidad | null = null;
+  cargandoCobertura = false;
+  soloFaltantes = false;
+  exportandoLoc = false;
+
+  // =========================================================================
   // INIT
   // =========================================================================
 
@@ -234,6 +259,9 @@ export class ControlActivoComponent implements OnInit {
     if (evento.index === TAB_TRAZABILIDAD) {
       this.cargarTrazabilidad();
       this.cargarResumen();
+    }
+    if (evento.index === TAB_LOCALIDADES && this.localidades.length === 0) {
+      this.cargarLocalidades();
     }
   }
 
@@ -785,6 +813,124 @@ export class ControlActivoComponent implements OnInit {
     };
     this.primeraFila = 0;
     this.irATrazabilidad();
+  }
+
+  // =========================================================================
+  // PESTAÑA 3 — LOCALIDADES / UBICACIONES
+  // =========================================================================
+
+  cargarLocalidades(): void {
+    this.cargandoLocalidades = true;
+    this.service.localidadesLista().subscribe({
+      next: respuesta => {
+        this.cargandoLocalidades = false;
+        this.localidades = respuesta.data ?? [];
+        this.localidadesOpcionesTab = this.localidades.map(l => ({
+          label: `${l.localizacion} (${l.total_activos})`,
+          value: l.localizacion
+        }));
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargandoLocalidades = false;
+        this.localidades = [];
+        this.messages.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.error?.message ?? 'No se pudieron cargar las localidades.',
+          life: 6000
+        });
+      }
+    });
+  }
+
+  consultarCobertura(): void {
+    if (!this.filtrosLoc.localizacion) {
+      this.messages.add({
+        severity: 'warn',
+        summary: 'Seleccione una localidad',
+        detail: 'Elija una localidad para ver su cobertura de inventario.',
+        life: 4000
+      });
+      return;
+    }
+
+    this.cargandoCobertura = true;
+    this.cobertura = null;
+
+    this.service.activosPorLocalidad({
+      localizacion: this.filtrosLoc.localizacion,
+      tipo_inventario_id: this.filtrosLoc.tipo_inventario_id ?? undefined,
+      desde: this.filtrosLoc.desde || undefined,
+      hasta: this.filtrosLoc.hasta || undefined
+    }).subscribe({
+      next: respuesta => {
+        this.cargandoCobertura = false;
+        this.cobertura = respuesta.data ?? null;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargandoCobertura = false;
+        this.messages.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.error?.message ?? 'No se pudo consultar la cobertura de la localidad.',
+          life: 6000
+        });
+      }
+    });
+  }
+
+  /** Activos a mostrar en la tabla, aplicando el toggle "solo faltantes". */
+  get coberturaItems(): ActivoLocalidad[] {
+    const items = this.cobertura?.items ?? [];
+    return this.soloFaltantes ? items.filter(i => !i.inventariado) : items;
+  }
+
+  /** Exporta la cobertura: de la localidad seleccionada o de todas. */
+  exportarCobertura(todas = false): void {
+    if (!todas && !this.filtrosLoc.localizacion) {
+      this.messages.add({
+        severity: 'warn',
+        summary: 'Seleccione una localidad',
+        detail: 'Elija una localidad o use "Exportar todas".',
+        life: 4000
+      });
+      return;
+    }
+
+    this.exportandoLoc = true;
+
+    this.service.exportarLocalidades({
+      localizacion: todas ? undefined : this.filtrosLoc.localizacion,
+      tipo_inventario_id: this.filtrosLoc.tipo_inventario_id ?? undefined,
+      desde: this.filtrosLoc.desde || undefined,
+      hasta: this.filtrosLoc.hasta || undefined
+    }).subscribe({
+      next: (blob: Blob) => {
+        this.exportandoLoc = false;
+        const url = window.URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        const sufijo = todas ? 'todas' : (this.filtrosLoc.localizacion.split(' ')[0] || 'localidad');
+        enlace.download = `cobertura_${sufijo}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        enlace.click();
+        window.URL.revokeObjectURL(url);
+        this.messages.add({
+          severity: 'success',
+          summary: 'Exportación completada',
+          detail: 'El archivo de cobertura se descargó correctamente.',
+          life: 4000
+        });
+      },
+      error: (error: HttpErrorResponse) => {
+        this.exportandoLoc = false;
+        this.messages.add({
+          severity: 'error',
+          summary: 'Error exportando',
+          detail: error.error?.message ?? 'No se pudo generar el archivo de cobertura.',
+          life: 7000
+        });
+      }
+    });
   }
 
   // =========================================================================

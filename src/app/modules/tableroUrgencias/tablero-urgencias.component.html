@@ -133,6 +133,7 @@
     }
     Actualización automática cada 15s
     @if (lastUpdate()) { <span class="last-time">· Última: {{ lastUpdate()! | date:'HH:mm:ss' }}</span> }
+    @if (dataStale()) { <span class="last-time stale-tag">· Datos en caché (reconectando)</span> }
     @if (deviceName()) { <span class="last-time">· {{ deviceName() }}</span> }
   </footer>
   } <!-- cierra @if mode() !== 'pairing' -->

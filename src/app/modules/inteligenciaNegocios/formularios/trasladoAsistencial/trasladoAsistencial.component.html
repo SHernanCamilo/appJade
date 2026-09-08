@@ -219,12 +219,13 @@
             <ng-container *ngIf="campoVisible('tipoIdentificacion')">
               <th><span class="req-num" *ngIf="campoRequerido('tipoIdentificacion')">*</span> {{ campoLabel('tipoIdentificacion', 'Tipo de documento') }}:</th>
               <td colspan="3">
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="msi"> MSI</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="as"> AS</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ms"> MS</label>
                 <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="rc"> RC</label>
                 <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ti"> TI</label>
                 <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
                 <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otro</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otros</label>
                 <input *ngIf="campoVisible('tipoIdentificacionOtro')" type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
               </td>
             </ng-container>
@@ -242,9 +243,8 @@
                 <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
                 <ng-container *ngIf="campoVisible('edadUnidad')">
                   <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
-                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="meses"> Meses</label>
+                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="meses"> Mes</label>
                   <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
-                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="horas"> Horas</label>
                 </ng-container>
               </td>
             </ng-container>
@@ -369,14 +369,14 @@
           'signosInicio.taSistolica', 'signosInicio.taDiastolica', 'signosInicio.tamSistolica', 'signosInicio.tamDiastolica',
           'signosInicio.fc', 'signosInicio.fr', 'signosInicio.temperatura', 'signosInicio.fcf',
           'signosInicio.pupilaDerecha', 'signosInicio.pupilaIzquierda', 'signosInicio.spo2',
-          'signosInicio.peso', 'signosInicio.pesoUnidad', 'signosInicio.triage')">
+          'signosInicio.triage')">
           Signos vitales al inicio del traslado:
         </div>
         <table class="form-table vitals-table" *ngIf="algunoVisible(
           'signosInicio.taSistolica', 'signosInicio.taDiastolica', 'signosInicio.tamSistolica', 'signosInicio.tamDiastolica',
           'signosInicio.fc', 'signosInicio.fr', 'signosInicio.temperatura', 'signosInicio.fcf',
           'signosInicio.pupilaDerecha', 'signosInicio.pupilaIzquierda', 'signosInicio.spo2',
-          'signosInicio.peso', 'signosInicio.pesoUnidad', 'signosInicio.triage')">
+          'signosInicio.triage')">
           <tr *ngIf="algunoVisible('signosInicio.taSistolica', 'signosInicio.taDiastolica', 'signosInicio.tamSistolica', 'signosInicio.tamDiastolica', 'signosInicio.fc', 'signosInicio.fr')">
             <td *ngIf="algunoVisible('signosInicio.taSistolica', 'signosInicio.taDiastolica')">
               Tensión arterial
@@ -411,18 +411,11 @@
               Pupila izq. <input type="text" class="tiny" [(ngModel)]="form.signosInicio.pupilaIzquierda"> mm
             </td>
           </tr>
-          <tr *ngIf="algunoVisible('signosInicio.spo2', 'signosInicio.peso', 'signosInicio.pesoUnidad', 'signosInicio.triage')">
+          <tr *ngIf="algunoVisible('signosInicio.spo2', 'signosInicio.triage')">
             <td *ngIf="campoVisible('signosInicio.spo2')">
               SPO2 <input type="text" class="tiny" [(ngModel)]="form.signosInicio.spo2"> %
             </td>
-            <td *ngIf="algunoVisible('signosInicio.peso', 'signosInicio.pesoUnidad')">
-              <ng-container *ngIf="campoVisible('signosInicio.peso')">Peso <input type="text" class="tiny" [(ngModel)]="form.signosInicio.peso"></ng-container>
-              <ng-container *ngIf="campoVisible('signosInicio.pesoUnidad')">
-                <label class="chk"><input type="radio" name="pesoUnidadPrimRes" [(ngModel)]="form.signosInicio.pesoUnidad" value="gramos"> Gramos</label>
-                <label class="chk"><input type="radio" name="pesoUnidadPrimRes" [(ngModel)]="form.signosInicio.pesoUnidad" value="kg"> kilogramos (Kg)</label>
-              </ng-container>
-            </td>
-            <td colspan="2" *ngIf="campoVisible('signosInicio.triage')">
+            <td colspan="3" *ngIf="campoVisible('signosInicio.triage')">
               {{ campoLabel('signosInicio.triage', 'Triage del paciente en escena') }}:
               <input type="text" class="short" [(ngModel)]="form.signosInicio.triage">
             </td>
@@ -494,11 +487,10 @@
         <ng-container *ngIf="seccionVisible('Origen, destino y estado')">
         <div class="section-bar">ORIGEN, DESTINO Y ESTADO</div>
         <table class="form-table">
-          <tr *ngIf="algunoVisible('origenReps', 'origenDepartamento', 'origenMunicipio', 'origenLocalidad', 'origenBarrio', 'origenDireccion')">
-            <th><span class="req-num" *ngIf="campoRequerido('origenReps')">*</span> Lugar de origen:</th>
+          <tr *ngIf="algunoVisible('origenDepartamento', 'origenMunicipio', 'origenLocalidad', 'origenBarrio', 'origenDireccion')">
+            <th>Lugar de origen:</th>
             <td colspan="5">
               <div class="ob-row">
-                <ng-container *ngIf="campoVisible('origenReps')">Código REPS <input type="text" class="short" [(ngModel)]="form.origenReps"></ng-container>
                 <ng-container *ngIf="campoVisible('origenDepartamento')">Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
                 <ng-container *ngIf="campoVisible('origenMunicipio')">Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
                 <ng-container *ngIf="campoVisible('origenLocalidad')">Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
@@ -574,18 +566,10 @@
         <table class="grid-table headers-plain firmas-table">
           <tbody>
             <tr class="rol-row">
-              <th *ngIf="algunoVisible('medico1.nombre', 'medico1.tipoDocumento', 'medico1.documento')">Médico</th>
               <th *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">Auxiliar de Enfermería</th>
               <th *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">Comandante / Conductor</th>
             </tr>
             <tr>
-              <td *ngIf="algunoVisible('medico1.nombre', 'medico1.tipoDocumento', 'medico1.documento')">
-                <input *ngIf="campoVisible('medico1.nombre')" type="text" class="full" [placeholder]="campoLabel('medico1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.medico1.nombre">
-                <div class="doc-line" *ngIf="algunoVisible('medico1.tipoDocumento', 'medico1.documento')">
-                  <ng-container *ngIf="campoVisible('medico1.tipoDocumento')">Tipo <input type="text" class="tiny" [(ngModel)]="form.medico1.tipoDocumento" placeholder="CC"></ng-container>
-                  <ng-container *ngIf="campoVisible('medico1.documento')">N° <input type="text" [(ngModel)]="form.medico1.documento"></ng-container>
-                </div>
-              </td>
               <td *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">
                 <input *ngIf="campoVisible('auxiliar1.nombre')" type="text" class="full" [placeholder]="campoLabel('auxiliar1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.auxiliar1.nombre">
                 <div class="doc-line" *ngIf="algunoVisible('auxiliar1.tipoDocumento', 'auxiliar1.documento')">

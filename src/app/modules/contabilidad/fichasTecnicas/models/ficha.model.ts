@@ -101,15 +101,28 @@ export interface Profesional {
   telefono?: string | null;
   estado?: boolean;
   especialidades?: Especialidad[];
+  /** Código de Fabric (código de documento, coincide con documento). */
+  codigo?: string;
 }
 
-/** Fila de la vista v_fich_profesionales_especialidad. */
+/** Profesional desde Fabric */
 export interface ProfesionalDeEspecialidad {
-  id_profesional: number;
-  documento: string;
-  profesional_nombre: string;
-  tarjeta_profesional: string | null;
-  especialidad_perfil: string | null;
+  /** Número de documento / código Fabric del profesional. */
+  codigo: string;
+  nombre: string;
+  identificacion?: string | null;
+  profesion: string | null;
+  sucursal_sede: string | null;
+  /** Especialidad principal */
+  especialidad?: string | null;
+  /** Las tres especialidades combinadas. */
+  especialidades?: string[];
+  perfil?: string | null;
+  estado_profesional?: string | null;
+  tiene_firma?: boolean;
+  correo?: string | null;
+  estado_firma?: string | null;
+  ubicacion?: string | null;
 }
 
 export interface ObjetoContrato {
@@ -136,12 +149,38 @@ export interface OpcionSimple {
   label: string;
 }
 
+/** Forma de pago (plazo) parametrizable del contrato. */
+export interface FormaPago {
+  id: number;
+  descripcion: string;
+  dias?: number | null;
+  estado?: boolean;
+}
+
+/** Alcance de la ficha. */
+export type TipoAlcance = 'nacional' | 'sucursal' | 'sede';
+
+/** Sucursal de una empresa (para el alcance). */
+export interface Sucursal {
+  id: number;
+  nombre: string;
+  id_Empresa?: number;
+}
+
+/** Sede de una sucursal (para el alcance). */
+export interface Sede {
+  id: number;
+  nombre: string;
+  id_Sucursal?: number;
+}
+
 export interface OpcionesFormulario {
   agremiaciones: Agremiacion[];
   especialidades: Especialidad[];
   objetos_contrato: ObjetoContrato[];
   tipos_servicio: TipoServicio[];
-  formas_pago: OpcionSimple[];
+  formas_pago: FormaPago[];
+  sucursales: Sucursal[];
   perfiles: OpcionSimple[];
 }
 
@@ -153,7 +192,8 @@ export type CatalogoNombre =
   | 'tipos-servicio'
   | 'objetos-contrato'
   | 'obs-items'
-  | 'homologos';
+  | 'homologos'
+  | 'formas-pago';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Tarifarios
@@ -303,7 +343,9 @@ export interface Ficha {
   sucursal_legacy: string | null;
   id_agremiacion: number;
   id_objeto_contrato: number;
+  id_forma_pago: number | null;
   id_especialidad: number;
+  tipo_alcance?: TipoAlcance;
   vlr_contrato: string;
   fecha_ini: string;
   fecha_fin: string;
@@ -328,6 +370,9 @@ export interface Ficha {
   agremiacion?: Agremiacion;
   especialidad?: Especialidad;
   objetoContrato?: ObjetoContrato;
+  formaPago?: FormaPago | null;
+  sucursales?: Sucursal[];
+  sedes?: Sede[];
   empresa?: { id: number; nombre: string; prefijo: string } | null;
   sucursal?: { id: number; nombre: string } | null;
   generador?: { id: number; name: string; email: string } | null;
@@ -349,10 +394,20 @@ export interface CrearFichaPayload {
   id_agremiacion: number;
   id_objeto_contrato: number;
   id_especialidad: number;
+  id_forma_pago?: number | null;
   vlr_contrato: number;
   fecha_ini: string;
   fecha_fin: string;
-  profesionales: number[];
+  /** Alcance de la ficha: nacional (todo), sucursal(es) o sede(s). */
+  tipo_alcance?: TipoAlcance;
+  /** IDs de sucursales del alcance (si tipo_alcance = 'sucursal'). */
+  sucursales?: number[];
+  /** IDs de sedes del alcance (si tipo_alcance = 'sede'). */
+  sedes?: number[];
+  /** Códigos de documento de los profesionales (desde Fabric). */
+  profesionales: string[];
+  /** Mapa opcional código→nombre para guardar el nombre real del profesional. */
+  profesionales_info?: Record<string, string>;
   id_empresa?: number | null;
   id_sucursal?: number | null;
   sucursal_legacy?: string | null;
@@ -384,7 +439,8 @@ export interface CrearActualizacionPayload {
   fecha_ini?: string;
   fecha_fin?: string;
   vlr_contrato?: number;
-  profesionales?: number[];
+  /** Códigos de documento (Fabric) */
+  profesionales?: string[];
   detalles?: DetallePayload[];
 }
 
@@ -470,6 +526,16 @@ export interface AgrupacionValor {
   agremiacion_nombre?: string;
   total: number;
   valor: string;
+}
+
+/** KPIs compactos para las tarjetas de la bandeja. */
+export interface ResumenBandeja {
+  total: number;
+  en_proceso: number;
+  aprobadas: number;
+  rechazadas: number;
+  proximas_vencer: number;
+  valor_contratado: number;
 }
 
 export interface DashboardFichas {

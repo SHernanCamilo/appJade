@@ -1,7 +1,7 @@
 .ft-paso2 {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .ft-paso2__header {
@@ -24,15 +24,80 @@
   color: #6c757d;
 }
 
-.ft-td-center {
-  text-align: center;
+/* ── Formulario de captura ── */
+.ft-form {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 1.1rem 1.25rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
 }
 
-.ft-td-placeholder {
-  color: #adb5bd;
+.ft-form::before {
+  content: 'Configuración del ítem';
+  position: absolute;
+  top: -0.62rem;
+  left: 1rem;
+  background: #fff;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.ft-form__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
+}
+
+.ft-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ft-campo--ancho {
+  grid-column: 1 / -1;
+}
+
+.ft-campo label {
   font-size: 0.8rem;
+  font-weight: 600;
+  color: #495057;
 }
 
+.ft-campo label span {
+  color: #dc3545;
+}
+
+.ft-hint {
+  font-size: 0.8rem;
+  color: #0d6efd;
+  padding: 0.4rem 0;
+}
+
+.ft-hint-ok {
+  font-size: 0.75rem;
+  color: #198754;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ft-form__accion {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed #e9ecef;
+}
+
+/* ── Ítem CUPS en el desplegable ── */
 .ft-cups-item {
   display: flex;
   flex-direction: column;
@@ -46,34 +111,131 @@
 
 .ft-cups-item span {
   color: #495057;
-  max-width: 28rem;
+  max-width: 34rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:host ::ng-deep .ft-tabla-servicios__vacio {
+/* ── Tabla de previsualización ── */
+.ft-tabla-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ft-tabla-titulo {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #343a40;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ft-tabla-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  background: #0d6efd;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ft-td-center { text-align: center; }
+.ft-td-right  { text-align: right; }
+
+/* Encabezado de tabla más marcado */
+:host ::ng-deep .ft-tabla .p-datatable-thead > tr > th {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+:host ::ng-deep .ft-tabla .p-datatable-tbody > tr > td {
+  font-size: 0.84rem;
+  vertical-align: middle;
+}
+
+:host ::ng-deep .ft-tabla .p-datatable-tbody > tr:hover {
+  background: #eff6ff !important;
+}
+
+.ft-td-concepto {
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .ft-tabla-vacio {
   text-align: center;
-  padding: 2.5rem 1rem;
+  padding: 2rem 1rem;
   color: #6c757d;
 }
 
-:host ::ng-deep .ft-tabla-servicios__vacio i {
-  font-size: 2rem;
+:host ::ng-deep .ft-tabla-vacio i {
+  font-size: 1.8rem;
   display: block;
   margin-bottom: 0.5rem;
   opacity: 0.5;
 }
 
-:host ::ng-deep .ft-tabla-servicios__total td {
+:host ::ng-deep .ft-tabla-total td {
   background: #f8f9fa;
   border-top: 2px solid #dee2e6;
 }
 
+/* ── Acciones ── */
 .ft-paso2__acciones {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e9ecef;
+}
+
+/* ── Inputs full width ── */
+:host ::ng-deep .ft-campo p-select,
+:host ::ng-deep .ft-campo p-autocomplete,
+:host ::ng-deep .ft-campo p-inputnumber,
+:host ::ng-deep .ft-campo input,
+:host ::ng-deep .ft-campo .p-select,
+:host ::ng-deep .ft-campo .p-autocomplete,
+:host ::ng-deep .ft-campo .p-autocomplete-input {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ft-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Diálogo importar de otra ficha ── */
+.ft-import__ayuda {
+  margin: 0 0 1rem;
+  font-size: 0.83rem;
+  color: #6c757d;
+  line-height: 1.4;
+}
+
+.ft-import__estado {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+  color: #0d6efd;
+  font-size: 0.88rem;
+  justify-content: center;
 }

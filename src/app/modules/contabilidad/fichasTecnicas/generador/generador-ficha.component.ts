@@ -47,18 +47,27 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
         <p>Complete los tres pasos para crear una ficha y enviarla a validación.</p>
       </header>
 
-      <p-steps [model]="pasos" [activeIndex]="pasoActual" [readonly]="true" />
+      <p-steps
+        [model]="pasos"
+        [activeIndex]="pasoActual"
+        [readonly]="true"
+        styleClass="ft-steps"
+      />
 
       @switch (pasoActual) {
         @case (0) {
           <app-paso-datos
+            [opciones]="opciones()"
             [guardando]="guardando()"
+            [datosPrevios]="cabecera()"
             (continuar)="onPaso1($event)"
+            (profesionalesInfo)="nombresProfesionales.set($event)"
           />
         }
         @case (1) {
           <app-paso-servicios
             [guardando]="guardando()"
+            [detallesPrevios]="detallesPayload()"
             (continuar)="onPaso2($event)"
             (volver)="pasoActual = 0"
           />
@@ -70,8 +79,12 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
               [detalles]="detallesPayload()"
               [opciones]="opciones()"
               [guardando]="guardando()"
+              [nombresProfesionales]="nombresProfesionales()"
+              [observacionesPrevias]="observacionesGenerales()"
+              (observacionesCambian)="observacionesGenerales.set($event)"
               (confirmar)="onConfirmar($event)"
               (volver)="pasoActual = 1"
+              (volverADatos)="pasoActual = 0"
             />
           }
         }
@@ -103,6 +116,66 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
         font-size: 0.85rem;
         color: #6c757d;
       }
+
+      /* ══ Steps más notorios ══════════════════════════════════════════ */
+      :host ::ng-deep .ft-steps {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.1rem 1rem 0.6rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+
+      /* Línea de conexión entre pasos (más gruesa y visible) */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item::before {
+        border-top: 3px solid #e2e8f0;
+        top: 45%;
+      }
+
+      /* Número del paso: círculo grande */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item .p-menuitem-link .p-steps-number {
+        width: 2.6rem;
+        height: 2.6rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border: 2px solid #cbd5e1;
+        background: #f8fafc;
+        color: #64748b;
+        transition: all 0.25s ease;
+      }
+
+      /* Etiqueta del paso */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item .p-menuitem-link .p-steps-title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #94a3b8;
+        margin-top: 0.45rem;
+        transition: color 0.25s ease;
+      }
+
+      /* Pasos ya completados (antes del activo) */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item:not(.p-highlight):not(.p-disabled) .p-steps-number {
+        border-color: #34d399;
+        background: #34d399;
+        color: #ffffff;
+      }
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item:not(.p-highlight):not(.p-disabled) .p-steps-title {
+        color: #059669;
+      }
+
+      /* Paso ACTIVO: destacado con color primario y escala */
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item.p-highlight .p-steps-number {
+        border-color: #2563eb;
+        background: #2563eb;
+        color: #ffffff;
+        transform: scale(1.15);
+        box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.15);
+      }
+      :host ::ng-deep .ft-steps .p-steps .p-steps-item.p-highlight .p-steps-title {
+        color: #1d4ed8;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
     `,
   ],
 })
@@ -123,6 +196,10 @@ export class GeneradorFichaComponent {
   protected readonly detallesPayload = signal<DetallePayload[]>([]);
   protected readonly opciones = signal<OpcionesFormulario | null>(null);
   protected readonly conflictos = signal<ConflictoProfesional[]>([]);
+  /** Mapa código→nombre de profesionales para mostrar en la revisión. */
+  protected readonly nombresProfesionales = signal<Record<string, string>>({});
+  /** Observaciones generales del paso 3, conservadas al navegar entre pasos. */
+  protected readonly observacionesGenerales = signal<string[]>([]);
   protected mostrarConflictos = false;
 
   constructor() {
@@ -160,7 +237,8 @@ export class GeneradorFichaComponent {
     this.pasoActual = 2;
   }
 
-  protected onConfirmar(observacion: string): void {
+  protected onConfirmar(evento: { observaciones: string[]; enviar: boolean }): void {
+    const { observaciones, enviar } = evento;
     const cabecera = this.cabecera();
 
     if (!cabecera) {
@@ -169,30 +247,51 @@ export class GeneradorFichaComponent {
 
     this.guardando.set(true);
 
+    // Adjunta el mapa código→nombre para que el backend guarde el nombre real
+    // del profesional (en lugar del placeholder "PROF-documento").
+    const nombres = this.nombresProfesionales();
+    const cabeceraConNombres: CrearFichaPayload = {
+      ...cabecera,
+      profesionales_info: Object.keys(nombres).length > 0 ? nombres : undefined,
+    };
+
     // 1. Crear la ficha con sus profesionales.
-    this.fichaService.crear(cabecera).subscribe({
+    this.fichaService.crear(cabeceraConNombres).subscribe({
       next: (ficha) => {
+        // Guard defensivo: si el backend no devolvió un id válido, abortar.
+        if (!ficha?.id) {
+          this.guardando.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudo crear la ficha',
+            detail: 'El servidor no devolvió el identificador de la ficha.',
+            life: 6000,
+          });
+          return;
+        }
+
         // 2. Guardar servicios en lote.
         this.fichaService.guardarDetalles(ficha.id, this.detallesPayload()).subscribe({
           next: () => {
-            // 3. Observación (opcional).
-            if (observacion) {
-              this.fichaService.agregarObservacion(ficha.id, observacion).subscribe();
-            }
-
-            this.guardando.set(false);
-            this.mensajes.add({
-              severity: 'success',
-              summary: 'Ficha creada',
-              detail: `La ficha #${ficha.id} fue creada y enviada a validación.`,
-              life: 5000,
+            // 3. Observaciones generales (varias, opcionales) — en secuencia.
+            const obs = observaciones.filter((o) => o.trim() !== '');
+            this.guardarObservaciones(ficha.id, obs, () => {
+              // 4. Si el usuario eligió "Guardar y enviar", se envía a validación.
+              if (enviar) {
+                this.enviarAValidacion(ficha.id);
+              } else {
+                this.finalizarCreacion(ficha.id, false);
+              }
             });
-
-            void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
           },
           error: (err: unknown) => {
-            this.guardando.set(false);
-            this.mostrarError(err);
+            // Los servicios fallaron: la ficha quedaría huérfana (sin ítems).
+            // La cancelamos para no dejar borradores vacíos y devolvemos al
+            // paso 2 para que el usuario corrija los servicios.
+            this.fichaService.cancelar(ficha.id, 'Creación revertida: error al guardar los servicios').subscribe({
+              next: () => this.finalizarConErrorDetalles(err),
+              error: () => this.finalizarConErrorDetalles(err),
+            });
           },
         });
       },
@@ -209,6 +308,82 @@ export class GeneradorFichaComponent {
         this.mostrarError(err);
       },
     });
+  }
+
+  /**
+   * Guarda las observaciones una a una (el backend acepta una por request).
+   * Al terminar (con o sin observaciones) invoca el callback.
+   */
+  private guardarObservaciones(idFicha: number, observaciones: string[], onDone: () => void): void {
+    if (observaciones.length === 0) {
+      onDone();
+      return;
+    }
+
+    let pendientes = observaciones.length;
+    observaciones.forEach((texto) => {
+      this.fichaService.agregarObservacion(idFicha, texto).subscribe({
+        next: () => {
+          if (--pendientes === 0) onDone();
+        },
+        error: () => {
+          // No bloqueamos el flujo por una observación fallida
+          if (--pendientes === 0) onDone();
+        },
+      });
+    });
+  }
+
+  /** Envía la ficha recién creada a validación; si falla, queda como borrador. */
+  private enviarAValidacion(idFicha: number): void {
+    this.fichaService.enviar(idFicha).subscribe({
+      next: () => this.finalizarCreacion(idFicha, true),
+      error: (err: unknown) => {
+        // La ficha quedó creada como borrador; informamos que no se pudo enviar.
+        this.guardando.set(false);
+        const { mensaje } = interpretarErrorFicha(err);
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Ficha guardada como borrador',
+          detail: `Se creó la ficha #${idFicha}, pero no se pudo enviar a validación: ${mensaje}`,
+          life: 8000,
+        });
+        void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
+      },
+    });
+  }
+
+  /** Cierra el flujo exitoso: muestra el mensaje según la acción y navega. */
+  private finalizarCreacion(idFicha: number, enviada: boolean): void {
+    this.guardando.set(false);
+    this.mensajes.add({
+      severity: 'success',
+      summary: enviada ? 'Ficha enviada a validación' : 'Borrador guardado',
+      detail: enviada
+        ? `La ficha #${idFicha} fue creada y enviada a validación.`
+        : `La ficha #${idFicha} se guardó como borrador. Puede enviarla a validación más tarde.`,
+      life: 5000,
+    });
+    void this.router.navigate([
+      '/contabilidad/fichas-tecnicas/bandeja/' + (enviada ? 'procesando' : 'borradores'),
+    ]);
+  }
+
+  /**
+   * Cierra el flujo cuando fallaron los servicios: informa el error y regresa
+   * al paso 2 para corregir, tras haber revertido la ficha huérfana.
+   */
+  private finalizarConErrorDetalles(err: unknown): void {
+    this.guardando.set(false);
+    const { mensaje } = interpretarErrorFicha(err);
+    this.mensajes.add({
+      severity: 'error',
+      summary: 'No se guardaron los servicios',
+      detail: `${mensaje} La ficha no se creó; corrija los servicios e intente de nuevo.`,
+      life: 8000,
+    });
+    // Regresar al paso 2 para corregir los ítems.
+    this.pasoActual = 1;
   }
 
   private mostrarError(err: unknown): void {

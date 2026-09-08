@@ -4,15 +4,16 @@ import { moduleGuard } from '../../../core/guards/module.guard';
 /**
  * Rutas lazy del módulo Fichas Técnicas.
  *
- * Cada pantalla se carga bajo demanda, de forma que el bundle principal no
- * incluye código del módulo hasta que el usuario navegue a él.
+ * Cada pantalla se carga bajo demanda y está protegida por moduleGuard, que
+ * verifica que el código del módulo exista en el árbol de módulos del sidebar
+ * cargado desde el login (seg_modulos).
  *
- * Códigos de módulo para permisos:
- *   CONT-FT           → Dashboard + Bandeja (acceso general fichas)
- *   CONT-FT-FORM      → Crear / editar fichas
- *   CONT-FT-DETALLE   → Ver detalle y validar
- *   CONT-FT-PARAM     → Administración de catálogos
- *   CONT-FT-CUPS      → Buscador CUPS / Tarifarios
+ * Los moduleCode corresponden exactamente a los códigos de seg_modulos:
+ *   CONT-FICHAS         → Fichas Técnicas (raíz / dashboard)
+ *   CONT-FICHAS-GEN     → Generar Ficha (formulario)
+ *   CONT-FICHAS-BANDEJA → Bandeja de Fichas
+ *   CONT-FICHAS-PARAM   → Parámetros de Fichas
+ *   CONT-FICHAS-CUPS    → Buscador CUPS
  */
 export const FICHAS_TECNICAS_ROUTES: Routes = [
   {
@@ -21,7 +22,7 @@ export const FICHAS_TECNICAS_ROUTES: Routes = [
       import('./dashboard/fichas-dashboard.component').then((m) => m.FichasDashboardComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT',
+      moduleCode: 'CONT-FICHAS',
       pageTitle: 'Fichas Técnicas',
       pageSubtitle: 'Dashboard de fichas técnicas médicas'
     }
@@ -32,47 +33,50 @@ export const FICHAS_TECNICAS_ROUTES: Routes = [
       import('./bandeja/bandeja-fichas.component').then((m) => m.BandejaFichasComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT',
+      moduleCode: 'CONT-FICHAS-BANDEJA',
       pageTitle: 'Bandeja de Fichas',
       pageSubtitle: 'Gestión de fichas técnicas por estado'
     }
   },
   {
-    // Un solo componente para crear / editar / actualizar.
-    // mode se determina por la presencia de :id y queryParam ?modo=
-    //   sin :id         → crear nueva
-    //   :id + editar    → editar borrador
-    //   :id + os        → crear actualización (OS)
+    // Redirect si se navega a /bandeja sin parámetro (ej. desde sidebar legacy)
+    path: 'bandeja',
+    redirectTo: 'bandeja/borradores',
+    pathMatch: 'full',
+  },
+  {
+    // Crear nueva ficha (sin :id).
     path: 'formulario',
     loadComponent: () =>
       import('./generador/generador-ficha.component').then((m) => m.GeneradorFichaComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT-FORM',
+      moduleCode: 'CONT-FICHAS-GEN',
       pageTitle: 'Crear Ficha Técnica',
       pageSubtitle: 'Formulario de nueva ficha técnica'
     }
   },
   {
+    // Editar borrador o crear actualización (OS) sobre ficha existente.
     path: 'formulario/:id',
     loadComponent: () =>
       import('./generador/generador-ficha.component').then((m) => m.GeneradorFichaComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT-FORM',
+      moduleCode: 'CONT-FICHAS-GEN',
       pageTitle: 'Editar Ficha Técnica',
       pageSubtitle: 'Edición de ficha técnica existente'
     }
   },
   {
-    // Detalle + validación unificados: si el usuario tiene rol validador,
-    // el componente muestra el panel de validación contextual automáticamente.
+    // Detalle + validación unificados: el componente muestra el panel de
+    // validación según el rol del usuario autenticado (autorizar / aprobar).
     path: 'ficha/:id',
     loadComponent: () =>
       import('./detalle/detalle-ficha.component').then((m) => m.DetalleFichaComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT-DETALLE',
+      moduleCode: 'CONT-FICHAS-BANDEJA',
       pageTitle: 'Detalle Ficha Técnica',
       pageSubtitle: 'Visualización y validación de ficha técnica'
     }
@@ -83,7 +87,7 @@ export const FICHAS_TECNICAS_ROUTES: Routes = [
       import('./parametros/parametros-ficha.component').then((m) => m.ParametrosFichaComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT-PARAM',
+      moduleCode: 'CONT-FICHAS-PARAM',
       pageTitle: 'Parámetros Fichas Técnicas',
       pageSubtitle: 'Administración de catálogos y configuración'
     }
@@ -94,7 +98,7 @@ export const FICHAS_TECNICAS_ROUTES: Routes = [
       import('./cups/buscador-cups.component').then((m) => m.BuscadorCupsComponent),
     canActivate: [moduleGuard],
     data: {
-      moduleCode: 'CONT-FT-CUPS',
+      moduleCode: 'CONT-FICHAS-CUPS',
       pageTitle: 'Buscador CUPS',
       pageSubtitle: 'Consulta de procedimientos y tarifarios'
     }

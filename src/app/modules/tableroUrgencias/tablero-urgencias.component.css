@@ -330,3 +330,7 @@
 }
 .circle.azul { box-shadow: 0 4px 15px rgba(26, 35, 126, 0.2); }
 .circle.verde { box-shadow: 0 4px 15px rgba(46, 125, 50, 0.2); }
+
+/* Aviso sutil cuando la TV muestra el ultimo dato bueno porque el servicio de
+   datos no respondio en ese ciclo. No es un error: la informacion sigue ahi. */
+.stale-tag { color: #f59e0b; font-weight: 600; }

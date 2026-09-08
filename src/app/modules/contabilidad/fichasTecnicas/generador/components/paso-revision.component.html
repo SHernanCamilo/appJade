@@ -5,41 +5,64 @@
     ser modificada si es rechazada.
   </p>
 
-  <!-- Resumen de la cabecera -->
+  <!-- Resumen de la cabecera (tipo tabla: celdas cabecera/dato) -->
   <p-panel header="Datos del contrato" [toggleable]="true">
-    <div class="ft-resumen">
-      <div class="ft-resumen__campo">
-        <label>Agremiación</label>
-        <span>{{ agremiacion }}</span>
+    <div class="ft-cab">
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Agremiación</span>
+        <span class="ft-cab__valor">{{ agremiacion }}</span>
       </div>
-      <div class="ft-resumen__campo">
-        <label>Especialidad</label>
-        <span>{{ especialidad }}</span>
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Especialidad</span>
+        <span class="ft-cab__valor">{{ especialidad }}</span>
       </div>
-      <div class="ft-resumen__campo">
-        <label>Objeto del contrato</label>
-        <span>{{ objeto }}</span>
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Objeto del contrato</span>
+        <span class="ft-cab__valor">{{ objeto }}</span>
       </div>
-      <div class="ft-resumen__campo">
-        <label>Valor estimado</label>
-        <span>{{ cabecera().vlr_contrato | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</span>
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Alcance</span>
+        <span class="ft-cab__valor">{{ alcance }}</span>
       </div>
-      <div class="ft-resumen__campo">
-        <label>Vigencia</label>
-        <span>{{ cabecera().fecha_ini | date: 'dd/MM/yyyy' }} — {{ cabecera().fecha_fin | date: 'dd/MM/yyyy' }}</span>
-      </div>
-      <div class="ft-resumen__campo">
-        <label>Profesionales</label>
-        <span>
-          <p-tag [value]="cabecera().profesionales.length + ' asignado(s)'" severity="info" />
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Valor estimado</span>
+        <span class="ft-cab__valor ft-cab__valor--num">
+          {{ cabecera().vlr_contrato | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}
         </span>
       </div>
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Fecha inicio</span>
+        <span class="ft-cab__valor">{{ cabecera().fecha_ini | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Fecha fin</span>
+        <span class="ft-cab__valor">{{ cabecera().fecha_fin | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      <div class="ft-cab__celda">
+        <span class="ft-cab__label">Profesionales</span>
+        <span class="ft-cab__valor ft-cab__valor--num">{{ cabecera().profesionales.length }}</span>
+      </div>
       @if (cabecera().obs_os) {
-        <div class="ft-resumen__campo ft-resumen__campo--ancho">
-          <label>Motivo actualización</label>
-          <span>{{ cabecera().obs_os }}</span>
+        <div class="ft-cab__celda">
+          <span class="ft-cab__label">Motivo actualización</span>
+          <span class="ft-cab__valor">{{ cabecera().obs_os }}</span>
         </div>
       }
+    </div>
+
+    <!-- Profesionales asignados (chips) -->
+    <div class="ft-cab__profs">
+      <span class="ft-cab__label">Profesionales asignados ({{ cabecera().profesionales.length }})</span>
+      <div class="ft-profs">
+        @for (cod of cabecera().profesionales; track cod) {
+          <p-tag [value]="nombreProfesional(cod)" severity="info" styleClass="ft-prof-tag" />
+        } @empty {
+          <span class="ft-obs__vacio">Sin profesionales asignados.</span>
+        }
+      </div>
+      <button type="button" class="ft-editar-link" (click)="onVolverADatos()">
+        <i class="pi pi-pencil"></i> Editar profesionales / datos del contrato
+      </button>
     </div>
   </p-panel>
 
@@ -49,7 +72,8 @@
       <ng-template pTemplate="header">
         <tr>
           <th style="width: 3rem">#</th>
-          <th>CUPS</th>
+          <th style="width: 11rem">Tipo liquidación</th>
+          <th>Concepto</th>
           <th>Homólogo</th>
           <th>Forma de pago</th>
           <th style="width: 5rem">%</th>
@@ -59,7 +83,8 @@
       <ng-template pTemplate="body" let-d let-i="rowIndex">
         <tr>
           <td>{{ i + 1 }}</td>
-          <td>{{ d.cups ?? '—' }}</td>
+          <td>{{ d.tipo_liquidacion ?? '—' }}</td>
+          <td>{{ conceptoDetalle(d) }}</td>
           <td>{{ d.homologo ?? '—' }}</td>
           <td>{{ d.forma_pago ?? '—' }}</td>
           <td class="ft-td-center">{{ d.variacion ?? '—' }}</td>
@@ -68,25 +93,56 @@
       </ng-template>
       <ng-template pTemplate="footer">
         <tr>
-          <td colspan="5" class="ft-td-right"><strong>TOTAL</strong></td>
+          <td colspan="6" class="ft-td-right"><strong>TOTAL</strong></td>
           <td class="ft-td-right"><strong>{{ totalServicios | currency: 'COP' : 'symbol-narrow' : '1.0-0' }}</strong></td>
         </tr>
       </ng-template>
     </p-table>
   </p-panel>
 
-  <!-- Observaciones generales -->
-  <p-panel header="Observaciones (opcional)" [toggleable]="true" [collapsed]="true">
-    <textarea
-      pTextarea
-      [(ngModel)]="observacion"
-      [autoResize]="true"
-      rows="3"
-      maxlength="500"
-      placeholder="Ingrese notas adicionales que desee registrar con la ficha…"
-      class="ft-paso3__textarea"
-    ></textarea>
-    <small class="ft-paso3__counter">{{ observacion().length }}/500</small>
+  <!-- Observaciones generales (varias, como el legacy form3) -->
+  <p-panel header="Observaciones generales ({{ observaciones().length }})" [toggleable]="true">
+    <div class="ft-obs">
+      <div class="ft-obs__input">
+        <input
+          pInputText
+          [ngModel]="nuevaObservacion()"
+          (ngModelChange)="setNuevaObservacion($event)"
+          (keyup.enter)="agregarObservacion()"
+          maxlength="500"
+          placeholder="Escriba una observación corta y presione Agregar (puede añadir varias)…"
+          class="ft-obs__field"
+        />
+        <p-button
+          label="Agregar"
+          icon="pi pi-plus"
+          severity="success"
+          [outlined]="true"
+          (onClick)="agregarObservacion()"
+        />
+      </div>
+
+      @if (observaciones().length > 0) {
+        <ul class="ft-obs__lista">
+          @for (obs of observaciones(); track $index) {
+            <li class="ft-obs__item">
+              <span class="ft-obs__num">{{ $index + 1 }}</span>
+              <span class="ft-obs__texto">{{ obs }}</span>
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                pTooltip="Eliminar"
+                (onClick)="eliminarObservacion($index)"
+              />
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="ft-obs__vacio">Sin observaciones. Puede continuar sin agregar ninguna (es opcional).</p>
+      }
+    </div>
   </p-panel>
 
   <p-divider />
@@ -97,14 +153,25 @@
       icon="pi pi-arrow-left"
       severity="secondary"
       [outlined]="true"
-      (onClick)="volver.emit()"
+      [disabled]="guardando()"
+      (onClick)="onVolver()"
     />
-    <p-button
-      label="Enviar a validación"
-      icon="pi pi-send"
-      iconPos="right"
-      [loading]="guardando()"
-      (onClick)="enviar()"
-    />
+    <div class="ft-paso3__acciones-final">
+      <p-button
+        label="Guardar borrador"
+        icon="pi pi-save"
+        severity="secondary"
+        [outlined]="true"
+        [loading]="guardando()"
+        (onClick)="guardarBorrador()"
+      />
+      <p-button
+        label="Guardar y enviar a validación"
+        icon="pi pi-send"
+        iconPos="right"
+        [loading]="guardando()"
+        (onClick)="guardarYEnviar()"
+      />
+    </div>
   </footer>
 </section>
