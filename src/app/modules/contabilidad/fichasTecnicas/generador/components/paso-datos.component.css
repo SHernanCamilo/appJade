@@ -31,16 +31,31 @@
 .ft-fila3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem 1.15rem;
+  gap: 0.9rem 1rem;
   align-items: start;
 }
 
-/* Alcance: Tipo · Sucursales · Sedes en fila (según lo que aplique) */
+/*
+  Alcance: el Tipo siempre visible; Sucursales y Sedes aparecen según elección.
+  auto-fit + minmax hace que las columnas visibles ocupen el ancho disponible
+  sin dejar huecos vacíos cuando solo hay 1 o 2 campos (p. ej. Nacional = 1 solo).
+*/
 .ft-alcance {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem 1.15rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.9rem 1rem;
   align-items: start;
+}
+
+/*
+  Los controles de cada celda deben quedar alineados en la misma línea aunque
+  unos tengan texto de ayuda y otros no: el control va primero y los mensajes
+  (ayuda/error) se empujan como pie. Reservamos altura mínima para el label
+  de una línea, evitando el "salto" visual entre columnas.
+*/
+.ft-fila3 .ft-campo label,
+.ft-alcance .ft-campo label {
+  min-height: 1.05rem;
 }
 
 .ft-campo label {
@@ -75,6 +90,23 @@
 :host ::ng-deep .ft-campo p-inputnumber,
 :host ::ng-deep .ft-campo input {
   width: 100%;
+}
+
+/* Altura uniforme de todos los controles para que las columnas queden parejas */
+:host ::ng-deep .ft-campo .p-select,
+:host ::ng-deep .ft-campo .p-multiselect,
+:host ::ng-deep .ft-campo .p-datepicker,
+:host ::ng-deep .ft-campo .p-datepicker .p-inputtext,
+:host ::ng-deep .ft-campo .p-inputnumber .p-inputtext,
+:host ::ng-deep .ft-campo > input {
+  width: 100%;
+  min-height: 2.6rem;
+}
+
+:host ::ng-deep .ft-campo .p-select,
+:host ::ng-deep .ft-campo .p-multiselect {
+  display: flex;
+  align-items: center;
 }
 
 :host ::ng-deep .ft-paso__aviso {
