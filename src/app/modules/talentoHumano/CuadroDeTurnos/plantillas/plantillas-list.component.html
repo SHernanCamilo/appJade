@@ -90,7 +90,7 @@
           <ng-template pTemplate="body" let-plantilla>
             <tr>
               <td>
-                <span class="codigo-badge">{{ plantilla.codigo }}</span>
+                <span class="codigo-badge" [style.background-color]="plantilla.color_hex || '#6366f1'">{{ plantilla.codigo }}</span>
               </td>
               <td class="nombre-cell">{{ plantilla.nombre }}</td>
               <td>
@@ -139,7 +139,12 @@
           <ng-template pTemplate="emptymessage">
             <tr>
               <td colspan="7">
-                <div class="empty-state">
+                <!-- Skeleton mientras carga: evita el parpadeo "No hay plantillas" -->
+                <div class="empty-state" *ngIf="isLoading">
+                  <i class="pi pi-spin pi-spinner"></i>
+                  <p>Cargando plantillas...</p>
+                </div>
+                <div class="empty-state" *ngIf="!isLoading">
                   <i class="pi pi-inbox"></i>
                   <p>No hay plantillas registradas</p>
                   <small>Crea una nueva plantilla para comenzar</small>
@@ -212,6 +217,24 @@
             <label>Descripción</label>
             <input type="text" [(ngModel)]="formData.descripcion" name="descripcion"
               placeholder="Descripción opcional..." class="pf-input">
+          </div>
+
+          <!-- Selector de color -->
+          <div class="pf-field">
+            <label>Color de la plantilla</label>
+            <div class="color-picker-wrap">
+              <input type="color" [(ngModel)]="formData.color_hex" name="color_hex"
+                class="color-picker-input" title="Elige un color">
+              <span class="color-preview-chip" [style.background-color]="formData.color_hex">
+                {{ formData.codigo || 'AB' }}
+              </span>
+              <span class="color-hex-text">{{ formData.color_hex }}</span>
+            </div>
+            <div class="color-presets">
+              <button type="button" class="color-preset" *ngFor="let c of coloresPredefinidos"
+                [style.background-color]="c" [class.activo]="formData.color_hex === c"
+                (click)="formData.color_hex = c" [title]="c"></button>
+            </div>
           </div>
         </div>
 

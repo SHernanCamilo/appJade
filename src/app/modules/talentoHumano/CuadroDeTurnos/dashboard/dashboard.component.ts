@@ -296,11 +296,17 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
       next: (data) => {
         const emp = this.empleados.find(e => e.id === idEmpleado) || data.empleado;
         const nombre = emp?.nombre || 'Empleado';
-        this.reportData = this.construirGrillaReporte([{ id: idEmpleado, nombre, turnos: data.turnos }], anio, mes);
+        const identificacion = (emp as any)?.numero_identificacion || data.empleado?.numero_identificacion || '';
+        const unidad = data.empleado?.unidad_funcional || '';
+        const sede = data.empleado?.sede || '';
+        this.reportData = this.construirGrillaReporte(
+          [{ id: idEmpleado, nombre, identificacion, unidad, sede, turnos: data.turnos }],
+          anio, mes
+        );
         // Guardar datos extras para la exportación
         this.reportData.totales = data.totales;
         this.reportData.horas_extras = data.horas_extras;
-        this.reportData.empleado = { id: idEmpleado, nombre };
+        this.reportData.empleado = { id: idEmpleado, nombre, identificacion, unidad, sede };
       },
       error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el reporte' })
     });
@@ -319,17 +325,32 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
         let completados = 0;
         const filas: any[] = [];
 
+        const unidadSel = this.unidadesFuncionales.find(u => u.id === idUnidad);
+        const unidadNombre = unidadSel?.nombre || '';
+        const sedeNombre = unidadSel?.sede?.nombre || unidadSel?.sede || '';
+
         empleadosUnidad.forEach((emp: any) => {
           this.calculoService.getCuadroMesEmpleado(emp.id, anio, mes).subscribe({
             next: (data) => {
-              filas.push({ id: emp.id, nombre: emp.nombre, turnos: data.turnos || [] });
+              filas.push({
+                id: emp.id, nombre: emp.nombre,
+                identificacion: emp.numero_identificacion || data.empleado?.numero_identificacion || '',
+                unidad: data.empleado?.unidad_funcional || unidadNombre,
+                sede: data.empleado?.sede || sedeNombre,
+                turnos: data.turnos || []
+              });
               completados++;
               if (completados === empleadosUnidad.length) {
                 this.reportData = this.construirGrillaReporte(filas, anio, mes);
               }
             },
             error: () => {
-              filas.push({ id: emp.id, nombre: emp.nombre, turnos: [] });
+              filas.push({
+                id: emp.id, nombre: emp.nombre,
+                identificacion: emp.numero_identificacion || '',
+                unidad: unidadNombre, sede: sedeNombre,
+                turnos: []
+              });
               completados++;
               if (completados === empleadosUnidad.length) {
                 this.reportData = this.construirGrillaReporte(filas, anio, mes);
@@ -342,14 +363,21 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
     });
   }
 
-  private construirGrillaReporte(filas: { id: number; nombre: string; turnos: any[] }[], anio: number, mes: number): any {
+  private construirGrillaReporte(
+    filas: { id: number; nombre: string; identificacion?: string; unidad?: string; sede?: string; turnos: any[] }[],
+    anio: number, mes: number
+  ): any {
     const diasEnMes = new Date(anio, mes, 0).getDate();
     const diasSemanaLetras = ['D','L','M','M','J','V','S'];
     const dias = [];
+    // Numero de semana calendario (lunes-domingo) de cada dia, para agrupar horas semanales
+    const semanaDeDia: number[] = [];
     for (let d = 1; d <= diasEnMes; d++) {
       const fecha = new Date(anio, mes - 1, d);
       dias.push({ numero: d, letra: diasSemanaLetras[fecha.getDay()], esDomingo: fecha.getDay() === 0, esFestivo: fecha.getDay() === 0 });
+      semanaDeDia[d] = this.numeroSemanaDelMes(anio, mes, d);
     }
+    const totalSemanas = Math.max(...semanaDeDia.slice(1));
 
     const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     const unidad = this.unidadesFuncionales.find(u => u.id === this.selectedUnidadFuncional);
@@ -363,6 +391,7 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
       (f.turnos || []).forEach((t: any) => turnoMap.set(t.fecha?.substring(0, 10), t));
 
       let totalMinutos = 0;
+      const minutosPorSemana: { [semana: number]: number } = {};
       const celdas = [];
       for (let d = 1; d <= diasEnMes; d++) {
         const fechaStr = `${anio}-${String(mes).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -377,6 +406,8 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
           let mins = !isNaN(h1) && !isNaN(h2) ? (h2 * 60 + m2) - (h1 * 60 + m1) : 0;
           if (mins < 0) mins += 24 * 60;
           totalMinutos += mins;
+          const sem = semanaDeDia[d];
+          minutosPorSemana[sem] = (minutosPorSemana[sem] || 0) + mins;
           celdas.push({
             turno: true, esDescanso: false, esFestivo,
             codigo: turno.plantilla.codigo || turno.plantilla.nombre?.substring(0,4) || 'T',
@@ -389,11 +420,38 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
           celdas.push({ turno: false, esDescanso: false, esFestivo, codigo: '', color: '', tooltip: esFestivo ? 'Domingo' : 'Sin turno' });
         }
       }
-      const totalHoras = `${Math.floor(totalMinutos / 60)}h ${(totalMinutos % 60).toString().padStart(2,'0')}m`;
-      return { nombre: f.nombre, celdas, totalHoras };
+      const totalHoras = this.formatearHoras(totalMinutos);
+      // Horas por cada semana del mes (para el Excel)
+      const horasPorSemana: { semana: number; horas: string }[] = [];
+      for (let s = 1; s <= totalSemanas; s++) {
+        horasPorSemana.push({ semana: s, horas: this.formatearHoras(minutosPorSemana[s] || 0) });
+      }
+      return {
+        nombre: f.nombre,
+        identificacion: f.identificacion || '',
+        unidad: f.unidad || '',
+        sede: f.sede || '',
+        celdas, totalHoras, horasPorSemana
+      };
     });
 
-    return { titulo, periodo, dias, filas: filasReporte };
+    return { titulo, periodo, dias, filas: filasReporte, totalSemanas };
+  }
+
+  /** Formatea minutos a "Xh YYm". */
+  private formatearHoras(minutos: number): string {
+    return `${Math.floor(minutos / 60)}h ${(minutos % 60).toString().padStart(2,'0')}m`;
+  }
+
+  /**
+   * Numero de semana dentro del mes (1..n), agrupando de lunes a domingo.
+   * La semana 1 es la que contiene el dia 1 del mes.
+   */
+  private numeroSemanaDelMes(anio: number, mes: number, dia: number): number {
+    const primerDia = new Date(anio, mes - 1, 1);
+    // getDay(): 0=Dom..6=Sab -> convertir a offset con lunes como inicio
+    const offsetLunes = (primerDia.getDay() + 6) % 7;
+    return Math.floor((dia - 1 + offsetLunes) / 7) + 1;
   }
 
   exportarExcel(): void {
@@ -411,11 +469,29 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
       ws.addRow([]);
 
       // ── Grilla de turnos ──
-      const headerRow = ['Empleado', ...this.reportData.dias.map((d: any) => `${d.numero} ${d.letra}`), 'Total'];
+      const totalSemanas: number = this.reportData.totalSemanas || 0;
+      const cabecerasSemana: string[] = [];
+      for (let s = 1; s <= totalSemanas; s++) cabecerasSemana.push(`Sem ${s}`);
+
+      const headerRow = [
+        'Identificación', 'Nombre Completo', 'Unidad Funcional', 'Sede',
+        ...this.reportData.dias.map((d: any) => `${d.numero} ${d.letra}`),
+        'Total h',
+        ...cabecerasSemana
+      ];
       ws.addRow(headerRow);
 
       this.reportData.filas.forEach((fila: any) => {
-        const row = [fila.nombre, ...fila.celdas.map((c: any) => c.esDescanso ? 'D' : c.codigo || ''), fila.totalHoras];
+        const horasSem = (fila.horasPorSemana || []).map((h: any) => h.horas);
+        const row = [
+          fila.identificacion || '',
+          fila.nombre,
+          fila.unidad || '',
+          fila.sede || '',
+          ...fila.celdas.map((c: any) => c.esDescanso ? 'D' : c.codigo || ''),
+          fila.totalHoras,
+          ...horasSem
+        ];
         ws.addRow(row);
       });
 
@@ -455,12 +531,25 @@ export class DashboardCuadroDeTurnosComponent implements OnInit {
       // ── Estilos ──
       ws.getRow(1).font = { bold: true, size: 14 };
       ws.getRow(2).font = { italic: true, size: 11 };
-      ws.getRow(4).font = { bold: true };
-      ws.getColumn(1).width = 30;
+      ws.getRow(4).font = { bold: true }; // fila de cabecera de la grilla
 
-      // Ajustar ancho columnas de días
-      for (let i = 2; i <= this.reportData.dias.length + 1; i++) {
+      // Anchos de las 4 columnas fijas de identidad
+      ws.getColumn(1).width = 16; // Identificación
+      ws.getColumn(2).width = 28; // Nombre Completo
+      ws.getColumn(3).width = 24; // Unidad Funcional
+      ws.getColumn(4).width = 20; // Sede
+
+      // Ajustar ancho columnas de días (empiezan en la columna 5)
+      const primeraColDia = 5;
+      for (let i = primeraColDia; i < primeraColDia + this.reportData.dias.length; i++) {
         ws.getColumn(i).width = 6;
+      }
+      // Columna Total h y columnas de semanas un poco mas anchas
+      const colTotal = primeraColDia + this.reportData.dias.length;
+      ws.getColumn(colTotal).width = 10;
+      const totalSem: number = this.reportData.totalSemanas || 0;
+      for (let i = 1; i <= totalSem; i++) {
+        ws.getColumn(colTotal + i).width = 9;
       }
 
       wb.xlsx.writeBuffer().then(buffer => {

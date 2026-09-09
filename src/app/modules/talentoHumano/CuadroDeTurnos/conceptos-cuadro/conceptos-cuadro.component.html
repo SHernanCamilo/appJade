@@ -36,10 +36,13 @@
     <small>Cree el primer concepto para definir cómo se calculan los valores del cuadro de turnos</small>
   </div>
 
-  <!-- Loading -->
-  <div class="loading-state" *ngIf="loading">
-    <i class="pi pi-spin pi-spinner"></i>
-    <span>Cargando conceptos...</span>
+  <!-- Skeleton de carga -->
+  <div class="conceptos-grid" *ngIf="loading">
+    <div class="skeleton-concepto-card" *ngFor="let i of [1,2,3,4,5,6]">
+      <div class="sk-line sk-top"></div>
+      <div class="sk-line sk-nombre"></div>
+      <div class="sk-line sk-formula"></div>
+    </div>
   </div>
 </div>
 

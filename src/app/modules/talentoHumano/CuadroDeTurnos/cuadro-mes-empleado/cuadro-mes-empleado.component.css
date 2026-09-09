@@ -3368,3 +3368,23 @@ input[readonly] {
   background: #f59e0b;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
 }
+
+/* Boton quitar hora extra */
+.btn-quitar-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-quitar-extra:hover {
+  background: #fee2e2;
+}

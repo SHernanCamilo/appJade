@@ -58,7 +58,17 @@ export interface Festivo {
 }
 
 export interface CuadroMesEmpleado {
-  empleado: { id: number; nombre: string; unidad?: string } | null;
+  empleado: {
+    id: number;
+    nombre: string;
+    email?: string;
+    numero_identificacion?: string;
+    unidad?: string;
+    unidad_funcional?: string;
+    id_unidad_funcional?: number;
+    sede?: string;
+    id_sede?: number;
+  } | null;
   anio: number;
   mes: number;
   turnos: TurnoEmpleado[];

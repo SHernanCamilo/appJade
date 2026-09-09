@@ -135,7 +135,10 @@
               <table class="report-table">
                 <thead>
                   <tr>
-                    <th class="col-empleado">Empleado</th>
+                    <th class="col-ident">Identificación</th>
+                    <th class="col-empleado">Nombre Completo</th>
+                    <th class="col-unidad">Unidad Funcional</th>
+                    <th class="col-sede">Sede</th>
                     <th *ngFor="let d of reportData.dias" class="col-dia"
                         [class.festivo]="d.esFestivo" [class.domingo]="d.esDomingo">
                       <span class="dia-num">{{ d.numero }}</span>
@@ -146,7 +149,10 @@
                 </thead>
                 <tbody>
                   <tr *ngFor="let fila of reportData.filas">
+                    <td class="col-ident">{{ fila.identificacion || '—' }}</td>
                     <td class="col-empleado">{{ fila.nombre }}</td>
+                    <td class="col-unidad">{{ fila.unidad || '—' }}</td>
+                    <td class="col-sede">{{ fila.sede || '—' }}</td>
                     <td *ngFor="let celda of fila.celdas" class="col-dia"
                         [class.turno-celda]="celda.turno && !celda.esDescanso"
                         [class.descanso-celda]="celda.esDescanso"

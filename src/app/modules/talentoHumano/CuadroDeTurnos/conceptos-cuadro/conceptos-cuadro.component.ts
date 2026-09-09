@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
@@ -60,21 +61,29 @@ export class ConceptosCuadroComponent implements OnInit {
   constructor(private conceptoService: ConceptoService) {}
 
   ngOnInit(): void {
-    this.cargarConceptos();
-    this.cargarVariables();
+    this.cargarDatos();
   }
 
-  cargarConceptos(): void {
+  /** Carga conceptos y variables EN PARALELO (evita 2 preflights en serie) */
+  cargarDatos(): void {
     this.loading = true;
-    this.conceptoService.getAll().subscribe({
-      next: (data) => { this.conceptos = data; this.loading = false; },
+    forkJoin({
+      conceptos: this.conceptoService.getAll(),
+      variables: this.conceptoService.getVariables()
+    }).subscribe({
+      next: ({ conceptos, variables }) => {
+        this.conceptos = conceptos;
+        this.variablesDisponibles = variables;
+        this.loading = false;
+      },
       error: () => { this.loading = false; }
     });
   }
 
-  cargarVariables(): void {
-    this.conceptoService.getVariables().subscribe({
-      next: (vars) => { this.variablesDisponibles = vars; }
+  cargarConceptos(): void {
+    this.conceptoService.getAll().subscribe({
+      next: (data) => { this.conceptos = data; },
+      error: () => {}
     });
   }
 

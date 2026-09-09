@@ -211,8 +211,8 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     this.idCuadroActual = null;
     this.construirCalendario();
     this.cargarFestivosYConstruirCalendario();
-    this.asegurarCuadroUnidad();
-    this.cargarEmpleadosUnidad();
+    // Una sola peticion combinada (empleados + cuadro + bloqueo)
+    this.cargarContextoCuadro();
   }
 
   /**
@@ -433,8 +433,8 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     this.empleados = []; this.empleadoOptions = []; this.selectedEmpleados = []; this.cuadrosEmpleados.clear();
     this.cuadro = null; this.diaSeleccionado = null; this.idCuadroActual = null;
     if (!this.unidadActual) return;
-    this.asegurarCuadroUnidad();
-    this.cargarEmpleadosUnidad();
+    // Una sola peticion combinada (empleados + cuadro + bloqueo)
+    this.cargarContextoCuadro();
   }
 
   private asegurarCuadroUnidad(): void {
@@ -459,6 +459,34 @@ export class CuadroMesEmpleadoComponent implements OnInit {
         if (!this.empleados.length) this.toastInfo(`No hay empleados en ${this.unidadActual.nombre}`);
       },
       error: () => this.toastError('Error al cargar empleados')
+    });
+  }
+
+  /**
+   * Carga TODO el contexto de la unidad en UNA sola peticion (empleados +
+   * cuadro asegurado + estado de bloqueo). Reemplaza el trio de llamadas
+   * asegurarCuadroUnidad() + cargarEmpleadosUnidad() para reducir de 3
+   * preflight OPTIONS a 1. Asigna a las mismas variables de siempre.
+   */
+  private cargarContextoCuadro(): void {
+    if (!this.unidadActual) return;
+    const unidad = this.unidadActual;
+    this.http.get<any>(
+      `${environment.URL_SERVICIOS}/turnos/unidades-funcionales/${unidad.id}/contexto-cuadro`,
+      { params: { anio: this.selectedAnio, mes: this.selectedMes } as any }
+    ).subscribe({
+      next: (r) => {
+        const data = r.data || {};
+        // Empleados (igual que cargarEmpleadosUnidad)
+        this.empleados = data.empleados || [];
+        this.empleadoOptions = this.empleados.map((e: any) => ({ label: e.nombre, value: e.id }));
+        if (!this.empleados.length) this.toastInfo(`No hay empleados en ${unidad.nombre}`);
+        // Cuadro asegurado (igual que asegurarCuadroUnidad)
+        if (data.cuadro) this.idCuadroActual = data.cuadro.id_cuadro;
+        // Estado de bloqueo (igual que verificar)
+        this.cuadroBloqueado = !!data.bloqueado;
+      },
+      error: () => this.toastError('Error al cargar la unidad')
     });
   }
   // ═══════════════════════════════════════════════════════════
@@ -762,7 +790,45 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       this.mostrarHorario2 = !!(this.editForm.horaInicio2Override || this.editForm.horaFin2Override);
     }
 
+    // Cargar hora extra existente de este dia (si la hay) para poder verla,
+    // modificarla o quitarla.
+    this.cargarHoraExtraExistente(dia.fecha);
+
     this.showEditDialog = true;
+  }
+
+  /**
+   * Busca la hora extra registrada para una fecha y, si existe, la carga en el
+   * formulario (modo 'hora_extra' + campos 12h) y guarda su id para poder
+   * modificarla (borrar+crear) o eliminarla al guardar.
+   */
+  private cargarHoraExtraExistente(fecha: string): void {
+    const registros = this.cuadro?.horas_extras?.registros || [];
+    const reg = registros.find((r: any) => (r.fecha || '').substring(0, 10) === (fecha || '').substring(0, 10));
+    if (!reg) return;
+
+    const to12 = (hhmm: string) => {
+      const [hStr, mStr] = String(hhmm || '').split(':');
+      let h = parseInt(hStr || '0', 10);
+      const m = parseInt(mStr || '0', 10);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      if (h > 12) h -= 12;
+      if (h === 0) h = 12;
+      return { h: h.toString().padStart(2, '0'), m: m.toString().padStart(2, '0'), ampm };
+    };
+
+    const ini = to12(reg.hora_inicio);
+    const fin = to12(reg.hora_fin);
+
+    this.editForm.tipoRegistro = (reg.tipo === 'evento') ? 'evento' : 'hora_extra';
+    this.editForm.horaExtraId = reg.id ?? null;
+    this.editForm.horaExtraInicioH = ini.h;
+    this.editForm.horaExtraInicioM = ini.m;
+    this.editForm.horaExtraAmpm = ini.ampm;
+    this.editForm.horaExtraFinH = fin.h;
+    this.editForm.horaExtraFinM = fin.m;
+    this.editForm.horaExtraFinAmpm = fin.ampm;
+    if (reg.motivo && !this.editForm.observacion) this.editForm.observacion = reg.motivo;
   }
 
   emptyEditForm() {
@@ -785,6 +851,8 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       horaExtraFinH: '',
       horaExtraFinM: '',
       horaExtraFinAmpm: 'PM',
+      // Id de la hora extra existente en este dia (para modificar/eliminar).
+      horaExtraId: null as number | null,
     };
   }
 
@@ -1121,10 +1189,14 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       };
 
       if (!this.editForm.esDescanso) {
-        if (this.editForm.horaInicioOverride)  payload.hora_inicio_override   = this.editForm.horaInicioOverride;
-        if (this.editForm.horaFinOverride)     payload.hora_fin_override      = this.editForm.horaFinOverride;
-        if (this.editForm.horaInicio2Override) payload.hora_inicio_override_2 = this.editForm.horaInicio2Override;
-        if (this.editForm.horaFin2Override)    payload.hora_fin_override_2    = this.editForm.horaFin2Override;
+        const hi  = this.normalizarHoraHi(this.editForm.horaInicioOverride);
+        const hf  = this.normalizarHoraHi(this.editForm.horaFinOverride);
+        const hi2 = this.normalizarHoraHi(this.editForm.horaInicio2Override);
+        const hf2 = this.normalizarHoraHi(this.editForm.horaFin2Override);
+        if (hi)  payload.hora_inicio_override   = hi;
+        if (hf)  payload.hora_fin_override      = hf;
+        if (hi2) payload.hora_inicio_override_2 = hi2;
+        if (hf2) payload.hora_fin_override_2    = hf2;
       }
 
       // Buscar si ya tiene asignación ese día (para hacer PUT en vez de POST)
@@ -1161,6 +1233,21 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     this.cargarCuadro();
   }
 
+  /**
+   * Normaliza una hora al formato H:i (HH:mm) que exige el backend.
+   * Acepta "07:00:00", "7:00", "07:00" y devuelve "07:00". Devuelve null si
+   * el valor es vacio o invalido (para no enviar overrides mal formados).
+   */
+  private normalizarHoraHi(valor: string | null | undefined): string | null {
+    if (!valor) return null;
+    const partes = String(valor).trim().split(':');
+    if (partes.length < 2) return null;
+    const h = parseInt(partes[0], 10);
+    const m = parseInt(partes[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }
+
   private persistirAsignacion(idCuadro: number): void {
     const payload: any = {
       id_cuadro: idCuadro,
@@ -1172,10 +1259,14 @@ export class CuadroMesEmpleadoComponent implements OnInit {
     };
 
     if (!this.editForm.esDescanso) {
-      if (this.editForm.horaInicioOverride)  payload.hora_inicio_override   = this.editForm.horaInicioOverride;
-      if (this.editForm.horaFinOverride)     payload.hora_fin_override      = this.editForm.horaFinOverride;
-      if (this.editForm.horaInicio2Override) payload.hora_inicio_override_2 = this.editForm.horaInicio2Override;
-      if (this.editForm.horaFin2Override)    payload.hora_fin_override_2    = this.editForm.horaFin2Override;
+      const hi  = this.normalizarHoraHi(this.editForm.horaInicioOverride);
+      const hf  = this.normalizarHoraHi(this.editForm.horaFinOverride);
+      const hi2 = this.normalizarHoraHi(this.editForm.horaInicio2Override);
+      const hf2 = this.normalizarHoraHi(this.editForm.horaFin2Override);
+      if (hi)  payload.hora_inicio_override   = hi;
+      if (hf)  payload.hora_fin_override      = hf;
+      if (hi2) payload.hora_inicio_override_2 = hi2;
+      if (hf2) payload.hora_fin_override_2    = hf2;
     }
 
     const obs$ = this.editForm.idAsignacion
@@ -1184,15 +1275,8 @@ export class CuadroMesEmpleadoComponent implements OnInit {
 
     obs$.subscribe({
       next: () => {
-        // Si hay hora extra registrada, guardarla también
-        if (this.editForm.tipoRegistro === 'hora_extra' && this.editForm.horaExtraInicioH && this.editForm.horaExtraFinH) {
-          this.guardarHoraExtra();
-        } else {
-          this.isSavingDay = false;
-          this.showEditDialog = false;
-          this.toastOk('Día actualizado');
-          this.cargarCuadro();
-        }
+        // Sincronizar hora extra (crear / modificar / quitar) tras guardar el turno
+        this.sincronizarHoraExtra();
       },
       error: (err) => {
         this.isSavingDay = false;
@@ -1200,6 +1284,51 @@ export class CuadroMesEmpleadoComponent implements OnInit {
         this.toastError(msg);
       }
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // VALIDACION INPUTS HORA EXTRA (formato 12h: hora 1-12, min 0-59)
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Valida la hora extra MIENTRAS se escribe: solo digitos y tope 12.
+   * Si el usuario escribe un numero mayor a 12 en la hora, lo limita a 12.
+   */
+  onHoraExtraInput(campo: 'horaExtraInicioH' | 'horaExtraInicioM' | 'horaExtraFinH' | 'horaExtraFinM'): void {
+    let val = String((this.editForm as any)[campo] ?? '').replace(/\D/g, '');
+    const esHora = campo.endsWith('H');
+    if (val !== '') {
+      let num = parseInt(val, 10);
+      const max = esHora ? 12 : 59;
+      if (num > max) num = max;
+      // Para hora, minimo 1 solo cuando ya hay 2 digitos (permite escribir "1" antes de "12")
+      if (esHora && num === 0 && val.length >= 2) num = 1;
+      val = String(num);
+    }
+    (this.editForm as any)[campo] = val;
+  }
+
+  /**
+   * Al perder el foco: rellena con cero. Hora "6" -> "06"; minutos vacios -> "00".
+   */
+  onHoraExtraBlur(campo: 'horaExtraInicioH' | 'horaExtraInicioM' | 'horaExtraFinH' | 'horaExtraFinM'): void {
+    const esHora = campo.endsWith('H');
+    let val = String((this.editForm as any)[campo] ?? '').replace(/\D/g, '');
+
+    if (val === '') {
+      // Minutos vacios -> 00. Hora vacia se deja vacia (placeholder --).
+      (this.editForm as any)[campo] = esHora ? '' : '00';
+      return;
+    }
+
+    let num = parseInt(val, 10);
+    if (esHora) {
+      if (num < 1) num = 1;
+      if (num > 12) num = 12;
+    } else {
+      if (num > 59) num = 59;
+    }
+    (this.editForm as any)[campo] = num.toString().padStart(2, '0');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1234,8 +1363,48 @@ export class CuadroMesEmpleadoComponent implements OnInit {
   }
 
   /** Guarda la hora extra registrada en el modal */
-  private guardarHoraExtra(): void {
-    // Convertir 12h a 24h
+  /**
+   * Sincroniza la hora extra del dia tras guardar el turno. Maneja 3 casos:
+   *  - CREAR: no habia y ahora hay valores en modo hora_extra/evento.
+   *  - MODIFICAR: ya habia una -> se elimina la vieja y se crea la nueva.
+   *  - QUITAR: ya habia una pero ahora esta en 'normal' o sin valores -> se elimina.
+   * Como el backend no tiene PUT de hora extra, modificar = borrar + crear.
+   */
+  private sincronizarHoraExtra(): void {
+    const idExistente = this.editForm.horaExtraId;
+    const esExtra = this.editForm.tipoRegistro === 'hora_extra' || this.editForm.tipoRegistro === 'evento';
+    const tieneValores = !!(this.editForm.horaExtraInicioH && this.editForm.horaExtraFinH);
+    const debeExistir = esExtra && tieneValores;
+
+    // Caso: quitar (habia una y ahora no debe existir) -> solo eliminar
+    if (idExistente && !debeExistir) {
+      this.http.delete<any>(`${environment.URL_SERVICIOS}/turnos/horas-extras/${idExistente}`).subscribe({
+        next: () => this.finalizarGuardadoDia('Turno actualizado, hora extra eliminada'),
+        error: () => this.finalizarGuardadoDia('Turno guardado, pero no se pudo eliminar la hora extra', true)
+      });
+      return;
+    }
+
+    // Caso: no debe existir y no habia nada -> nada que hacer
+    if (!debeExistir) {
+      this.finalizarGuardadoDia('Día actualizado');
+      return;
+    }
+
+    // Caso: crear o modificar. Si habia una previa, eliminarla primero.
+    const crear = () => this.crearHoraExtra();
+    if (idExistente) {
+      this.http.delete<any>(`${environment.URL_SERVICIOS}/turnos/horas-extras/${idExistente}`).subscribe({
+        next: crear,
+        error: crear // aunque falle el borrado, intentamos crear la nueva
+      });
+    } else {
+      crear();
+    }
+  }
+
+  /** Crea el registro de hora extra con los valores actuales del formulario. */
+  private crearHoraExtra(): void {
     const convertir12a24 = (h: string, m: string, ampm: string): string => {
       let hour = parseInt(h || '0', 10);
       const min = parseInt(m || '0', 10);
@@ -1244,33 +1413,47 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
     };
 
-    const horaInicio = convertir12a24(this.editForm.horaExtraInicioH, this.editForm.horaExtraInicioM, this.editForm.horaExtraAmpm);
-    const horaFin = convertir12a24(this.editForm.horaExtraFinH, this.editForm.horaExtraFinM, this.editForm.horaExtraFinAmpm);
-
     const payload = {
       id_empleado: this.selectedEmpleado,
       id_cuadro: this.idCuadroActual,
       fecha: this.editForm.fecha,
-      hora_inicio: horaInicio,
-      hora_fin: horaFin,
-      tipo: 'hora_extra',
+      hora_inicio: convertir12a24(this.editForm.horaExtraInicioH, this.editForm.horaExtraInicioM, this.editForm.horaExtraAmpm),
+      hora_fin: convertir12a24(this.editForm.horaExtraFinH, this.editForm.horaExtraFinM, this.editForm.horaExtraFinAmpm),
+      tipo: this.editForm.tipoRegistro === 'evento' ? 'evento' : 'hora_extra',
       motivo: this.editForm.observacion || null,
     };
 
     this.http.post<any>(`${environment.URL_SERVICIOS}/turnos/horas-extras`, payload).subscribe({
-      next: () => {
-        this.isSavingDay = false;
-        this.showEditDialog = false;
-        this.toastOk('Turno + hora extra guardados');
-        this.cargarCuadro();
-      },
-      error: () => {
-        this.isSavingDay = false;
-        this.showEditDialog = false;
-        this.toastWarn('Turno guardado, pero error al registrar hora extra');
-        this.cargarCuadro();
-      }
+      next: () => this.finalizarGuardadoDia('Turno y hora extra guardados'),
+      error: () => this.finalizarGuardadoDia('Turno guardado, pero error al registrar la hora extra', true)
     });
+  }
+
+  /** Cierra el modal, muestra el mensaje y recarga el cuadro. */
+  private finalizarGuardadoDia(mensaje: string, esAdvertencia = false): void {
+    this.isSavingDay = false;
+    this.showEditDialog = false;
+    esAdvertencia ? this.toastWarn(mensaje) : this.toastOk(mensaje);
+    this.cargarCuadro();
+  }
+
+  /** Indica si el dia abierto tiene una hora extra ya registrada. */
+  get tieneHoraExtraRegistrada(): boolean {
+    return this.editForm.horaExtraId != null;
+  }
+
+  /**
+   * Limpia los campos de hora extra del formulario y vuelve a modo 'normal'.
+   * Al guardar, la hora extra existente (si la habia) se eliminara.
+   */
+  limpiarHoraExtra(): void {
+    this.editForm.tipoRegistro = 'normal';
+    this.editForm.horaExtraInicioH = '';
+    this.editForm.horaExtraInicioM = '';
+    this.editForm.horaExtraFinH = '';
+    this.editForm.horaExtraFinM = '';
+    this.editForm.horaExtraAmpm = 'PM';
+    this.editForm.horaExtraFinAmpm = 'PM';
   }
 
   trackByFecha(_: number, d: DiaCalendario) { return d.fecha; }
@@ -1506,8 +1689,8 @@ export class CuadroMesEmpleadoComponent implements OnInit {
         incluir_festivos: this.frecuenciaForm.incluir_festivos,
         incluir_dominicales: this.frecuenciaForm.incluir_festivos, // mismo valor
         es_descanso: this.editForm.esDescanso,
-        hora_inicio_override: this.editForm.horaInicioOverride || null,
-        hora_fin_override: this.editForm.horaFinOverride || null,
+        hora_inicio_override: this.normalizarHoraHi(this.editForm.horaInicioOverride),
+        hora_fin_override: this.normalizarHoraHi(this.editForm.horaFinOverride),
         observacion: this.editForm.observacion || undefined,
       }).subscribe({
         next: (res) => {
@@ -1617,6 +1800,10 @@ export class CuadroMesEmpleadoComponent implements OnInit {
         if (this.resultadoImportacion!.exitosas > 0) {
           this.toastOk(`${this.resultadoImportacion!.exitosas} turnos importados`);
           this.cargarCuadro();
+          // Si no hay errores → cerrar y limpiar modal automáticamente
+          if (!this.resultadoImportacion!.errores?.length) {
+            this.cerrarCargaMasiva();
+          }
         }
         if (this.resultadoImportacion!.errores?.length) {
           this.toastWarn(`${this.resultadoImportacion!.errores.length} errores encontrados`);

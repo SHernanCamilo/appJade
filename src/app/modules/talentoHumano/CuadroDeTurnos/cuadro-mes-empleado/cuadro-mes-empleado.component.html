@@ -622,9 +622,11 @@
                     </button>
                   </div>
                   <div class="time-card-value">
-                    <input type="text" [(ngModel)]="editForm.horaExtraInicioH" maxlength="2" class="time-input-num" placeholder="--">
+                    <input type="text" [(ngModel)]="editForm.horaExtraInicioH" maxlength="2" class="time-input-num" placeholder="--"
+                      inputmode="numeric" (input)="onHoraExtraInput('horaExtraInicioH')" (blur)="onHoraExtraBlur('horaExtraInicioH')">
                     <span class="time-colon">:</span>
-                    <input type="text" [(ngModel)]="editForm.horaExtraInicioM" maxlength="2" class="time-input-num" placeholder="--">
+                    <input type="text" [(ngModel)]="editForm.horaExtraInicioM" maxlength="2" class="time-input-num" placeholder="--"
+                      inputmode="numeric" (input)="onHoraExtraInput('horaExtraInicioM')" (blur)="onHoraExtraBlur('horaExtraInicioM')">
                   </div>
                 </div>
                 <span class="time-arrow"><i class="pi pi-arrow-right"></i></span>
@@ -637,13 +639,18 @@
                     </button>
                   </div>
                   <div class="time-card-value">
-                    <input type="text" [(ngModel)]="editForm.horaExtraFinH" maxlength="2" class="time-input-num" placeholder="--">
+                    <input type="text" [(ngModel)]="editForm.horaExtraFinH" maxlength="2" class="time-input-num" placeholder="--"
+                      inputmode="numeric" (input)="onHoraExtraInput('horaExtraFinH')" (blur)="onHoraExtraBlur('horaExtraFinH')">
                     <span class="time-colon">:</span>
-                    <input type="text" [(ngModel)]="editForm.horaExtraFinM" maxlength="2" class="time-input-num" placeholder="--">
+                    <input type="text" [(ngModel)]="editForm.horaExtraFinM" maxlength="2" class="time-input-num" placeholder="--"
+                      inputmode="numeric" (input)="onHoraExtraInput('horaExtraFinM')" (blur)="onHoraExtraBlur('horaExtraFinM')">
                   </div>
                 </div>
               </div>
               <input type="text" [(ngModel)]="editForm.observacion" placeholder="Motivo (opcional)" class="registro-input registro-motivo">
+              <button *ngIf="tieneHoraExtraRegistrada" type="button" class="btn-quitar-extra" (click)="limpiarHoraExtra()">
+                <i class="pi pi-trash"></i> Quitar hora extra
+              </button>
             </div>
 
             <!-- Campos de Evento -->

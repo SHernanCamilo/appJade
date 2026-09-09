@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin } from 'rxjs';
 
 // PrimeNG
 import { TableModule } from 'primeng/table';
@@ -77,6 +78,12 @@ export class PlantillasListComponent implements OnInit {
 
   formData = this.emptyForm();
 
+  // Colores predefinidos para selección rápida
+  coloresPredefinidos: string[] = [
+    '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b',
+    '#10b981', '#06b6d4', '#3b82f6', '#84cc16', '#64748b'
+  ];
+
   constructor(
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
@@ -99,18 +106,44 @@ export class PlantillasListComponent implements OnInit {
    * Carga empresas habilitadas para Cuadro de Turnos (filtrado por CUADRO_TURNOS_EMPRESAS en backend).
    */
   private loadUserContext(): void {
-    this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/cuadro-turno-permisos/empresas`).subscribe({
-      next: (response) => {
-        const empresas = response.data || [];
-        this.userEmpresas = empresas.map((e: any) => ({ id: e.id, nombre: e.nombre }));
+    // Si ya hay plantillas cacheadas (reentrada al modulo), mostrarlas de
+    // inmediato para evitar el parpadeo "No hay plantillas" mientras llega
+    // la respuesta. El forkJoin de abajo igual refresca en segundo plano.
+    const cache = this.plantillaService.getCache({});
+    if (cache && cache.length) {
+      this.plantillas = cache;
+      this.aplicarFiltros();
+      this.isLoading = false;
+    } else {
+      this.isLoading = true;
+    }
+
+    // Lanzar ambas peticiones EN PARALELO (empresas + plantillas) en vez de en cadena
+    forkJoin({
+      empresas: this.http.get<any>(`${environment.URL_SERVICIOS}/turnos/cuadro-turno-permisos/empresas`),
+      plantillas: this.plantillaService.getPlantillas({})
+    }).subscribe({
+      next: ({ empresas, plantillas }) => {
+        const listaEmpresas = empresas.data || [];
+        this.userEmpresas = listaEmpresas.map((e: any) => ({ id: e.id, nombre: e.nombre }));
         this.isSuperAdmin = this.userEmpresas.length > 1;
         this.empresasLoaded = true;
         if (this.userEmpresas.length === 1) {
           this.selectedEmpresaFilter = this.userEmpresas[0].id;
         }
-        this.loadPlantillas();
+
+        // Solo sobreescribir si llega data; nunca vaciar la lista ya mostrada
+        if (Array.isArray(plantillas)) {
+          this.plantillas = plantillas;
+          this.aplicarFiltros();
+        }
+        this.isLoading = false;
       },
-      error: () => { this.empresasLoaded = true; this.loadPlantillas(); }
+      error: () => {
+        this.empresasLoaded = true;
+        this.isLoading = false;
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los datos' });
+      }
     });
   }
 
@@ -133,7 +166,8 @@ export class PlantillasListComponent implements OnInit {
       hora_inicio_2_date: new Date(),
       hora_fin_2_date: new Date(),
       id_empresa: null as number | null,
-      activo: true
+      activo: true,
+      color_hex: '#6366f1'
     };
   }
 
@@ -434,6 +468,7 @@ export class PlantillasListComponent implements OnInit {
       hora_fin_2_date:    this.horaToDate(plantilla.hora_fin_2 ?? ''),
       id_empresa:  plantilla.id_empresa ?? null,
       activo:      plantilla.activo ?? plantilla.estado ?? true,
+      color_hex:   plantilla.color_hex ?? '#6366f1',
     };
     this.showFormDialog = true;
   }
@@ -465,6 +500,8 @@ export class PlantillasListComponent implements OnInit {
       hora_fin_2:    this.formData.hora_fin_2 ? this.normalizarHora(this.formData.hora_fin_2) : null,
       id_empresa:  this.formData.id_empresa,
       estado:      this.formData.activo,
+      color_hex:   this.formData.color_hex || '#6366f1',
+      duracion_horas: this.getDuracionTotal() || 1,
     };
 
     const request = this.editMode
