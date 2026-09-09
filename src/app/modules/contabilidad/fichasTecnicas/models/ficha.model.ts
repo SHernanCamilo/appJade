@@ -424,8 +424,11 @@ export interface DetallePayload {
   tipo_servicio?: string | null;
   id_tipo_servicio?: number | null;
   cups?: string | null;
+  cups_descripcion?: string | null;
   grupo?: string | null;
+  grupo_descripcion?: string | null;
   subgrupo?: string | null;
+  subgrupo_descripcion?: string | null;
   forma_pago?: string | null;
   homologo?: string | null;
   variacion?: string | null;

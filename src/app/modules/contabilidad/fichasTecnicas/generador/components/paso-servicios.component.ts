@@ -129,6 +129,27 @@ export interface FilaServicio extends DetallePayload {
 }
 
 /**
+ * Extrae la descripción pura de un label tipo "código — descripción" o
+ * "código - descripción", eliminando el prefijo del código si está presente.
+ */
+function limpiarDescripcion(label: string | null | undefined, codigo: string | null | undefined): string | null {
+  if (!label) return null;
+  let desc = label;
+  // Formatos posibles: "184100 — NOMBRE" (em dash) o "01 - NOMBRE" (guion)
+  const sep = desc.includes(' — ') ? ' — ' : (desc.includes(' - ') ? ' - ' : null);
+  if (sep) {
+    const [posibleCodigo, ...resto] = desc.split(sep);
+    if (codigo && posibleCodigo.trim() === String(codigo).trim() && resto.length > 0) {
+      desc = resto.join(sep);
+    } else if (!codigo && resto.length > 0) {
+      desc = resto.join(sep);
+    }
+  }
+  desc = desc.trim();
+  return desc === '' ? null : desc;
+}
+
+/**
  * Paso 2 del generador — patrón legacy (form2.php):
  *   [ Formulario de captura arriba ]  → botón "Agregar ítem a la ficha"
  *   [ Tabla de previsualización abajo ] con los ítems ya agregados
@@ -436,15 +457,24 @@ export class PasoServiciosComponent implements OnInit {
       return;
     }
 
+    // Descripción pura (sin el código) para persistir en el detalle y que el
+    // PDF muestre el nombre aunque fich_cups esté vacío (datos viven en Fabric).
+    const cupsDesc = this.descripcionSinCodigo(it._cups_label, it.cups);
+    const grupoDesc = this.grupos().find((g) => g.grupo === it.grupo)?.desc_grup ?? null;
+    const subgrupoDesc = this.subgrupos().find((s) => s.subgrupo === it.subgrupo)?.desc_subg ?? null;
+
     const fila: FilaServicio = {
       _id: ++this.contadorId,
       tipo_liquidacion: it.tipo_liquidacion || null,
       tipo_servicio: it.tipo_servicio,
       id_tipo_servicio: null,
       cups: it.cups,
+      cups_descripcion: cupsDesc,
       _cups_label: it._cups_label,
       grupo: it.grupo,
+      grupo_descripcion: this.descripcionSinCodigo(grupoDesc, it.grupo),
       subgrupo: it.subgrupo,
+      subgrupo_descripcion: this.descripcionSinCodigo(subgrupoDesc, it.subgrupo),
       forma_pago: it.forma_pago,
       homologo: it.homologo,
       _homologo_label: it._homologo_label,
@@ -566,18 +596,21 @@ export class PasoServiciosComponent implements OnInit {
 
     this.continuar.emit(
       items.map((f) => ({
-        tipo_liquidacion:  f.tipo_liquidacion,
-        tipo_servicio:     f.tipo_servicio,
-        id_tipo_servicio:  f.id_tipo_servicio,
-        cups:              f.cups,
-        grupo:             f.grupo,
-        subgrupo:          f.subgrupo,
-        forma_pago:        f.forma_pago,
-        homologo:          f.homologo,
-        variacion:         f.variacion,
-        valor:             f.valor ?? 0,
-        id_obs_item:       f.id_obs_item,
-        novedad:           f.novedad,
+        tipo_liquidacion:      f.tipo_liquidacion,
+        tipo_servicio:         f.tipo_servicio,
+        id_tipo_servicio:      f.id_tipo_servicio,
+        cups:                  f.cups,
+        cups_descripcion:      f.cups_descripcion,
+        grupo:                 f.grupo,
+        grupo_descripcion:     f.grupo_descripcion,
+        subgrupo:              f.subgrupo,
+        subgrupo_descripcion:  f.subgrupo_descripcion,
+        forma_pago:            f.forma_pago,
+        homologo:              f.homologo,
+        variacion:             f.variacion,
+        valor:                 f.valor ?? 0,
+        id_obs_item:           f.id_obs_item,
+        novedad:               f.novedad,
       }))
     );
   }
@@ -644,6 +677,11 @@ export class PasoServiciosComponent implements OnInit {
     }
   }
 
+  /** Descripción pura sin el prefijo del código (para persistir en el detalle). */
+  private descripcionSinCodigo(label: string | null | undefined, codigo: string | null | undefined): string | null {
+    return limpiarDescripcion(label, codigo);
+  }
+
   /** Etiqueta legible del porcentaje (ej. "MÁS 72%"). */
   protected labelPorcentaje(valor: string | null): string {
     if (valor == null || valor === '') return '—';
@@ -662,8 +700,11 @@ export class PasoServiciosComponent implements OnInit {
       tipo_servicio:     d.tipo_servicio,
       id_tipo_servicio:  d.id_tipo_servicio,
       cups:              d.cups,
+      cups_descripcion:  d.cups_descripcion ?? null,
       grupo:             d.grupo,
+      grupo_descripcion: d.grupo_descripcion ?? null,
       subgrupo:          d.subgrupo,
+      subgrupo_descripcion: d.subgrupo_descripcion ?? null,
       forma_pago:        d.forma_pago,
       homologo:          d.homologo,
       variacion:         d.variacion,

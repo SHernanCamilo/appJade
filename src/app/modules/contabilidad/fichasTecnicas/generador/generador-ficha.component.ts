@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { StepsModule } from 'primeng/steps';
 import { ToastModule } from 'primeng/toast';
+import { forkJoin } from 'rxjs';
 
-import { ConflictoProfesional, CrearFichaPayload, DetallePayload, OpcionesFormulario } from '../models/ficha.model';
+import { ActualizarFichaPayload, ConflictoProfesional, CrearFichaPayload, DetalleFicha, DetallePayload, Ficha, OpcionesFormulario } from '../models/ficha.model';
 import { FichasTecnicasService } from '../services/fichas-tecnicas.service';
 import { ParametrosService } from '../services/parametros.service';
 import { ConflictosDialogComponent } from '../shared/conflictos-dialog.component';
@@ -43,8 +44,8 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
 
     <section class="ft-generador">
       <header class="ft-generador__header">
-        <h1>Nueva ficha técnica</h1>
-        <p>Complete los tres pasos para crear una ficha y enviarla a validación.</p>
+        <h1>{{ tituloWizard() }}</h1>
+        <p>{{ subtituloWizard() }}</p>
       </header>
 
       <p-steps
@@ -56,17 +57,25 @@ import { PasoServiciosComponent } from './components/paso-servicios.component';
 
       @switch (pasoActual) {
         @case (0) {
-          <app-paso-datos
-            [opciones]="opciones()"
-            [guardando]="guardando()"
-            [datosPrevios]="cabecera()"
-            (continuar)="onPaso1($event)"
-            (profesionalesInfo)="nombresProfesionales.set($event)"
-          />
+          @if (!esEdicion() || fichaEdicion()) {
+            <app-paso-datos
+              [opciones]="opciones()"
+              [ficha]="fichaEdicion()"
+              [guardando]="guardando()"
+              [datosPrevios]="cabecera()"
+              (continuar)="onPaso1($event)"
+              (profesionalesInfo)="nombresProfesionales.set($event)"
+            />
+          } @else {
+            <p class="ft-generador__cargando">
+              <i class="pi pi-spin pi-spinner"></i> Cargando ficha…
+            </p>
+          }
         }
         @case (1) {
           <app-paso-servicios
             [guardando]="guardando()"
+            [detallesExistentes]="detallesExistentes()"
             [detallesPrevios]="detallesPayload()"
             (continuar)="onPaso2($event)"
             (volver)="pasoActual = 0"
@@ -183,6 +192,7 @@ export class GeneradorFichaComponent {
   private readonly fichaService = inject(FichasTecnicasService);
   private readonly parametrosService = inject(ParametrosService);
   private readonly router = inject(Router);
+  private readonly ruta = inject(ActivatedRoute);
   private readonly mensajes = inject(MessageService);
 
   protected pasoActual = 0;
@@ -202,8 +212,69 @@ export class GeneradorFichaComponent {
   protected readonly observacionesGenerales = signal<string[]>([]);
   protected mostrarConflictos = false;
 
+  // ── Modo edición / actualización (OS) ──────────────────────────────────
+  /** Id de la ficha en edición (null = creación). */
+  protected readonly fichaId = signal<number | null>(null);
+  /** Ficha cargada para editar (prellena el paso 1). */
+  protected readonly fichaEdicion = signal<Ficha | null>(null);
+  /** Detalles existentes de la ficha en edición (prellena el paso 2). */
+  protected readonly detallesExistentes = signal<DetalleFicha[]>([]);
+  /** true cuando se está creando una actualización (OS) sobre una ficha vigente. */
+  protected readonly esActualizacion = signal<boolean>(false);
+
+  protected readonly esEdicion = () => this.fichaId() !== null;
+
+  protected readonly tituloWizard = () =>
+    this.esActualizacion()
+      ? 'Actualización de ficha técnica'
+      : this.esEdicion()
+        ? 'Editar ficha técnica'
+        : 'Nueva ficha técnica';
+
+  protected readonly subtituloWizard = () =>
+    this.esEdicion()
+      ? 'Modifique los datos y guarde los cambios.'
+      : 'Complete los tres pasos para crear una ficha y enviarla a validación.';
+
   constructor() {
     this.parametrosService.opcionesFormulario().subscribe((o) => this.opciones.set(o));
+
+    // Si la ruta trae :id, entramos en modo edición y cargamos la ficha.
+    const idParam = this.ruta.snapshot.paramMap.get('id');
+    const esOs = this.ruta.snapshot.queryParamMap.get('os') === '1';
+
+    if (idParam) {
+      const id = Number(idParam);
+      this.fichaId.set(id);
+      this.esActualizacion.set(esOs);
+      this.cargarFichaParaEdicion(id);
+    }
+  }
+
+  /** Carga la ficha y sus detalles para prellenar el wizard en modo edición. */
+  private cargarFichaParaEdicion(id: number): void {
+    this.guardando.set(true);
+
+    forkJoin({
+      ficha: this.fichaService.obtener(id),
+      detalles: this.fichaService.detalles(id),
+    }).subscribe({
+      next: ({ ficha, detalles }) => {
+        this.fichaEdicion.set(ficha);
+        this.detallesExistentes.set(Array.isArray(detalles) ? detalles : []);
+        this.guardando.set(false);
+      },
+      error: (err: unknown) => {
+        this.guardando.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo cargar la ficha',
+          detail: interpretarErrorFicha(err).mensaje,
+          life: 6000,
+        });
+        void this.router.navigate(['/contabilidad/fichas-tecnicas/bandeja/borradores']);
+      },
+    });
   }
 
   protected onPaso1(datos: CrearFichaPayload): void {
@@ -255,6 +326,13 @@ export class GeneradorFichaComponent {
       profesionales_info: Object.keys(nombres).length > 0 ? nombres : undefined,
     };
 
+    // Modo edición: actualizar la ficha existente en vez de crear una nueva.
+    const idEdicion = this.fichaId();
+    if (idEdicion !== null) {
+      this.actualizarFicha(idEdicion, cabeceraConNombres, observaciones, enviar);
+      return;
+    }
+
     // 1. Crear la ficha con sus profesionales.
     this.fichaService.crear(cabeceraConNombres).subscribe({
       next: (ficha) => {
@@ -292,6 +370,53 @@ export class GeneradorFichaComponent {
               next: () => this.finalizarConErrorDetalles(err),
               error: () => this.finalizarConErrorDetalles(err),
             });
+          },
+        });
+      },
+      error: (err: unknown) => {
+        this.guardando.set(false);
+        const error = interpretarErrorFicha(err);
+
+        if (error.status === 409 && error.conflictos.length > 0) {
+          this.conflictos.set(error.conflictos);
+          this.mostrarConflictos = true;
+          return;
+        }
+
+        this.mostrarError(err);
+      },
+    });
+  }
+
+  /**
+   * Guarda los cambios de una ficha existente (edición de borrador):
+   * actualiza cabecera, reemplaza los servicios y las observaciones.
+   */
+  private actualizarFicha(
+    id: number,
+    cabecera: CrearFichaPayload,
+    observaciones: string[],
+    enviar: boolean,
+  ): void {
+    const payload: ActualizarFichaPayload = { ...cabecera };
+
+    this.fichaService.actualizar(id, payload).subscribe({
+      next: () => {
+        // Reemplazar los servicios con los del wizard.
+        this.fichaService.guardarDetalles(id, this.detallesPayload()).subscribe({
+          next: () => {
+            const obs = observaciones.filter((o) => o.trim() !== '');
+            this.guardarObservaciones(id, obs, () => {
+              if (enviar) {
+                this.enviarAValidacion(id);
+              } else {
+                this.finalizarCreacion(id, false);
+              }
+            });
+          },
+          error: (err: unknown) => {
+            this.guardando.set(false);
+            this.mostrarError(err);
           },
         });
       },
@@ -356,12 +481,19 @@ export class GeneradorFichaComponent {
   /** Cierra el flujo exitoso: muestra el mensaje según la acción y navega. */
   private finalizarCreacion(idFicha: number, enviada: boolean): void {
     this.guardando.set(false);
+    const edicion = this.esEdicion();
     this.mensajes.add({
       severity: 'success',
-      summary: enviada ? 'Ficha enviada a validación' : 'Borrador guardado',
+      summary: enviada
+        ? 'Ficha enviada a validación'
+        : edicion
+          ? 'Cambios guardados'
+          : 'Borrador guardado',
       detail: enviada
-        ? `La ficha #${idFicha} fue creada y enviada a validación.`
-        : `La ficha #${idFicha} se guardó como borrador. Puede enviarla a validación más tarde.`,
+        ? `La ficha #${idFicha} fue enviada a validación.`
+        : edicion
+          ? `Los cambios de la ficha #${idFicha} se guardaron correctamente.`
+          : `La ficha #${idFicha} se guardó como borrador. Puede enviarla a validación más tarde.`,
       life: 5000,
     });
     void this.router.navigate([
