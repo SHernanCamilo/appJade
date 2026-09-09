@@ -19,7 +19,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 
 import {
   NotificacionService, DashboardResponse, EmailNotificacion,
-  EmailDetalleResponse, EmailRebotado, EmailFiltros, PaginatedMeta, EmailTrace
+  EmailDetalleResponse, EmailRebotado, EmailFiltros, RebotadoFiltros, PaginatedMeta, EmailTrace
 } from './services/notificacion.service';
 
 import * as XLSX from 'xlsx';
@@ -66,6 +66,13 @@ export class NotificacionesComponent implements OnInit {
   rebotados: EmailRebotado[] = [];
   isLoadingRebotados = false;
   isCheckingBounces = false;
+  metaRebotados: PaginatedMeta = { total: 0, per_page: 20, current_page: 1, last_page: 1 };
+  filtrosRebotados: RebotadoFiltros = { per_page: 20, page: 1 };
+  fechaDesdeReb: Date | null = null;
+  fechaHastaReb: Date | null = null;
+  clinicaOptionsReb: { label: string; value: string | null }[] = [{ label: 'Todas las clínicas', value: null }];
+  especialidadOptionsReb: { label: string; value: string | null }[] = [{ label: 'Todas las especialidades', value: null }];
+  private rebotadosDebounce: ReturnType<typeof setTimeout> | null = null;
 
   // Opciones filtros
   statusOptions = [
@@ -213,9 +220,68 @@ export class NotificacionesComponent implements OnInit {
 
   cargarRebotados(): void {
     this.isLoadingRebotados = true;
-    this.notificacionService.getRebotados().subscribe({
-      next: (data) => { this.rebotados = data; this.isLoadingRebotados = false; },
-      error: () => { this.isLoadingRebotados = false; this.toast('error', 'No se pudieron cargar los rebotados'); }
+
+    const f: RebotadoFiltros = {
+      clinica: this.filtrosRebotados.clinica || undefined,
+      email_to: this.filtrosRebotados.email_to || undefined,
+      profesional: this.filtrosRebotados.profesional || undefined,
+      especialidad: this.filtrosRebotados.especialidad || undefined,
+      busqueda: this.filtrosRebotados.busqueda || undefined,
+      fecha_desde: this.fechaDesdeReb ? this.formatDate(this.fechaDesdeReb) : undefined,
+      fecha_hasta: this.fechaHastaReb ? this.formatDate(this.fechaHastaReb) : undefined,
+      per_page: this.filtrosRebotados.per_page,
+      page: this.filtrosRebotados.page,
+    };
+
+    this.notificacionService.getRebotados(f).subscribe({
+      next: (res) => {
+        this.rebotados = res.data;
+        this.metaRebotados = res.meta;
+        this.isLoadingRebotados = false;
+        this.actualizarOpcionesRebotados(res.data);
+      },
+      error: () => { this.rebotados = []; this.isLoadingRebotados = false; this.toast('error', 'No se pudieron cargar los rebotados'); }
+    });
+  }
+
+  /**
+   * Filtra rebotados a nivel servidor mientras el usuario escribe.
+   * Se aplica con un pequeño retardo (debounce) para no disparar una petición
+   * por cada tecla, y siempre vuelve a la primera página.
+   */
+  filtrarRebotados(): void {
+    if (this.rebotadosDebounce) clearTimeout(this.rebotadosDebounce);
+    this.rebotadosDebounce = setTimeout(() => {
+      this.filtrosRebotados.page = 1;
+      this.cargarRebotados();
+    }, 400);
+  }
+
+  /** Cambio de página / tamaño en la tabla de rebotados (lazy, server-side). */
+  onPageChangeRebotados(event: any): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? this.metaRebotados.per_page;
+    this.filtrosRebotados.page = Math.floor(first / rows) + 1;
+    this.filtrosRebotados.per_page = rows;
+    this.cargarRebotados();
+  }
+
+  limpiarFiltrosRebotados(): void {
+    this.filtrosRebotados = { per_page: 20, page: 1 };
+    this.fechaDesdeReb = null;
+    this.fechaHastaReb = null;
+    this.cargarRebotados();
+  }
+
+  /** Alimenta los desplegables de clínica y especialidad con lo que va llegando. */
+  private actualizarOpcionesRebotados(data: EmailRebotado[]): void {
+    data.forEach(r => {
+      if (r.clinica && !this.clinicaOptionsReb.find(o => o.value === r.clinica)) {
+        this.clinicaOptionsReb.push({ label: r.clinica, value: r.clinica });
+      }
+      if (r.especialidad && !this.especialidadOptionsReb.find(o => o.value === r.especialidad)) {
+        this.especialidadOptionsReb.push({ label: r.especialidad, value: r.especialidad });
+      }
     });
   }
 
@@ -225,6 +291,7 @@ export class NotificacionesComponent implements OnInit {
       next: (res) => {
         this.isCheckingBounces = false;
         this.toast('success', res.message);
+        this.filtrosRebotados.page = 1;
         this.cargarRebotados();
         this.cargarDashboard();
       },
