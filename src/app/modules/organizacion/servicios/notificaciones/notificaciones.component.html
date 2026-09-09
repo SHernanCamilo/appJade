@@ -176,16 +176,71 @@
       <!-- ── TAB 3: REBOTADOS ────────────────────────────────────────────── -->
       <p-tabPanel header="Rebotados" leftIcon="pi pi-exclamation-triangle">
 
-        <div class="d-flex justify-content-end mb-3">
-          <button class="btn-action btn-action-primary" (click)="verificarRebotes()" [disabled]="isCheckingBounces">
-            <i class="pi" [class.pi-spin]="isCheckingBounces" [class.pi-spinner]="isCheckingBounces" [class.pi-refresh]="!isCheckingBounces"></i>
-            Verificar Rebotes
-          </button>
+        <!-- Barra de filtros dinámicos (server-side). Al escribir/elegir, la
+             tabla se recarga desde el backend con la data filtrada. -->
+        <div class="filtros-rebotados mb-3">
+          <div class="filtro-item">
+            <label>Clínica</label>
+            <p-dropdown [options]="clinicaOptionsReb" [(ngModel)]="filtrosRebotados.clinica"
+              (onChange)="filtrarRebotados()" optionLabel="label" optionValue="value"
+              placeholder="Todas las clínicas" [showClear]="true" [filter]="true"
+              filterPlaceholder="Buscar clínica..." styleClass="filtro-dropdown" appendTo="body">
+            </p-dropdown>
+          </div>
+          <div class="filtro-item">
+            <label>Especialidad</label>
+            <p-dropdown [options]="especialidadOptionsReb" [(ngModel)]="filtrosRebotados.especialidad"
+              (onChange)="filtrarRebotados()" optionLabel="label" optionValue="value"
+              placeholder="Todas" [showClear]="true" [filter]="true"
+              filterPlaceholder="Buscar especialidad..." styleClass="filtro-dropdown" appendTo="body">
+            </p-dropdown>
+          </div>
+          <div class="filtro-item">
+            <label>Correo</label>
+            <input pInputText [(ngModel)]="filtrosRebotados.email_to" (input)="filtrarRebotados()"
+              placeholder="Correo destino..." class="w-100">
+          </div>
+          <div class="filtro-item">
+            <label>Profesional</label>
+            <input pInputText [(ngModel)]="filtrosRebotados.profesional" (input)="filtrarRebotados()"
+              placeholder="Nombre profesional..." class="w-100">
+          </div>
+          <div class="filtro-item">
+            <label>Buscar</label>
+            <input pInputText [(ngModel)]="filtrosRebotados.busqueda" (input)="filtrarRebotados()"
+              placeholder="Paciente, identificación..." class="w-100">
+          </div>
+          <div class="filtro-item">
+            <label>Desde</label>
+            <p-datepicker [(ngModel)]="fechaDesdeReb" (onSelect)="filtrarRebotados()" dateFormat="dd/mm/yy"
+              [showIcon]="true" styleClass="w-100" appendTo="body" placeholder="Fecha inicio">
+            </p-datepicker>
+          </div>
+          <div class="filtro-item">
+            <label>Hasta</label>
+            <p-datepicker [(ngModel)]="fechaHastaReb" (onSelect)="filtrarRebotados()" dateFormat="dd/mm/yy"
+              [showIcon]="true" styleClass="w-100" appendTo="body" placeholder="Fecha fin">
+            </p-datepicker>
+          </div>
+          <div class="filtro-item filtro-item--acciones">
+            <button class="btn-action btn-action-secondary" (click)="limpiarFiltrosRebotados()"
+              pTooltip="Limpiar filtros" tooltipPosition="top">
+              <i class="pi pi-filter-slash"></i>
+            </button>
+            <button class="btn-action btn-action-primary" (click)="verificarRebotes()" [disabled]="isCheckingBounces">
+              <i class="pi" [class.pi-spin]="isCheckingBounces" [class.pi-spinner]="isCheckingBounces" [class.pi-refresh]="!isCheckingBounces"></i>
+              Verificar Rebotes
+            </button>
+          </div>
         </div>
 
         <div class="modern-table-container">
           <p-table [value]="rebotados" [loading]="isLoadingRebotados" styleClass="modern-table"
-            [paginator]="true" [rows]="10">
+            [lazy]="true" [paginator]="true" [rows]="metaRebotados.per_page" [totalRecords]="metaRebotados.total"
+            [first]="(metaRebotados.current_page - 1) * metaRebotados.per_page"
+            (onLazyLoad)="onPageChangeRebotados($event)" [rowsPerPageOptions]="[10, 20, 50]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}">
             <ng-template pTemplate="header">
               <tr>
                 <th>Email</th>
@@ -214,8 +269,13 @@
             <ng-template pTemplate="emptymessage">
               <tr><td colspan="7" class="text-center py-4">
                 <i class="pi pi-check-circle" style="font-size:2rem;color:#27AE60"></i>
-                <p class="text-muted mt-2">No hay correos rebotados</p>
+                <p class="text-muted mt-2">No hay correos rebotados con los filtros aplicados</p>
               </td></tr>
+            </ng-template>
+            <ng-template pTemplate="loadingbody">
+              <tr *ngFor="let i of [1,2,3,4,5]">
+                <td *ngFor="let j of [1,2,3,4,5,6,7]"><p-skeleton></p-skeleton></td>
+              </tr>
             </ng-template>
           </p-table>
         </div>

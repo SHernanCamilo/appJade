@@ -95,6 +95,19 @@ export interface EmailFiltros {
   page?: number;
 }
 
+/** Filtros de la pestaña Rebotados (todos se aplican a nivel servidor). */
+export interface RebotadoFiltros {
+  clinica?: string;
+  email_to?: string;
+  profesional?: string;
+  especialidad?: string;
+  busqueda?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  per_page?: number;
+  page?: number;
+}
+
 export interface PaginatedMeta {
   total: number;
   per_page: number;
@@ -142,9 +155,19 @@ export class NotificacionService {
       .pipe(map(r => r.data));
   }
 
-  getRebotados(): Observable<EmailRebotado[]> {
-    return this.http.get<ApiResponse<EmailRebotado[]>>(`${this.baseUrl}/rebotados`)
-      .pipe(map(r => r.data));
+  getRebotados(filtros: RebotadoFiltros = {}): Observable<{ data: EmailRebotado[]; meta: PaginatedMeta }> {
+    let p = new HttpParams();
+    if (filtros.clinica) p = p.set('clinica', filtros.clinica);
+    if (filtros.email_to) p = p.set('email_to', filtros.email_to);
+    if (filtros.profesional) p = p.set('profesional', filtros.profesional);
+    if (filtros.especialidad) p = p.set('especialidad', filtros.especialidad);
+    if (filtros.busqueda) p = p.set('busqueda', filtros.busqueda);
+    if (filtros.fecha_desde) p = p.set('fecha_desde', filtros.fecha_desde);
+    if (filtros.fecha_hasta) p = p.set('fecha_hasta', filtros.fecha_hasta);
+    if (filtros.per_page) p = p.set('per_page', filtros.per_page.toString());
+    if (filtros.page) p = p.set('page', filtros.page.toString());
+    return this.http.get<PaginatedApiResponse<EmailRebotado>>(`${this.baseUrl}/rebotados`, { params: p })
+      .pipe(map(r => ({ data: r.data, meta: r.meta })));
   }
 
   checkBounces(): Observable<{ checked: number; bounced: number; delivered: number; message: string }> {

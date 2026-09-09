@@ -319,3 +319,50 @@
 .dashboard-content { padding: 0 2rem 2rem 2rem; }
 
 .fw-600 { font-weight: 600; }
+
+/* ── Filtros dinámicos de la pestaña Rebotados ───────────────────────────── */
+.filtros-rebotados {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.filtros-rebotados .filtro-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 160px;
+  flex: 1;
+}
+
+.filtros-rebotados .filtro-item label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.filtros-rebotados .filtro-item--acciones {
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: flex-end;
+  min-width: auto;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.filtros-rebotados .filtro-dropdown {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .filtros-rebotados { flex-direction: column; align-items: stretch; }
+  .filtros-rebotados .filtro-item { min-width: 100%; }
+  .filtros-rebotados .filtro-item--acciones { margin-left: 0; }
+}
