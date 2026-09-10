@@ -98,6 +98,13 @@ export class PedidosComponent implements OnInit {
     price: 0, brand: '', rotation_type: '', average_cost: 0
   };
 
+  // Autocompletado del producto por código (consulta el parquet vía backend)
+  isLookingUpProduct: boolean = false;   // spinner mientras consulta
+  productLookupError: string = '';       // mensaje si no se encuentra
+  productFound: boolean = false;         // true cuando el código fue validado OK
+  private lookupTimer: any = null;       // debounce del input de código
+  private lastLookupCode: string = '';   // evita consultar el mismo código repetido
+
   /** Total del pedido (suma de precio × cantidad de cada ítem). */
   get totalPedido(): number {
     return this.newOrder.items.reduce((acc, i) => acc + ((i.price || 0) * (i.quantity || 0)), 0);
@@ -282,8 +289,80 @@ export class PedidosComponent implements OnInit {
   // ==========================================
   // PRODUCT FORM
   // ==========================================
+
+  /**
+   * Se dispara mientras se escribe el código. Aplica un pequeño debounce y luego
+   * consulta el producto (parquet vía backend) para autocompletar los campos.
+   */
+  onProductCodeInput(): void {
+    const code = (this.newProduct.product_code || '').trim();
+    // Al cambiar el código, se invalida lo autocompletado previo.
+    this.productFound = false;
+    this.productLookupError = '';
+
+    if (this.lookupTimer) clearTimeout(this.lookupTimer);
+    if (code.length < 3) return; // evita consultas con códigos muy cortos
+
+    this.lookupTimer = setTimeout(() => this.lookupProducto(code), 500);
+  }
+
+  /** Consulta inmediata al salir del campo código (blur) o al presionar Enter. */
+  onProductCodeBlur(): void {
+    const code = (this.newProduct.product_code || '').trim();
+    if (code.length >= 3 && !this.productFound && !this.isLookingUpProduct) {
+      if (this.lookupTimer) clearTimeout(this.lookupTimer);
+      this.lookupProducto(code);
+    }
+  }
+
+  /**
+   * Valida el código contra el catálogo (mismo camino parquet que la carga masiva)
+   * y autocompleta Producto, Tipo, Marca, Costo Promedio y Precio.
+   */
+  private lookupProducto(code: string): void {
+    if (this.isLookingUpProduct && code === this.lastLookupCode) return;
+    this.lastLookupCode = code;
+    this.isLookingUpProduct = true;
+    this.productLookupError = '';
+    this.productFound = false;
+
+    // Reutiliza el endpoint de validación (parquet + fallback GraphQL).
+    this.inventarioService.validateBulkProducts([
+      { product_code: code, quantity: this.newProduct.quantity || 1 }
+    ]).subscribe({
+      next: (res: any) => {
+        this.isLookingUpProduct = false;
+        const item = res?.success && Array.isArray(res.data) ? res.data[0] : null;
+
+        if (item) {
+          // Campos autocompletados desde el catálogo (quedan bloqueados en el form).
+          this.newProduct.product_code = item.product_code || code;
+          this.newProduct.product_name = item.product_name || '';
+          this.newProduct.product_type = item.product_type || item.tipo_producto || '';
+          this.newProduct.brand = item.brand || '';
+          this.newProduct.average_cost = Number(item.average_cost || 0);
+          // Precio sugerido desde el catálogo (editable).
+          this.newProduct.price = Number(item.price || 0);
+          this.productFound = true;
+        } else {
+          const err = (res?.errors && res.errors[0]) ? res.errors[0] : `No se encontró el producto con código ${code}.`;
+          this.productLookupError = err;
+        }
+      },
+      error: () => {
+        this.isLookingUpProduct = false;
+        this.productLookupError = 'Error de conexión al validar el producto.';
+      }
+    });
+  }
+
   addProduct(): void {
     if (!this.newProduct.product_code || !this.newProduct.quantity) return;
+    // Exigir que el producto haya sido validado contra el catálogo.
+    if (!this.productFound) {
+      this.productLookupError = 'Primero valida el código del producto (debe existir en el catálogo).';
+      return;
+    }
     this.newOrder.items.push({ ...this.newProduct });
     this.clearProductForm();
   }
@@ -293,6 +372,10 @@ export class PedidosComponent implements OnInit {
       product_code: '', product_name: '', product_type: '', quantity: 1,
       price: 0, brand: '', rotation_type: '', average_cost: 0
     };
+    this.productFound = false;
+    this.productLookupError = '';
+    this.lastLookupCode = '';
+    this.isLookingUpProduct = false;
   }
 
   removeProduct(index: number): void {

@@ -435,21 +435,37 @@
             <div class="row g-2 mb-2">
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Código Producto *</label>
-                    <input type="text" [(ngModel)]="newProduct.product_code" class="form-control" placeholder="Código producto">
+                    <div class="position-relative">
+                        <input type="text" [(ngModel)]="newProduct.product_code"
+                               (ngModelChange)="onProductCodeInput()" (blur)="onProductCodeBlur()"
+                               (keyup.enter)="onProductCodeBlur()"
+                               class="form-control" placeholder="Código producto"
+                               [class.is-valid]="productFound" [class.is-invalid]="!!productLookupError">
+                        <span *ngIf="isLookingUpProduct" class="spinner-border spinner-border-sm text-primary position-absolute"
+                              style="right:10px; top:10px;"></span>
+                    </div>
+                    <small class="text-success" *ngIf="productFound"><i class="bi bi-check-circle"></i> Producto validado</small>
+                    <small class="text-danger" *ngIf="productLookupError">{{ productLookupError }}</small>
+                    <small class="text-muted" *ngIf="!productFound && !productLookupError && !isLookingUpProduct">
+                        Escribe el código y se validará contra el catálogo.
+                    </small>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Producto *</label>
-                    <input type="text" [(ngModel)]="newProduct.product_name" class="form-control" placeholder="Nombre del producto">
+                    <input type="text" [(ngModel)]="newProduct.product_name" class="form-control bg-light"
+                           placeholder="Se autocompleta con el código" readonly>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Tipo producto</label>
-                    <input type="text" [(ngModel)]="newProduct.product_type" class="form-control" placeholder="Tipo de producto">
+                    <input type="text" [(ngModel)]="newProduct.product_type" class="form-control bg-light"
+                           placeholder="Se autocompleta" readonly>
                 </div>
             </div>
             <div class="row g-2 mb-2">
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Costo Promedio</label>
-                    <input type="number" [(ngModel)]="newProduct.average_cost" class="form-control" placeholder="Promedio" min="0">
+                    <input type="number" [(ngModel)]="newProduct.average_cost" class="form-control bg-light"
+                           placeholder="Se autocompleta" readonly>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Tipo rotación</label>
@@ -462,7 +478,8 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Marca</label>
-                    <input type="text" [(ngModel)]="newProduct.brand" class="form-control" placeholder="Marca">
+                    <input type="text" [(ngModel)]="newProduct.brand" class="form-control bg-light"
+                           placeholder="Se autocompleta" readonly>
                 </div>
             </div>
             <div class="row g-2 align-items-end">
@@ -475,7 +492,8 @@
                     <input type="number" [(ngModel)]="newProduct.price" class="form-control" placeholder="Precio" min="0">
                 </div>
                 <div class="col-md-4 d-flex gap-2">
-                    <button class="btn btn-primary flex-fill" (click)="addProduct()" [disabled]="!newProduct.product_code || !newProduct.quantity">
+                    <button class="btn btn-primary flex-fill" (click)="addProduct()"
+                            [disabled]="!productFound || !newProduct.quantity || isLookingUpProduct">
                         <i class="bi bi-plus-lg"></i> Agregar
                     </button>
                     <button class="btn btn-outline-secondary" (click)="clearProductForm()">
