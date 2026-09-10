@@ -221,6 +221,22 @@ export class RecepcionExcelComponent implements OnInit {
     return this.muestreoExclusiones.has(String(codigoProducto || '').trim().toUpperCase());
   }
 
+  /**
+   * Recalcula la muestra de todas las filas según su cantidad recibida actual.
+   * Se usa tras cargar datos (por si la tabla de muestreo llegó después) y al
+   * volver a colocar cantidades.
+   */
+  private recalcularTodasLasMuestras(): void {
+    this.rowData.forEach(r => {
+      const cant = Number(r.cantidad_recibida ?? 0);
+      // Solo (re)calcular si aún no hay muestra; respeta la muestra ya cargada/guardada.
+      if ((r.muestra_poblacion === null || r.muestra_poblacion === 0) && cant > 0) {
+        r.muestra_poblacion = this.calcularMuestra(cant, r.codigo_producto, r.muestra_exclusion);
+      }
+    });
+    this.gridApi?.refreshCells({ force: true });
+  }
+
   // ─── Grid config ──────────────────────────────────────────────────────────
 
   readonly defaultColDef: ColDef<RecepcionRow> = {
@@ -544,9 +560,14 @@ export class RecepcionExcelComponent implements OnInit {
           const diasVenc = calcularDiasVencimiento(fechaVenc);
           // Exclusión: la que venga del backend O la que esté en la tabla de exclusiones local.
           const esExcluido = Boolean(item.muestra_exclusion) || this.esExcluido(item.codigo_producto || '');
-          // La muestra siempre se calcula sobre la cantidad a recibir (arranca = solicitada).
-          const cantRecibida = Number(item.cantidad_recibida ?? cantidad ?? 0);
-          const muestraPoblacion = this.calcularMuestra(cantRecibida, item.codigo_producto || '', esExcluido);
+          // La cantidad a recibir arranca con la recibida previa (si la hay) o la solicitada.
+          const recibidaPrevia = Number(item.cantidad_recibida ?? 0);
+          const cantRecibida = recibidaPrevia > 0 ? recibidaPrevia : cantidad;
+          // Muestra: usar la guardada en la recepción previa; si no, calcular sobre la cantidad.
+          const muestraGuardada = Number(item.muestra_poblacion ?? 0);
+          const muestraPoblacion = muestraGuardada > 0
+            ? muestraGuardada
+            : this.calcularMuestra(cantRecibida, item.codigo_producto || '', esExcluido);
           return {
             codigo_producto: item.codigo_producto || '',
             producto_nombre: item.producto_nombre || '',
@@ -560,12 +581,13 @@ export class RecepcionExcelComponent implements OnInit {
             cum_producto_nombre: '',
             es_medicamento_vital: Boolean(item.es_medicamento_vital),
             codigo_sanitario: item.codigo_sanitario || '',
-            estado_invima: '',
+            // Respetar el estado INVIMA guardado en la recepción previa (si lo hay).
+            estado_invima: item.estado_invima || '',
             fabricante: item.fabricante || '',
             vida_util: item.vida_util || '',
             estado_vencimiento: getEstadoVencimiento(diasVenc),
             fecha_vencimiento: fechaVenc,
-            cantidad_recibida: cantidad,
+            cantidad_recibida: cantRecibida,
             muestra_poblacion: muestraPoblacion,
             muestra_exclusion: esExcluido,
             numero_lote: item.numero_lote || '',
@@ -573,7 +595,8 @@ export class RecepcionExcelComponent implements OnInit {
             embalaje_cumple: typeof item.embalaje_cumple === 'string' ? item.embalaje_cumple : aspectoDefault,
             contenido_cumple: typeof item.contenido_cumple === 'string' ? item.contenido_cumple : aspectoDefault,
             cadena_frio_temperatura: item.cadena_frio_temperatura ?? null,
-            concepto_recepcion: '',
+            // Respetar el concepto guardado en la recepción previa (si lo hay).
+            concepto_recepcion: item.concepto_recepcion || '',
             observaciones_recepcion: item.observaciones_recepcion || item.observaciones_pedido || '',
             mvd_solicitante: '',
             mvd_principio_activo: '',
@@ -591,6 +614,8 @@ export class RecepcionExcelComponent implements OnInit {
         });
         this.rowData = items;
         items.forEach(r => { if (r.fecha_vencimiento) this.calcularSemaforo(r); });
+        // Recalcular muestras por si la tabla de muestreo cargó después del mapeo.
+        this.recalcularTodasLasMuestras();
         this.ordenInfo.set({
           numero: res.orden_numero || `OC-${this.compraId}`,
           proveedor: res.proveedor || items[0]?.proveedor || '',
@@ -712,7 +737,10 @@ export class RecepcionExcelComponent implements OnInit {
       }
       row.cantidad_recibida = recibida;
       // La muestra SIEMPRE se recalcula según la nueva cantidad a recibir.
-      row.muestra_poblacion = this.calcularMuestra(recibida, row.codigo_producto, row.muestra_exclusion);
+      // Sin cantidad → celda de muestra vacía (no 0), para que el usuario complete.
+      row.muestra_poblacion = recibida > 0
+        ? this.calcularMuestra(recibida, row.codigo_producto, row.muestra_exclusion)
+        : null;
       this.gridApi?.refreshCells({
         rowNodes: event.node ? [event.node] : undefined,
         columns: ['cantidad_recibida', 'muestra_poblacion'],
@@ -731,16 +759,30 @@ export class RecepcionExcelComponent implements OnInit {
 
   onRibbonAction(event: RibbonActionEvent): void {
     switch (event.actionId) {
-      case 'select-all': 
-        this.rowData.forEach(r => r.recibido = true); 
-        this.gridApi?.refreshCells({ force: true }); 
-        this.recalcTotals(); 
+      case 'select-all':
+        // Volver a colocar: marca recibido, cantidad = solicitada y recalcula muestra.
+        this.rowData.forEach(r => {
+          r.recibido = true;
+          r.cantidad_recibida = Number(r.cantidad_solicitada ?? 0);
+          r.muestra_poblacion = r.cantidad_recibida > 0
+            ? this.calcularMuestra(r.cantidad_recibida, r.codigo_producto, r.muestra_exclusion)
+            : null;
+        });
+        this.gridApi?.refreshCells({ force: true });
+        this.recalcTotals();
+        this.msg.add({ severity: 'success', summary: 'Cantidades restauradas', detail: 'Se colocó la cantidad solicitada en todos los productos.' });
         break;
-        
-      case 'select-none': 
-        this.rowData.forEach(r => r.recibido = false); 
-        this.gridApi?.refreshCells({ force: true }); 
-        this.recalcTotals(); 
+
+      case 'select-none':
+        // Quitar todo: desmarca, cantidad 0 y muestra vacía.
+        this.rowData.forEach(r => {
+          r.recibido = false;
+          r.cantidad_recibida = 0;
+          r.muestra_poblacion = null;
+        });
+        this.gridApi?.refreshCells({ force: true });
+        this.recalcTotals();
+        this.msg.add({ severity: 'info', summary: 'Cantidades borradas', detail: 'Se vaciaron las cantidades. Ingresa los valores a recibir.' });
         break;
         
       case 'autofit': 
