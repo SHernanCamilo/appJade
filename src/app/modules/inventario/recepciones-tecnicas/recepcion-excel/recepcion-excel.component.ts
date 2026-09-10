@@ -105,6 +105,19 @@ function getEstadoVencimiento(dias: number | null): string {
   return 'Critico';
 }
 
+/**
+ * Normaliza un valor de cumplimiento a 'Cumple' / 'No Cumple'.
+ * Acepta número (1/0), boolean, o string. Por defecto (sin dato) → 'Cumple'.
+ */
+function cumpleToLabel(valor: any): string {
+  if (valor === null || valor === undefined || valor === '') return 'Cumple'; // default recepción
+  if (typeof valor === 'string') {
+    const v = valor.trim().toLowerCase();
+    return v === 'cumple' ? 'Cumple' : 'No Cumple';
+  }
+  return (valor === 1 || valor === true) ? 'Cumple' : 'No Cumple';
+}
+
 function toColumnLetter(index: number): string {
   let letter = '';
   let n = index;
@@ -132,6 +145,8 @@ export class RecepcionExcelComponent implements OnInit {
 
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
+  // Solo lectura: la OC ya tiene una recepción técnica guardada (no se puede modificar).
+  readonly soloLectura = signal(false);
 
   // ── Contadores ──
   private readonly totalItems = signal(0);
@@ -157,9 +172,9 @@ export class RecepcionExcelComponent implements OnInit {
       subtitle: this.ordenInfo()?.proveedor || '',
       saveState: this.isSaving() ? 'saving' : 'unsaved',
       primaryAction: {
-        label: 'Guardar Recepción',
-        icon: 'pi pi-save',
-        disabled: this.totalRecibidos() === 0,
+        label: this.soloLectura() ? 'Recepción guardada' : 'Guardar Recepción',
+        icon: this.soloLectura() ? 'pi pi-lock' : 'pi pi-save',
+        disabled: this.soloLectura() || this.totalRecibidos() === 0,
         loading: this.isSaving(),
       },
       secondaryActions: [{ label: 'Cerrar', icon: 'pi pi-times', action: 'close' }],
@@ -299,9 +314,9 @@ export class RecepcionExcelComponent implements OnInit {
       // Single click behavior: focus the cell, ready for editing
       // User can start typing to edit or press F2/Enter
       const colDef = event.colDef;
-      
-      // If it's a boolean cell (checkbox), toggle immediately
-      if (colDef.cellDataType === 'boolean' && colDef.editable !== false) {
+
+      // If it's a boolean cell (checkbox), toggle immediately (salvo solo lectura).
+      if (colDef.cellDataType === 'boolean' && colDef.editable !== false && !this.soloLectura()) {
         const currentValue = event.value;
         event.node.setDataValue(event.colDef.field!, !currentValue);
         return;
@@ -484,6 +499,12 @@ export class RecepcionExcelComponent implements OnInit {
     { headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 78, cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 }, type: 'numericColumn', cellClass: 'xl-cell xl-num' },
     {
       headerName: 'Concepto', field: 'concepto_recepcion', width: 110, editable: false,
+      valueFormatter: (p: any) => {
+        const v = String(p.value ?? '').toLowerCase();
+        if (v === 'aceptado') return 'Aceptado';
+        if (v === 'rechazado') return 'Rechazado';
+        return v ? (v.charAt(0).toUpperCase() + v.slice(1)) : '';
+      },
       cellClass: (p: CellClassParams<RecepcionRow>) => {
         const base = 'xl-cell xl-center xl-locked';
         if (p.value === 'aceptado') return `${base} xl-fill-ok`;
@@ -555,7 +576,6 @@ export class RecepcionExcelComponent implements OnInit {
       next: (res: any) => {
         const items: RecepcionRow[] = (Array.isArray(res.data) ? res.data : []).map((item: any) => {
           const cantidad = Number(item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? 0);
-          const aspectoDefault = item.aspecto_cumple === 0 || item.aspecto_cumple === false ? 'No Cumple' : 'Cumple';
           const fechaVenc = item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '';
           const diasVenc = calcularDiasVencimiento(fechaVenc);
           // Exclusión: la que venga del backend O la que esté en la tabla de exclusiones local.
@@ -591,9 +611,9 @@ export class RecepcionExcelComponent implements OnInit {
             muestra_poblacion: muestraPoblacion,
             muestra_exclusion: esExcluido,
             numero_lote: item.numero_lote || '',
-            aspecto_cumple: typeof item.aspecto_cumple === 'string' ? item.aspecto_cumple : aspectoDefault,
-            embalaje_cumple: typeof item.embalaje_cumple === 'string' ? item.embalaje_cumple : aspectoDefault,
-            contenido_cumple: typeof item.contenido_cumple === 'string' ? item.contenido_cumple : aspectoDefault,
+            aspecto_cumple: cumpleToLabel(item.aspecto_cumple),
+            embalaje_cumple: cumpleToLabel(item.embalaje_cumple),
+            contenido_cumple: cumpleToLabel(item.contenido_cumple),
             cadena_frio_temperatura: item.cadena_frio_temperatura ?? null,
             // Respetar el concepto guardado en la recepción previa (si lo hay).
             concepto_recepcion: item.concepto_recepcion || '',
@@ -613,6 +633,17 @@ export class RecepcionExcelComponent implements OnInit {
           } as RecepcionRow;
         });
         this.rowData = items;
+        // Si algún ítem trae recepción previa, la OC ya fue recepcionada → solo lectura.
+        const yaRecepcionada = (Array.isArray(res.data) ? res.data : []).some((it: any) => it?.tiene_recepcion_previa);
+        this.soloLectura.set(yaRecepcionada);
+        if (yaRecepcionada) {
+          this.msg.add({
+            severity: 'info',
+            summary: 'Recepción ya realizada',
+            detail: 'Esta orden ya tiene una recepción técnica guardada. Los datos son de solo lectura.',
+            life: 6000,
+          });
+        }
         items.forEach(r => { if (r.fecha_vencimiento) this.calcularSemaforo(r); });
         // Recalcular muestras por si la tabla de muestreo cargó después del mapeo.
         this.recalcularTodasLasMuestras();
@@ -758,6 +789,12 @@ export class RecepcionExcelComponent implements OnInit {
   }
 
   onRibbonAction(event: RibbonActionEvent): void {
+    // En solo lectura, bloquear las acciones que modifican datos.
+    const accionesEscritura = ['select-all', 'select-none', 'paste', 'cut', 'undo', 'redo'];
+    if (this.soloLectura() && accionesEscritura.includes(event.actionId)) {
+      this.msg.add({ severity: 'warn', summary: 'Solo lectura', detail: 'La recepción ya fue guardada; no se puede modificar.' });
+      return;
+    }
     switch (event.actionId) {
       case 'select-all':
         // Volver a colocar: marca recibido, cantidad = solicitada y recalcula muestra.
@@ -944,6 +981,9 @@ export class RecepcionExcelComponent implements OnInit {
     const field = params.colDef.field;
     const row = params.data;
     if (!field || !row) return false;
+
+    // Recepción ya guardada: todo es de solo lectura.
+    if (this.soloLectura()) return false;
 
     const locked = new Set([
       'codigo_producto', 'producto_nombre', 'tipo_producto', 'forma_farmaceutica', 'concentracion',
@@ -1269,6 +1309,10 @@ export class RecepcionExcelComponent implements OnInit {
   // ─── Guardar ──────────────────────────────────────────────────────────────
 
   guardar(): void {
+    if (this.soloLectura()) {
+      this.msg.add({ severity: 'warn', summary: 'Solo lectura', detail: 'Esta recepción ya fue guardada y no se puede modificar.' });
+      return;
+    }
     this.gridApi?.stopEditing();
     const items = this.rowData.filter(r => r.recibido && r.cantidad_recibida > 0);
     if (items.length === 0) { this.msg.add({ severity: 'warn', summary: 'Sin datos', detail: 'Marque al menos un producto como recibido.' }); return; }
