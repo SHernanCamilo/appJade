@@ -105,9 +105,16 @@ export class PedidosComponent implements OnInit {
   private lookupTimer: any = null;       // debounce del input de código
   private lastLookupCode: string = '';   // evita consultar el mismo código repetido
 
-  /** Total del pedido (suma de precio × cantidad de cada ítem). */
+  /** Total del pedido (el precio de cada ítem ya es Cantidad × Costo Promedio). */
   get totalPedido(): number {
-    return this.newOrder.items.reduce((acc, i) => acc + ((i.price || 0) * (i.quantity || 0)), 0);
+    return this.newOrder.items.reduce((acc, i) => acc + (i.price || 0), 0);
+  }
+
+  /** Recalcula el Precio de la línea del formulario: Cantidad × Costo Promedio. */
+  recalcularPrecioForm(): void {
+    const cantidad = Number(this.newProduct.quantity) || 0;
+    const costo = Number(this.newProduct.average_cost) || 0;
+    this.newProduct.price = +(cantidad * costo).toFixed(2);
   }
 
   statusOptions: StatusOption[] = [
@@ -341,9 +348,9 @@ export class PedidosComponent implements OnInit {
           this.newProduct.product_type = item.product_type || item.tipo_producto || '';
           this.newProduct.brand = item.brand || '';
           this.newProduct.average_cost = Number(item.average_cost || 0);
-          // Precio sugerido desde el catálogo (editable).
-          this.newProduct.price = Number(item.price || 0);
           this.productFound = true;
+          // El precio de la línea = Cantidad × Costo Promedio (automático).
+          this.recalcularPrecioForm();
         } else {
           const err = (res?.errors && res.errors[0]) ? res.errors[0] : `No se encontró el producto con código ${code}.`;
           this.productLookupError = err;
@@ -409,7 +416,8 @@ export class PedidosComponent implements OnInit {
         producto_promedio: i.average_cost ?? null,
         producto_rotacion: i.rotation_type || null,
         cantidad_solicitada: i.quantity,
-        precio_unitario: i.price || 0
+        // precio_unitario = costo promedio (unitario); el total = cantidad × costo.
+        precio_unitario: i.average_cost || 0
       }))
     };
 
