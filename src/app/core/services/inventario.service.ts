@@ -108,6 +108,11 @@ export class InventarioService {
     return this.http.get<ApiResponse<RecepcionItem[]>>(`${this.baseUrl}/recepciones/${compraId}`, { params });
   }
 
+  // Tabla de muestreo (niveles ISO 2859-1 + exclusiones) para cálculo en vivo.
+  getTablaMuestreo(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/recepciones/tabla-muestreo`);
+  }
+
   createRecepcion(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/recepciones`, data);
   }

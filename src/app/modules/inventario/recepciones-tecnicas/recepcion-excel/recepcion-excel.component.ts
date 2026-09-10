@@ -105,31 +105,6 @@ function getEstadoVencimiento(dias: number | null): string {
   return 'Critico';
 }
 
-function calculateSamplePopulation(quantity: number, forceFull: boolean): number {
-  const qty = Math.floor(Number(quantity) || 0);
-  if (!qty || qty <= 0) return 0;
-  if (forceFull) return qty;
-  const rules = [
-    { min: 2, max: 8, sample: 2 },
-    { min: 9, max: 15, sample: 3 },
-    { min: 16, max: 25, sample: 5 },
-    { min: 26, max: 50, sample: 8 },
-    { min: 51, max: 90, sample: 13 },
-    { min: 91, max: 150, sample: 20 },
-    { min: 151, max: 280, sample: 32 },
-    { min: 281, max: 500, sample: 50 },
-    { min: 501, max: 1200, sample: 80 },
-    { min: 1201, max: 3200, sample: 125 },
-    { min: 3201, max: 10000, sample: 200 },
-    { min: 10001, max: 35000, sample: 315 },
-    { min: 35001, max: 150000, sample: 500 },
-    { min: 150001, max: 500000, sample: 800 },
-    { min: 500001, max: 2147483647, sample: 1250 },
-  ];
-  const rule = rules.find(r => qty >= r.min && qty <= r.max);
-  return rule ? rule.sample : qty;
-}
-
 function toColumnLetter(index: number): string {
   let letter = '';
   let n = index;
@@ -217,6 +192,34 @@ export class RecepcionExcelComponent implements OnInit {
   private invimaCache = new Map<string, any>();
   private mvdCache = new Map<string, any>();
   private cumCache = new Map<string, string>();
+
+  // ── Tabla de muestreo (ISO 2859-1) traída de la BD ──
+  private muestreoNiveles: { lote_min: number; lote_max: number; tamano_muestra: number; letra_codigo: string }[] = [];
+  private muestreoExclusiones = new Set<string>();
+
+  /**
+   * Calcula el tamaño de muestra usando la tabla militar (inv_muestreo_niveles) de BD.
+   * - Si el producto está en exclusiones (inv_muestreo_exclusiones): muestreo del 100%.
+   * - Si no, busca el rango [lote_min, lote_max] que contiene la cantidad.
+   * - Fallback (si aún no cargó la tabla): 0.
+   */
+  private calcularMuestra(cantidad: number, codigoProducto: string, forzarTotal = false): number {
+    const qty = Math.floor(Number(cantidad) || 0);
+    if (!qty || qty <= 0) return 0;
+
+    const cod = String(codigoProducto || '').trim().toUpperCase();
+    if (forzarTotal || this.muestreoExclusiones.has(cod)) {
+      return qty; // inspección total del lote
+    }
+
+    const nivel = this.muestreoNiveles.find(n => qty >= n.lote_min && qty <= n.lote_max);
+    return nivel ? nivel.tamano_muestra : 0;
+  }
+
+  /** ¿El producto se muestrea al 100% (está en la tabla de exclusiones)? */
+  private esExcluido(codigoProducto: string): boolean {
+    return this.muestreoExclusiones.has(String(codigoProducto || '').trim().toUpperCase());
+  }
 
   // ─── Grid config ──────────────────────────────────────────────────────────
 
@@ -503,7 +506,29 @@ export class RecepcionExcelComponent implements OnInit {
       this.isLoading.set(false);
       return;
     }
-    this.loadData();
+    // Cargar la tabla de muestreo (BD) y luego los datos de la orden.
+    this.cargarTablaMuestreo(() => this.loadData());
+  }
+
+  /** Carga la tabla de muestreo (niveles + exclusiones) desde el backend. */
+  private cargarTablaMuestreo(done: () => void): void {
+    this.inventarioService.getTablaMuestreo().subscribe({
+      next: (res: any) => {
+        if (res?.success) {
+          this.muestreoNiveles = (res.niveles || []).map((n: any) => ({
+            lote_min: Number(n.lote_min),
+            lote_max: Number(n.lote_max),
+            tamano_muestra: Number(n.tamano_muestra),
+            letra_codigo: n.letra_codigo,
+          }));
+          this.muestreoExclusiones = new Set(
+            (res.exclusiones || []).map((c: any) => String(c).trim().toUpperCase())
+          );
+        }
+        done();
+      },
+      error: () => { done(); } // si falla, seguimos; la muestra caerá a 0 y se recalcula al guardar
+    });
   }
 
   // ─── Data loading ─────────────────────────────────────────────────────────
@@ -517,9 +542,11 @@ export class RecepcionExcelComponent implements OnInit {
           const aspectoDefault = item.aspecto_cumple === 0 || item.aspecto_cumple === false ? 'No Cumple' : 'Cumple';
           const fechaVenc = item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '';
           const diasVenc = calcularDiasVencimiento(fechaVenc);
-          const muestraPoblacion = (item.muestra_poblacion && item.muestra_poblacion > 0)
-            ? item.muestra_poblacion
-            : calculateSamplePopulation(Math.max(cantidad ?? item.cantidad_recibida ?? 0, 0), Boolean(item.muestra_exclusion));
+          // Exclusión: la que venga del backend O la que esté en la tabla de exclusiones local.
+          const esExcluido = Boolean(item.muestra_exclusion) || this.esExcluido(item.codigo_producto || '');
+          // La muestra siempre se calcula sobre la cantidad a recibir (arranca = solicitada).
+          const cantRecibida = Number(item.cantidad_recibida ?? cantidad ?? 0);
+          const muestraPoblacion = this.calcularMuestra(cantRecibida, item.codigo_producto || '', esExcluido);
           return {
             codigo_producto: item.codigo_producto || '',
             producto_nombre: item.producto_nombre || '',
@@ -540,7 +567,7 @@ export class RecepcionExcelComponent implements OnInit {
             fecha_vencimiento: fechaVenc,
             cantidad_recibida: cantidad,
             muestra_poblacion: muestraPoblacion,
-            muestra_exclusion: Boolean(item.muestra_exclusion),
+            muestra_exclusion: esExcluido,
             numero_lote: item.numero_lote || '',
             aspecto_cumple: typeof item.aspecto_cumple === 'string' ? item.aspecto_cumple : aspectoDefault,
             embalaje_cumple: typeof item.embalaje_cumple === 'string' ? item.embalaje_cumple : aspectoDefault,
@@ -671,10 +698,26 @@ export class RecepcionExcelComponent implements OnInit {
       this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, force: true });
     }
     if (field === 'cantidad_recibida') {
-      row.muestra_poblacion = (row.muestra_poblacion && row.muestra_poblacion > 0)
-        ? row.muestra_poblacion
-        : calculateSamplePopulation(Number(event.newValue ?? 0), row.muestra_exclusion);
-      this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, columns: ['muestra_poblacion'], force: true });
+      let recibida = Math.floor(Number(event.newValue ?? 0));
+      if (recibida < 0) recibida = 0;
+      // Regla: la cantidad recibida no puede superar la solicitada en la OC.
+      const maxSolic = Number(row.cantidad_solicitada ?? 0);
+      if (maxSolic > 0 && recibida > maxSolic) {
+        recibida = maxSolic;
+        this.msg.add({
+          severity: 'warn',
+          summary: 'Cantidad ajustada',
+          detail: `La cantidad recibida no puede superar la solicitada (${maxSolic}).`,
+        });
+      }
+      row.cantidad_recibida = recibida;
+      // La muestra SIEMPRE se recalcula según la nueva cantidad a recibir.
+      row.muestra_poblacion = this.calcularMuestra(recibida, row.codigo_producto, row.muestra_exclusion);
+      this.gridApi?.refreshCells({
+        rowNodes: event.node ? [event.node] : undefined,
+        columns: ['cantidad_recibida', 'muestra_poblacion'],
+        force: true,
+      });
     }
     if (field === 'cantidad_recibida' || field === 'recibido' || field === 'concepto_recepcion') this.recalcTotals();
     this.cellInfo.update(c => ({ ...c, value: event.newValue === null || event.newValue === undefined ? '' : String(event.newValue) }));
@@ -1023,7 +1066,7 @@ export class RecepcionExcelComponent implements OnInit {
       }
       if (!row.cantidad_recibida) {
         row.cantidad_recibida = row.cantidad_solicitada;
-        row.muestra_poblacion = calculateSamplePopulation(row.cantidad_recibida, row.muestra_exclusion);
+        row.muestra_poblacion = this.calcularMuestra(row.cantidad_recibida, row.codigo_producto, row.muestra_exclusion);
       }
       this.msg.add({ severity: 'success', summary: 'INVIMA vigente', detail: data.name || data.laboratory || row.codigo_sanitario });
     } else if (!isValid && status === 'not_found') {
@@ -1094,7 +1137,7 @@ export class RecepcionExcelComponent implements OnInit {
     if (!row.cantidad_recibida) {
       row.cantidad_recibida = row.cantidad_solicitada;
     }
-    row.muestra_poblacion = calculateSamplePopulation(row.cantidad_recibida, row.muestra_exclusion);
+    row.muestra_poblacion = this.calcularMuestra(row.cantidad_recibida, row.codigo_producto, row.muestra_exclusion);
     this.updateDynamicColumns();
     const nombre = data.nombre_comercial && data.nombre_comercial !== 'NO REPORTADO'
       ? data.nombre_comercial : (data.principio_activo || 'Medicamento vital');
@@ -1124,7 +1167,7 @@ export class RecepcionExcelComponent implements OnInit {
     row.observaciones_recepcion = row.observaciones_recepcion ? `${row.observaciones_recepcion}; ${note}` : note;
     if (!row.cantidad_recibida) {
       row.cantidad_recibida = row.cantidad_solicitada;
-      row.muestra_poblacion = calculateSamplePopulation(row.cantidad_recibida, row.muestra_exclusion);
+      row.muestra_poblacion = this.calcularMuestra(row.cantidad_recibida, row.codigo_producto, row.muestra_exclusion);
     }
     this.msg.add({ severity: 'success', summary: 'Override manual', detail: 'Campos habilitados para recepción manual.' });
     this.refreshRow(rowIndex);
