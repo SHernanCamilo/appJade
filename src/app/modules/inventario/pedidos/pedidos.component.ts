@@ -94,9 +94,14 @@ export class PedidosComponent implements OnInit {
   }
 
   newProduct: ProductoItem = {
-    product_code: '', product_name: '', quantity: 1,
+    product_code: '', product_name: '', product_type: '', quantity: 1,
     price: 0, brand: '', rotation_type: '', average_cost: 0
   };
+
+  /** Total del pedido (suma de precio × cantidad de cada ítem). */
+  get totalPedido(): number {
+    return this.newOrder.items.reduce((acc, i) => acc + ((i.price || 0) * (i.quantity || 0)), 0);
+  }
 
   statusOptions: StatusOption[] = [
     { label: 'Borrador', value: 'borrador', severity: 'secondary' },
@@ -285,7 +290,7 @@ export class PedidosComponent implements OnInit {
 
   clearProductForm(): void {
     this.newProduct = {
-      product_code: '', product_name: '', quantity: 1,
+      product_code: '', product_name: '', product_type: '', quantity: 1,
       price: 0, brand: '', rotation_type: '', average_cost: 0
     };
   }
@@ -316,9 +321,12 @@ export class PedidosComponent implements OnInit {
       detalles: this.newOrder.items.map(i => ({
         codigo_producto: i.product_code,
         producto_nombre: i.product_name,
+        producto_tipo: i.product_type || null,
+        producto_marca: i.brand || null,
+        producto_promedio: i.average_cost ?? null,
+        producto_rotacion: i.rotation_type || null,
         cantidad_solicitada: i.quantity,
-        precio_unitario: i.price || 0,
-        producto_tipo: i.rotation_type || null
+        precio_unitario: i.price || 0
       }))
     };
 
@@ -468,9 +476,10 @@ export class PedidosComponent implements OnInit {
 
           if (validItems.length > 0) {
             this.openNewOrderModal();
-            this.newOrder.items = validItems.map(vi => ({
+            this.newOrder.items = validItems.map((vi: any) => ({
               product_code: vi.product_code,
               product_name: vi.product_name,
+              product_type: vi.product_type || vi.tipo_producto || '',
               quantity: vi.quantity,
               rotation_type: vi.rotation_type,
               price: vi.price,

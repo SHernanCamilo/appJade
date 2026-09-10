@@ -252,6 +252,9 @@
                 <tr>
                     <th style="width:110px">CÓDIGO</th>
                     <th style="min-width:220px">PRODUCTO</th>
+                    <th style="width:120px">MARCA</th>
+                    <th style="width:110px; text-align:center">COSTO PROM.</th>
+                    <th style="width:100px; text-align:center">ROTACIÓN</th>
                     <th style="width:120px; text-align:center">CANT. SOLICITADA</th>
                     <th style="width:100px; text-align:center">ÚLTIMA OC</th>
                     <th style="width:120px; text-align:center">PROVEEDOR</th>
@@ -267,6 +270,11 @@
                     <th>
                         <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'producto_nombre', 'contains')" placeholder="Buscar producto...">
                     </th>
+                    <th>
+                        <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'producto_marca', 'contains')" placeholder="Buscar marca...">
+                    </th>
+                    <th></th>
+                    <th></th>
                     <th>
                         <input pInputText type="text" (input)="dtDetails.filter($any($event.target).value, 'cantidad_solicitada', 'contains')" placeholder="Buscar cantidad...">
                     </th>
@@ -293,6 +301,12 @@
                             <small style="color: #d97706;"><i class="bi bi-exclamation-triangle"></i> Sin orden de compra</small>
                         </div>
                     </td>
+                    <td style="font-size: 0.8rem;">{{ d.producto_marca || '-' }}</td>
+                    <td class="text-center" style="font-size: 0.8rem;">{{ d.producto_promedio ? (d.producto_promedio | currency:'COP':'symbol-narrow':'1.0-0') : '-' }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary-subtle text-secondary text-capitalize" *ngIf="d.producto_rotacion">{{ d.producto_rotacion }}</span>
+                        <span class="text-muted" *ngIf="!d.producto_rotacion">-</span>
+                    </td>
                     <td class="text-center">{{ d.cantidad_solicitada }}</td>
                     <td class="text-center" style="color: #a8a29e; font-style: italic; font-size: 0.8rem;">Sin OC</td>
                     <td class="text-center" style="color: #a8a29e;">-</td>
@@ -318,7 +332,7 @@
             </ng-template>
             <ng-template pTemplate="emptymessage">
                 <tr>
-                    <td colspan="9" class="text-center p-4 text-muted">No hay productos en este pedido</td>
+                    <td colspan="12" class="text-center p-4 text-muted">No hay productos en este pedido</td>
                 </tr>
             </ng-template>
         </p-table>
@@ -418,22 +432,54 @@
     <div class="card bg-light border-0 mb-4">
         <div class="card-body p-3">
             <h6 class="mb-3 fw-bold"><i class="bi bi-box-seam me-2"></i>Agregar Producto Manualmente</h6>
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Código Producto *</label>
+                    <input type="text" [(ngModel)]="newProduct.product_code" class="form-control" placeholder="Código producto">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Producto *</label>
+                    <input type="text" [(ngModel)]="newProduct.product_name" class="form-control" placeholder="Nombre del producto">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Tipo producto</label>
+                    <input type="text" [(ngModel)]="newProduct.product_type" class="form-control" placeholder="Tipo de producto">
+                </div>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Costo Promedio</label>
+                    <input type="number" [(ngModel)]="newProduct.average_cost" class="form-control" placeholder="Promedio" min="0">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Tipo rotación</label>
+                    <select [(ngModel)]="newProduct.rotation_type" class="form-select">
+                        <option value="">Seleccione</option>
+                        <option value="alta">Alta</option>
+                        <option value="media">Media</option>
+                        <option value="baja">Baja</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Marca</label>
+                    <input type="text" [(ngModel)]="newProduct.brand" class="form-control" placeholder="Marca">
+                </div>
+            </div>
             <div class="row g-2 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label small text-muted mb-1">Código</label>
-                    <input type="text" [(ngModel)]="newProduct.product_code" class="form-control">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Cantidad *</label>
+                    <input type="number" [(ngModel)]="newProduct.quantity" class="form-control" placeholder="Cantidad" min="1">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label small text-muted mb-1">Nombre</label>
-                    <input type="text" [(ngModel)]="newProduct.product_name" class="form-control">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">Precio</label>
+                    <input type="number" [(ngModel)]="newProduct.price" class="form-control" placeholder="Precio" min="0">
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label small text-muted mb-1">Cant.</label>
-                    <input type="number" [(ngModel)]="newProduct.quantity" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-primary w-100" (click)="addProduct()" [disabled]="!newProduct.product_code || !newProduct.quantity">
-                        <i class="bi bi-plus-lg"></i> Añadir
+                <div class="col-md-4 d-flex gap-2">
+                    <button class="btn btn-primary flex-fill" (click)="addProduct()" [disabled]="!newProduct.product_code || !newProduct.quantity">
+                        <i class="bi bi-plus-lg"></i> Agregar
+                    </button>
+                    <button class="btn btn-outline-secondary" (click)="clearProductForm()">
+                        Limpiar
                     </button>
                 </div>
             </div>
@@ -443,17 +489,30 @@
     <p-table [value]="newOrder.items" [scrollable]="true" scrollHeight="300px" styleClass="p-datatable-sm p-datatable-gridlines">
         <ng-template pTemplate="header">
             <tr>
-                <th style="width:150px">CÓDIGO</th>
+                <th style="width:130px">CÓDIGO</th>
                 <th>PRODUCTO</th>
-                <th style="width:100px; text-align:center">CANTIDAD</th>
-                <th style="width:80px; text-align:center">ACCIONES</th>
+                <th style="width:130px">MARCA</th>
+                <th style="width:110px; text-align:center">COSTO PROM.</th>
+                <th style="width:110px; text-align:center">TIPO ROTACIÓN</th>
+                <th style="width:90px; text-align:center">CANTIDAD</th>
+                <th style="width:110px; text-align:right">PRECIO UNIT.</th>
+                <th style="width:110px; text-align:right">TOTAL</th>
+                <th style="width:70px; text-align:center">ACCIONES</th>
             </tr>
         </ng-template>
         <ng-template pTemplate="body" let-item let-i="rowIndex">
             <tr>
                 <td><code>{{ item.product_code }}</code></td>
                 <td>{{ item.product_name }}</td>
+                <td>{{ item.brand || '-' }}</td>
+                <td class="text-center">{{ (item.average_cost || 0) | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                <td class="text-center">
+                    <span class="badge bg-secondary-subtle text-secondary text-capitalize" *ngIf="item.rotation_type">{{ item.rotation_type }}</span>
+                    <span class="text-muted" *ngIf="!item.rotation_type">-</span>
+                </td>
                 <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-end">{{ (item.price || 0) | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                <td class="text-end fw-bold">{{ ((item.price || 0) * (item.quantity || 0)) | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
                 <td class="text-center">
                     <button pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-danger p-button-sm" (click)="removeProduct(i)"></button>
                 </td>
@@ -461,9 +520,16 @@
         </ng-template>
         <ng-template pTemplate="emptymessage">
             <tr>
-                <td colspan="4" class="text-center p-4 text-muted">
+                <td colspan="9" class="text-center p-4 text-muted">
                     No hay productos añadidos al pedido
                 </td>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="footer" *ngIf="newOrder.items.length > 0">
+            <tr>
+                <td colspan="7" class="text-end fw-bold">TOTAL PEDIDO</td>
+                <td class="text-end fw-bold text-primary">{{ totalPedido | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                <td></td>
             </tr>
         </ng-template>
     </p-table>

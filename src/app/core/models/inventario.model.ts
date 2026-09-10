@@ -10,6 +10,7 @@ export interface ApiResponse<T> {
 export interface ProductoItem {
   product_code: string;
   product_name: string;
+  product_type?: string;
   quantity: number;
   price?: number;
   brand?: string;
