@@ -31,6 +31,11 @@ export class InventarioService {
     return this.http.get<ApiResponse<Pedido>>(`${this.baseUrl}/pedidos/${id}`);
   }
 
+  // Sucursales disponibles para crear un pedido (incluye almacén por sucursal y permisos).
+  getSucursalesDisponiblesPedido(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/pedidos/sucursales-disponibles`);
+  }
+
   createPedido(data: any): Observable<ApiResponse<Pedido>> {
     return this.http.post<ApiResponse<Pedido>>(`${this.baseUrl}/pedidos`, data);
   }

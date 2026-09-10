@@ -6,6 +6,14 @@
             <p class="page-subtitle text-muted">Controla pedidos, seguimiento de órdenes y recepción técnica</p>
         </div>
         <div class="page-actions d-flex gap-3 align-items-center">
+            <!-- Filtro por sucursal: solo para usuarios nacionales / multi-sucursal -->
+            <div class="d-flex align-items-center gap-2" *ngIf="mostrarSelectorSucursal">
+                <label class="text-muted small mb-0">Sucursal</label>
+                <select [(ngModel)]="filtroSucursalId" (change)="loadPedidos()" class="form-select form-select-sm" style="width: 200px;">
+                    <option [ngValue]="null">Todas mis sucursales</option>
+                    <option *ngFor="let s of sucursales" [ngValue]="s.id">{{ s.nombre }}</option>
+                </select>
+            </div>
             <div class="d-flex align-items-center gap-2">
                 <label class="text-muted small mb-0">Estado</label>
                 <select [(ngModel)]="statusFilter" (change)="loadPedidos()" class="form-select form-select-sm" style="width: 180px;">
@@ -369,6 +377,25 @@
     [resizable]="false"
     [dismissableMask]="true"
 >
+    <!-- Sucursal + Almacén (el almacén se fija por la sucursal, como en el legacy) -->
+    <div class="row mb-3">
+        <div class="col-md-6" *ngIf="mostrarSelectorSucursal">
+            <label class="form-label text-muted small">Sucursal *</label>
+            <select [(ngModel)]="newOrder.sucursal_id" (change)="onSucursalChange()" class="form-select">
+                <option [ngValue]="null" disabled>Selecciona la sucursal...</option>
+                <option *ngFor="let s of sucursales" [ngValue]="s.id">{{ s.nombre }}</option>
+            </select>
+            <small class="text-muted" *ngIf="!newOrder.sucursal_id">
+                <i class="bi bi-info-circle"></i> Selecciona la sucursal donde vas a realizar el pedido.
+            </small>
+        </div>
+        <div [ngClass]="mostrarSelectorSucursal ? 'col-md-6' : 'col-md-12'">
+            <label class="form-label text-muted small">Almacén</label>
+            <input type="text" class="form-control" [value]="newOrder.warehouse || 'Sin almacén asignado'" readonly
+                   [title]="newOrder.warehouse_code ? ('Código: ' + newOrder.warehouse_code) : ''">
+        </div>
+    </div>
+
     <div class="row mb-4">
         <div class="col-md-4">
             <label class="form-label text-muted small">Tipo pedido *</label>
@@ -443,6 +470,69 @@
 
     <ng-template pTemplate="footer">
         <button class="btn btn-light me-2" (click)="closeNewOrderModal()">Cancelar</button>
-        <button class="btn btn-primary" (click)="saveOrder()" [disabled]="newOrder.items.length === 0">Crear Pedido</button>
+        <button class="btn btn-primary" (click)="saveOrder()" [disabled]="!puedeGuardarPedido">Crear Pedido</button>
+    </ng-template>
+</p-dialog>
+
+<!-- ========================================= -->
+<!-- Modal: Resultado de validación de productos -->
+<!-- (al frente, para notificar al usuario)     -->
+<!-- ========================================= -->
+<p-dialog
+    header="Resultado de la validación"
+    [(visible)]="showValidationModal"
+    [modal]="true"
+    [style]="{width: '90vw', maxWidth: '640px'}"
+    [draggable]="false"
+    [resizable]="false"
+    [dismissableMask]="true"
+    [baseZIndex]="10000"
+    styleClass="custom-dialog"
+>
+    <div class="p-2">
+        <!-- Resumen -->
+        <div class="d-flex flex-wrap gap-3 mb-3">
+            <div class="flex-fill text-center p-3 rounded" style="background:#ecfdf5; border:1px solid #a7f3d0;">
+                <div class="fs-3 fw-bold text-success">{{ validationValidCount }}</div>
+                <div class="small text-muted">Válidos</div>
+            </div>
+            <div class="flex-fill text-center p-3 rounded" style="background:#fffbeb; border:1px solid #fde68a;">
+                <div class="fs-3 fw-bold" style="color:#d97706;">{{ bulkWarnings.length }}</div>
+                <div class="small text-muted">Advertencias</div>
+            </div>
+            <div class="flex-fill text-center p-3 rounded" style="background:#fef2f2; border:1px solid #fecaca;">
+                <div class="fs-3 fw-bold text-danger">{{ bulkErrors.length }}</div>
+                <div class="small text-muted">Errores</div>
+            </div>
+        </div>
+
+        <div class="alert alert-success py-2 px-3 small mb-3" *ngIf="validationValidCount > 0">
+            <i class="bi bi-check-circle me-1"></i>
+            {{ validationValidCount }} producto(s) válidos fueron cargados al formulario del pedido.
+        </div>
+        <div class="alert alert-warning py-2 px-3 small mb-3" *ngIf="validationValidCount === 0">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            No se encontraron productos válidos para importar.
+        </div>
+
+        <!-- Advertencias -->
+        <div class="mb-3" *ngIf="bulkWarnings.length > 0">
+            <h6 class="fw-bold small mb-2" style="color:#d97706;">Advertencias</h6>
+            <ul class="mb-0 ps-3 small" style="max-height:150px; overflow:auto;">
+                <li *ngFor="let warn of bulkWarnings">{{ warn }}</li>
+            </ul>
+        </div>
+
+        <!-- Errores -->
+        <div *ngIf="bulkErrors.length > 0">
+            <h6 class="fw-bold small mb-2 text-danger">Errores</h6>
+            <ul class="mb-0 ps-3 small" style="max-height:180px; overflow:auto;">
+                <li *ngFor="let err of bulkErrors">{{ err }}</li>
+            </ul>
+        </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+        <button class="btn btn-primary" (click)="closeValidationModal()">Entendido</button>
     </ng-template>
 </p-dialog>

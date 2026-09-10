@@ -19,6 +19,15 @@ interface StatusOption {
   severity: 'success' | 'secondary' | 'info' | 'warn' | 'danger' | 'contrast';
 }
 
+interface SucursalDisponible {
+  id: number;
+  nombre: string;
+  prefijo: string;
+  principal: boolean;
+  almacen: string | null;
+  almacen_codigo: string | null;
+}
+
 @Component({
   selector: 'app-pedidos',
   standalone: true,
@@ -58,14 +67,31 @@ export class PedidosComponent implements OnInit {
   bulkWarnings: string[] = [];
   isDragOver: boolean = false;
 
+  // Sucursales / Almacén (por permisos del usuario)
+  sucursales: SucursalDisponible[] = [];
+  accesoTotal: boolean = false;          // admin / nacional (recursivo)
+  filtroSucursalId: number | null = null; // filtro del listado
+  loadingSucursales: boolean = false;
+
+  // Modal de resultado de validación de productos (adelante, no escondido)
+  showValidationModal: boolean = false;
+  validationValidCount: number = 0;
+
   // New order form
   newOrder = {
-    warehouseSelect: '',
+    sucursal_id: null as number | null,
+    warehouse: '' as string,
+    warehouse_code: '' as string,
     order_type: 'order_general',
     order_date: new Date().toISOString().slice(0, 16),
     observations: '',
     items: [] as ProductoItem[]
   };
+
+  // ¿Debe mostrarse el selector de sucursal? (usuario nacional / multi-sucursal)
+  get mostrarSelectorSucursal(): boolean {
+    return this.accesoTotal || this.sucursales.length > 1;
+  }
 
   newProduct: ProductoItem = {
     product_code: '', product_name: '', quantity: 1,
@@ -87,12 +113,53 @@ export class PedidosComponent implements OnInit {
   constructor(private inventarioService: InventarioService) {}
 
   ngOnInit(): void {
+    this.loadSucursales();
     this.loadPedidos();
+  }
+
+  /** Carga las sucursales/almacenes disponibles según los permisos del usuario. */
+  loadSucursales(): void {
+    this.loadingSucursales = true;
+    this.inventarioService.getSucursalesDisponiblesPedido().subscribe({
+      next: (res: any) => {
+        this.loadingSucursales = false;
+        this.sucursales = res?.success ? (res.data || []) : [];
+        this.accesoTotal = !!res?.meta?.acceso_total;
+
+        // Preseleccionar: la principal, o la única disponible.
+        const principal = this.sucursales.find(s => s.principal);
+        const preseleccion = principal || (this.sucursales.length === 1 ? this.sucursales[0] : null);
+        if (preseleccion) {
+          this.newOrder.sucursal_id = preseleccion.id;
+          this.aplicarAlmacenPorSucursal(preseleccion.id);
+        }
+      },
+      error: () => {
+        this.loadingSucursales = false;
+        this.sucursales = [];
+      }
+    });
+  }
+
+  /** Al cambiar la sucursal en el formulario, fija el almacén asociado. */
+  onSucursalChange(): void {
+    this.aplicarAlmacenPorSucursal(this.newOrder.sucursal_id);
+  }
+
+  private aplicarAlmacenPorSucursal(sucursalId: number | null): void {
+    const suc = this.sucursales.find(s => s.id === sucursalId) || null;
+    this.newOrder.warehouse = suc?.almacen || '';
+    this.newOrder.warehouse_code = suc?.almacen_codigo || '';
   }
 
   loadPedidos(): void {
     this.isLoading = true;
-    const filters = this.statusFilter ? { estado: this.statusFilter } : {};
+    const filters: any = {};
+    if (this.statusFilter) filters.estado = this.statusFilter;
+    // El backend ya restringe por permisos; este filtro es una vista adicional
+    // para que el usuario nacional acote a una sucursal puntual.
+    if (this.filtroSucursalId) filters.sucursal_id = this.filtroSucursalId;
+
     this.inventarioService.getPedidos(filters).subscribe({
       next: (res) => {
         this.isLoading = false;
@@ -124,6 +191,14 @@ export class PedidosComponent implements OnInit {
   openNewOrderModal(): void {
     this.showNewOrderModal = true;
     this.newOrder.items = [];
+    // Asegurar una sucursal preseleccionada al abrir (principal o única).
+    if (!this.newOrder.sucursal_id) {
+      const principal = this.sucursales.find(s => s.principal) || (this.sucursales.length === 1 ? this.sucursales[0] : null);
+      if (principal) {
+        this.newOrder.sucursal_id = principal.id;
+      }
+    }
+    this.aplicarAlmacenPorSucursal(this.newOrder.sucursal_id);
     this.clearProductForm();
   }
 
@@ -219,20 +294,31 @@ export class PedidosComponent implements OnInit {
     this.newOrder.items.splice(index, 1);
   }
 
+  /** ¿El formulario de nuevo pedido es válido para enviarse? */
+  get puedeGuardarPedido(): boolean {
+    const sucursalOk = !this.mostrarSelectorSucursal || !!this.newOrder.sucursal_id;
+    return this.newOrder.items.length > 0 && sucursalOk;
+  }
+
   saveOrder(): void {
+    if (this.mostrarSelectorSucursal && !this.newOrder.sucursal_id) {
+      this.bulkStatus = 'Selecciona la sucursal donde vas a realizar el pedido.';
+      return;
+    }
+
+    // Contrato backend: sucursal_id define el consecutivo (prefijo) y el almacén;
+    // los detalles usan codigo_producto/producto_nombre/cantidad_solicitada.
     const payload = {
-      branch_id: 1,
-      order_type: this.newOrder.order_type,
-      order_date: this.newOrder.order_date,
-      observations: this.newOrder.observations,
-      items: this.newOrder.items.map(i => ({
-        product_code: i.product_code,
-        product_name: i.product_name,
-        quantity: i.quantity,
-        price: i.price || 0,
-        brand: i.brand,
-        rotation_type: i.rotation_type,
-        average_cost: i.average_cost
+      sucursal_id: this.newOrder.sucursal_id,
+      almacen: this.newOrder.warehouse || null,
+      fecha_pedido: this.newOrder.order_date,
+      observaciones: this.buildObservaciones(),
+      detalles: this.newOrder.items.map(i => ({
+        codigo_producto: i.product_code,
+        producto_nombre: i.product_name,
+        cantidad_solicitada: i.quantity,
+        precio_unitario: i.price || 0,
+        producto_tipo: i.rotation_type || null
       }))
     };
 
@@ -245,6 +331,27 @@ export class PedidosComponent implements OnInit {
       },
       error: (err) => console.error('Error saving pedido:', err)
     });
+  }
+
+  /** Compone las observaciones incluyendo tipo de pedido y almacén (como el legacy). */
+  private buildObservaciones(): string {
+    const partes: string[] = [];
+    if (this.newOrder.observations?.trim()) {
+      partes.push(this.newOrder.observations.trim());
+    }
+    const tipo = this.getTipoPedidoLabel(this.newOrder.order_type);
+    if (tipo) partes.push(`Tipo: ${tipo}`);
+    if (this.newOrder.warehouse) partes.push(`Almacén: ${this.newOrder.warehouse}`);
+    return partes.join(' | ');
+  }
+
+  private getTipoPedidoLabel(value: string): string {
+    switch (value) {
+      case 'order_general': return 'Pedido General';
+      case 'order_spontaneous': return 'Pedido Espontáneo';
+      case 'order_urgencies': return 'Pedido Urgencias';
+      default: return value;
+    }
   }
 
   confirmOrder(id: number): void {
@@ -357,6 +464,8 @@ export class PedidosComponent implements OnInit {
           this.bulkErrors = res.errors || [];
           this.bulkWarnings = res.warnings || [];
 
+          this.validationValidCount = validItems.length;
+
           if (validItems.length > 0) {
             this.openNewOrderModal();
             this.newOrder.items = validItems.map(vi => ({
@@ -372,6 +481,9 @@ export class PedidosComponent implements OnInit {
           } else {
             this.bulkStatus = 'No se encontraron productos válidos para importar.';
           }
+
+          // Mostrar el resultado al frente para que el usuario quede notificado.
+          this.showValidationModal = true;
         } else {
           this.bulkStatus = 'Error al validar: ' + res.message;
         }
@@ -381,5 +493,9 @@ export class PedidosComponent implements OnInit {
         this.bulkStatus = 'Error de conexión al validar archivo.';
       }
     });
+  }
+
+  closeValidationModal(): void {
+    this.showValidationModal = false;
   }
 }
