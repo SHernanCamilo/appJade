@@ -92,7 +92,12 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrder(pedido)"></button>
+                                <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrder(pedido)" pTooltip="Ver detalle" tooltipPosition="left"></button>
+                                <button *ngIf="puedeConfirmarPedido && esConfirmable(pedido)"
+                                        pButton icon="bi bi-check2-circle"
+                                        class="p-button-rounded p-button-text p-button-sm p-button-success"
+                                        (click)="confirmarPedido(pedido)"
+                                        pTooltip="Confirmar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
                             </td>
                         </tr>
                     </ng-template>
@@ -552,9 +557,17 @@
         </ng-template>
     </p-table>
 
+    <!-- Mensaje de error al crear el pedido -->
+    <div class="alert alert-danger py-2 px-3 small mt-3 mb-0" *ngIf="saveOrderError">
+        <i class="bi bi-exclamation-triangle me-1"></i> {{ saveOrderError }}
+    </div>
+
     <ng-template pTemplate="footer">
-        <button class="btn btn-light me-2" (click)="closeNewOrderModal()">Cancelar</button>
-        <button class="btn btn-primary" (click)="saveOrder()" [disabled]="!puedeGuardarPedido">Crear Pedido</button>
+        <button class="btn btn-light me-2" (click)="closeNewOrderModal()" [disabled]="isSavingOrder">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveOrder()" [disabled]="!puedeGuardarPedido || isSavingOrder">
+            <span class="spinner-border spinner-border-sm me-2" *ngIf="isSavingOrder"></span>
+            {{ isSavingOrder ? 'Creando...' : 'Crear Pedido' }}
+        </button>
     </ng-template>
 </p-dialog>
 

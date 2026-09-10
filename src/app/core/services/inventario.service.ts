@@ -48,6 +48,11 @@ export class InventarioService {
     return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/estado`, { estado });
   }
 
+  // Confirmar/aprobar un pedido (solo Jefe de Almacén con permiso 'confirmar-pedido').
+  confirmarPedido(id: number | string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/confirmar`, {});
+  }
+
   // ==========================================
   // ORDENES DE COMPRA
   // ==========================================

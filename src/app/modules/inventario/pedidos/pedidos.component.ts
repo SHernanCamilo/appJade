@@ -10,6 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { DropdownModule } from 'primeng/dropdown';
 import { InventarioService } from '../../../core/services/inventario.service';
+import { PermissionService } from '../../../core/services/permission.service';
 import { Pedido, PedidoDetalle, ProductoItem } from '../../../core/models/inventario.model';
 import * as XLSX from 'xlsx';
 
@@ -77,6 +78,10 @@ export class PedidosComponent implements OnInit {
   showValidationModal: boolean = false;
   validationValidCount: number = 0;
 
+  // Estado del guardado del pedido (para el loader y bloquear el botón)
+  isSavingOrder: boolean = false;
+  saveOrderError: string = '';
+
   // New order form
   newOrder = {
     sucursal_id: null as number | null,
@@ -129,11 +134,45 @@ export class PedidosComponent implements OnInit {
     { label: 'Cancelado', value: 'cancelado', severity: 'danger' }
   ];
 
-  constructor(private inventarioService: InventarioService) {}
+  constructor(
+    private inventarioService: InventarioService,
+    private permissionService: PermissionService
+  ) {}
 
   ngOnInit(): void {
     this.loadSucursales();
     this.loadPedidos();
+  }
+
+  /** ¿El usuario puede confirmar pedidos? (rol Jefe de Almacén con permiso). */
+  get puedeConfirmarPedido(): boolean {
+    return this.permissionService.hasPermission('confirmar-pedido');
+  }
+
+  /** ¿El pedido está en un estado confirmable (borrador/solicitado)? */
+  esConfirmable(pedido: Pedido): boolean {
+    const estado = String(pedido?.estado || '').toLowerCase();
+    return estado === 'borrador' || estado === 'solicitado';
+  }
+
+  /** Confirma (aprueba) el pedido — acción del Jefe de Almacén. */
+  confirmarPedido(pedido: Pedido): void {
+    if (!confirm(`¿Confirmar el pedido ${pedido.numero_pedido}?`)) return;
+    this.inventarioService.confirmarPedido(pedido.id).subscribe({
+      next: (res: any) => {
+        if (res.success) {
+          this.loadPedidos();
+        } else {
+          alert(res.message || 'No se pudo confirmar el pedido.');
+        }
+      },
+      error: (err: any) => {
+        const msg = err?.status === 403
+          ? 'No tienes permiso para confirmar pedidos (requiere rol Jefe de Almacén).'
+          : (err?.error?.message || 'Error al confirmar el pedido.');
+        alert(msg);
+      }
+    });
   }
 
   /** Carga las sucursales/almacenes disponibles según los permisos del usuario. */
@@ -218,11 +257,13 @@ export class PedidosComponent implements OnInit {
       }
     }
     this.aplicarAlmacenPorSucursal(this.newOrder.sucursal_id);
+    this.saveOrderError = '';
     this.clearProductForm();
   }
 
   closeNewOrderModal(): void {
     this.showNewOrderModal = false;
+    this.saveOrderError = '';
   }
 
   viewOrder(pedido: Pedido): void {
@@ -396,8 +437,15 @@ export class PedidosComponent implements OnInit {
   }
 
   saveOrder(): void {
+    if (this.isSavingOrder) return; // evita doble envío
+    this.saveOrderError = '';
+
     if (this.mostrarSelectorSucursal && !this.newOrder.sucursal_id) {
-      this.bulkStatus = 'Selecciona la sucursal donde vas a realizar el pedido.';
+      this.saveOrderError = 'Selecciona la sucursal donde vas a realizar el pedido.';
+      return;
+    }
+    if (this.newOrder.items.length === 0) {
+      this.saveOrderError = 'Agrega al menos un producto al pedido.';
       return;
     }
 
@@ -421,14 +469,22 @@ export class PedidosComponent implements OnInit {
       }))
     };
 
+    this.isSavingOrder = true;
     this.inventarioService.createPedido(payload).subscribe({
       next: (res) => {
+        this.isSavingOrder = false;
         if (res.success) {
           this.closeNewOrderModal();
           this.loadPedidos();
+        } else {
+          this.saveOrderError = res.message || 'No se pudo crear el pedido.';
         }
       },
-      error: (err) => console.error('Error saving pedido:', err)
+      error: (err) => {
+        this.isSavingOrder = false;
+        this.saveOrderError = err?.error?.message || err?.error?.error || 'Error al crear el pedido. Intenta de nuevo.';
+        console.error('Error saving pedido:', err);
+      }
     });
   }
 
