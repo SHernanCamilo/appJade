@@ -1,4 +1,5 @@
 <p-toast position="top-right"></p-toast>
+<p-confirmDialog [style]="{ width: '32rem' }" acceptButtonStyleClass="p-button-warning"></p-confirmDialog>
 
 <div class="toma-inventario">
 
@@ -283,12 +284,12 @@
             (click)="registrar()"
             [pTooltip]="!formulario.tipo_inventario_id
               ? 'Seleccione el tipo de inventario'
-              : !puedeRegistrar
-                ? 'Llene al menos un campo de novedad u observación'
-                : 'Guardar la novedad'"
+              : sinNovedadNiObservacion
+                ? 'Se guardará como inventariado sin novedad (coincide con Indigo)'
+                : 'Guardar la toma con las novedades reportadas'"
             tooltipPosition="left">
             <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
-            {{ guardando ? 'Guardando...' : 'Registrar novedad' }}
+            {{ guardando ? 'Guardando...' : (sinNovedadNiObservacion ? 'Registrar sin novedad' : 'Registrar novedad') }}
             <span class="ti-badge" *ngIf="novedadesLlenas > 0">{{ novedadesLlenas }}</span>
           </button>
         </div>
