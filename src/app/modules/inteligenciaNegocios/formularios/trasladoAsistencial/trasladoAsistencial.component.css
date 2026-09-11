@@ -190,6 +190,17 @@
   border-color: #92400e;
 }
 
+.traslado-page .btn-toolbar-confirm {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.traslado-page .btn-toolbar-confirm:hover:not(:disabled) {
+  background: #0d5f59;
+  border-color: #0d5f59;
+}
+
 .traslado-page .btn-toolbar-excel {
   background: #15803d;
   border-color: #15803d;

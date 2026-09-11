@@ -64,10 +64,15 @@ export const INVENTARIO_ROUTES: Routes = [
         data: { moduleCode: 'INV-MATRIX-CIERRE' }
       },
       {
-        path: 'comparadorMaObsolescencia',
+        path: 'comparar',
         loadComponent: () => import('./matrizObsolescencia/comparadorMaObsolescencia/comparadorMaObsolescencia.component').then(m => m.ComparadorMaObsolescenciaComponent),
         canActivate: [moduleGuard],
-        data: { moduleCode: 'INV-MATRIX-COMPARADOR' }
+        data: { moduleCode: 'INV-MATRIX-COMPARAR' }
+      },
+      {
+        path: 'comparadorMaObsolescencia',
+        redirectTo: 'comparar',
+        pathMatch: 'full'
       }
     ]
   },
