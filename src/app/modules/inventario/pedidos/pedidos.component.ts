@@ -430,6 +430,21 @@ export class PedidosComponent implements OnInit {
     this.newOrder.items.splice(index, 1);
   }
 
+  /**
+   * Carga un ítem ya agregado al formulario para editar su cantidad/rotación.
+   * Lo saca de la lista; al pulsar "Agregar" vuelve a entrar con los cambios.
+   */
+  editItem(index: number): void {
+    const it = this.newOrder.items[index];
+    if (!it) return;
+    this.newProduct = { ...it };
+    // El producto ya fue validado al agregarlo; se marca como válido para reagregar.
+    this.productFound = true;
+    this.productLookupError = '';
+    this.recalcularPrecioForm();
+    this.newOrder.items.splice(index, 1);
+  }
+
   /** ¿El formulario de nuevo pedido es válido para enviarse? */
   get puedeGuardarPedido(): boolean {
     const sucursalOk = !this.mostrarSelectorSucursal || !!this.newOrder.sucursal_id;
