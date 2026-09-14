@@ -11,6 +11,9 @@ import { DialogModule } from 'primeng/dialog';
 import { DropdownModule } from 'primeng/dropdown';
 import { OverlayPanelModule } from 'primeng/overlaypanel';
 import { CheckboxModule } from 'primeng/checkbox';
+import { ToastModule } from 'primeng/toast';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { InventarioService } from '../../../core/services/inventario.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { Pedido, PedidoDetalle, ProductoItem } from '../../../core/models/inventario.model';
@@ -38,8 +41,10 @@ interface SucursalDisponible {
     CommonModule, FormsModule,
     TableModule, SkeletonModule, TagModule,
     ButtonModule, TooltipModule, InputTextModule,
-    DialogModule, DropdownModule, OverlayPanelModule, CheckboxModule
+    DialogModule, DropdownModule, OverlayPanelModule, CheckboxModule,
+    ToastModule, ConfirmDialogModule
   ],
+  providers: [ConfirmationService, MessageService],
   templateUrl: './pedidos.component.html',
   styleUrls: ['./pedidos.component.css']
 })
@@ -249,7 +254,9 @@ export class PedidosComponent implements OnInit {
 
   constructor(
     private inventarioService: InventarioService,
-    private permissionService: PermissionService
+    private permissionService: PermissionService,
+    private confirmationService: ConfirmationService,
+    private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
@@ -262,50 +269,71 @@ export class PedidosComponent implements OnInit {
     return this.permissionService.hasPermission('confirmar-pedido');
   }
 
-  /** ¿El pedido está en un estado confirmable (borrador/solicitado)? */
+  /** ¿El pedido está en un estado confirmable? (borrador/solicitado/pendiente sin gestionar). */
   esConfirmable(pedido: Pedido): boolean {
-    const estado = String(pedido?.estado || '').toLowerCase();
-    return estado === 'borrador' || estado === 'solicitado';
+    const estado = String(pedido?.estado || '').trim().toLowerCase();
+    // 'pendiente' y '' cubren pedidos creados por el flujo actual que aún no se aprueban.
+    return ['borrador', 'solicitado', 'pendiente', ''].includes(estado);
   }
 
   /** Confirma (aprueba) el pedido — acción del Jefe de Almacén. */
   confirmarPedido(pedido: Pedido): void {
-    if (!confirm(`¿Confirmar el pedido ${pedido.numero_pedido}?`)) return;
-    this.inventarioService.confirmarPedido(pedido.id).subscribe({
-      next: (res: any) => {
-        if (res.success) {
-          this.loadPedidos();
-        } else {
-          alert(res.message || 'No se pudo confirmar el pedido.');
-        }
-      },
-      error: (err: any) => {
-        const msg = err?.status === 403
-          ? 'No tienes permiso para confirmar pedidos (requiere rol Jefe de Almacén).'
-          : (err?.error?.message || 'Error al confirmar el pedido.');
-        alert(msg);
+    this.confirmationService.confirm({
+      header: 'Confirmar pedido',
+      message: `¿Confirmar el pedido <strong>${pedido.numero_pedido}</strong>? Pasará a estado Aprobado y quedará disponible para compras.`,
+      icon: 'bi bi-check2-circle',
+      acceptLabel: 'Sí, confirmar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.inventarioService.confirmarPedido(pedido.id).subscribe({
+          next: (res: any) => {
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Pedido confirmado', detail: `El pedido ${pedido.numero_pedido} fue aprobado.` });
+              this.loadPedidos();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo confirmar el pedido.' });
+            }
+          },
+          error: (err: any) => {
+            const msg = err?.status === 403
+              ? 'No tienes permiso para confirmar pedidos (requiere el permiso confirmar-pedido).'
+              : (err?.error?.message || 'Error al confirmar el pedido.');
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: msg });
+          }
+        });
       }
     });
   }
 
   /** Rechaza el pedido — acción del Jefe de Almacén (mismo permiso). */
   rechazarPedido(pedido: Pedido): void {
-    const motivo = prompt(`Motivo del rechazo del pedido ${pedido.numero_pedido} (opcional):`);
-    // prompt devuelve null si se cancela → no rechazar.
-    if (motivo === null) return;
-    this.inventarioService.rechazarPedido(pedido.id, motivo || undefined).subscribe({
-      next: (res: any) => {
-        if (res.success) {
-          this.loadPedidos();
-        } else {
-          alert(res.message || 'No se pudo rechazar el pedido.');
-        }
-      },
-      error: (err: any) => {
-        const msg = err?.status === 403
-          ? 'No tienes permiso para rechazar pedidos (requiere rol Jefe de Almacén).'
-          : (err?.error?.message || 'Error al rechazar el pedido.');
-        alert(msg);
+    this.confirmationService.confirm({
+      header: 'Rechazar pedido',
+      message: `¿Rechazar el pedido <strong>${pedido.numero_pedido}</strong>? Esta acción marca el pedido como Rechazado.`,
+      icon: 'bi bi-x-circle text-danger',
+      acceptLabel: 'Sí, rechazar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.inventarioService.rechazarPedido(pedido.id).subscribe({
+          next: (res: any) => {
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Pedido rechazado', detail: `El pedido ${pedido.numero_pedido} fue rechazado.` });
+              this.loadPedidos();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo rechazar el pedido.' });
+            }
+          },
+          error: (err: any) => {
+            const msg = err?.status === 403
+              ? 'No tienes permiso para rechazar pedidos (requiere el permiso confirmar-pedido).'
+              : (err?.error?.message || 'Error al rechazar el pedido.');
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: msg });
+          }
+        });
       }
     });
   }
