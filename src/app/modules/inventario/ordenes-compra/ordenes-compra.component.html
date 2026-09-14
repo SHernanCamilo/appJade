@@ -149,13 +149,25 @@
                     
                     <!-- Sincronizador Indigo: exige elegir la sucursal destino para el consecutivo correcto -->
                     <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" [ngModel]="selectedSucursalId()" (ngModelChange)="selectedSucursalId.set($event)" style="width: 190px;" pTooltip="Sucursal destino de la sincronización">
-                            <option [ngValue]="null">Sucursal destino...</option>
-                            <option *ngFor="let s of sucursales()" [ngValue]="s.id">
-                                {{ s.nombre }}{{ s.prefijo ? ' (' + s.prefijo + ')' : '' }}
-                            </option>
-                        </select>
-                        <input type="text" [ngModel]="numeroOrdenSync()" (ngModelChange)="numeroOrdenSync.set($event)" class="form-control form-control-sm" placeholder="Número OC Indigo..." style="width: 150px;">
+                        <p-dropdown
+                            [options]="sucursales()"
+                            [ngModel]="selectedSucursalId()"
+                            (ngModelChange)="selectedSucursalId.set($event)"
+                            optionLabel="nombre"
+                            optionValue="id"
+                            [filter]="true"
+                            filterBy="nombre,prefijo"
+                            placeholder="Sucursal destino..."
+                            [style]="{width: '220px'}"
+                            pTooltip="Sucursal destino de la sincronización">
+                            <ng-template let-s pTemplate="item">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <span>{{ s.nombre }}</span>
+                                    <span class="text-muted small" *ngIf="s.prefijo">{{ s.prefijo }}</span>
+                                </div>
+                            </ng-template>
+                        </p-dropdown>
+                        <input type="text" [ngModel]="numeroOrdenSync()" (ngModelChange)="numeroOrdenSync.set($event)" class="form-control form-control-sm" placeholder="Número OC Indigo..." style="width: 160px;">
                         <button class="btn btn-outline-primary btn-sm px-3 d-flex align-items-center gap-2" (click)="syncFromIndigo()" [disabled]="isSyncing()">
                             <i class="bi" [ngClass]="{'bi-arrow-repeat spin': isSyncing(), 'bi-cloud-download': !isSyncing()}"></i>
                             Sincronizar
@@ -352,15 +364,16 @@
     header="Nueva Orden de Compra" 
     [(visible)]="showCreateModal" 
     [modal]="true" 
-    [style]="{width: '75vw', maxWidth: '1000px'}" 
+    [style]="{width: '92vw', maxWidth: '1200px'}"
+    [contentStyle]="{maxHeight: '75vh', overflow: 'auto'}"
     [draggable]="false" 
     [resizable]="false"
     [dismissableMask]="true"
-    styleClass="custom-dialog"
+    styleClass="custom-dialog dialog-dark-header"
 >
     <div class="create-oc-wrapper p-3">
-        
-        <div class="row mb-4">
+
+        <div class="row g-3 mb-4">
             <div class="col-md-6">
                 <label class="form-label fw-bold">Seleccionar Pedido Confirmado</label>
                 <p-dropdown 
@@ -382,15 +395,44 @@
                 </p-dropdown>
                 <small class="text-muted d-block mt-1">Solo se permite asociar un (1) pedido por Orden de Compra.</small>
             </div>
-            
-            <div class="col-md-6" *ngIf="newOrdenPedidoSelected()">
-                <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-center">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">Fecha del pedido:</span>
+
+            <!-- Sucursal destino de la OC: define el consecutivo (permisos del usuario) -->
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Sucursal de la Orden <span class="text-danger">*</span></label>
+                <p-dropdown
+                    [options]="sucursales()"
+                    [ngModel]="selectedSucursalId()"
+                    (ngModelChange)="selectedSucursalId.set($event)"
+                    optionLabel="nombre"
+                    optionValue="id"
+                    [filter]="true"
+                    filterBy="nombre,prefijo"
+                    [showClear]="false"
+                    placeholder="Selecciona la sucursal..."
+                    styleClass="w-100"
+                    [class.ng-invalid]="!selectedSucursalId()">
+                    <ng-template let-s pTemplate="item">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <span>{{ s.nombre }}</span>
+                            <span class="text-muted small" *ngIf="s.prefijo">{{ s.prefijo }}</span>
+                        </div>
+                    </ng-template>
+                </p-dropdown>
+                <small class="text-muted d-block mt-1">
+                    <i class="bi bi-info-circle"></i> El consecutivo de la OC se genera según la sucursal.
+                </small>
+            </div>
+        </div>
+
+        <div class="row mb-4" *ngIf="newOrdenPedidoSelected()">
+            <div class="col-12">
+                <div class="p-3 bg-light rounded border d-flex flex-wrap gap-4">
+                    <div>
+                        <span class="text-muted me-2">Fecha del pedido:</span>
                         <span class="fw-medium">{{ newOrdenPedidoSelected()?.fecha_pedido | date:'dd/MM/yyyy' }}</span>
                     </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">Solicitante:</span>
+                    <div>
+                        <span class="text-muted me-2">Solicitante:</span>
                         <span class="fw-medium">{{ newOrdenPedidoSelected()?.solicitado_por_nombre || 'Sistema' }}</span>
                     </div>
                 </div>
