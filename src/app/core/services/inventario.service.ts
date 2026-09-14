@@ -53,6 +53,11 @@ export class InventarioService {
     return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/confirmar`, {});
   }
 
+  // Rechazar un pedido (mismo permiso 'confirmar-pedido').
+  rechazarPedido(id: number | string, motivo?: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/rechazar`, { motivo: motivo || null });
+  }
+
   // ==========================================
   // ORDENES DE COMPRA
   // ==========================================

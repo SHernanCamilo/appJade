@@ -82,12 +82,8 @@
                             <td>{{ pedido.fecha_pedido | date:'dd/MM/yyyy' }}</td>
                             <td class="text-center">{{ pedido.total_articulos }}</td>
                             <td class="text-center">
-                                <span class="badge" [ngClass]="{
-                                    'bg-warning text-dark': pedido.estado === 'pendiente',
-                                    'bg-info text-dark': pedido.estado === 'en_proceso',
-                                    'bg-success': pedido.estado === 'recibido',
-                                    'bg-danger': pedido.estado === 'cancelado' || pedido.estado === 'rechazado'
-                                }" style="padding: 0.4em 0.8em; border-radius: 12px; font-weight: 500;">
+                                <span class="badge" [ngClass]="badgeClass(pedido.estado)"
+                                      style="padding: 0.4em 0.8em; border-radius: 12px; font-weight: 500;">
                                     {{ getStatusLabel(pedido.estado) }}
                                 </span>
                             </td>
@@ -98,6 +94,11 @@
                                         class="p-button-rounded p-button-text p-button-sm p-button-success"
                                         (click)="confirmarPedido(pedido)"
                                         pTooltip="Confirmar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
+                                <button *ngIf="puedeConfirmarPedido && esConfirmable(pedido)"
+                                        pButton icon="bi bi-x-circle"
+                                        class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                                        (click)="rechazarPedido(pedido)"
+                                        pTooltip="Rechazar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
                             </td>
                         </tr>
                     </ng-template>
@@ -192,9 +193,19 @@
     <ng-template pTemplate="header">
         <div class="d-flex justify-content-between align-items-center w-100 pe-2">
             <h4 class="m-0 fw-bold text-white" style="font-size: 1.1rem;">Detalle del Pedido</h4>
-            <button class="btn btn-sm btn-outline-light d-flex align-items-center gap-2" (click)="exportTraceabilityExcel()" [disabled]="!currentOrder">
-                <i class="bi bi-file-earmark-excel"></i> Exportar Trazabilidad
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                <ng-container *ngIf="currentOrder && puedeConfirmarPedido && esConfirmable(currentOrder)">
+                    <button class="btn btn-sm btn-success d-flex align-items-center gap-1" (click)="confirmarPedido(currentOrder); closeOrderModal()">
+                        <i class="bi bi-check2-circle"></i> Confirmar
+                    </button>
+                    <button class="btn btn-sm btn-danger d-flex align-items-center gap-1" (click)="rechazarPedido(currentOrder); closeOrderModal()">
+                        <i class="bi bi-x-circle"></i> Rechazar
+                    </button>
+                </ng-container>
+                <button class="btn btn-sm btn-outline-light d-flex align-items-center gap-2" (click)="exportTraceabilityExcel()" [disabled]="!currentOrder">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar Trazabilidad
+                </button>
+            </div>
         </div>
     </ng-template>
 
@@ -222,18 +233,18 @@
             <div>
                 <div class="order-info-row">
                     <span class="order-info-label">Estado:</span>
-                    <span class="badge" [ngClass]="{
-                        'bg-warning text-dark': currentOrder.estado === 'pendiente',
-                        'bg-info text-dark': currentOrder.estado === 'en_proceso',
-                        'bg-success': currentOrder.estado === 'recibido',
-                        'bg-danger': currentOrder.estado === 'cancelado' || currentOrder.estado === 'rechazado'
-                    }" style="padding: 0.35em 0.75em; border-radius: 12px; font-weight: 500; font-size: 0.8rem;">
+                    <span class="badge" [ngClass]="badgeClass(currentOrder.estado)"
+                          style="padding: 0.35em 0.75em; border-radius: 12px; font-weight: 500; font-size: 0.8rem;">
                         {{ getStatusLabel(currentOrder.estado) }}
                     </span>
                 </div>
                 <div class="order-info-row">
                     <span class="order-info-label">Solicitado por:</span>
-                    <span class="order-info-value" style="font-weight: 400;">{{ currentOrder.solicitado_por_nombre || 'Administrador del Sistema' }}</span>
+                    <span class="order-info-value" style="font-weight: 400;">{{ currentOrder.solicitado_por_nombre || '—' }}</span>
+                </div>
+                <div class="order-info-row" *ngIf="currentOrder.aprobado_por_nombre">
+                    <span class="order-info-label">Aprobado por:</span>
+                    <span class="order-info-value" style="font-weight: 400;">{{ currentOrder.aprobado_por_nombre }}</span>
                 </div>
                 <div class="order-info-row">
                     <span class="order-info-label">Total ítems:</span>

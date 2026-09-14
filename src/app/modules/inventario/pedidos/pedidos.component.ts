@@ -236,6 +236,7 @@ export class PedidosComponent implements OnInit {
 
   statusOptions: StatusOption[] = [
     { label: 'Borrador', value: 'borrador', severity: 'secondary' },
+    { label: 'Pendiente', value: 'pendiente', severity: 'warn' },
     { label: 'Solicitado', value: 'solicitado', severity: 'warn' },
     { label: 'Aprobado', value: 'aprobado', severity: 'success' },
     { label: 'En Proceso', value: 'en_proceso', severity: 'info' },
@@ -282,6 +283,28 @@ export class PedidosComponent implements OnInit {
         const msg = err?.status === 403
           ? 'No tienes permiso para confirmar pedidos (requiere rol Jefe de Almacén).'
           : (err?.error?.message || 'Error al confirmar el pedido.');
+        alert(msg);
+      }
+    });
+  }
+
+  /** Rechaza el pedido — acción del Jefe de Almacén (mismo permiso). */
+  rechazarPedido(pedido: Pedido): void {
+    const motivo = prompt(`Motivo del rechazo del pedido ${pedido.numero_pedido} (opcional):`);
+    // prompt devuelve null si se cancela → no rechazar.
+    if (motivo === null) return;
+    this.inventarioService.rechazarPedido(pedido.id, motivo || undefined).subscribe({
+      next: (res: any) => {
+        if (res.success) {
+          this.loadPedidos();
+        } else {
+          alert(res.message || 'No se pudo rechazar el pedido.');
+        }
+      },
+      error: (err: any) => {
+        const msg = err?.status === 403
+          ? 'No tienes permiso para rechazar pedidos (requiere rol Jefe de Almacén).'
+          : (err?.error?.message || 'Error al rechazar el pedido.');
         alert(msg);
       }
     });
@@ -347,12 +370,31 @@ export class PedidosComponent implements OnInit {
     this.dt.filterGlobal(value, 'contains');
   }
 
+  /** Normaliza el estado a minúsculas (el backend puede enviar BORRADOR, etc.). */
+  private normEstado(estado: string | undefined | null): string {
+    return String(estado || '').trim().toLowerCase();
+  }
+
   getStatusLabel(estado: string): string {
-    return this.statusOptions.find(s => s.value === estado)?.label || estado;
+    const e = this.normEstado(estado);
+    return this.statusOptions.find(s => s.value === e)?.label || estado || '—';
   }
 
   getStatusSeverity(estado: string): 'success' | 'secondary' | 'info' | 'warn' | 'danger' | 'contrast' {
-    return this.statusOptions.find(s => s.value === estado)?.severity || 'secondary';
+    const e = this.normEstado(estado);
+    return this.statusOptions.find(s => s.value === e)?.severity || 'secondary';
+  }
+
+  /** Clases del badge de estado (normaliza mayúsculas del backend). */
+  badgeClass(estado: string): Record<string, boolean> {
+    const e = this.normEstado(estado);
+    return {
+      'bg-secondary text-white': e === 'borrador',
+      'bg-warning text-dark': e === 'pendiente' || e === 'solicitado',
+      'bg-info text-dark': e === 'en_proceso' || e === 'en_transito' || e === 'parcial',
+      'bg-success': e === 'aprobado' || e === 'recibido',
+      'bg-danger': e === 'cancelado' || e === 'rechazado',
+    };
   }
 
   // ==========================================

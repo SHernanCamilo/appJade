@@ -64,6 +64,7 @@ export interface Pedido {
   updated_at?: string;
   detalles?: PedidoDetalle[];
   solicitado_por_nombre?: string;
+  aprobado_por_nombre?: string;
   trazabilidad?: PedidoTrazabilidad[];
 }
 
