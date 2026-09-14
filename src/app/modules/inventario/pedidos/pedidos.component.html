@@ -391,47 +391,52 @@
     header="Nuevo Pedido" 
     [(visible)]="showNewOrderModal" 
     [modal]="true" 
-    [style]="{width: '90vw', maxWidth: '1000px'}" 
+    [style]="{width: '96vw', maxWidth: '1500px'}"
+    [contentStyle]="{maxHeight: '78vh', overflow: 'auto'}"
     [draggable]="false" 
     [resizable]="false"
     [dismissableMask]="true"
+    styleClass="custom-dialog dialog-dark-header"
 >
-    <!-- Sucursal + Almacén (el almacén se fija por la sucursal, como en el legacy) -->
-    <div class="row mb-3">
-        <div class="col-md-6" *ngIf="mostrarSelectorSucursal">
-            <label class="form-label text-muted small">Sucursal *</label>
-            <select [(ngModel)]="newOrder.sucursal_id" (change)="onSucursalChange()" class="form-select">
-                <option [ngValue]="null" disabled>Selecciona la sucursal...</option>
-                <option *ngFor="let s of sucursales" [ngValue]="s.id">{{ s.nombre }}</option>
-            </select>
-            <small class="text-muted" *ngIf="!newOrder.sucursal_id">
-                <i class="bi bi-info-circle"></i> Selecciona la sucursal donde vas a realizar el pedido.
-            </small>
+    <!-- Datos generales del pedido -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body py-3">
+        <div class="row g-3">
+            <!-- Sucursal: solo si el usuario puede elegir entre varias -->
+            <div class="col-lg-3 col-md-6" *ngIf="mostrarSelectorSucursal">
+                <label class="form-label text-muted small fw-semibold">Sucursal *</label>
+                <select [(ngModel)]="newOrder.sucursal_id" (change)="onSucursalChange()" class="form-select"
+                        [class.is-invalid]="!newOrder.sucursal_id">
+                    <option [ngValue]="null" disabled>Selecciona la sucursal...</option>
+                    <option *ngFor="let s of sucursales" [ngValue]="s.id">{{ s.nombre }}</option>
+                </select>
+                <small class="text-muted" *ngIf="!newOrder.sucursal_id">
+                    <i class="bi bi-info-circle"></i> Sucursal donde harás el pedido.
+                </small>
+            </div>
+            <div [ngClass]="mostrarSelectorSucursal ? 'col-lg-3 col-md-6' : 'col-lg-4 col-md-6'">
+                <label class="form-label text-muted small fw-semibold">Almacén</label>
+                <input type="text" class="form-control bg-light" [value]="newOrder.warehouse || 'Sin almacén asignado'" readonly
+                       [title]="newOrder.warehouse_code ? ('Código: ' + newOrder.warehouse_code) : ''">
+            </div>
+            <div [ngClass]="mostrarSelectorSucursal ? 'col-lg-2 col-md-4' : 'col-lg-3 col-md-4'">
+                <label class="form-label text-muted small fw-semibold">Tipo pedido *</label>
+                <select [(ngModel)]="newOrder.order_type" class="form-select">
+                    <option value="order_general">Pedido General</option>
+                    <option value="order_spontaneous">Pedido Espontáneo</option>
+                    <option value="order_urgencies">Pedido Urgencias</option>
+                </select>
+            </div>
+            <div [ngClass]="mostrarSelectorSucursal ? 'col-lg-2 col-md-4' : 'col-lg-2 col-md-4'">
+                <label class="form-label text-muted small fw-semibold">Fecha pedido *</label>
+                <input type="datetime-local" [(ngModel)]="newOrder.order_date" class="form-control">
+            </div>
+            <div [ngClass]="mostrarSelectorSucursal ? 'col-lg-2 col-md-4' : 'col-lg-3 col-md-4'">
+                <label class="form-label text-muted small fw-semibold">Observaciones</label>
+                <input type="text" [(ngModel)]="newOrder.observations" class="form-control" placeholder="Opcional...">
+            </div>
         </div>
-        <div [ngClass]="mostrarSelectorSucursal ? 'col-md-6' : 'col-md-12'">
-            <label class="form-label text-muted small">Almacén</label>
-            <input type="text" class="form-control" [value]="newOrder.warehouse || 'Sin almacén asignado'" readonly
-                   [title]="newOrder.warehouse_code ? ('Código: ' + newOrder.warehouse_code) : ''">
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <label class="form-label text-muted small">Tipo pedido *</label>
-            <select [(ngModel)]="newOrder.order_type" class="form-select">
-                <option value="order_general">Pedido General</option>
-                <option value="order_spontaneous">Pedido Espontáneo</option>
-                <option value="order_urgencies">Pedido Urgencias</option>
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label text-muted small">Fecha pedido *</label>
-            <input type="datetime-local" [(ngModel)]="newOrder.order_date" class="form-control">
-        </div>
-        <div class="col-md-4">
-            <label class="form-label text-muted small">Observaciones</label>
-            <input type="text" [(ngModel)]="newOrder.observations" class="form-control" placeholder="Opcional...">
-        </div>
+      </div>
     </div>
 
     <div class="card bg-light border-0 mb-4">
@@ -520,7 +525,8 @@
         </span>
     </div>
 
-    <p-table #dtItems [value]="newOrder.items" [scrollable]="true" scrollHeight="300px"
+    <p-table #dtItems [value]="newOrder.items" [scrollable]="true" scrollHeight="40vh"
+             [paginator]="newOrder.items.length > 15" [rows]="15"
              styleClass="p-datatable-sm p-datatable-gridlines"
              [globalFilterFields]="['product_code','product_name','brand','rotation_type']">
         <ng-template pTemplate="header">

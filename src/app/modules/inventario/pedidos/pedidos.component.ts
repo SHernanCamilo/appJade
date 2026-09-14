@@ -93,7 +93,9 @@ export class PedidosComponent implements OnInit {
     items: [] as ProductoItem[]
   };
 
-  // ¿Debe mostrarse el selector de sucursal? (usuario nacional / multi-sucursal)
+  // ¿Debe mostrarse el selector de sucursal?
+  // Aparece cuando el usuario puede elegir entre varias sucursales
+  // (acceso nacional/total, o tiene más de una sucursal disponible).
   get mostrarSelectorSucursal(): boolean {
     return this.accesoTotal || this.sucursales.length > 1;
   }
