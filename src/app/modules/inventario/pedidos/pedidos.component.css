@@ -387,3 +387,26 @@
         min-width: auto;
     }
 }
+
+/* ============================================ */
+/* FILTRO TIPO EXCEL POR COLUMNA (tabla ítems)  */
+/* ============================================ */
+.excel-funnel {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+.excel-funnel:hover {
+    color: #64748b;
+}
+.excel-funnel.active {
+    color: #2563eb; /* embudo activo = columna filtrada */
+}
+
+.excel-col-filter {
+    font-size: 0.85rem;
+}
+.excel-col-item:hover {
+    background: #f1f5f9;
+}

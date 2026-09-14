@@ -9,6 +9,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { DropdownModule } from 'primeng/dropdown';
+import { OverlayPanelModule } from 'primeng/overlaypanel';
+import { CheckboxModule } from 'primeng/checkbox';
 import { InventarioService } from '../../../core/services/inventario.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { Pedido, PedidoDetalle, ProductoItem } from '../../../core/models/inventario.model';
@@ -36,7 +38,7 @@ interface SucursalDisponible {
     CommonModule, FormsModule,
     TableModule, SkeletonModule, TagModule,
     ButtonModule, TooltipModule, InputTextModule,
-    DialogModule, DropdownModule
+    DialogModule, DropdownModule, OverlayPanelModule, CheckboxModule
   ],
   templateUrl: './pedidos.component.html',
   styleUrls: ['./pedidos.component.css']
@@ -112,9 +114,117 @@ export class PedidosComponent implements OnInit {
   private lookupTimer: any = null;       // debounce del input de código
   private lastLookupCode: string = '';   // evita consultar el mismo código repetido
 
+  // ── Filtro tipo Excel por columna (checkboxes de valores únicos) ──────────
+  // Selección aplicada por campo: { campo: Set<valores seleccionados> }.
+  excelFilters: Record<string, Set<string>> = {};
+  // Estado temporal del panel abierto (antes de "Aceptar").
+  excelFilterCampo: string = '';
+  excelFilterBuscar: string = '';
+  excelFilterValoresPendientes: Set<string> = new Set();
+
+  /** Ítems visibles tras aplicar los filtros tipo Excel de cada columna. */
+  get itemsFiltrados(): ProductoItem[] {
+    const campos = Object.keys(this.excelFilters);
+    if (campos.length === 0) return this.newOrder.items;
+
+    return this.newOrder.items.filter(item =>
+      campos.every(campo => {
+        const sel = this.excelFilters[campo];
+        if (!sel || sel.size === 0) return true;
+        return sel.has(this.valorCampo(item, campo));
+      })
+    );
+  }
+
   /** Total del pedido (el precio de cada ítem ya es Cantidad × Costo Promedio). */
   get totalPedido(): number {
-    return this.newOrder.items.reduce((acc, i) => acc + (i.price || 0), 0);
+    return this.itemsFiltrados.reduce((acc, i) => acc + (i.price || 0), 0);
+  }
+
+  /** Valor de un campo del ítem, normalizado a texto para comparar/agrupar. */
+  private valorCampo(item: any, campo: string): string {
+    const v = item?.[campo];
+    if (v === null || v === undefined || v === '') return '(Vacío)';
+    return String(v).trim();
+  }
+
+  /** ¿La columna tiene un filtro activo? (para pintar el embudo). */
+  columnaFiltrada(campo: string): boolean {
+    return !!this.excelFilters[campo] && this.excelFilters[campo].size > 0;
+  }
+
+  /** Abre el panel de filtro de una columna: carga sus valores únicos. */
+  abrirFiltroColumna(campo: string): void {
+    this.excelFilterCampo = campo;
+    this.excelFilterBuscar = '';
+    // Preseleccionar lo ya aplicado, o todo si no hay filtro.
+    const aplicados = this.excelFilters[campo];
+    this.excelFilterValoresPendientes = aplicados
+      ? new Set(aplicados)
+      : new Set(this.valoresUnicosDe(campo));
+  }
+
+  /** Valores únicos (ordenados) de un campo sobre los ítems del pedido. */
+  valoresUnicosDe(campo: string): string[] {
+    const set = new Set<string>();
+    this.newOrder.items.forEach(i => set.add(this.valorCampo(i, campo)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  }
+
+  /** Valores del campo actual filtrados por el buscador del panel. */
+  get valoresPanelFiltro(): string[] {
+    const term = this.excelFilterBuscar.trim().toLowerCase();
+    const todos = this.valoresUnicosDe(this.excelFilterCampo);
+    return term ? todos.filter(v => v.toLowerCase().includes(term)) : todos;
+  }
+
+  estaSeleccionadoValor(valor: string): boolean {
+    return this.excelFilterValoresPendientes.has(valor);
+  }
+
+  toggleValorFiltro(valor: string, checked: boolean): void {
+    if (checked) this.excelFilterValoresPendientes.add(valor);
+    else this.excelFilterValoresPendientes.delete(valor);
+  }
+
+  get todosSeleccionadosPanel(): boolean {
+    const visibles = this.valoresPanelFiltro;
+    return visibles.length > 0 && visibles.every(v => this.excelFilterValoresPendientes.has(v));
+  }
+
+  toggleSeleccionarTodoPanel(checked: boolean): void {
+    const visibles = this.valoresPanelFiltro;
+    if (checked) visibles.forEach(v => this.excelFilterValoresPendientes.add(v));
+    else visibles.forEach(v => this.excelFilterValoresPendientes.delete(v));
+  }
+
+  /** Aplica el filtro de la columna: guarda la selección (null = sin filtro). */
+  aplicarFiltroColumna(overlay?: any): void {
+    const todos = this.valoresUnicosDe(this.excelFilterCampo);
+    const sel = this.excelFilterValoresPendientes;
+    // Si están todos seleccionados, es como no filtrar → quitar el filtro.
+    if (sel.size === 0 || sel.size === todos.length) {
+      delete this.excelFilters[this.excelFilterCampo];
+    } else {
+      this.excelFilters[this.excelFilterCampo] = new Set(sel);
+    }
+    overlay?.hide();
+  }
+
+  /** Limpia el filtro de la columna actual. */
+  limpiarFiltroColumna(overlay?: any): void {
+    delete this.excelFilters[this.excelFilterCampo];
+    this.excelFilterValoresPendientes = new Set(this.valoresUnicosDe(this.excelFilterCampo));
+    overlay?.hide();
+  }
+
+  /** Limpia todos los filtros de columna. */
+  limpiarTodosLosFiltros(): void {
+    this.excelFilters = {};
+  }
+
+  get hayFiltrosExcelActivos(): boolean {
+    return Object.keys(this.excelFilters).length > 0;
   }
 
   /** Recalcula el Precio de la línea del formulario: Cantidad × Costo Promedio. */
@@ -260,6 +370,7 @@ export class PedidosComponent implements OnInit {
     }
     this.aplicarAlmacenPorSucursal(this.newOrder.sucursal_id);
     this.saveOrderError = '';
+    this.limpiarTodosLosFiltros();
     this.clearProductForm();
   }
 
@@ -428,23 +539,25 @@ export class PedidosComponent implements OnInit {
     this.isLookingUpProduct = false;
   }
 
-  removeProduct(index: number): void {
-    this.newOrder.items.splice(index, 1);
+  /** Quita un ítem (por referencia, para que funcione con la tabla filtrada). */
+  removeProduct(item: ProductoItem): void {
+    const idx = this.newOrder.items.indexOf(item);
+    if (idx >= 0) this.newOrder.items.splice(idx, 1);
   }
 
   /**
    * Carga un ítem ya agregado al formulario para editar su cantidad/rotación.
    * Lo saca de la lista; al pulsar "Agregar" vuelve a entrar con los cambios.
    */
-  editItem(index: number): void {
-    const it = this.newOrder.items[index];
-    if (!it) return;
-    this.newProduct = { ...it };
+  editItem(item: ProductoItem): void {
+    if (!item) return;
+    this.newProduct = { ...item };
     // El producto ya fue validado al agregarlo; se marca como válido para reagregar.
     this.productFound = true;
     this.productLookupError = '';
     this.recalcularPrecioForm();
-    this.newOrder.items.splice(index, 1);
+    const idx = this.newOrder.items.indexOf(item);
+    if (idx >= 0) this.newOrder.items.splice(idx, 1);
   }
 
   /** ¿El formulario de nuevo pedido es válido para enviarse? */
