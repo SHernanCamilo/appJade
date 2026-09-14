@@ -442,12 +442,6 @@
                         ({{ newOrdenDetalles().length }} ítems)
                     </span>
                 </h6>
-                <span class="p-input-icon-left">
-                    <i class="bi bi-search"></i>
-                    <input pInputText type="text" class="p-inputtext-sm" style="width: 260px;"
-                           placeholder="Buscar por código o producto..."
-                           (input)="dtOcItems.filterGlobal($any($event.target).value, 'contains')">
-                </span>
             </div>
             
             <div *ngIf="isLoadingPedidoDetalle()" class="text-center py-4">
@@ -465,6 +459,16 @@
                 [paginator]="newOrdenDetalles().length > 20" [rows]="20"
                 [globalFilterFields]="['codigo_producto','producto_nombre']"
             >
+                <ng-template pTemplate="caption">
+                    <div class="d-flex justify-content-end">
+                        <span class="p-input-icon-left">
+                            <i class="bi bi-search"></i>
+                            <input pInputText type="text" class="p-inputtext-sm" style="width: 260px;"
+                                   placeholder="Buscar por código o producto..."
+                                   (input)="dtOcItems.filterGlobal($any($event.target).value, 'contains')">
+                        </span>
+                    </div>
+                </ng-template>
                 <ng-template pTemplate="header">
                     <tr>
                         <th style="width: 3rem">
