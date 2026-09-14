@@ -360,8 +360,8 @@
     header="Nueva Orden de Compra" 
     [(visible)]="showCreateModal" 
     [modal]="true" 
-    [style]="{width: '92vw', maxWidth: '1200px'}"
-    [contentStyle]="{maxHeight: '75vh', overflow: 'auto'}"
+    [style]="{width: '96vw', maxWidth: '1500px'}"
+    [contentStyle]="{maxHeight: '78vh', overflow: 'auto'}"
     [draggable]="false" 
     [resizable]="false"
     [dismissableMask]="true"
@@ -381,6 +381,8 @@
                     filterBy="numero_pedido,solicitado_por_nombre" 
                     [showClear]="true" 
                     placeholder="Seleccione un pedido" 
+                    appendTo="body"
+                    scrollHeight="260px"
                     styleClass="w-100">
                     <ng-template let-ped pTemplate="item">
                         <div class="d-flex justify-content-between align-items-center w-100">
@@ -405,6 +407,8 @@
                     filterBy="nombre,prefijo"
                     [showClear]="false"
                     placeholder="Selecciona la sucursal..."
+                    appendTo="body"
+                    scrollHeight="260px"
                     styleClass="w-100"
                     [class.ng-invalid]="!selectedSucursalId()">
                     <ng-template let-s pTemplate="item">
