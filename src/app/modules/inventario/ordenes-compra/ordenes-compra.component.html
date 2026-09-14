@@ -436,7 +436,19 @@
         </div>
 
         <div *ngIf="newOrdenPedidoSelected()">
-            <h6 class="fw-bold mb-3 border-bottom pb-2">Productos a gestionar</h6>
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                <h6 class="fw-bold m-0">Productos a gestionar
+                    <span class="text-muted fw-normal" style="font-size:0.8rem;">
+                        ({{ newOrdenDetalles().length }} ítems)
+                    </span>
+                </h6>
+                <span class="p-input-icon-left">
+                    <i class="bi bi-search"></i>
+                    <input pInputText type="text" class="p-inputtext-sm" style="width: 260px;"
+                           placeholder="Buscar por código o producto..."
+                           (input)="dtOcItems.filterGlobal($any($event.target).value, 'contains')">
+                </span>
+            </div>
             
             <div *ngIf="isLoadingPedidoDetalle()" class="text-center py-4">
                 <div class="spinner-border text-primary"></div>
@@ -444,21 +456,38 @@
             </div>
 
             <p-table 
+                #dtOcItems
                 *ngIf="!isLoadingPedidoDetalle()"
                 [value]="newOrdenDetalles()" 
                 [scrollable]="true" 
                 scrollHeight="40vh" 
                 styleClass="p-datatable-sm p-datatable-gridlines-none"
+                [paginator]="newOrdenDetalles().length > 20" [rows]="20"
+                [globalFilterFields]="['codigo_producto','producto_nombre']"
             >
                 <ng-template pTemplate="header">
                     <tr>
                         <th style="width: 3rem">
                             <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
                         </th>
-                        <th style="width:15%">Código</th>
-                        <th style="width:40%">Producto</th>
-                        <th style="width:15%" class="text-center">Cant. Solicitada</th>
+                        <th style="width:18%" pSortableColumn="codigo_producto">Código <p-sortIcon field="codigo_producto"></p-sortIcon></th>
+                        <th pSortableColumn="producto_nombre">Producto <p-sortIcon field="producto_nombre"></p-sortIcon></th>
+                        <th style="width:15%" class="text-center" pSortableColumn="cantidad_solicitada">Cant. Solicitada <p-sortIcon field="cantidad_solicitada"></p-sortIcon></th>
                         <th style="width:15%" class="text-center">Cant. A Comprar</th>
+                    </tr>
+                    <!-- Fila de filtros por columna -->
+                    <tr>
+                        <th></th>
+                        <th>
+                            <input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Código..."
+                                   (input)="dtOcItems.filter($any($event.target).value, 'codigo_producto', 'contains')">
+                        </th>
+                        <th>
+                            <input pInputText type="text" class="w-100 p-inputtext-sm" placeholder="Producto..."
+                                   (input)="dtOcItems.filter($any($event.target).value, 'producto_nombre', 'contains')">
+                        </th>
+                        <th></th>
+                        <th></th>
                     </tr>
                 </ng-template>
                 <ng-template pTemplate="body" let-item>
@@ -471,13 +500,15 @@
                         <td class="text-center">{{ item.cantidad_solicitada }}</td>
                         <td class="text-center">
                             <!-- Input para definir cuántos se van a comprar de este item -->
-                            <input type="number" class="form-control form-control-sm text-center mx-auto" style="width: 80px;" [ngModel]="item.cantidad_solicitada" min="1" [max]="item.cantidad_solicitada">
+                            <input type="number" class="form-control form-control-sm text-center mx-auto" style="width: 80px;" [(ngModel)]="item.cantidad_a_comprar" min="1" [max]="item.cantidad_solicitada">
                         </td>
                     </tr>
                 </ng-template>
                 <ng-template pTemplate="emptymessage">
                     <tr>
-                        <td colspan="5" class="text-center p-4 text-muted">Este pedido no tiene ítems.</td>
+                        <td colspan="5" class="text-center p-4 text-muted">
+                            {{ newOrdenDetalles().length > 0 ? 'Ningún producto coincide con el filtro' : 'Este pedido no tiene ítems.' }}
+                        </td>
                     </tr>
                 </ng-template>
             </p-table>

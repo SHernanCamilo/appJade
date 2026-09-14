@@ -424,7 +424,12 @@ export class OrdenesCompraComponent implements OnInit {
       next: (res) => {
         this.isLoadingPedidoDetalle.set(false);
         if (res.success && res.data.detalles) {
-          this.newOrdenDetalles.set(res.data.detalles);
+          // Inicializar la cantidad a comprar = cantidad solicitada (editable).
+          const detalles = (res.data.detalles as any[]).map(d => ({
+            ...d,
+            cantidad_a_comprar: d.cantidad_solicitada ?? 0,
+          }));
+          this.newOrdenDetalles.set(detalles as PedidoDetalle[]);
         } else {
           this.newOrdenDetalles.set([]);
         }
