@@ -57,6 +57,17 @@ export class OrdenesCompraComponent implements OnInit {
   filterCreadoPor  = signal<string>('');
   filterFecha      = signal<string>('');
 
+  // Opciones de estado para los dropdowns (consistentes en header y filtro de columna).
+  estadoOptions = [
+    { label: 'Todos los estados', value: '' },
+    { label: 'Pendiente', value: 'pendiente' },
+    { label: 'En tránsito', value: 'en_transito' },
+    { label: 'Confirmado', value: 'confirmado' },
+    { label: 'En sitio', value: 'en_sitio' },
+    { label: 'Recibida', value: 'recibida' },
+    { label: 'Cancelada', value: 'cancelada' },
+  ];
+
   // Computed: aplica todos los filtros de columna sobre las OC ya cargadas del backend.
   ordenesFiltradas = computed(() => {
     let lista = this.ordenes();
@@ -186,8 +197,10 @@ export class OrdenesCompraComponent implements OnInit {
     });
   }
 
-  onStatusFilterChange(event: any): void {
-    this.statusFilterOrdenes.set(event.target.value);
+  /** Acepta el valor directo (p-dropdown) o un evento de <select> nativo. */
+  onStatusFilterChange(value: any): void {
+    const val = (value && value.target) ? value.target.value : value;
+    this.statusFilterOrdenes.set(val ?? '');
     this.loadOrdenes();
   }
 

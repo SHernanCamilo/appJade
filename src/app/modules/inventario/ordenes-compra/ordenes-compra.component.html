@@ -21,17 +21,15 @@
                     </div>
                     <div class="d-flex flex-column">
                         <label class="text-muted mb-1" style="font-size: 0.75rem;">Estado</label>
-                        <select class="form-select form-select-sm" style="width: 160px;"
-                                [ngModel]="statusFilterOrdenes()"
-                                (change)="onStatusFilterChange($event)">
-                            <option value="">Todos los estados</option>
-                            <option value="pendiente">Pendiente</option>
-                            <option value="en_transito">En tránsito</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="en_sitio">En sitio</option>
-                            <option value="recibida">Recibida</option>
-                            <option value="cancelada">Cancelada</option>
-                        </select>
+                        <p-dropdown
+                            [options]="estadoOptions"
+                            [ngModel]="statusFilterOrdenes()"
+                            (ngModelChange)="onStatusFilterChange($event)"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Todos los estados"
+                            [style]="{width: '180px'}">
+                        </p-dropdown>
                     </div>
                 </div>
                 
@@ -226,17 +224,15 @@
                                            (ngModelChange)="filterFecha.set($event)">
                                 </th>
                                 <th>
-                                    <select class="form-select form-select-sm p-1"
-                                            [ngModel]="statusFilterOrdenes()"
-                                            (change)="onStatusFilterChange($event)">
-                                        <option value="">Todos</option>
-                                        <option value="pendiente">Pendiente</option>
-                                        <option value="en_transito">En tránsito</option>
-                                        <option value="confirmado">Confirmado</option>
-                                        <option value="en_sitio">En sitio</option>
-                                        <option value="recibida">Recibida</option>
-                                        <option value="cancelada">Cancelada</option>
-                                    </select>
+                                    <p-dropdown
+                                        [options]="estadoOptions"
+                                        [ngModel]="statusFilterOrdenes()"
+                                        (ngModelChange)="onStatusFilterChange($event)"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        placeholder="Todos"
+                                        styleClass="w-100 p-dropdown-sm">
+                                    </p-dropdown>
                                 </th>
                                 <th></th>
                                 <th>

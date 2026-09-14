@@ -271,3 +271,17 @@
     position: relative;
     display: block;
 }
+
+/* ============================================ */
+/* SELECTS (p-dropdown) consistentes            */
+/* ============================================ */
+/* Alto compacto en la fila de filtros de columna */
+.filter-row :host ::ng-deep .p-dropdown,
+.filter-row .p-dropdown {
+    width: 100%;
+    font-size: 0.8rem;
+}
+:host ::ng-deep .p-dropdown .p-dropdown-label {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
