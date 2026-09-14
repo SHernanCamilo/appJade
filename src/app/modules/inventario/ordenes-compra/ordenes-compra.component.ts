@@ -133,8 +133,33 @@ export class OrdenesCompraComponent implements OnInit {
   editingOrdenId = signal<number | null>(null);
   isEditMode = computed(() => this.editingOrdenId() !== null);
 
-  // Ítems seleccionados (checkbox) que realmente se enviarán a la OC.
+  // Ítems que se agregan a la OC (uno por uno, con su cantidad a comprar).
+  // Reemplaza la selección por checkbox: el usuario elige producto + cantidad y lo agrega.
   selectedItems = signal<any[]>([]);
+
+  // Formulario "Agregar producto": producto elegido del pedido + cantidad a comprar.
+  ocProductoSel = signal<any | null>(null);
+  ocCantidad = signal<number | null>(null);
+
+  /** Nombre de la sucursal tomada del pedido seleccionado (solo lectura, no editable). */
+  sucursalPedidoNombre = computed(() => {
+    const id = this.selectedSucursalId();
+    if (id === null) return '';
+    const suc = this.sucursales().find(s => s.id === id);
+    return suc?.nombre ?? '';
+  });
+
+  /** Productos del pedido que todavía NO se han agregado a la OC (para el selector). */
+  productosDisponibles = computed(() => {
+    const yaAgregados = new Set(
+      (this.selectedItems() || []).map((d: any) => String(d.id ?? d.pedido_detalle_id ?? d.codigo_producto))
+    );
+    return (this.newOrdenDetalles() || []).filter((d: any) => {
+      const key = String(d.id ?? d.pedido_detalle_id ?? d.codigo_producto);
+      const cod = String(d.codigo_producto ?? '').trim();
+      return cod !== '' && !yaAgregados.has(key);
+    });
+  });
 
   // Computados
   hasSelectedPedido = computed(() => this.selectedPedido() !== null);
@@ -441,9 +466,12 @@ export class OrdenesCompraComponent implements OnInit {
   openCreateModal(pedidoPrefill: Pedido | null = null): void {
     this.editingOrdenId.set(null);
     this.selectedItems.set([]);
+    this.ocProductoSel.set(null);
+    this.ocCantidad.set(null);
     this.showCreateModal.set(true);
     if (pedidoPrefill) {
       this.newOrdenPedidoSelected.set(pedidoPrefill);
+      this.aplicarSucursalDelPedido(pedidoPrefill);
       this.fetchPedidoDetailsForCreation(pedidoPrefill.id);
     } else {
       this.newOrdenPedidoSelected.set(null);
@@ -499,17 +527,68 @@ export class OrdenesCompraComponent implements OnInit {
     this.newOrdenDetalles.set([]);
     this.selectedItems.set([]);
     this.editingOrdenId.set(null);
+    this.ocProductoSel.set(null);
+    this.ocCantidad.set(null);
   }
 
   onDropdownPedidoChange(event: any): void {
     const pedido = event.value; // Ya pasamos el objeto completo en options
     if (pedido && pedido.id) {
       this.newOrdenPedidoSelected.set(pedido);
+      // La sucursal de la OC = la del pedido (se quema, no se elige a mano).
+      this.aplicarSucursalDelPedido(pedido);
       this.fetchPedidoDetailsForCreation(pedido.id);
     } else {
       this.newOrdenPedidoSelected.set(null);
       this.newOrdenDetalles.set([]);
+      this.selectedItems.set([]);
     }
+  }
+
+  /** Fija la sucursal de la OC a partir del pedido (no editable). */
+  private aplicarSucursalDelPedido(pedido: any): void {
+    const sucId = pedido?.sucursal_id ?? null;
+    if (sucId) {
+      this.selectedSucursalId.set(sucId);
+    }
+  }
+
+  // ── Agregar / quitar productos a la OC (uno por uno) ────────────
+  /** Al elegir un producto en el selector, precarga la cantidad con la solicitada. */
+  onOcProductoChange(event: any): void {
+    const prod = event?.value ?? null;
+    this.ocProductoSel.set(prod);
+    this.ocCantidad.set(prod ? (prod.cantidad_solicitada ?? null) : null);
+  }
+
+  /** Agrega el producto elegido (con su cantidad) a la lista de la OC. */
+  agregarProductoOc(): void {
+    const prod = this.ocProductoSel();
+    const cant = Number(this.ocCantidad() ?? 0);
+    if (!prod) {
+      this.messageService.add({ severity: 'warn', summary: 'Producto requerido', detail: 'Seleccione un producto del pedido.' });
+      return;
+    }
+    if (cant <= 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Cantidad inválida', detail: 'La cantidad a comprar debe ser mayor a 0.' });
+      return;
+    }
+    const max = Number(prod.cantidad_solicitada ?? 0);
+    if (max > 0 && cant > max) {
+      this.messageService.add({ severity: 'warn', summary: 'Cantidad excede lo solicitado', detail: `No puedes comprar más de ${max} (cantidad solicitada).` });
+      return;
+    }
+    // Agregar (o actualizar si ya estaba) el ítem con su cantidad a comprar.
+    const item = { ...prod, cantidad_a_comprar: cant };
+    this.selectedItems.update(items => [...items, item]);
+    // Limpiar el formulario para el siguiente.
+    this.ocProductoSel.set(null);
+    this.ocCantidad.set(null);
+  }
+
+  /** Quita un producto de la lista de la OC. */
+  quitarProductoOc(item: any): void {
+    this.selectedItems.update(items => items.filter(i => i !== item));
   }
 
   fetchPedidoDetailsForCreation(pedidoId: number): void {
@@ -524,12 +603,10 @@ export class OrdenesCompraComponent implements OnInit {
             cantidad_a_comprar: d.cantidad_solicitada ?? 0,
           }));
           this.newOrdenDetalles.set(detalles as PedidoDetalle[]);
-          // Preseleccionar por defecto solo productos con código y cantidad solicitada > 0.
-          // Así la OC no se llena de líneas vacías/en 0; el usuario puede ajustar la selección.
-          const preseleccion = detalles.filter((d: any) =>
-            (d.cantidad_solicitada ?? 0) > 0 && String(d.codigo_producto ?? '').trim() !== ''
-          );
-          this.selectedItems.set(preseleccion);
+          // El usuario agrega los productos uno por uno con el selector; no se preselecciona.
+          this.selectedItems.set([]);
+          this.ocProductoSel.set(null);
+          this.ocCantidad.set(null);
         } else {
           this.newOrdenDetalles.set([]);
           this.selectedItems.set([]);
@@ -545,12 +622,14 @@ export class OrdenesCompraComponent implements OnInit {
 
   submitCrearOrden(): void {
     const sucursalId = this.selectedSucursalId();
-    if (!sucursalId) {
-      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.' });
+    // En EDICIÓN sí exigimos sucursal. En CREACIÓN el backend la hereda del pedido,
+    // así que no bloqueamos aquí si hay un pedido seleccionado.
+    if (this.isEditMode() && !sucursalId) {
+      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'La orden no tiene sucursal asociada.' });
       return;
     }
 
-    // Solo los ítems marcados (checkbox), con código válido y cantidad a comprar > 0 se relacionan a la OC.
+    // Solo los ítems agregados con código válido y cantidad a comprar > 0 se relacionan a la OC.
     // El filtro por código evita insertar líneas basura (código/nombre vacíos) como pasó antes.
     const seleccionados = (this.selectedItems() || []).filter((d: any) => {
       const cant = Number(d.cantidad_a_comprar ?? 0);

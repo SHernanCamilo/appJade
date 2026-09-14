@@ -66,6 +66,8 @@ export interface Pedido {
   solicitado_por_nombre?: string;
   aprobado_por_nombre?: string;
   trazabilidad?: PedidoTrazabilidad[];
+  sucursal_id?: number;
+  sucursal_nombre?: string;
 }
 
 export interface PedidoTrazabilidad {
