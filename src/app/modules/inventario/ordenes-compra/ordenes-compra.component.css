@@ -285,3 +285,21 @@
     padding-top: 0.35rem;
     padding-bottom: 0.35rem;
 }
+
+/* ============================================ */
+/* Uniformar filas y columna de acciones        */
+/* ============================================ */
+:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td {
+    vertical-align: middle;
+}
+
+:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td .p-button.p-button-rounded {
+    width: 2rem;
+    height: 2rem;
+    margin: 0 1px;
+}
+
+td.acciones-cell {
+    white-space: nowrap;
+    text-align: center;
+}

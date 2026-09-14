@@ -276,12 +276,14 @@
                                 </td>
                                 <td class="text-center">{{ oc.items_count || oc.total_items || 0 }}</td>
                                 <td>{{ oc.creado_por_nombre || 'Administrador del Sistema' }}</td>
-                                <td class="text-center">
-                                    <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrden(oc.id)" pTooltip="Ver detalles"></button>
-                                    <button *ngIf="canConfirm(oc)" pButton icon="bi bi-check2-circle" class="p-button-rounded p-button-text p-button-sm p-button-success" (click)="confirmarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Confirmar orden"></button>
-                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openEditModal(oc)" pTooltip="Editar orden (propia y pendiente)"></button>
-                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger" (click)="eliminarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Eliminar orden"></button>
-                                    <i *ngIf="isSincronizada(oc)" class="bi bi-lock-fill text-muted ms-1" style="font-size: 0.75rem;" pTooltip="Orden de Indigo: solo se modifica por sincronización"></i>
+                                <td class="acciones-cell">
+                                    <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                        <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrden(oc.id)" pTooltip="Ver detalles"></button>
+                                        <button *ngIf="canConfirm(oc)" pButton icon="bi bi-check2-circle" class="p-button-rounded p-button-text p-button-sm p-button-success" (click)="confirmarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Confirmar orden"></button>
+                                        <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openEditModal(oc)" pTooltip="Editar orden (propia y pendiente)"></button>
+                                        <button *ngIf="canEdit(oc)" pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger" (click)="eliminarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Eliminar orden"></button>
+                                        <i *ngIf="isSincronizada(oc)" class="bi bi-lock-fill text-muted ms-1" style="font-size: 0.75rem;" pTooltip="Orden de Indigo: solo se modifica por sincronización"></i>
+                                    </div>
                                 </td>
                             </tr>
                         </ng-template>

@@ -132,3 +132,17 @@
 .editable-table ::ng-deep .p-dropdown .p-dropdown-label {
     padding: 0.25rem 0.5rem;
 }
+
+/* ============================================ */
+/* Uniformar filas: alinear verticalmente al     */
+/* centro para que tags, progreso y acciones      */
+/* queden en la misma línea base.                  */
+/* ============================================ */
+:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td {
+    vertical-align: middle;
+}
+
+:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td .p-button.p-button-rounded {
+    width: 2rem;
+    height: 2rem;
+}

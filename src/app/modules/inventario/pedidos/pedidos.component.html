@@ -74,7 +74,7 @@
                             <th pSortableColumn="fecha_pedido" style="width:120px">FECHA <p-sortIcon field="fecha_pedido"></p-sortIcon></th>
                             <th style="width:80px; text-align:center">ITEMS</th>
                             <th style="width:140px; text-align:center">ESTADO</th>
-                            <th style="width:100px; text-align:center">ACCIONES</th>
+                            <th style="width:140px; text-align:center">ACCIONES</th>
                         </tr>
                     </ng-template>
 
@@ -90,18 +90,20 @@
                                     {{ getStatusLabel(pedido.estado) }}
                                 </span>
                             </td>
-                            <td class="text-center">
-                                <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrder(pedido)" pTooltip="Ver detalle" tooltipPosition="left"></button>
-                                <button *ngIf="puedeConfirmarPedido && esConfirmable(pedido)"
-                                        pButton icon="bi bi-check2-circle"
-                                        class="p-button-rounded p-button-text p-button-sm p-button-success"
-                                        (click)="confirmarPedido(pedido)"
-                                        pTooltip="Confirmar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
-                                <button *ngIf="puedeConfirmarPedido && esConfirmable(pedido)"
-                                        pButton icon="bi bi-x-circle"
-                                        class="p-button-rounded p-button-text p-button-sm p-button-danger"
-                                        (click)="rechazarPedido(pedido)"
-                                        pTooltip="Rechazar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
+                            <td class="acciones-cell">
+                                <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                    <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrder(pedido)" pTooltip="Ver detalle" tooltipPosition="left"></button>
+                                    <button *ngIf="puedeConfirmarPedido && esConfirmable(pedido)"
+                                            pButton icon="bi bi-check2-circle"
+                                            class="p-button-rounded p-button-text p-button-sm p-button-success"
+                                            (click)="confirmarPedido(pedido)"
+                                            pTooltip="Confirmar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
+                                    <button *ngIf="puedeConfirmarPedido && esConfirmable(pedido)"
+                                            pButton icon="bi bi-x-circle"
+                                            class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                                            (click)="rechazarPedido(pedido)"
+                                            pTooltip="Rechazar pedido (Jefe de Almacén)" tooltipPosition="left"></button>
+                                </div>
                             </td>
                         </tr>
                     </ng-template>
