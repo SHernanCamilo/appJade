@@ -279,7 +279,7 @@
                                 <td class="text-center">
                                     <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrden(oc.id)" pTooltip="Ver detalles"></button>
                                     <button *ngIf="canConfirm(oc)" pButton icon="bi bi-check2-circle" class="p-button-rounded p-button-text p-button-sm p-button-success" (click)="confirmarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Confirmar orden"></button>
-                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openCreateModal()" pTooltip="Editar orden (propia y pendiente)"></button>
+                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openEditModal(oc)" pTooltip="Editar orden (propia y pendiente)"></button>
                                     <button *ngIf="canEdit(oc)" pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger" (click)="eliminarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Eliminar orden"></button>
                                     <i *ngIf="isSincronizada(oc)" class="bi bi-lock-fill text-muted ms-1" style="font-size: 0.75rem;" pTooltip="Orden de Indigo: solo se modifica por sincronización"></i>
                                 </td>
@@ -360,7 +360,7 @@
 <!-- MODAL: CREAR ORDEN DE COMPRA (Listado de productos del pedido) -->
 <!-- ============================================================== -->
 <p-dialog 
-    header="Nueva Orden de Compra" 
+    [header]="isEditMode() ? 'Editar Orden de Compra' : 'Nueva Orden de Compra'" 
     [(visible)]="showCreateModal" 
     [modal]="true" 
     [style]="{width: '96vw', maxWidth: '1500px'}"
@@ -368,12 +368,13 @@
     [draggable]="false" 
     [resizable]="false"
     [dismissableMask]="true"
+    (onHide)="closeCreateModal()"
     styleClass="custom-dialog dialog-dark-header"
 >
     <div class="create-oc-wrapper p-3">
 
         <div class="row g-3 mb-4">
-            <div class="col-md-6">
+            <div class="col-md-6" *ngIf="!isEditMode()">
                 <label class="form-label fw-bold">Seleccionar Pedido Confirmado</label>
                 <p-dropdown 
                     [options]="pedidos()" 
@@ -442,13 +443,16 @@
             </div>
         </div>
 
-        <div *ngIf="newOrdenPedidoSelected()">
+        <div *ngIf="newOrdenPedidoSelected() || isEditMode()">
             <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                 <h6 class="fw-bold m-0">Productos a gestionar
                     <span class="text-muted fw-normal" style="font-size:0.8rem;">
-                        ({{ newOrdenDetalles().length }} ítems)
+                        ({{ newOrdenDetalles().length }} ítems · <span class="text-primary fw-medium">{{ selectedItems().length }} seleccionados</span>)
                     </span>
                 </h6>
+                <span class="text-muted" style="font-size:0.78rem;">
+                    <i class="bi bi-info-circle"></i> Marca los productos que van a la orden. Solo los seleccionados con cantidad &gt; 0 se guardan.
+                </span>
             </div>
             
             <div *ngIf="isLoadingPedidoDetalle()" class="text-center py-4">
@@ -465,6 +469,9 @@
                 styleClass="p-datatable-sm p-datatable-gridlines-none"
                 [paginator]="newOrdenDetalles().length > 20" [rows]="20"
                 [globalFilterFields]="['codigo_producto','producto_nombre']"
+                dataKey="id"
+                [selection]="selectedItems()"
+                (selectionChange)="selectedItems.set($event)"
             >
                 <ng-template pTemplate="caption">
                     <div class="d-flex justify-content-end">
@@ -529,7 +536,13 @@
 
     <ng-template pTemplate="footer">
         <button pButton label="Cancelar" icon="bi bi-x" class="p-button-text p-button-secondary" (click)="closeCreateModal()"></button>
-        <button pButton label="Confirmar y Crear" icon="bi bi-check2" class="p-button-primary" (click)="submitCrearOrden()" [loading]="isCreating()" [disabled]="!newOrdenPedidoSelected()"></button>
+        <button pButton
+                [label]="isEditMode() ? 'Guardar cambios' : 'Confirmar y Crear'"
+                icon="bi bi-check2"
+                class="p-button-primary"
+                (click)="submitCrearOrden()"
+                [loading]="isCreating()"
+                [disabled]="(!isEditMode() && !newOrdenPedidoSelected()) || selectedItems().length === 0"></button>
     </ng-template>
 </p-dialog>
 
