@@ -524,9 +524,11 @@ export class OrdenesCompraComponent implements OnInit {
             cantidad_a_comprar: d.cantidad_solicitada ?? 0,
           }));
           this.newOrdenDetalles.set(detalles as PedidoDetalle[]);
-          // Preseleccionar por defecto solo los productos con cantidad solicitada > 0.
-          // Así la OC no se llena de líneas en 0; el usuario puede ajustar la selección.
-          const preseleccion = detalles.filter(d => (d.cantidad_solicitada ?? 0) > 0);
+          // Preseleccionar por defecto solo productos con código y cantidad solicitada > 0.
+          // Así la OC no se llena de líneas vacías/en 0; el usuario puede ajustar la selección.
+          const preseleccion = detalles.filter((d: any) =>
+            (d.cantidad_solicitada ?? 0) > 0 && String(d.codigo_producto ?? '').trim() !== ''
+          );
           this.selectedItems.set(preseleccion);
         } else {
           this.newOrdenDetalles.set([]);
@@ -548,10 +550,15 @@ export class OrdenesCompraComponent implements OnInit {
       return;
     }
 
-    // Solo los ítems marcados (checkbox) y con cantidad a comprar > 0 se relacionan a la OC.
-    const seleccionados = (this.selectedItems() || []).filter((d: any) => (d.cantidad_a_comprar ?? 0) > 0);
+    // Solo los ítems marcados (checkbox), con código válido y cantidad a comprar > 0 se relacionan a la OC.
+    // El filtro por código evita insertar líneas basura (código/nombre vacíos) como pasó antes.
+    const seleccionados = (this.selectedItems() || []).filter((d: any) => {
+      const cant = Number(d.cantidad_a_comprar ?? 0);
+      const cod = String(d.codigo_producto ?? '').trim();
+      return cant > 0 && cod !== '';
+    });
     if (seleccionados.length === 0) {
-      this.messageService.add({ severity: 'warn', summary: 'Sin productos', detail: 'Seleccione al menos un producto con cantidad a comprar mayor a 0.' });
+      this.messageService.add({ severity: 'warn', summary: 'Sin productos válidos', detail: 'Seleccione al menos un producto con código y cantidad a comprar mayor a 0.' });
       return;
     }
 
@@ -560,7 +567,7 @@ export class OrdenesCompraComponent implements OnInit {
       codigo_producto: d.codigo_producto,
       codigo_producto_indigo: d.codigo_producto,
       producto_nombre: d.producto_nombre,
-      cantidad_solicitada_compra: d.cantidad_a_comprar ?? d.cantidad_solicitada ?? 0,
+      cantidad_solicitada_compra: Number(d.cantidad_a_comprar ?? d.cantidad_solicitada ?? 0),
     }));
 
     // ── Modo EDICIÓN ────────────────────────────────────────────
