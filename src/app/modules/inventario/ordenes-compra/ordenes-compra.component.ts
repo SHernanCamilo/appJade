@@ -9,6 +9,9 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
 import { TooltipModule } from 'primeng/tooltip';
+import { ToastModule } from 'primeng/toast';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { InventarioService } from '../../../core/services/inventario.service';
 import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption } from '../../../core/models/inventario.model';
 
@@ -24,8 +27,11 @@ import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption } from '../../../cor
     ButtonModule,
     InputTextModule,
     DropdownModule,
-    TooltipModule
+    TooltipModule,
+    ToastModule,
+    ConfirmDialogModule
   ],
+  providers: [ConfirmationService, MessageService],
   templateUrl: './ordenes-compra.component.html',
   styleUrls: ['./ordenes-compra.component.css']
 })
@@ -131,7 +137,12 @@ export class OrdenesCompraComponent implements OnInit {
     return pedido ? (pedido.total_articulos || 0) : 0;
   });
 
-  constructor(private inventarioService: InventarioService, private route: ActivatedRoute) { }
+  constructor(
+    private inventarioService: InventarioService,
+    private route: ActivatedRoute,
+    private confirmationService: ConfirmationService,
+    private messageService: MessageService
+  ) { }
 
   ngOnInit(): void {
     const qpStatus = this.route.snapshot.queryParamMap.get('status');
@@ -229,42 +240,49 @@ export class OrdenesCompraComponent implements OnInit {
   syncFromIndigo(): void {
     const num = this.numeroOrdenSync();
     if (!num) {
-      alert('Por favor ingrese un número de Orden de Compra.');
+      this.messageService.add({ severity: 'warn', summary: 'Dato requerido', detail: 'Por favor ingrese un número de Orden de Compra.' });
       return;
     }
 
     // Preguntar/exigir la sucursal destino para que el consecutivo sea el correcto.
     const sucursalId = this.selectedSucursalId();
     if (!sucursalId) {
-      alert('Seleccione la sucursal hacia la que se sincroniza la orden. El consecutivo se genera según la sucursal.');
+      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'Seleccione la sucursal destino. El consecutivo se genera según la sucursal.' });
       return;
     }
 
     const suc = this.sucursales().find(s => s.id === sucursalId);
-    const confirmMsg = `Se sincronizará la orden ${num} hacia la sucursal "${suc?.nombre ?? sucursalId}". ¿Continuar?`;
-    if (!confirm(confirmMsg)) return;
-
-    this.isSyncing.set(true);
-    this.inventarioService.syncOrdenCompra(num, sucursalId).subscribe({
-      next: (res: any) => {
-        this.isSyncing.set(false);
-        if (res.success) {
-          if (res.ya_existia) {
-            // La OC ya estaba en el sistema: no crea nueva, informa al usuario.
-            alert(`ℹ️ La orden ${num} ya está registrada en el sistema.\n\n${res.message}`);
-          } else {
-            alert(`✅ ${res.message}`);
+    this.confirmationService.confirm({
+      header: 'Sincronizar desde Indigo',
+      message: `Se sincronizará la orden <strong>${num}</strong> hacia la sucursal "<strong>${suc?.nombre ?? sucursalId}</strong>". ¿Continuar?`,
+      icon: 'bi bi-cloud-download',
+      acceptLabel: 'Sí, sincronizar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-primary',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.isSyncing.set(true);
+        this.inventarioService.syncOrdenCompra(num, sucursalId).subscribe({
+          next: (res: any) => {
+            this.isSyncing.set(false);
+            if (res.success) {
+              if (res.ya_existia) {
+                this.messageService.add({ severity: 'info', summary: 'Ya registrada', detail: `La orden ${num} ya está registrada en el sistema.` });
+              } else {
+                this.messageService.add({ severity: 'success', summary: 'Sincronizada', detail: res.message || `Orden ${num} sincronizada.` });
+              }
+              this.numeroOrdenSync.set('');
+              this.loadOrdenes();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo sincronizar.' });
+            }
+          },
+          error: (err: any) => {
+            this.isSyncing.set(false);
+            console.error('Error syncing:', err);
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al sincronizar con INDIGO.' });
           }
-          this.numeroOrdenSync.set('');
-          this.loadOrdenes();
-        } else {
-          alert('Error: ' + (res.message || 'No se pudo sincronizar.'));
-        }
-      },
-      error: (err: any) => {
-        this.isSyncing.set(false);
-        console.error('Error syncing:', err);
-        alert(err?.error?.message || 'Ocurrió un error al sincronizar con INDIGO.');
+        });
       }
     });
   }
@@ -304,52 +322,75 @@ export class OrdenesCompraComponent implements OnInit {
 
   confirmarOrden(oc: OrdenCompra): void {
     if (!this.canConfirm(oc)) {
-      alert('Solo se pueden confirmar órdenes en estado pendiente.');
+      this.messageService.add({ severity: 'warn', summary: 'No permitido', detail: 'Solo se pueden confirmar órdenes en estado pendiente.' });
       return;
     }
-    if (!confirm(`¿Confirmar la orden ${oc.numero_orden_compra}? Esto actualizará los pedidos vinculados.`)) return;
 
-    this.isProcessingAction.set(true);
-    this.inventarioService.changeOrdenEstado(oc.id, 'CONFIRMADO').subscribe({
-      next: (res) => {
-        this.isProcessingAction.set(false);
-        if (res.success) {
-          alert('Orden confirmada.');
-          this.loadOrdenes();
-        } else {
-          alert('Error: ' + (res.message || 'No se pudo confirmar la orden.'));
-        }
-      },
-      error: (err) => {
-        this.isProcessingAction.set(false);
-        console.error('Error confirmando OC:', err);
-        alert(err?.error?.message || 'Ocurrió un error al confirmar la orden.');
+    this.confirmationService.confirm({
+      header: 'Confirmar orden de compra',
+      message: `¿Confirmar la orden <strong>${oc.numero_orden_compra}</strong>? Esto actualizará los pedidos vinculados.`,
+      icon: 'bi bi-check2-circle',
+      acceptLabel: 'Sí, confirmar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.isProcessingAction.set(true);
+        this.inventarioService.changeOrdenEstado(oc.id, 'CONFIRMADO').subscribe({
+          next: (res) => {
+            this.isProcessingAction.set(false);
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Orden confirmada', detail: `La orden ${oc.numero_orden_compra} fue confirmada.` });
+              this.loadOrdenes();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo confirmar la orden.' });
+            }
+          },
+          error: (err) => {
+            this.isProcessingAction.set(false);
+            console.error('Error confirmando OC:', err);
+            const msg = err?.status === 403
+              ? 'No tienes permiso para confirmar órdenes de compra.'
+              : (err?.error?.message || 'Ocurrió un error al confirmar la orden.');
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: msg });
+          }
+        });
       }
     });
   }
 
   eliminarOrden(oc: OrdenCompra): void {
     if (!this.canEdit(oc)) {
-      alert('Solo puedes eliminar órdenes creadas desde el aplicativo, propias y en estado pendiente.');
+      this.messageService.add({ severity: 'warn', summary: 'No permitido', detail: 'Solo puedes eliminar órdenes creadas desde el aplicativo, propias y en estado pendiente.' });
       return;
     }
-    if (!confirm(`¿Eliminar la orden ${oc.numero_orden_compra}? Esta acción no se puede deshacer.`)) return;
 
-    this.isProcessingAction.set(true);
-    this.inventarioService.deleteOrdenCompra(oc.id).subscribe({
-      next: (res) => {
-        this.isProcessingAction.set(false);
-        if (res.success) {
-          alert('Orden eliminada.');
-          this.loadOrdenes();
-        } else {
-          alert('Error: ' + (res.message || 'No se pudo eliminar la orden.'));
-        }
-      },
-      error: (err) => {
-        this.isProcessingAction.set(false);
-        console.error('Error eliminando OC:', err);
-        alert(err?.error?.message || 'Ocurrió un error al eliminar la orden.');
+    this.confirmationService.confirm({
+      header: 'Eliminar orden de compra',
+      message: `¿Eliminar la orden <strong>${oc.numero_orden_compra}</strong>? Esta acción no se puede deshacer.`,
+      icon: 'bi bi-exclamation-triangle text-danger',
+      acceptLabel: 'Sí, eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.isProcessingAction.set(true);
+        this.inventarioService.deleteOrdenCompra(oc.id).subscribe({
+          next: (res) => {
+            this.isProcessingAction.set(false);
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Orden eliminada', detail: `La orden ${oc.numero_orden_compra} fue eliminada.` });
+              this.loadOrdenes();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo eliminar la orden.' });
+            }
+          },
+          error: (err) => {
+            this.isProcessingAction.set(false);
+            console.error('Error eliminando OC:', err);
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al eliminar la orden.' });
+          }
+        });
       }
     });
   }
@@ -445,13 +486,13 @@ export class OrdenesCompraComponent implements OnInit {
   submitCrearOrden(): void {
     const pedido = this.newOrdenPedidoSelected();
     if (!pedido) {
-      alert('Debe seleccionar un pedido para continuar.');
+      this.messageService.add({ severity: 'warn', summary: 'Pedido requerido', detail: 'Debe seleccionar un pedido para continuar.' });
       return;
     }
 
     const sucursalId = this.selectedSucursalId();
     if (!sucursalId) {
-      alert('Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.');
+      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.' });
       return;
     }
 
@@ -475,19 +516,19 @@ export class OrdenesCompraComponent implements OnInit {
       next: (res) => {
         this.isCreating.set(false);
         if (res.success) {
-          alert(`Orden de compra creada para el pedido: ${pedido.numero_pedido}.`);
+          this.messageService.add({ severity: 'success', summary: 'Orden creada', detail: `Orden de compra creada para el pedido ${pedido.numero_pedido}.` });
           this.closeCreateModal();
           this.loadOrdenes();
           this.setTab('ordenes');
           this.selectedPedido.set(null);
         } else {
-          alert('Error: ' + (res.message || 'No se pudo crear la orden.'));
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo crear la orden.' });
         }
       },
       error: (err) => {
         this.isCreating.set(false);
         console.error('Error creando OC:', err);
-        alert(err?.error?.message || 'Ocurrió un error al crear la orden de compra.');
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al crear la orden de compra.' });
       }
     });
   }
