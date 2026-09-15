@@ -439,10 +439,11 @@ export class OrdenesCompraComponent implements OnInit {
   // ==========================================
   loadPedidos(): void {
     this.isLoadingPedidos.set(true);
-    // Solicitamos pedidos que estén listos para ser procesados (ej. 'confirmado' o 'en_proceso')
-    // El backend de AppCertec maneja estado='en_proceso' para los que van a compras,
-    // o podemos traer todos los pedidos para probar visualmente.
-    this.inventarioService.getPedidos({ estado: 'en_proceso' }).subscribe({
+    // Pedidos listos para generar OC: los CONFIRMADOS por el Jefe de Almacén
+    // quedan en estado 'aprobado', y los que ya tienen compra parcial pasan a
+    // 'en_proceso' (aún se les puede seguir comprando). Se traen ambos.
+    // El backend restringe además por la sucursal del usuario.
+    this.inventarioService.getPedidos({ estado: 'aprobado,en_proceso' }).subscribe({
       next: (res) => {
         this.isLoadingPedidos.set(false);
         if (res.success) {
