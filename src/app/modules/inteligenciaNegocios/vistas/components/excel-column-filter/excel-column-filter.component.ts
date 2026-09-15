@@ -38,6 +38,16 @@ import { IDoesFilterPassParams, IFilterComp, IFilterParams, ValueGetterParams } 
         </button>
       </div>
 
+      <!-- Acciones rápidas: aparecen al buscar para no tener que deseleccionar todo a mano -->
+      <div *ngIf="searchTerm()" class="excel-filter__quick">
+        <button type="button" class="excel-filter__quick-btn" (click)="selectOnlyMatches()">
+          Seleccionar solo estos ({{ displayedValues().length }})
+        </button>
+        <button type="button" class="excel-filter__quick-btn" (click)="addMatchesToSelection()">
+          Añadir a la selección
+        </button>
+      </div>
+
       <!-- Lista de valores -->
       <div class="excel-filter__list">
         <!-- Seleccionar todo -->
@@ -130,6 +140,35 @@ import { IDoesFilterPassParams, IFilterComp, IFilterParams, ValueGetterParams } 
 
     .excel-filter__search-clear:hover {
       color: #374151;
+    }
+
+    .excel-filter__quick {
+      display: flex;
+      gap: 6px;
+      padding: 6px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+
+    .excel-filter__quick-btn {
+      flex: 1;
+      padding: 4px 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 3px;
+      background: #fff;
+      color: #217346;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .excel-filter__quick-btn:hover {
+      background: #f0fdf4;
+      border-color: #217346;
     }
 
     .excel-filter__list {
@@ -412,6 +451,32 @@ export class ExcelColumnFilterComponent implements IFilterComp, AfterViewInit {
 
   clearSearch(): void {
     this.searchTerm.set('');
+  }
+
+  /**
+   * Deja marcados SOLO los valores que coinciden con la busqueda actual.
+   *
+   * Resuelve el flujo tipico de Excel: buscar "Banco", pulsar "solo estos" y
+   * quedarse con esos, sin tener que (Seleccionar todo) → desmarcar todo → marcar
+   * los dos que interesan a mano.
+   */
+  selectOnlyMatches(): void {
+    const visibles = this.displayedValues().map(i => i.value);
+    if (visibles.length === 0) return;
+
+    const set = new Set(visibles);
+    this.pendingSelected = set;
+    this.allItems.update(items => items.map(i => ({ ...i, selected: set.has(i.value) })));
+  }
+
+  /** Suma a lo ya marcado los valores que coinciden con la busqueda actual. */
+  addMatchesToSelection(): void {
+    const visibles = this.displayedValues().map(i => i.value);
+    if (visibles.length === 0) return;
+
+    visibles.forEach(v => this.pendingSelected.add(v));
+    const set = this.pendingSelected;
+    this.allItems.update(items => items.map(i => ({ ...i, selected: set.has(i.value) })));
   }
 
   toggleSelectAll(event: Event): void {
