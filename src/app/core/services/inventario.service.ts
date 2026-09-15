@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto } from '../models/inventario.model';
+import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto, ReporteFarmacia } from '../models/inventario.model';
 
 @Injectable({
   providedIn: 'root'
@@ -18,6 +18,20 @@ export class InventarioService {
   // ==========================================
   getDashboardStats(): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/dashboard/stats`);
+  }
+
+  /**
+   * Tablero unificado de Farmacia (Pedidos + Órdenes de Compra + Recepciones).
+   * Filtros: fecha_desde, fecha_hasta, proveedor, estado_pedido, estado_recepcion, sucursal_id
+   */
+  getReporteDashboard(filtros?: Record<string, any>): Observable<ApiResponse<ReporteFarmacia>> {
+    let params = new HttpParams();
+    Object.entries(filtros || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        params = params.set(k, String(v));
+      }
+    });
+    return this.http.get<ApiResponse<ReporteFarmacia>>(`${this.baseUrl}/reportes/dashboard`, { params });
   }
 
   // ==========================================

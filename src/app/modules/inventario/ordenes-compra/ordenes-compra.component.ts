@@ -149,6 +149,13 @@ export class OrdenesCompraComponent implements OnInit {
     return suc?.nombre ?? '';
   });
 
+  /**
+   * ¿La sucursal viene heredada del pedido? (el pedido trae sucursal_id).
+   * Si es true → campo readonly. Si es false → hay que dejar elegir la sucursal
+   * (fallback para pedidos históricos que no tienen sucursal asignada).
+   */
+  sucursalHeredadaDelPedido = signal<boolean>(false);
+
   /** Productos del pedido que todavía NO se han agregado a la OC (para el selector). */
   productosDisponibles = computed(() => {
     const yaAgregados = new Set(
@@ -468,6 +475,7 @@ export class OrdenesCompraComponent implements OnInit {
     this.selectedItems.set([]);
     this.ocProductoSel.set(null);
     this.ocCantidad.set(null);
+    this.sucursalHeredadaDelPedido.set(false);
     this.showCreateModal.set(true);
     if (pedidoPrefill) {
       this.newOrdenPedidoSelected.set(pedidoPrefill);
@@ -495,9 +503,12 @@ export class OrdenesCompraComponent implements OnInit {
       next: (res) => {
         this.isLoadingPedidoDetalle.set(false);
         if (res.success && res.data) {
-          // Preseleccionar la sucursal de la OC si viene.
+          // Preseleccionar la sucursal de la OC si viene (readonly en edición).
           if ((res.data as any).sucursal_id) {
             this.selectedSucursalId.set((res.data as any).sucursal_id);
+            this.sucursalHeredadaDelPedido.set(true);
+          } else {
+            this.sucursalHeredadaDelPedido.set(false);
           }
           const detalles = ((res.data.detalles as any[]) || []).map(d => ({
             ...d,
@@ -529,6 +540,7 @@ export class OrdenesCompraComponent implements OnInit {
     this.editingOrdenId.set(null);
     this.ocProductoSel.set(null);
     this.ocCantidad.set(null);
+    this.sucursalHeredadaDelPedido.set(false);
   }
 
   onDropdownPedidoChange(event: any): void {
@@ -545,11 +557,20 @@ export class OrdenesCompraComponent implements OnInit {
     }
   }
 
-  /** Fija la sucursal de la OC a partir del pedido (no editable). */
+  /**
+   * Fija la sucursal de la OC a partir del pedido. Si el pedido tiene sucursal,
+   * se hereda (readonly). Si no la tiene (pedido histórico), se deja elegir a mano.
+   */
   private aplicarSucursalDelPedido(pedido: any): void {
     const sucId = pedido?.sucursal_id ?? null;
     if (sucId) {
       this.selectedSucursalId.set(sucId);
+      this.sucursalHeredadaDelPedido.set(true);
+    } else {
+      // El pedido no trae sucursal: dejar elegir (preseleccionar la principal si existe).
+      this.sucursalHeredadaDelPedido.set(false);
+      const principal = this.sucursales().find(s => s.principal);
+      this.selectedSucursalId.set(principal ? principal.id : null);
     }
   }
 
@@ -622,10 +643,10 @@ export class OrdenesCompraComponent implements OnInit {
 
   submitCrearOrden(): void {
     const sucursalId = this.selectedSucursalId();
-    // En EDICIÓN sí exigimos sucursal. En CREACIÓN el backend la hereda del pedido,
-    // así que no bloqueamos aquí si hay un pedido seleccionado.
-    if (this.isEditMode() && !sucursalId) {
-      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'La orden no tiene sucursal asociada.' });
+    // Si la sucursal NO se hereda del pedido (histórico o edición sin sucursal),
+    // el usuario debe elegirla explícitamente.
+    if (!this.sucursalHeredadaDelPedido() && !sucursalId) {
+      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.' });
       return;
     }
 

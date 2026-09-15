@@ -206,3 +206,102 @@ export interface Producto {
   status?: string;
   estado?: string;
 }
+
+// ============================================================
+// REPORTES UNIFICADOS DE FARMACIA (tablero tipo BI)
+// Consolida Pedidos + Órdenes de Compra + Recepciones Técnicas.
+// ============================================================
+
+export interface ReporteKpis {
+  total_pedidos: number;
+  total_ordenes: number;
+  total_recepciones: number;
+  productos_recibidos: number;
+  pendientes_recibir: number;
+  incidencias: number;
+  valor_total_compras: number;
+}
+
+export interface ReporteEvolucion {
+  labels: string[];
+  pedidos: number[];
+  ordenes: number[];
+  recepciones: number[];
+}
+
+export interface ReporteEstadoItem {
+  estado: string;
+  label: string;
+  total: number;
+  porcentaje: number;
+}
+
+export interface ReporteCategoria {
+  categoria: string;
+  total: number;
+}
+
+export interface ReportePedidoRow {
+  id: number;
+  numero_pedido: string;
+  proveedor: string;
+  fecha_pedido: string;
+  estado: string;
+  estado_label: string;
+  total_articulos: number;
+  solicitado_por_nombre?: string;
+  valor: number;
+}
+
+export interface ReporteOrdenRow {
+  id: number;
+  numero_orden_compra: string;
+  oc_indigo?: string;
+  proveedor_nombre?: string;
+  fecha_orden: string;
+  estado: string;
+  estado_label: string;
+  creado_por_nombre?: string;
+  items: number;
+  valor: number;
+}
+
+export interface ReporteRecepcionRow {
+  id: number;
+  numero_recepcion?: string;
+  numero_orden_compra?: string;
+  fecha_recepcion: string;
+  estado: string;
+  estado_label: string;
+  recibido_por_nombre?: string;
+  total_items: number;
+  items_recibidos: number;
+}
+
+export interface ReporteProveedorRow {
+  proveedor: string;
+  ordenes: number;
+  recepciones: number;
+  productos: number;
+  valor: number;
+}
+
+export interface ReporteProductoTop {
+  codigo_producto: string;
+  producto_nombre: string;
+  cantidad: number;
+  porcentaje: number;
+}
+
+export interface ReporteFarmacia {
+  rango: { desde: string; hasta: string };
+  kpis: ReporteKpis;
+  evolucion: ReporteEvolucion;
+  pedidos_por_estado: { total: number; items: ReporteEstadoItem[] };
+  productos_por_categoria: ReporteCategoria[];
+  ultimos_pedidos: ReportePedidoRow[];
+  ultimas_ordenes: ReporteOrdenRow[];
+  ultimas_recepciones: ReporteRecepcionRow[];
+  resumen_por_proveedor: ReporteProveedorRow[];
+  productos_mas_solicitados: ReporteProductoTop[];
+}

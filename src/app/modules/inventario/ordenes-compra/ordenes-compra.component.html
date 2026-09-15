@@ -400,16 +400,47 @@
                 <small class="text-muted d-block mt-1">Solo se permite asociar un (1) pedido por Orden de Compra.</small>
             </div>
 
-            <!-- Sucursal de la OC: se toma del PEDIDO (no editable). -->
+            <!-- Sucursal de la OC -->
             <div class="col-md-6">
-                <label class="form-label fw-bold">Sucursal de la Orden</label>
-                <input type="text" class="form-control bg-light"
-                       [value]="sucursalPedidoNombre() || (isEditMode() ? 'Sucursal de la orden' : 'Se toma del pedido seleccionado')"
-                       readonly
-                       [class.is-invalid]="!selectedSucursalId()">
-                <small class="text-muted d-block mt-1">
-                    <i class="bi bi-info-circle"></i> La sucursal (y su consecutivo) se hereda del pedido relacionado.
-                </small>
+                <label class="form-label fw-bold">Sucursal de la Orden <span class="text-danger">*</span></label>
+
+                <!-- Caso A: el pedido trae sucursal → se hereda, campo readonly -->
+                <ng-container *ngIf="sucursalHeredadaDelPedido()">
+                    <input type="text" class="form-control bg-light"
+                           [value]="sucursalPedidoNombre()"
+                           readonly>
+                    <small class="text-muted d-block mt-1">
+                        <i class="bi bi-info-circle"></i> La sucursal (y su consecutivo) se hereda del pedido relacionado.
+                    </small>
+                </ng-container>
+
+                <!-- Caso B: el pedido no trae sucursal (histórico) o sin pedido → selector editable -->
+                <ng-container *ngIf="!sucursalHeredadaDelPedido()">
+                    <p-dropdown
+                        [options]="sucursales()"
+                        [ngModel]="selectedSucursalId()"
+                        (ngModelChange)="selectedSucursalId.set($event)"
+                        optionLabel="nombre"
+                        optionValue="id"
+                        [filter]="true"
+                        filterBy="nombre,prefijo"
+                        [showClear]="false"
+                        placeholder="Selecciona la sucursal..."
+                        appendTo="body"
+                        scrollHeight="260px"
+                        styleClass="w-100"
+                        [class.ng-invalid]="!selectedSucursalId()">
+                        <ng-template let-s pTemplate="item">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <span>{{ s.nombre }}</span>
+                                <span class="text-muted small" *ngIf="s.prefijo">{{ s.prefijo }}</span>
+                            </div>
+                        </ng-template>
+                    </p-dropdown>
+                    <small class="text-muted d-block mt-1">
+                        <i class="bi bi-info-circle"></i> Este pedido no tiene sucursal asignada. Selecciona la sucursal para el consecutivo de la OC.
+                    </small>
+                </ng-container>
             </div>
         </div>
 
