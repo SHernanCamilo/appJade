@@ -39,7 +39,7 @@ export const INVENTARIO_ROUTES: Routes = [
         path: 'reportes',
         loadComponent: () => import('./reportes/reportes.component').then(m => m.ReportesComponent),
         canActivate: [moduleGuard],
-        data: { moduleCode: 'INV-PEDIDOS' }
+        data: { moduleCode: 'INV-REPORTES' }
       }
     ]
   },
