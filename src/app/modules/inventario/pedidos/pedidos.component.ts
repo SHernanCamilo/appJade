@@ -89,6 +89,11 @@ export class PedidosComponent implements OnInit {
   isSavingOrder: boolean = false;
   saveOrderError: string = '';
 
+  // Id del pedido en edición (null = modo creación).
+  // Cambia el título del modal, el botón y el endpoint (POST vs PUT).
+  editingPedidoId: number | null = null;
+  get isEditMode(): boolean { return this.editingPedidoId !== null; }
+
   // New order form
   newOrder = {
     sucursal_id: null as number | null,
@@ -276,6 +281,15 @@ export class PedidosComponent implements OnInit {
     return ['borrador', 'solicitado', 'pendiente', ''].includes(estado);
   }
 
+  /**
+   * ¿El pedido se puede editar? Solo mientras está sin gestionar
+   * (pendiente/borrador). Una vez aprobado o en proceso ya no se edita.
+   */
+  esEditable(pedido: Pedido): boolean {
+    const estado = String(pedido?.estado || '').trim().toLowerCase();
+    return ['borrador', 'pendiente', 'solicitado', ''].includes(estado);
+  }
+
   /** Confirma (aprueba) el pedido — acción del Jefe de Almacén. */
   confirmarPedido(pedido: Pedido): void {
     this.confirmationService.confirm({
@@ -429,6 +443,7 @@ export class PedidosComponent implements OnInit {
   // MODALS
   // ==========================================
   openNewOrderModal(): void {
+    this.editingPedidoId = null; // modo creación
     this.showNewOrderModal = true;
     this.newOrder.items = [];
     // Asegurar una sucursal preseleccionada al abrir (principal o única).
@@ -444,7 +459,53 @@ export class PedidosComponent implements OnInit {
     this.clearProductForm();
   }
 
+  /**
+   * Abre el modal en modo EDICIÓN: carga el pedido y sus ítems en el formulario.
+   * Solo aplica a pedidos aún no gestionados (pendiente/borrador).
+   */
+  openEditPedido(pedido: Pedido): void {
+    if (!this.esEditable(pedido)) {
+      this.messageService.add({ severity: 'warn', summary: 'No editable', detail: 'Solo se pueden editar pedidos pendientes (sin gestionar).' });
+      return;
+    }
+
+    this.editingPedidoId = pedido.id;
+    this.showNewOrderModal = true;
+    this.saveOrderError = '';
+    this.limpiarTodosLosFiltros();
+    this.clearProductForm();
+    this.newOrder.items = [];
+
+    // Traer el detalle completo del pedido (los ítems vienen en getPedido).
+    this.inventarioService.getPedido(pedido.id).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const p: any = res.data;
+          this.newOrder.sucursal_id = p.sucursal_id ?? this.newOrder.sucursal_id;
+          this.aplicarAlmacenPorSucursal(this.newOrder.sucursal_id);
+          this.newOrder.observations = p.observaciones || '';
+          this.newOrder.items = ((p.detalles as any[]) || []).map(d => ({
+            product_code: d.codigo_producto,
+            product_name: d.producto_nombre,
+            product_type: d.producto_tipo || '',
+            brand: d.producto_marca || '',
+            rotation_type: d.producto_rotacion || '',
+            average_cost: Number(d.producto_promedio ?? d.precio_unitario ?? 0),
+            quantity: Number(d.cantidad_solicitada ?? 0),
+            price: Number(d.cantidad_solicitada ?? 0) * Number(d.producto_promedio ?? d.precio_unitario ?? 0),
+          }));
+        } else {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el pedido para editar.' });
+        }
+      },
+      error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el pedido para editar.' });
+      }
+    });
+  }
+
   closeNewOrderModal(): void {
+    this.editingPedidoId = null;
     this.showNewOrderModal = false;
     this.saveOrderError = '';
   }
@@ -651,29 +712,60 @@ export class PedidosComponent implements OnInit {
 
     // Contrato backend: sucursal_id define el consecutivo (prefijo) y el almacén;
     // los detalles usan codigo_producto/producto_nombre/cantidad_solicitada.
+    const detalles = this.newOrder.items.map(i => ({
+      codigo_producto: i.product_code,
+      producto_nombre: i.product_name,
+      producto_tipo: i.product_type || null,
+      producto_marca: i.brand || null,
+      producto_promedio: i.average_cost ?? null,
+      producto_rotacion: i.rotation_type || null,
+      cantidad_solicitada: i.quantity,
+      // precio_unitario = costo promedio (unitario); el total = cantidad × costo.
+      precio_unitario: i.average_cost || 0
+    }));
+
+    this.isSavingOrder = true;
+
+    // ── Modo EDICIÓN: PUT /pedidos/{id} ──────────────────────────
+    if (this.editingPedidoId !== null) {
+      const payloadEdit = {
+        observaciones: this.buildObservaciones(),
+        detalles,
+      };
+      this.inventarioService.updatePedido(this.editingPedidoId, payloadEdit).subscribe({
+        next: (res) => {
+          this.isSavingOrder = false;
+          if (res.success) {
+            this.messageService.add({ severity: 'success', summary: 'Pedido actualizado', detail: 'Los cambios se guardaron correctamente.' });
+            this.closeNewOrderModal();
+            this.loadPedidos();
+          } else {
+            this.saveOrderError = res.message || 'No se pudo actualizar el pedido.';
+          }
+        },
+        error: (err) => {
+          this.isSavingOrder = false;
+          this.saveOrderError = err?.error?.message || err?.error?.error || 'Error al actualizar el pedido.';
+          console.error('Error actualizando pedido:', err);
+        }
+      });
+      return;
+    }
+
+    // ── Modo CREACIÓN: POST /pedidos ─────────────────────────────
     const payload = {
       sucursal_id: this.newOrder.sucursal_id,
       almacen: this.newOrder.warehouse || null,
       fecha_pedido: this.newOrder.order_date,
       observaciones: this.buildObservaciones(),
-      detalles: this.newOrder.items.map(i => ({
-        codigo_producto: i.product_code,
-        producto_nombre: i.product_name,
-        producto_tipo: i.product_type || null,
-        producto_marca: i.brand || null,
-        producto_promedio: i.average_cost ?? null,
-        producto_rotacion: i.rotation_type || null,
-        cantidad_solicitada: i.quantity,
-        // precio_unitario = costo promedio (unitario); el total = cantidad × costo.
-        precio_unitario: i.average_cost || 0
-      }))
+      detalles,
     };
 
-    this.isSavingOrder = true;
     this.inventarioService.createPedido(payload).subscribe({
       next: (res) => {
         this.isSavingOrder = false;
         if (res.success) {
+          this.messageService.add({ severity: 'success', summary: 'Pedido creado', detail: 'El pedido se creó correctamente.' });
           this.closeNewOrderModal();
           this.loadPedidos();
         } else {
