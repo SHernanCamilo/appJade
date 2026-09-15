@@ -141,6 +141,11 @@ export class OrdenesCompraComponent implements OnInit {
   ocProductoSel = signal<any | null>(null);
   ocCantidad = signal<number | null>(null);
 
+  // Proveedores (vista Indigo). Se elige uno para la OC.
+  proveedores = signal<any[]>([]);
+  isLoadingProveedores = signal<boolean>(false);
+  proveedorSeleccionado = signal<any | null>(null);
+
   /** Nombre de la sucursal tomada del pedido seleccionado (solo lectura, no editable). */
   sucursalPedidoNombre = computed(() => {
     const id = this.selectedSucursalId();
@@ -209,6 +214,23 @@ export class OrdenesCompraComponent implements OnInit {
       error: (err) => {
         console.error('Error cargando sucursales:', err);
         this.sucursales.set([]);
+      }
+    });
+  }
+
+  /** Carga el catálogo de proveedores (vista Indigo) para el selector de la OC. */
+  loadProveedores(): void {
+    if (this.proveedores().length > 0) return; // ya cargados
+    this.isLoadingProveedores.set(true);
+    this.inventarioService.getProveedores().subscribe({
+      next: (res) => {
+        this.isLoadingProveedores.set(false);
+        this.proveedores.set(res.success && Array.isArray(res.data) ? res.data : []);
+      },
+      error: (err) => {
+        this.isLoadingProveedores.set(false);
+        console.error('Error cargando proveedores:', err);
+        this.proveedores.set([]);
       }
     });
   }
@@ -476,7 +498,9 @@ export class OrdenesCompraComponent implements OnInit {
     this.selectedItems.set([]);
     this.ocProductoSel.set(null);
     this.ocCantidad.set(null);
+    this.proveedorSeleccionado.set(null);
     this.sucursalHeredadaDelPedido.set(false);
+    this.loadProveedores();
     this.showCreateModal.set(true);
     if (pedidoPrefill) {
       this.newOrdenPedidoSelected.set(pedidoPrefill);
@@ -497,6 +521,8 @@ export class OrdenesCompraComponent implements OnInit {
     this.editingOrdenId.set(oc.id);
     this.newOrdenPedidoSelected.set(null);
     this.selectedItems.set([]);
+    this.proveedorSeleccionado.set(null);
+    this.loadProveedores();
     this.showCreateModal.set(true);
     this.isLoadingPedidoDetalle.set(true);
 
@@ -510,6 +536,12 @@ export class OrdenesCompraComponent implements OnInit {
             this.sucursalHeredadaDelPedido.set(true);
           } else {
             this.sucursalHeredadaDelPedido.set(false);
+          }
+          // Preseleccionar el proveedor de la OC (por nombre) si está en el catálogo.
+          const provNombre = (res.data as any).proveedor_nombre || (res.data as any).proveedor;
+          if (provNombre) {
+            const match = this.proveedores().find(p => p.nombre === provNombre);
+            this.proveedorSeleccionado.set(match ?? { nombre: provNombre, nit: '' });
           }
           const detalles = ((res.data.detalles as any[]) || []).map(d => ({
             ...d,
@@ -541,6 +573,7 @@ export class OrdenesCompraComponent implements OnInit {
     this.editingOrdenId.set(null);
     this.ocProductoSel.set(null);
     this.ocCantidad.set(null);
+    this.proveedorSeleccionado.set(null);
     this.sucursalHeredadaDelPedido.set(false);
   }
 
@@ -595,14 +628,39 @@ export class OrdenesCompraComponent implements OnInit {
       this.messageService.add({ severity: 'warn', summary: 'Cantidad inválida', detail: 'La cantidad a comprar debe ser mayor a 0.' });
       return;
     }
+
     const max = Number(prod.cantidad_solicitada ?? 0);
+    // Si se compra MÁS de lo solicitado, no se bloquea: se avisa y se pide confirmar
+    // (puede pasar que se compre por encima de lo pedido). Igual que el aviso de Indigo.
     if (max > 0 && cant > max) {
-      this.messageService.add({ severity: 'warn', summary: 'Cantidad excede lo solicitado', detail: `No puedes comprar más de ${max} (cantidad solicitada).` });
+      const exceso = cant - max;
+      this.confirmationService.confirm({
+        header: 'Compra por encima de lo solicitado',
+        message: `El producto <strong>${prod.producto_nombre}</strong> se solicitó por <strong>${max}</strong> y vas a comprar <strong>${cant}</strong> ` +
+                 `(<strong>${exceso}</strong> más de lo solicitado). ¿Deseas continuar?`,
+        icon: 'bi bi-exclamation-triangle text-warning',
+        acceptLabel: 'Sí, comprar de más',
+        rejectLabel: 'Ajustar cantidad',
+        acceptButtonStyleClass: 'p-button-warning',
+        rejectButtonStyleClass: 'p-button-text p-button-secondary',
+        accept: () => this.confirmarAgregarItem(prod, cant, true),
+      });
       return;
     }
-    // Agregar (o actualizar si ya estaba) el ítem con su cantidad a comprar.
-    const item = { ...prod, cantidad_a_comprar: cant };
+
+    this.confirmarAgregarItem(prod, cant, false);
+  }
+
+  /** Efectivamente agrega el ítem a la lista (marcando si excede lo solicitado). */
+  private confirmarAgregarItem(prod: any, cant: number, excedeSolicitado: boolean): void {
+    const item = { ...prod, cantidad_a_comprar: cant, excede_solicitado: excedeSolicitado };
     this.selectedItems.update(items => [...items, item]);
+    if (excedeSolicitado) {
+      this.messageService.add({
+        severity: 'info', summary: 'Producto agregado',
+        detail: `${prod.producto_nombre}: se comprarán ${cant} (por encima de lo solicitado).`
+      });
+    }
     // Limpiar el formulario para el siguiente.
     this.ocProductoSel.set(null);
     this.ocCantidad.set(null);
@@ -677,6 +735,7 @@ export class OrdenesCompraComponent implements OnInit {
       const payload = {
         sucursal_id: sucursalId,
         fecha_orden: new Date().toISOString().substring(0, 10),
+        proveedor_nombre: this.proveedorSeleccionado()?.nombre ?? null,
         detalles,
       };
       this.isCreating.set(true);
@@ -711,6 +770,7 @@ export class OrdenesCompraComponent implements OnInit {
       pedido_id: pedido.id,
       sucursal_id: sucursalId,
       fecha_orden: new Date().toISOString().substring(0, 10),
+      proveedor_nombre: this.proveedorSeleccionado()?.nombre ?? null,
       detalles,
     };
 

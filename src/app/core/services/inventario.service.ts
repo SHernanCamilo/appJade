@@ -88,6 +88,15 @@ export class InventarioService {
     return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/ordenes-compra/sucursales-disponibles`);
   }
 
+  // Proveedores desde la vista de Indigo (INDIGO026). Solo activos por defecto.
+  getProveedores(search?: string): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams().set('solo_activos', '1');
+    if (search && search.trim() !== '') {
+      params = params.set('search', search.trim());
+    }
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/ordenes-compra/proveedores`, { params });
+  }
+
   // Sincroniza desde Indigo hacia la sucursal indicada (para que el consecutivo/prefijo sea correcto).
   syncOrdenCompra(numeroOrden: string, sucursalId?: number): Observable<ApiResponse<OrdenCompra>> {
     const body: any = { numero_orden: numeroOrden };
