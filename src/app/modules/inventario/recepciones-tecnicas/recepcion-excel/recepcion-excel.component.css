@@ -150,3 +150,16 @@
 
 /* ─── Copy/paste visual feedback ──────────────────────────────────────────── */
 :host ::ng-deep .xl-grid .ag-cell-range-copy { border: 1px dashed #217346 !important; background-color: rgba(33, 115, 70, 0.05) !important; }
+
+/* ============================================================ */
+/* Filas desdobladas (fragmentos de un producto por CUM/Lote)   */
+/* Se muestran con un borde izquierdo y fondo tenue para        */
+/* distinguirlas visualmente del renglón original de la OC.     */
+/* ============================================================ */
+::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo {
+    background-color: #f0f7ff;
+    box-shadow: inset 3px 0 0 0 #3b82f6;
+}
+::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo .ag-cell {
+    font-style: italic;
+}

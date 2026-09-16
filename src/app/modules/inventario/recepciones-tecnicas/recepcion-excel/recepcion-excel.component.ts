@@ -75,6 +75,11 @@ interface RecepcionRow {
   pedido_detalle_id: number | null;
   recibido: boolean;
   proveedor?: string;
+  // ── Desdoblamiento por CUM/Lote ──
+  // _esHijo: fila creada al desdoblar un producto (mismo pedido_detalle_id).
+  // _uid: identificador único de fila (para reemplazos precisos en el grid).
+  _esHijo?: boolean;
+  _uid?: string;
 }
 
 const CUMPLE_VALUES = ['Cumple', 'No Cumple'];
@@ -274,6 +279,8 @@ export class RecepcionExcelComponent implements OnInit {
   };
 
   readonly gridOptions: GridOptions<RecepcionRow> = {
+    // Marca visualmente las filas desdobladas (fragmentos por CUM/Lote).
+    getRowClass: (params) => (params.data?._esHijo ? 'xl-row-hijo' : ''),
     singleClickEdit: true,
     stopEditingWhenCellsLoseFocus: true,
     enterNavigatesVertically: true,
@@ -369,7 +376,29 @@ export class RecepcionExcelComponent implements OnInit {
     },
     
     // ── Context menu ──
-    getContextMenuItems: () => [
+    getContextMenuItems: (params) => [
+      // ── Desdoblar por CUM/Lote ──────────────────────────────────
+      // Un renglón de la OC puede llegar fragmentado en varios CUM/lote
+      // (ej. 50 solicitadas → 25 de un CUM + 15 de otro + 10 de otro).
+      // "Desdoblar" clona la fila para capturar cada fragmento por separado,
+      // manteniendo la trazabilidad al mismo pedido_detalle_id.
+      {
+        name: 'Desdoblar producto (otro CUM/Lote)',
+        icon: '<i class="pi pi-clone"></i>',
+        disabled: this.soloLectura() || !params.node,
+        action: () => {
+          if (params.node?.data) this.desdoblarFila(params.node.data);
+        },
+      },
+      {
+        name: 'Quitar este desdoblamiento',
+        icon: '<i class="pi pi-trash"></i>',
+        disabled: this.soloLectura() || !params.node?.data?._esHijo,
+        action: () => {
+          if (params.node?.data) this.quitarDesdoblamiento(params.node.data);
+        },
+      },
+      'separator',
       {
         name: 'Copiar',
         shortcut: 'Ctrl+C',
@@ -756,17 +785,20 @@ export class RecepcionExcelComponent implements OnInit {
     if (field === 'cantidad_recibida') {
       let recibida = Math.floor(Number(event.newValue ?? 0));
       if (recibida < 0) recibida = 0;
-      // Regla: la cantidad recibida no puede superar la solicitada en la OC.
+      row.cantidad_recibida = recibida;
+
+      // Al desdoblar, se compara la SUMA de todas las filas del mismo renglón
+      // (mismo pedido_detalle_id + código) contra lo solicitado. Si el total
+      // supera lo pedido, se AVISA pero NO se bloquea (puede llegar de más).
       const maxSolic = Number(row.cantidad_solicitada ?? 0);
-      if (maxSolic > 0 && recibida > maxSolic) {
-        recibida = maxSolic;
+      const totalGrupo = this.totalRecibidoDelGrupo(row);
+      if (maxSolic > 0 && totalGrupo > maxSolic) {
         this.msg.add({
           severity: 'warn',
-          summary: 'Cantidad ajustada',
-          detail: `La cantidad recibida no puede superar la solicitada (${maxSolic}).`,
+          summary: 'Recibido por encima de lo solicitado',
+          detail: `El producto "${row.producto_nombre}" se solicitó por ${maxSolic} y ya suma ${totalGrupo} recibido entre sus lotes.`,
         });
       }
-      row.cantidad_recibida = recibida;
       // La muestra SIEMPRE se recalcula según la nueva cantidad a recibir.
       // Sin cantidad → celda de muestra vacía (no 0), para que el usuario complete.
       row.muestra_poblacion = recibida > 0
@@ -1304,6 +1336,115 @@ export class RecepcionExcelComponent implements OnInit {
     const colState = this.gridApi?.getColumnState();
     const isPinned = colState?.find(c => c.colId === colId)?.pinned;
     this.gridApi?.applyColumnState({ state: [{ colId, pinned: isPinned ? null : 'left' }] });
+  }
+
+  // ─── Desdoblamiento por CUM / Lote ──────────────────────────────────────────
+
+  /**
+   * Desdobla un renglón de la OC en una fila "hija" para capturar un fragmento
+   * que llegó con otro CUM / lote / vencimiento. La hija:
+   *   - hereda producto, código, tipo, cantidad solicitada y pedido_detalle_id;
+   *   - arranca con CUM/lote/cantidad recibida en blanco para que el usuario
+   *     los complete con el fragmento nuevo;
+   *   - se inserta inmediatamente debajo del padre para mantenerlas juntas.
+   *
+   * Al guardar, todas las filas (padre + hijas) del mismo pedido_detalle_id se
+   * envían como detalles de recepción independientes → trazabilidad completa.
+   */
+  private desdoblarFila(origen: RecepcionRow): void {
+    if (this.soloLectura()) {
+      this.msg.add({ severity: 'warn', summary: 'Solo lectura', detail: 'La recepción ya fue guardada; no se puede desdoblar.' });
+      return;
+    }
+
+    const hija: RecepcionRow = {
+      ...origen,
+      _esHijo: true,
+      _uid: this.nuevoUid(),
+      // Campos que cambian por fragmento: se dejan en blanco para capturarlos.
+      cum_recibido: '',
+      cum_producto_nombre: '',
+      numero_lote: '',
+      fecha_vencimiento: '',
+      estado_vencimiento: '',
+      cantidad_recibida: 0,
+      muestra_poblacion: null,
+      codigo_sanitario: '',
+      estado_invima: '',
+      _invimaValid: null,
+      _validatingInvima: false,
+      _semaforo: '',
+      concepto_recepcion: '',
+      recibido: true,
+    };
+
+    // Asegurar que el origen tenga uid (para ubicarlo) y marcar el grupo.
+    if (!origen._uid) origen._uid = this.nuevoUid();
+
+    // Insertar la hija justo debajo del origen (o del último hijo del mismo producto).
+    const idxOrigen = this.rowData.findIndex(r => r === origen);
+    let insertIdx = idxOrigen + 1;
+    // Saltar las hijas que ya existan de este mismo pedido_detalle_id.
+    while (
+      insertIdx < this.rowData.length &&
+      this.rowData[insertIdx]._esHijo &&
+      this.rowData[insertIdx].pedido_detalle_id === origen.pedido_detalle_id &&
+      this.rowData[insertIdx].codigo_producto === origen.codigo_producto
+    ) {
+      insertIdx++;
+    }
+
+    this.rowData.splice(insertIdx, 0, hija);
+    this.gridApi?.setGridOption('rowData', [...this.rowData]);
+    this.recalcTotals();
+
+    this.msg.add({
+      severity: 'success',
+      summary: 'Producto desdoblado',
+      detail: `Se agregó una línea para "${origen.producto_nombre}". Ingrese el CUM, lote y cantidad del nuevo fragmento.`,
+    });
+
+    // Enfocar la celda de CUM de la nueva fila para que el usuario empiece a capturar.
+    setTimeout(() => {
+      const idx = this.rowData.findIndex(r => r === hija);
+      if (idx >= 0) {
+        this.gridApi?.ensureIndexVisible(idx);
+        this.gridApi?.setFocusedCell(idx, 'cum_recibido');
+      }
+    }, 50);
+  }
+
+  /** Elimina una fila hija de desdoblamiento (solo las hijas, nunca el original). */
+  private quitarDesdoblamiento(fila: RecepcionRow): void {
+    if (!fila._esHijo) {
+      this.msg.add({ severity: 'warn', summary: 'No permitido', detail: 'Solo se pueden quitar las líneas desdobladas, no el producto original.' });
+      return;
+    }
+    const idx = this.rowData.findIndex(r => r === fila);
+    if (idx >= 0) {
+      this.rowData.splice(idx, 1);
+      this.gridApi?.setGridOption('rowData', [...this.rowData]);
+      this.recalcTotals();
+      this.msg.add({ severity: 'info', summary: 'Línea eliminada', detail: 'Se quitó el desdoblamiento.' });
+    }
+  }
+
+  /** Genera un id único de fila (para ubicar filas al desdoblar). */
+  private nuevoUid(): string {
+    return 'row_' + Math.random().toString(36).slice(2, 10);
+  }
+
+  /**
+   * Suma la cantidad recibida de TODAS las filas del mismo renglón de la OC
+   * (mismo pedido_detalle_id + código de producto), incluyendo sus desdoblamientos.
+   */
+  private totalRecibidoDelGrupo(row: RecepcionRow): number {
+    return this.rowData
+      .filter(r =>
+        r.codigo_producto === row.codigo_producto &&
+        r.pedido_detalle_id === row.pedido_detalle_id
+      )
+      .reduce((acc, r) => acc + (Number(r.cantidad_recibida) || 0), 0);
   }
 
   // ─── Guardar ──────────────────────────────────────────────────────────────
