@@ -315,6 +315,9 @@ export class RecepcionExcelComponent implements OnInit {
 
   readonly gridOptions: GridOptions<RecepcionRow> = {
     // Marca visualmente las filas desdobladas (fragmentos por CUM/Lote).
+    // Identidad estable de cada fila: permite que AG Grid ANIME la aparición
+    // y desaparición de fragmentos al plegar/desplegar en vez de repintar todo.
+    getRowId: (params) => String(params.data._uid ?? `${params.data.pedido_detalle_id}-${params.data.codigo_producto}`),
     getRowClass: (params) => {
       const row = params.data;
       if (!row) return '';
@@ -332,7 +335,7 @@ export class RecepcionExcelComponent implements OnInit {
     rowHeight: 21,
     headerHeight: 21,
     groupHeaderHeight: 21,
-    animateRows: false,
+    animateRows: true,
     suppressCellFocus: false,
     rowSelection: 'multiple',
     suppressRowClickSelection: false,
@@ -534,10 +537,10 @@ export class RecepcionExcelComponent implements OnInit {
         // Padre con fragmentos → chevron abrir/cerrar con contador.
         if (this.esPadreConHijos(row)) {
           const abierto = row._expandido !== false;
-          const icon = abierto ? 'pi-chevron-down' : 'pi-chevron-right';
           const n = this.contarHijos(row);
-          return `<span class="xl-grp-toggle" title="${abierto ? 'Contraer' : 'Expandir'} fragmentos">`
-            + `<i class="pi ${icon}"></i><span class="xl-grp-badge">${n}</span></span>`;
+          // Siempre el mismo icono; la rotación (0°/90°) la anima el CSS.
+          return `<span class="xl-grp-toggle ${abierto ? 'is-open' : ''}" title="${abierto ? 'Contraer' : 'Expandir'} fragmentos">`
+            + `<i class="pi pi-chevron-right"></i><span class="xl-grp-badge">${n}</span></span>`;
         }
         // Fragmento (hijo) → marca visual de rama.
         if (row._esHijo) return `<span class="xl-grp-child">└</span>`;
@@ -658,7 +661,12 @@ export class RecepcionExcelComponent implements OnInit {
           } as RecepcionRow;
         });
         this.rowData = items;
-        this.displayRows = [...items];
+        // Asegurar identidad estable de cada fila (para animar filas en el grid).
+        this.rowData.forEach(r => { if (!r._uid) r._uid = this.nuevoUid(); });
+        // Reconstruir grupos de fragmentos (mismo pedido_detalle_id) que vengan
+        // de una recepción previa y dejarlos PLEGADOS por defecto.
+        this.agruparFragmentosCargados();
+        this.refreshDisplayRows();
         // La hoja SOLO se bloquea por completo cuando el Jefe de Almacén CONFIRMA
         // la recepción. Mientras es parcial ('RECEPCIONADO'), se sigue recepcionando
         // lo que falta; los productos ya recibidos quedan bloqueados individualmente.
@@ -1550,6 +1558,37 @@ export class RecepcionExcelComponent implements OnInit {
     if (!this.esPadreConHijos(row)) return;
     row._expandido = row._expandido === false ? true : false;
     this.refreshDisplayRows();
+  }
+
+  /**
+   * Al cargar datos: agrupa las filas que comparten pedido_detalle_id (fragmentos
+   * de un desdoblamiento previo). La primera queda como padre y las demás como
+   * hijos del mismo grupo. Todos los grupos arrancan PLEGADOS.
+   */
+  private agruparFragmentosCargados(): void {
+    const porDetalle = new Map<number, RecepcionRow[]>();
+    for (const r of this.rowData) {
+      // Ignorar filas creadas en esta sesión (ya tienen grupo) y sin detalle.
+      if (r.pedido_detalle_id == null) continue;
+      const arr = porDetalle.get(r.pedido_detalle_id) ?? [];
+      arr.push(r);
+      porDetalle.set(r.pedido_detalle_id, arr);
+    }
+    for (const filas of porDetalle.values()) {
+      if (filas.length < 2) continue; // sin fragmentos, no es un grupo
+      const grupoId = this.nuevoUid();
+      filas.forEach((r, i) => {
+        r._grupoId = grupoId;
+        r._uid = r._uid || this.nuevoUid();
+        if (i === 0) {
+          r._esHijo = false;
+          r._expandido = false; // plegado por defecto
+        } else {
+          r._esHijo = true;
+          r._expandido = undefined;
+        }
+      });
+    }
   }
 
   /**

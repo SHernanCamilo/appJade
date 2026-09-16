@@ -164,6 +164,20 @@
     font-style: italic;
 }
 
+/* Animación suave al mostrar los fragmentos (aparecen al expandir). */
+::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo {
+    animation: xlRowIn 0.22s ease both;
+}
+@keyframes xlRowIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+/* Respeta usuarios que prefieren menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+    ::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo { animation: none; }
+    ::ng-deep .xl-grp-toggle .pi { transition: none; }
+}
+
 /* ============================================================ */
 /* Agrupación plegable tipo "folio": chevron ▸/▾ en el padre,    */
 /* contador de fragmentos y marca de rama en los hijos.          */
@@ -189,6 +203,12 @@
 ::ng-deep .xl-grp-toggle .pi {
     font-size: 0.7rem;
     font-weight: 700;
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+}
+/* Chevron rotado (▾) cuando el grupo está abierto */
+::ng-deep .xl-grp-toggle.is-open .pi {
+    transform: rotate(90deg);
 }
 ::ng-deep .xl-grp-badge {
     display: inline-flex;
