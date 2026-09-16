@@ -31,6 +31,7 @@ import {
   FormulaCommitEvent,
   RIBBON_RECEPCION,
   DateCellEditorComponent,
+  RibbonTab,
 } from '../../../../complements/shared/excel-sheet';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -179,6 +180,10 @@ export class RecepcionExcelComponent implements OnInit {
   private readonly totalItems = signal(0);
   private readonly totalRecibidos = signal(0);
   private readonly totalRechazados = signal(0);
+  // ¿Hay al menos un producto desdoblado? (para mostrar los botones de la cinta)
+  readonly hayGrupos = signal(false);
+  // ¿Todos los grupos están expandidos? (para el estado del botón toggle)
+  readonly todosExpandidos = signal(false);
   private readonly totalPendientes = computed(() => this.totalItems() - this.totalRecibidos());
 
   // ── Cell info para la barra de fórmulas ──
@@ -191,6 +196,34 @@ export class RecepcionExcelComponent implements OnInit {
   // ── Font state (applied via CSS variable on the grid container) ──
   readonly gridFontFamily = signal('Calibri');
   readonly gridBaseFontSize = signal(11); // px, independent of zoom
+
+  // ── Cinta (ribbon): se agrega el grupo "Desdoblamiento" solo cuando hay grupos ──
+  readonly ribbonTabsRecepcion = computed<RibbonTab[]>(() => {
+    if (!this.hayGrupos()) return RIBBON_RECEPCION;
+    const abierto = this.todosExpandidos();
+    // Clonar sin mutar el preset compartido e insertar el grupo en la pestaña "Inicio".
+    return RIBBON_RECEPCION.map(tab => {
+      if (tab.id !== 'inicio') return tab;
+      return {
+        ...tab,
+        groups: [
+          ...tab.groups.filter(g => !g.grow), // grupos normales
+          {
+            title: 'Desdoblamiento',
+            items: [
+              {
+                type: 'button', id: 'toggle-all-groups', size: 'lg',
+                label: abierto ? 'Contraer\ntodo' : 'Expandir\ntodo',
+                icon: abierto ? 'pi pi-angle-double-up' : 'pi pi-angle-double-down',
+                tooltip: abierto ? 'Contraer todos los fragmentos' : 'Expandir todos los fragmentos',
+              },
+            ],
+          },
+          ...tab.groups.filter(g => g.grow), // el grupo "grow" (leyenda) al final
+        ],
+      };
+    });
+  });
 
   // ── ExcelSheetConfig: se recalcula cuando cambian los datos ──
   readonly excelConfig = computed<ExcelSheetConfig>(() => ({
@@ -216,7 +249,7 @@ export class RecepcionExcelComponent implements OnInit {
         { label: 'Cerrar', icon: 'pi pi-times', action: 'close' },
       ],
     },
-    ribbonTabs: RIBBON_RECEPCION,
+    ribbonTabs: this.ribbonTabsRecepcion(),
     sheets: [{ id: 'recepcion', label: 'Recepción', active: true }],
     statusBar: {
       readyText: 'Listo',
@@ -844,6 +877,12 @@ export class RecepcionExcelComponent implements OnInit {
       return;
     }
     switch (event.actionId) {
+      case 'toggle-all-groups':
+        // Expandir/contraer todos los fragmentos de una sola vez.
+        if (this.todosExpandidos()) this.contraerTodos();
+        else this.expandirTodos();
+        break;
+
       case 'select-all':
         // Volver a colocar: marca recibido, cantidad = solicitada y recalcula muestra.
         this.rowData.forEach(r => {
@@ -1551,6 +1590,23 @@ export class RecepcionExcelComponent implements OnInit {
     });
     this.gridApi?.setGridOption('rowData', [...this.displayRows]);
     this.gridApi?.refreshCells({ force: true });
+
+    // Actualizar estado de la cinta (mostrar/ocultar y etiqueta del botón).
+    const padres = [...padrePorGrupo.values()].filter(p => this.contarHijos(p) > 0);
+    this.hayGrupos.set(padres.length > 0);
+    this.todosExpandidos.set(padres.length > 0 && padres.every(p => p._expandido !== false));
+  }
+
+  /** Expande todos los grupos de desdoblamiento (botón de la cinta). */
+  expandirTodos(): void {
+    this.rowData.forEach(r => { if (!r._esHijo && r._grupoId) r._expandido = true; });
+    this.refreshDisplayRows();
+  }
+
+  /** Contrae todos los grupos de desdoblamiento (botón de la cinta). */
+  contraerTodos(): void {
+    this.rowData.forEach(r => { if (!r._esHijo && r._grupoId) r._expandido = false; });
+    this.refreshDisplayRows();
   }
 
   /** Pliega/despliega el grupo de un padre (chevron ▸/▾). */
