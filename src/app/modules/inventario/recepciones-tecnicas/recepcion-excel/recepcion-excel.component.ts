@@ -575,13 +575,16 @@ export class RecepcionExcelComponent implements OnInit {
           return `<span class="xl-grp-toggle ${abierto ? 'is-open' : ''}" title="${abierto ? 'Contraer' : 'Expandir'} fragmentos">`
             + `<i class="pi pi-chevron-right"></i><span class="xl-grp-badge">${n}</span></span>`;
         }
-        // Fragmento (hijo) → marca visual de rama.
-        if (row._esHijo) return `<span class="xl-grp-child">└</span>`;
+        // Fragmento (hijo): la rama la dibuja el CSS (borde-guía). Celda vacía.
         return '';
       },
       onCellClicked: (p: any) => {
         const row = p.data as RecepcionRow;
-        if (row && this.esPadreConHijos(row)) this.toggleGrupo(row);
+        if (row && this.esPadreConHijos(row)) {
+          // Evitar que el clic del chevron seleccione la fila (se pintaría verde).
+          p.node?.setSelected(false);
+          this.toggleGrupo(row);
+        }
       },
     },
     ...this.dataColumns.map((col, i) => {
