@@ -22,9 +22,33 @@
     [gridOptions]="gridOptions"
     [localeText]="localeText"
     [tooltipShowDelay]="500"
+    (contextmenu)="onContextMenu($event)"
     (gridReady)="onGridReady($event)"
     (cellFocused)="onCellFocused($event)"
     (cellValueChanged)="onCellValueChanged($event)">
   </ag-grid-angular>
 
 </app-excel-sheet>
+
+<!-- ═══════════ Menú contextual propio (clic derecho sobre un producto) ═══════════ -->
+<!-- AG Grid Community no trae menú contextual; este es un menú ligero propio. -->
+<div *ngIf="ctxMenu().visible"
+     class="rt-ctx-backdrop"
+     (click)="cerrarCtxMenu()"
+     (contextmenu)="$event.preventDefault(); cerrarCtxMenu()">
+  <ul class="rt-ctx-menu"
+      [style.left.px]="ctxMenu().x"
+      [style.top.px]="ctxMenu().y"
+      (click)="$event.stopPropagation()">
+    <li class="rt-ctx-item"
+        [class.rt-ctx-disabled]="!puedeDesdoblar"
+        (click)="puedeDesdoblar && desdoblarDesdeMenu()">
+      <i class="pi pi-clone"></i> Desdoblar producto (otro CUM/Lote)
+    </li>
+    <li class="rt-ctx-item"
+        [class.rt-ctx-disabled]="!puedeQuitarDesdoblamiento"
+        (click)="puedeQuitarDesdoblamiento && quitarDesdeMenu()">
+      <i class="pi pi-trash"></i> Quitar este desdoblamiento
+    </li>
+  </ul>
+</div>

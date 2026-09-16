@@ -149,6 +149,14 @@ export class InventarioService {
     return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/recepciones/${id}/confirmar`, {});
   }
 
+  /**
+   * Finaliza/confirma la recepción técnica de una OC (acción del Jefe de Almacén).
+   * Requiere el permiso 'confirmar-recepcion' (validado en el backend).
+   */
+  confirmarRecepcionTecnica(compraId: number | string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/recepciones/${compraId}/confirmar-tecnica`, {});
+  }
+
   // ==========================================
   // PRODUCTOS (GRAPH-FABRIC / LOCAL)
   // ==========================================

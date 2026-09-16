@@ -23,6 +23,7 @@
         *ngFor="let btn of config.title.secondaryActions"
         type="button"
         class="xl-tb-btn"
+        [disabled]="btn.disabled"
         (click)="onSecondaryAction(btn.action)">
         <i [class]="btn.icon || 'pi pi-times'"></i>
         <span>{{ btn.label }}</span>

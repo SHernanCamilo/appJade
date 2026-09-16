@@ -163,3 +163,51 @@
 ::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo .ag-cell {
     font-style: italic;
 }
+
+/* ============================================================ */
+/* Menú contextual propio (clic derecho) — reemplaza el menú     */
+/* Enterprise de AG Grid que no está disponible en Community.    */
+/* ============================================================ */
+.rt-ctx-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+}
+.rt-ctx-menu {
+    position: fixed;
+    min-width: 250px;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+    font-size: 0.82rem;
+}
+.rt-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    color: #334155;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.rt-ctx-item:hover {
+    background: #eff6ff;
+    color: #1e40af;
+}
+.rt-ctx-item i {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+.rt-ctx-item:hover i {
+    color: #2563eb;
+}
+.rt-ctx-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}

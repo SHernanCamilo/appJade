@@ -19,6 +19,7 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { InventarioService } from '../../../../core/services/inventario.service';
+import { PermissionService } from '../../../../core/services/permission.service';
 import { AG_GRID_LOCALE } from '../../../../core/config/ag-grid.config';
 
 // ── Excel Sheet shared component ──
@@ -80,6 +81,9 @@ interface RecepcionRow {
   // _uid: identificador único de fila (para reemplazos precisos en el grid).
   _esHijo?: boolean;
   _uid?: string;
+  // _yaRecepcionado: este producto ya fue recibido en una recepción previa parcial;
+  // queda bloqueado individualmente (no se re-recepciona) aunque la hoja siga editable.
+  _yaRecepcionado?: boolean;
 }
 
 const CUMPLE_VALUES = ['Cumple', 'No Cumple'];
@@ -145,13 +149,27 @@ export class RecepcionExcelComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly inventarioService = inject(InventarioService);
+  private readonly permissionService = inject(PermissionService);
   private readonly msg = inject(MessageService);
   private readonly confirm = inject(ConfirmationService);
 
+  /** ¿El usuario puede confirmar/finalizar la recepción? (Jefe de Almacén). */
+  get puedeConfirmarRecepcion(): boolean {
+    return this.permissionService.hasPermission('confirmar-recepcion');
+  }
+
+  readonly isConfirming = signal(false);
+
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
-  // Solo lectura: la OC ya tiene una recepción técnica guardada (no se puede modificar).
+  // Solo lectura: la recepción fue CONFIRMADA por el Jefe de Almacén (no se modifica).
   readonly soloLectura = signal(false);
+
+  // ── Menú contextual propio (clic derecho sobre una fila) ──
+  // AG Grid Community no soporta getContextMenuItems; se usa un menú custom.
+  readonly ctxMenu = signal<{ visible: boolean; x: number; y: number; row: RecepcionRow | null }>({
+    visible: false, x: 0, y: 0, row: null,
+  });
 
   // ── Contadores ──
   private readonly totalItems = signal(0);
@@ -182,7 +200,17 @@ export class RecepcionExcelComponent implements OnInit {
         disabled: this.soloLectura() || this.totalRecibidos() === 0,
         loading: this.isSaving(),
       },
-      secondaryActions: [{ label: 'Cerrar', icon: 'pi pi-times', action: 'close' }],
+      secondaryActions: [
+        ...(this.puedeConfirmarRecepcion && !this.soloLectura()
+          ? [{
+              label: this.isConfirming() ? 'Confirmando…' : 'Confirmar recepción',
+              icon: 'pi pi-check-circle',
+              action: 'confirmar-tecnica',
+              disabled: this.isConfirming() || this.totalRecibidos() === 0,
+            }]
+          : []),
+        { label: 'Cerrar', icon: 'pi pi-times', action: 'close' },
+      ],
     },
     ribbonTabs: RIBBON_RECEPCION,
     sheets: [{ id: 'recepcion', label: 'Recepción', active: true }],
@@ -375,82 +403,9 @@ export class RecepcionExcelComponent implements OnInit {
       return { rowIndex: nextRowIndex, column: nextColumn, rowPinned: prev.rowPinned };
     },
     
-    // ── Context menu ──
-    getContextMenuItems: (params) => [
-      // ── Desdoblar por CUM/Lote ──────────────────────────────────
-      // Un renglón de la OC puede llegar fragmentado en varios CUM/lote
-      // (ej. 50 solicitadas → 25 de un CUM + 15 de otro + 10 de otro).
-      // "Desdoblar" clona la fila para capturar cada fragmento por separado,
-      // manteniendo la trazabilidad al mismo pedido_detalle_id.
-      {
-        name: 'Desdoblar producto (otro CUM/Lote)',
-        icon: '<i class="pi pi-clone"></i>',
-        disabled: this.soloLectura() || !params.node,
-        action: () => {
-          if (params.node?.data) this.desdoblarFila(params.node.data);
-        },
-      },
-      {
-        name: 'Quitar este desdoblamiento',
-        icon: '<i class="pi pi-trash"></i>',
-        disabled: this.soloLectura() || !params.node?.data?._esHijo,
-        action: () => {
-          if (params.node?.data) this.quitarDesdoblamiento(params.node.data);
-        },
-      },
-      'separator',
-      {
-        name: 'Copiar',
-        shortcut: 'Ctrl+C',
-        icon: '<i class="pi pi-copy"></i>',
-        action: () => {
-          this.gridApi?.copySelectedRangeToClipboard();
-          this.msg.add({ severity: 'success', summary: 'Copiado', detail: 'Datos copiados.' });
-        },
-      },
-      {
-        name: 'Copiar con encabezados',
-        icon: '<i class="pi pi-copy"></i>',
-        action: () => {
-          this.gridApi?.copySelectedRangeToClipboard({ includeHeaders: true });
-          this.msg.add({ severity: 'success', summary: 'Copiado', detail: 'Datos con encabezados copiados.' });
-        },
-      },
-      {
-        name: 'Pegar',
-        shortcut: 'Ctrl+V',
-        icon: '<i class="pi pi-clipboard"></i>',
-        action: () => {
-          this.msg.add({ severity: 'info', summary: 'Pegar', detail: 'Usa Ctrl+V para pegar.' });
-        },
-      },
-      'separator',
-      {
-        name: 'Exportar',
-        icon: '<i class="pi pi-download"></i>',
-        action: () => {
-          this.gridApi?.exportDataAsCsv({ fileName: `recepcion_${this.ordenInfo()?.numero ?? this.compraId}.csv` });
-          this.msg.add({ severity: 'success', summary: 'Exportado', detail: 'CSV descargado.' });
-        },
-      },
-      'separator',
-      {
-        name: 'Ajustar columnas',
-        icon: '<i class="pi pi-arrows-h"></i>',
-        action: () => {
-          this.gridApi?.autoSizeAllColumns();
-          this.msg.add({ severity: 'success', summary: 'Ajustado', detail: 'Columnas ajustadas.' });
-        },
-      },
-      {
-        name: 'Limpiar filtros',
-        icon: '<i class="pi pi-filter-slash"></i>',
-        action: () => {
-          this.gridApi?.setFilterModel(null);
-          this.msg.add({ severity: 'success', summary: 'Filtros', detail: 'Filtros limpiados.' });
-        },
-      },
-    ],
+    // NOTA: getContextMenuItems es feature de AG Grid ENTERPRISE. El proyecto usa
+    // ag-grid-community, así que el menú "Desdoblar" se implementa con el evento
+    // nativo (contextmenu) del contenedor + un menú propio (ver onContextMenu()).
   };
 
   private readonly dataColumns: ColDef<RecepcionRow>[] = [
@@ -659,18 +614,30 @@ export class RecepcionExcelComponent implements OnInit {
             _semaforo: '',
             pedido_detalle_id: item.pedido_detalle_id ?? null,
             recibido: true,
+            // Si ya venía recepcionado en una recepción previa (parcial), se bloquea
+            // esta fila para no re-recepcionarla; el resto sigue editable.
+            _yaRecepcionado: Boolean(item.tiene_recepcion_previa),
           } as RecepcionRow;
         });
         this.rowData = items;
-        // Si algún ítem trae recepción previa, la OC ya fue recepcionada → solo lectura.
-        const yaRecepcionada = (Array.isArray(res.data) ? res.data : []).some((it: any) => it?.tiene_recepcion_previa);
-        this.soloLectura.set(yaRecepcionada);
-        if (yaRecepcionada) {
+        // La hoja SOLO se bloquea por completo cuando el Jefe de Almacén CONFIRMA
+        // la recepción. Mientras es parcial ('RECEPCIONADO'), se sigue recepcionando
+        // lo que falta; los productos ya recibidos quedan bloqueados individualmente.
+        const confirmada = Boolean(res.recepcion_confirmada);
+        this.soloLectura.set(confirmada);
+        if (confirmada) {
           this.msg.add({
             severity: 'info',
-            summary: 'Recepción ya realizada',
-            detail: 'Esta orden ya tiene una recepción técnica guardada. Los datos son de solo lectura.',
+            summary: 'Recepción confirmada',
+            detail: 'Esta recepción ya fue confirmada por el Jefe de Almacén. Los datos son de solo lectura.',
             life: 6000,
+          });
+        } else if ((Array.isArray(res.data) ? res.data : []).some((it: any) => it?.tiene_recepcion_previa)) {
+          this.msg.add({
+            severity: 'info',
+            summary: 'Recepción parcial',
+            detail: 'Esta orden ya tiene productos recepcionados. Puedes seguir recepcionando los que faltan.',
+            life: 5000,
           });
         }
         items.forEach(r => { if (r.fecha_vencimiento) this.calcularSemaforo(r); });
@@ -818,6 +785,7 @@ export class RecepcionExcelComponent implements OnInit {
 
   onSecondaryAction(action: string): void {
     if (action === 'close') { window.opener ? window.close() : this.router.navigate(['/inventario/farmacia/recepcionTecnica']); }
+    if (action === 'confirmar-tecnica') { this.confirmarRecepcionTecnica(); }
   }
 
   onRibbonAction(event: RibbonActionEvent): void {
@@ -1014,8 +982,13 @@ export class RecepcionExcelComponent implements OnInit {
     const row = params.data;
     if (!field || !row) return false;
 
-    // Recepción ya guardada: todo es de solo lectura.
+    // Recepción CONFIRMADA por el Jefe de Almacén: toda la hoja es de solo lectura.
     if (this.soloLectura()) return false;
+
+    // Producto ya recepcionado en una recepción parcial previa: bloqueado
+    // individualmente (no se re-recepciona), pero el resto de la hoja sí es editable.
+    // Las filas hijas (desdoblamiento) del mismo producto sí se editan.
+    if (row._yaRecepcionado && !row._esHijo) return false;
 
     const locked = new Set([
       'codigo_producto', 'producto_nombre', 'tipo_producto', 'forma_farmaceutica', 'concentracion',
@@ -1338,6 +1311,55 @@ export class RecepcionExcelComponent implements OnInit {
     this.gridApi?.applyColumnState({ state: [{ colId, pinned: isPinned ? null : 'left' }] });
   }
 
+  // ─── Menú contextual propio (clic derecho) ─────────────────────────────────
+
+  /**
+   * Clic derecho sobre el grid: abre el menú propio de la hoja (Desdoblar / Quitar)
+   * en vez del menú del navegador. Detecta la fila bajo el cursor por el DOM de AG Grid.
+   */
+  onContextMenu(event: MouseEvent): void {
+    // Ubicar la fila de AG Grid bajo el cursor (atributo row-index).
+    const rowEl = (event.target as HTMLElement)?.closest('.ag-row') as HTMLElement | null;
+    if (!rowEl) return; // clic fuera de una fila → dejar el menú nativo
+
+    event.preventDefault();
+    const rowIndex = Number(rowEl.getAttribute('row-index'));
+    const node = Number.isFinite(rowIndex) ? this.gridApi?.getDisplayedRowAtIndex(rowIndex) : undefined;
+    const row = node?.data ?? null;
+    if (!row) return;
+
+    this.ctxMenu.set({ visible: true, x: event.clientX, y: event.clientY, row });
+  }
+
+  /** Cierra el menú contextual (al hacer clic fuera o elegir una opción). */
+  cerrarCtxMenu(): void {
+    if (this.ctxMenu().visible) this.ctxMenu.set({ visible: false, x: 0, y: 0, row: null });
+  }
+
+  /** ¿La fila del menú permite desdoblarse? (hoja editable y hay fila). */
+  get puedeDesdoblar(): boolean {
+    return !this.soloLectura() && !!this.ctxMenu().row;
+  }
+
+  /** ¿La fila del menú es un desdoblamiento que se puede quitar? */
+  get puedeQuitarDesdoblamiento(): boolean {
+    return !this.soloLectura() && !!this.ctxMenu().row?._esHijo;
+  }
+
+  /** Acción del menú: desdoblar la fila seleccionada. */
+  desdoblarDesdeMenu(): void {
+    const row = this.ctxMenu().row;
+    this.cerrarCtxMenu();
+    if (row) this.desdoblarFila(row);
+  }
+
+  /** Acción del menú: quitar el desdoblamiento seleccionado. */
+  quitarDesdeMenu(): void {
+    const row = this.ctxMenu().row;
+    this.cerrarCtxMenu();
+    if (row) this.quitarDesdoblamiento(row);
+  }
+
   // ─── Desdoblamiento por CUM / Lote ──────────────────────────────────────────
 
   /**
@@ -1455,8 +1477,12 @@ export class RecepcionExcelComponent implements OnInit {
       return;
     }
     this.gridApi?.stopEditing();
-    const items = this.rowData.filter(r => r.recibido && r.cantidad_recibida > 0);
-    if (items.length === 0) { this.msg.add({ severity: 'warn', summary: 'Sin datos', detail: 'Marque al menos un producto como recibido.' }); return; }
+    // Solo se envían los productos recibidos que AÚN no estaban recepcionados
+    // (las filas hijas del desdoblamiento sí van, aunque el padre ya esté recibido).
+    const items = this.rowData.filter(r =>
+      r.recibido && r.cantidad_recibida > 0 && (!r._yaRecepcionado || r._esHijo)
+    );
+    if (items.length === 0) { this.msg.add({ severity: 'warn', summary: 'Sin datos', detail: 'Marque al menos un producto nuevo como recibido.' }); return; }
     const incompletos = items.filter(i => !i.numero_lote || !i.fecha_vencimiento || !i.concepto_recepcion);
     if (incompletos.length > 0) { this.msg.add({ severity: 'warn', summary: 'Campos faltantes', detail: `${incompletos.length} producto(s) sin Lote, Vencimiento o Concepto.` }); return; }
 
@@ -1505,11 +1531,74 @@ export class RecepcionExcelComponent implements OnInit {
       next: (res: any) => {
         this.isSaving.set(false);
         if (res.success) {
-          this.msg.add({ severity: 'success', summary: 'Guardado', detail: res.message || 'Recepción guardada.' });
-          setTimeout(() => { window.opener ? window.close() : this.router.navigate(['/inventario/farmacia/recepcionTecnica']); }, 1500);
+          this.msg.add({
+            severity: 'success', summary: 'Recepción guardada',
+            detail: (res.message || 'Productos recepcionados.') + ' Puedes seguir recepcionando o confirmar cuando termines.',
+          });
+          // Recarga: los productos guardados quedan bloqueados y se puede seguir
+          // recepcionando los que faltan (recepción parcial/incremental).
+          this.loadData();
         } else { this.msg.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo guardar.' }); }
       },
       error: (err: any) => { this.isSaving.set(false); this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Error de conexión.' }); },
+    });
+  }
+
+  // ─── Confirmar / finalizar recepción (Jefe de Almacén) ──────────────────────
+
+  /**
+   * Finaliza la recepción técnica de toda la OC. Acción del Jefe de Almacén
+   * (requiere permiso 'confirmar-recepcion'). Deja la recepción de solo lectura
+   * y marca la OC como recibida.
+   */
+  confirmarRecepcionTecnica(): void {
+    if (!this.puedeConfirmarRecepcion) {
+      this.msg.add({ severity: 'warn', summary: 'Sin permiso', detail: 'Solo el Jefe de Almacén puede confirmar la recepción técnica.' });
+      return;
+    }
+    if (this.soloLectura()) {
+      this.msg.add({ severity: 'info', summary: 'Ya confirmada', detail: 'Esta recepción ya fue confirmada.' });
+      return;
+    }
+    // Debe existir al menos un producto ya recepcionado (guardado).
+    const hayRecibidos = this.rowData.some(r => r._yaRecepcionado);
+    if (!hayRecibidos) {
+      this.msg.add({ severity: 'warn', summary: 'Sin productos', detail: 'Guarde al menos un producto recepcionado antes de confirmar.' });
+      return;
+    }
+
+    const pendientes = this.rowData.filter(r => !r._yaRecepcionado && !r._esHijo).length;
+    const mensaje = pendientes > 0
+      ? `Aún hay <strong>${pendientes}</strong> producto(s) sin recepcionar. Si confirmas ahora, la recepción se dará por finalizada y no se podrá modificar. ¿Continuar?`
+      : '¿Confirmar y finalizar la recepción técnica? La orden se marcará como recibida y no se podrá modificar.';
+
+    this.confirm.confirm({
+      header: 'Confirmar recepción técnica',
+      message: mensaje,
+      icon: 'pi pi-check-circle',
+      acceptLabel: 'Sí, confirmar',
+      rejectLabel: 'Cancelar',
+      accept: () => {
+        this.isConfirming.set(true);
+        this.inventarioService.confirmarRecepcionTecnica(this.compraId).subscribe({
+          next: (res: any) => {
+            this.isConfirming.set(false);
+            if (res.success) {
+              this.msg.add({ severity: 'success', summary: 'Recepción confirmada', detail: res.message || 'Recepción finalizada.' });
+              setTimeout(() => { window.opener ? window.close() : this.router.navigate(['/inventario/farmacia/recepcionTecnica']); }, 1500);
+            } else {
+              this.msg.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo confirmar.' });
+            }
+          },
+          error: (err: any) => {
+            this.isConfirming.set(false);
+            const msg = err?.status === 403
+              ? 'No tienes permiso para confirmar la recepción técnica.'
+              : (err?.error?.message || 'Error al confirmar la recepción.');
+            this.msg.add({ severity: 'error', summary: 'Error', detail: msg });
+          },
+        });
+      },
     });
   }
 }
