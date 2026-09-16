@@ -81,6 +81,19 @@ interface ParquetHistoryEntry {
 
 type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
 
+/** Estado en vivo de una regeneracion forzada (boton del rayo). */
+interface RefreshJob {
+  key: string;                 // "schema.view"
+  view: string;
+  jobId: string | null;
+  phase: 'starting' | 'running' | 'done' | 'failed';
+  progress: number;            // 0-100
+  stage: string;               // texto que reporta Graph-Fabric
+  rows: number;
+  startedAt: number;           // epoch ms, para calcular transcurrido y detectar congelamiento
+  message?: string;
+}
+
 @Component({
   selector: 'app-cron-parquet',
   standalone: true,
@@ -119,6 +132,11 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   readonly historyLoading  = signal(false);
   readonly historyEntries  = signal<ParquetHistoryEntry[]>([]);
   readonly historyView     = signal<{ schema: string; view: string } | null>(null);
+
+  // Seguimiento del "rayo" (force refresh) por vista: muestra loader + trazabilidad
+  // en vivo mientras Graph-Fabric regenera, y avisa si termina o falla/se congela.
+  readonly refreshJobs = signal<Record<string, RefreshJob>>({});
+  private refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
   private autoTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -204,6 +222,9 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoRefresh();
+    // Cortar cualquier polling de force refresh en curso.
+    this.refreshTimers.forEach(t => clearInterval(t));
+    this.refreshTimers.clear();
   }
 
   // ─── Auto-refresh ────────────────────────────────────────────────────────
@@ -493,31 +514,157 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   // ─── Force Refresh ──────────────────────────────────────────────────────
 
   forceRefresh(config: ParquetConfig): void {
-    this.msg.add({ severity: 'info', summary: 'Regenerando...', detail: `Solicitando regeneracion de ${config.view_name}...` });
+    const key = `${config.schema_name}.${config.view_name}`;
 
-    this.http.post<{ success: boolean; r2_status?: string; message?: string }>(
+    // Evitar doble disparo mientras ya hay uno corriendo para la misma vista.
+    const actual = this.refreshJobs()[key];
+    if (actual && (actual.phase === 'starting' || actual.phase === 'running')) {
+      this.msg.add({ severity: 'info', summary: 'En curso', detail: `${config.view_name} ya se esta regenerando.` });
+      return;
+    }
+
+    this.setRefreshJob(key, {
+      key, view: config.view_name, jobId: null, phase: 'starting',
+      progress: 0, stage: 'Solicitando regeneracion...', rows: 0, startedAt: Date.now(),
+    });
+
+    this.http.post<{ success: boolean; job_id?: string; ready?: boolean; message?: string }>(
       `${environment.URL_SERVICIOS}/fabric/viewer/export/start`,
       {
         schema_name: config.schema_name,
         view: config.view_name,
-        format: 'xlsx',
-        max_rows: 1,
+        format: 'gzip',
         force_refresh: true,
       }
     ).subscribe({
       next: res => {
-        const status = res.r2_status ?? 'enviado';
-        this.msg.add({
-          severity: status === 'generating' ? 'warn' : 'success',
-          summary: 'Force Refresh',
-          detail: res.message ?? `${config.view_name}: ${status}`,
-          life: 5000,
-        });
+        if (!res.job_id) {
+          this.patchRefreshJob(key, { phase: 'failed', stage: 'Graph no devolvio job_id', message: res.message });
+          this.msg.add({ severity: 'error', summary: 'Force Refresh', detail: res.message ?? 'No se inicio la regeneracion.' });
+          return;
+        }
+        this.patchRefreshJob(key, { jobId: res.job_id, phase: 'running', stage: 'Regenerando en Graph-Fabric...' });
+        if (res.ready) {
+          // El parquet ya estaba listo (deduplicacion): cerrar de una.
+          this.patchRefreshJob(key, { phase: 'done', progress: 100, stage: 'Listo (ya estaba fresco)' });
+          this.finishRefresh(key, true, config);
+          return;
+        }
+        this.pollRefreshJob(key, res.job_id, config);
       },
       error: err => {
+        this.patchRefreshJob(key, { phase: 'failed', stage: 'Error al iniciar', message: err?.error?.message });
         this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo forzar la regeneracion' });
       },
     });
+  }
+
+  /**
+   * Polling del estado del export/regeneracion cada 2.5s.
+   *
+   * Detecta tres finales: completado, fallido, o CONGELADO (sin avanzar en
+   * ~90s) para que el usuario no se quede mirando un spinner eterno.
+   */
+  private pollRefreshJob(key: string, jobId: string, config: ParquetConfig): void {
+    this.clearRefreshTimer(key);
+
+    const STALL_MS = 90_000;   // sin progreso 90s → se considera congelado
+    let lastProgress = -1;
+    let lastMove = Date.now();
+
+    const timer = setInterval(() => {
+      this.http.get<{ status?: string; progress?: number; stage?: string; rows?: number; message?: string }>(
+        `${environment.URL_SERVICIOS}/fabric/viewer/export/status/${jobId}`
+      ).subscribe({
+        next: st => {
+          const progress = st.progress ?? 0;
+          const status = (st.status ?? 'running').toLowerCase();
+
+          if (progress !== lastProgress) { lastProgress = progress; lastMove = Date.now(); }
+
+          this.patchRefreshJob(key, {
+            progress,
+            stage: st.stage ?? 'Procesando...',
+            rows: st.rows ?? this.refreshJobs()[key]?.rows ?? 0,
+          });
+
+          if (status === 'completed' || status === 'ready' || progress >= 100) {
+            this.patchRefreshJob(key, { phase: 'done', progress: 100, stage: 'Regeneracion completada' });
+            this.finishRefresh(key, true, config);
+            return;
+          }
+          if (status === 'failed' || status === 'error' || status === 'expired') {
+            this.patchRefreshJob(key, { phase: 'failed', stage: st.stage ?? 'Fallo en Graph-Fabric', message: st.message });
+            this.finishRefresh(key, false, config);
+            return;
+          }
+          // Deteccion de congelamiento
+          if (Date.now() - lastMove > STALL_MS) {
+            this.patchRefreshJob(key, {
+              phase: 'failed',
+              stage: `Sin avanzar hace ${Math.round((Date.now() - lastMove) / 1000)}s (posible congelamiento)`,
+            });
+            this.finishRefresh(key, false, config);
+          }
+        },
+        error: () => {
+          // Un error puntual de red no mata el polling; el congelamiento lo corta.
+        },
+      });
+    }, 2500);
+
+    this.refreshTimers.set(key, timer);
+  }
+
+  private finishRefresh(key: string, ok: boolean, config: ParquetConfig): void {
+    this.clearRefreshTimer(key);
+    const job = this.refreshJobs()[key];
+    this.msg.add({
+      severity: ok ? 'success' : 'error',
+      summary: ok ? 'Regeneracion lista' : 'Regeneracion fallida',
+      detail: ok
+        ? `${config.view_name}: parquet actualizado${job?.rows ? ` (${job.rows.toLocaleString()} filas)` : ''}.`
+        : `${config.view_name}: ${job?.stage ?? 'fallo'}. ${job?.message ?? ''}`,
+      life: ok ? 5000 : 9000,
+    });
+    // Refrescar estado/dashboard para que la fila muestre el parquet nuevo.
+    setTimeout(() => { this.loadStatus(); this.loadDashboard(); }, ok ? 1500 : 0);
+    // Quitar el loader de la fila a los pocos segundos.
+    setTimeout(() => this.removeRefreshJob(key), 6000);
+  }
+
+  private setRefreshJob(key: string, job: RefreshJob): void {
+    this.refreshJobs.update(m => ({ ...m, [key]: job }));
+  }
+
+  private patchRefreshJob(key: string, patch: Partial<RefreshJob>): void {
+    this.refreshJobs.update(m => {
+      const cur = m[key];
+      if (!cur) return m;
+      return { ...m, [key]: { ...cur, ...patch } };
+    });
+  }
+
+  private removeRefreshJob(key: string): void {
+    this.refreshJobs.update(m => {
+      const { [key]: _drop, ...rest } = m;
+      return rest;
+    });
+  }
+
+  private clearRefreshTimer(key: string): void {
+    const t = this.refreshTimers.get(key);
+    if (t) { clearInterval(t); this.refreshTimers.delete(key); }
+  }
+
+  /** Estado del rayo para una fila (usado por el template). */
+  getRefreshJob(schema: string, view: string): RefreshJob | undefined {
+    return this.refreshJobs()[`${schema}.${view}`];
+  }
+
+  isRefreshing(schema: string, view: string): boolean {
+    const j = this.getRefreshJob(schema, view);
+    return !!j && (j.phase === 'starting' || j.phase === 'running');
   }
 
   // ─── Historial (trazabilidad por vista) ─────────────────────────────────

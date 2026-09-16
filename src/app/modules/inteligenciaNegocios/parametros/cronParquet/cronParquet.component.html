@@ -232,6 +232,24 @@
           <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
             <i class="pi pi-minus-circle"></i> Sin datos
           </span>
+
+          <!-- Trazabilidad en vivo del force refresh (boton del rayo) -->
+          <ng-container *ngIf="getRefreshJob(config.schema_name, config.view_name) as rj">
+            <div class="cp-refresh"
+              [class.cp-refresh--done]="rj.phase === 'done'"
+              [class.cp-refresh--failed]="rj.phase === 'failed'">
+              <div class="cp-refresh__head">
+                <i [class]="rj.phase === 'failed' ? 'pi pi-times-circle'
+                          : rj.phase === 'done' ? 'pi pi-check-circle'
+                          : 'pi pi-spin pi-spinner'"></i>
+                <span class="cp-refresh__stage">{{ rj.stage }}</span>
+              </div>
+              <div class="cp-refresh__bar" *ngIf="rj.phase === 'running' || rj.phase === 'starting'">
+                <div class="cp-refresh__fill" [style.width.%]="rj.progress"></div>
+              </div>
+              <small class="cp-refresh__meta" *ngIf="rj.rows > 0">{{ rj.rows | number }} filas</small>
+            </div>
+          </ng-container>
         </td>
 
         <!-- Ultima sync -->
@@ -239,8 +257,12 @@
 
         <!-- Acciones -->
         <td class="cp-actions">
-          <button pButton icon="pi pi-bolt" class="p-button-text p-button-warning p-button-sm"
-            (click)="forceRefresh(config)" pTooltip="Forzar regeneracion ahora"></button>
+          <button pButton
+            [icon]="isRefreshing(config.schema_name, config.view_name) ? 'pi pi-spin pi-spinner' : 'pi pi-bolt'"
+            class="p-button-text p-button-warning p-button-sm"
+            [disabled]="isRefreshing(config.schema_name, config.view_name)"
+            (click)="forceRefresh(config)"
+            [pTooltip]="isRefreshing(config.schema_name, config.view_name) ? 'Regenerando...' : 'Forzar regeneracion ahora'"></button>
           <button pButton icon="pi pi-history" class="p-button-text p-button-info p-button-sm"
             (click)="openHistory(config)" pTooltip="Ver historial / trazabilidad"></button>
           <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="editConfig(config)"
