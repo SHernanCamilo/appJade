@@ -76,11 +76,15 @@ interface RecepcionRow {
   pedido_detalle_id: number | null;
   recibido: boolean;
   proveedor?: string;
-  // ── Desdoblamiento por CUM/Lote ──
-  // _esHijo: fila creada al desdoblar un producto (mismo pedido_detalle_id).
+  // ── Desdoblamiento por CUM/Lote (agrupación tipo "folio" plegable) ──
+  // _esHijo: fila-fragmento creada al desdoblar un producto (mismo pedido_detalle_id).
   // _uid: identificador único de fila (para reemplazos precisos en el grid).
+  // _grupoId: id que comparten el padre y todos sus fragmentos (para plegar/desplegar).
+  // _expandido: solo en el padre; controla si sus fragmentos se muestran u ocultan.
   _esHijo?: boolean;
   _uid?: string;
+  _grupoId?: string;
+  _expandido?: boolean;
   // _yaRecepcionado: este producto ya fue recibido en una recepción previa parcial;
   // queda bloqueado individualmente (no se re-recepciona) aunque la hoja siga editable.
   _yaRecepcionado?: boolean;
@@ -232,7 +236,10 @@ export class RecepcionExcelComponent implements OnInit {
 
   // ── Grid data ──
   readonly localeText = AG_GRID_LOCALE;
+  // rowData: fuente de verdad completa (padres + fragmentos, expandidos o no).
   rowData: RecepcionRow[] = [];
+  // displayRows: lo que realmente ve el grid (oculta los fragmentos de un grupo plegado).
+  displayRows: RecepcionRow[] = [];
   private gridApi?: GridApi<RecepcionRow>;
   private compraId = 0;
   private colLetters = new Map<string, string>();
@@ -308,7 +315,13 @@ export class RecepcionExcelComponent implements OnInit {
 
   readonly gridOptions: GridOptions<RecepcionRow> = {
     // Marca visualmente las filas desdobladas (fragmentos por CUM/Lote).
-    getRowClass: (params) => (params.data?._esHijo ? 'xl-row-hijo' : ''),
+    getRowClass: (params) => {
+      const row = params.data;
+      if (!row) return '';
+      if (row._esHijo) return 'xl-row-hijo';
+      if (this.esPadreConHijos(row)) return 'xl-row-padre';
+      return '';
+    },
     singleClickEdit: true,
     stopEditingWhenCellsLoseFocus: true,
     enterNavigatesVertically: true,
@@ -510,6 +523,31 @@ export class RecepcionExcelComponent implements OnInit {
       lockPosition: true, cellClass: 'xl-rownum', headerClass: 'xl-corner',
       valueGetter: (p: ValueGetterParams<RecepcionRow>) => (p.node?.rowIndex ?? 0) + 1,
     },
+    // Columna de agrupación plegable (chevron ▸/▾) tipo "folio".
+    {
+      headerName: '', colId: 'expandGroup', width: 30, maxWidth: 30,
+      sortable: false, editable: false, resizable: false, suppressMovable: true,
+      lockPosition: true, cellClass: 'xl-expand-cell', headerClass: 'xl-corner',
+      cellRenderer: (p: any) => {
+        const row = p.data as RecepcionRow;
+        if (!row) return '';
+        // Padre con fragmentos → chevron abrir/cerrar con contador.
+        if (this.esPadreConHijos(row)) {
+          const abierto = row._expandido !== false;
+          const icon = abierto ? 'pi-chevron-down' : 'pi-chevron-right';
+          const n = this.contarHijos(row);
+          return `<span class="xl-grp-toggle" title="${abierto ? 'Contraer' : 'Expandir'} fragmentos">`
+            + `<i class="pi ${icon}"></i><span class="xl-grp-badge">${n}</span></span>`;
+        }
+        // Fragmento (hijo) → marca visual de rama.
+        if (row._esHijo) return `<span class="xl-grp-child">└</span>`;
+        return '';
+      },
+      onCellClicked: (p: any) => {
+        const row = p.data as RecepcionRow;
+        if (row && this.esPadreConHijos(row)) this.toggleGrupo(row);
+      },
+    },
     ...this.dataColumns.map((col, i) => {
       const letter = toColumnLetter(i);
       const colId = (col.field as string) ?? `c${i}`;
@@ -620,6 +658,7 @@ export class RecepcionExcelComponent implements OnInit {
           } as RecepcionRow;
         });
         this.rowData = items;
+        this.displayRows = [...items];
         // La hoja SOLO se bloquea por completo cuando el Jefe de Almacén CONFIRMA
         // la recepción. Mientras es parcial ('RECEPCIONADO'), se sigue recepcionando
         // lo que falta; los productos ya recibidos quedan bloqueados individualmente.
@@ -723,7 +762,8 @@ export class RecepcionExcelComponent implements OnInit {
     const rowIndex = event.rowIndex ?? 0;
     if (!colId || colId === 'rowNumber') { this.cellInfo.set({ reference: '', value: '', editable: false }); return; }
     const letter = this.colLetters.get(colId) ?? '';
-    const row = this.rowData[rowIndex];
+    // Leer del nodo mostrado (displayRows), no de rowData por índice.
+    const row = this.gridApi?.getDisplayedRowAtIndex(rowIndex)?.data ?? this.displayRows[rowIndex];
     const raw = row ? (row as any)[colId] : '';
     const colDef = (event.column as any)?.getColDef?.();
     this.cellInfo.set({
@@ -1379,10 +1419,17 @@ export class RecepcionExcelComponent implements OnInit {
       return;
     }
 
+    // El fragmento pertenece al mismo grupo que el padre. Si el "origen" ya es
+    // un fragmento, escalamos al grupo al que pertenece.
+    if (!origen._grupoId) origen._grupoId = this.nuevoUid();
+    const grupoId = origen._grupoId;
+
     const hija: RecepcionRow = {
       ...origen,
       _esHijo: true,
       _uid: this.nuevoUid(),
+      _grupoId: grupoId,
+      _expandido: undefined,
       // Campos que cambian por fragmento: se dejan en blanco para capturarlos.
       cum_recibido: '',
       cum_producto_nombre: '',
@@ -1400,24 +1447,25 @@ export class RecepcionExcelComponent implements OnInit {
       recibido: true,
     };
 
-    // Asegurar que el origen tenga uid (para ubicarlo) y marcar el grupo.
+    // Asegurar que el origen tenga uid (para ubicarlo) y dejar el grupo expandido.
     if (!origen._uid) origen._uid = this.nuevoUid();
+    // El padre real del grupo (no un hijo) queda marcado como expandido.
+    const padre = this.rowData.find(r => !r._esHijo && r._grupoId === grupoId) ?? origen;
+    padre._expandido = true;
 
-    // Insertar la hija justo debajo del origen (o del último hijo del mismo producto).
-    const idxOrigen = this.rowData.findIndex(r => r === origen);
-    let insertIdx = idxOrigen + 1;
-    // Saltar las hijas que ya existan de este mismo pedido_detalle_id.
+    // Insertar la hija después del padre y de los fragmentos ya existentes del grupo.
+    const idxPadre = this.rowData.findIndex(r => r === padre);
+    let insertIdx = idxPadre + 1;
     while (
       insertIdx < this.rowData.length &&
       this.rowData[insertIdx]._esHijo &&
-      this.rowData[insertIdx].pedido_detalle_id === origen.pedido_detalle_id &&
-      this.rowData[insertIdx].codigo_producto === origen.codigo_producto
+      this.rowData[insertIdx]._grupoId === grupoId
     ) {
       insertIdx++;
     }
 
     this.rowData.splice(insertIdx, 0, hija);
-    this.gridApi?.setGridOption('rowData', [...this.rowData]);
+    this.refreshDisplayRows();
     this.recalcTotals();
 
     this.msg.add({
@@ -1428,7 +1476,7 @@ export class RecepcionExcelComponent implements OnInit {
 
     // Enfocar la celda de CUM de la nueva fila para que el usuario empiece a capturar.
     setTimeout(() => {
-      const idx = this.rowData.findIndex(r => r === hija);
+      const idx = this.displayRows.findIndex(r => r === hija);
       if (idx >= 0) {
         this.gridApi?.ensureIndexVisible(idx);
         this.gridApi?.setFocusedCell(idx, 'cum_recibido');
@@ -1444,8 +1492,17 @@ export class RecepcionExcelComponent implements OnInit {
     }
     const idx = this.rowData.findIndex(r => r === fila);
     if (idx >= 0) {
+      const grupoId = fila._grupoId;
       this.rowData.splice(idx, 1);
-      this.gridApi?.setGridOption('rowData', [...this.rowData]);
+      // Si el grupo se quedó sin fragmentos, limpiar la marca del padre.
+      if (grupoId) {
+        const padre = this.rowData.find(r => !r._esHijo && r._grupoId === grupoId);
+        if (padre && this.contarHijos(padre) === 0) {
+          padre._grupoId = undefined;
+          padre._expandido = undefined;
+        }
+      }
+      this.refreshDisplayRows();
       this.recalcTotals();
       this.msg.add({ severity: 'info', summary: 'Línea eliminada', detail: 'Se quitó el desdoblamiento.' });
     }
@@ -1454,6 +1511,45 @@ export class RecepcionExcelComponent implements OnInit {
   /** Genera un id único de fila (para ubicar filas al desdoblar). */
   private nuevoUid(): string {
     return 'row_' + Math.random().toString(36).slice(2, 10);
+  }
+
+  // ─── Agrupación plegable (padre + fragmentos por CUM/Lote) ──────────────────
+
+  /** ¿La fila es un padre que tiene al menos un fragmento (hijo)? */
+  esPadreConHijos(row: RecepcionRow): boolean {
+    return !row._esHijo && !!row._grupoId && this.contarHijos(row) > 0;
+  }
+
+  /** Cuenta cuántos fragmentos (hijos) tiene un grupo. */
+  contarHijos(row: RecepcionRow): number {
+    if (!row._grupoId) return 0;
+    return this.rowData.filter(r => r._esHijo && r._grupoId === row._grupoId).length;
+  }
+
+  /**
+   * Reconstruye displayRows: muestra todos los padres/independientes y
+   * oculta los fragmentos de los grupos que estén plegados (_expandido = false).
+   */
+  private refreshDisplayRows(): void {
+    // Mapa padre por grupo para saber si el grupo está expandido.
+    const padrePorGrupo = new Map<string, RecepcionRow>();
+    for (const r of this.rowData) {
+      if (!r._esHijo && r._grupoId) padrePorGrupo.set(r._grupoId, r);
+    }
+    this.displayRows = this.rowData.filter(r => {
+      if (!r._esHijo) return true; // padres e independientes siempre visibles
+      const padre = r._grupoId ? padrePorGrupo.get(r._grupoId) : undefined;
+      return padre ? padre._expandido !== false : true;
+    });
+    this.gridApi?.setGridOption('rowData', [...this.displayRows]);
+    this.gridApi?.refreshCells({ force: true });
+  }
+
+  /** Pliega/despliega el grupo de un padre (chevron ▸/▾). */
+  toggleGrupo(row: RecepcionRow): void {
+    if (!this.esPadreConHijos(row)) return;
+    row._expandido = row._expandido === false ? true : false;
+    this.refreshDisplayRows();
   }
 
   /**

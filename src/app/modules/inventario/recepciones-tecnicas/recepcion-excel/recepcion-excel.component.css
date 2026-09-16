@@ -157,11 +157,65 @@
 /* distinguirlas visualmente del renglón original de la OC.     */
 /* ============================================================ */
 ::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo {
-    background-color: #f0f7ff;
+    background-color: #f5f9ff;
     box-shadow: inset 3px 0 0 0 #3b82f6;
 }
 ::ng-deep .ag-theme-alpine .ag-row.xl-row-hijo .ag-cell {
     font-style: italic;
+}
+
+/* ============================================================ */
+/* Agrupación plegable tipo "folio": chevron ▸/▾ en el padre,    */
+/* contador de fragmentos y marca de rama en los hijos.          */
+/* ============================================================ */
+::ng-deep .ag-theme-alpine .xl-expand-cell {
+    padding: 0 !important;
+    text-align: center;
+}
+/* Chevron del padre + badge con el nº de fragmentos */
+::ng-deep .xl-grp-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    color: #2563eb;
+    line-height: 1;
+    user-select: none;
+    transition: color 0.12s ease;
+}
+::ng-deep .xl-grp-toggle:hover {
+    color: #1e40af;
+}
+::ng-deep .xl-grp-toggle .pi {
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+::ng-deep .xl-grp-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    font-style: normal;
+    color: #fff;
+    background: #3b82f6;
+    border-radius: 7px;
+    line-height: 1;
+}
+/* Marca de rama (└) en cada fragmento */
+::ng-deep .xl-grp-child {
+    color: #93c5fd;
+    font-weight: 700;
+    font-style: normal;
+}
+/* Header del padre de un grupo: leve resalte para diferenciarlo */
+::ng-deep .ag-theme-alpine .ag-row.xl-row-padre {
+    background-color: #fbfdff;
+    box-shadow: inset 3px 0 0 0 #93c5fd;
+    font-weight: 600;
 }
 
 /* ============================================================ */
