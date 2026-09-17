@@ -640,12 +640,12 @@ export class CronParquetComponent implements OnInit, OnDestroy {
    * Polling del estado del export/regeneracion cada 2.5s.
    *
    * Detecta tres finales: completado, fallido, o CONGELADO (sin avanzar en
-   * ~90s) para que el usuario no se quede mirando un spinner eterno.
+   * ~5 min) para que el usuario no se quede mirando un spinner eterno.
    */
   private pollRefreshJob(key: string, jobId: string, config: ParquetConfig): void {
     this.clearRefreshTimer(key);
 
-    const STALL_MS = 90_000;   // sin progreso 90s → se considera congelado
+    const STALL_MS = 300_000;  // sin progreso 5 min → se considera congelado
     let lastProgress = -1;
     let lastMove = Date.now();
 
