@@ -105,15 +105,32 @@ export class MicrosoftAuthService {
 
           // Escuchar mensajes del popup
           const messageHandler = (event: MessageEvent) => {
-            // Verificar origen del mensaje — permitir producción y mismo dominio
-            // (el popup del callback puede correr en jade.medilaser.com.co
-            //  mientras el opener corre en un tunnel de Cloudflare o localhost)
-            const allowedOrigins = [
-              window.location.origin,
-              'https://jade.medilaser.com.co',
-              'https://review-dose-reasonable-pointed.trycloudflare.com'
-            ];
-            if (!allowedOrigins.includes(event.origin)) {
+            // Verificar origen del mensaje de forma robusta.
+            //
+            // El popup del callback corre en el MISMO dominio que el opener, asi
+            // que basta aceptar `window.location.origin` y cualquier subdominio
+            // propio de medilaser (jade, jade-api, etc.) o un tunel de desarrollo.
+            //
+            // Antes habia una lista fija con 'jade.medilaser.com.co' que NO incluia
+            // 'jade-api.medilaser.com.co': el mensaje de exito se descartaba en
+            // silencio y el popup quedaba pegado en "Procesando autenticacion..."
+            // aunque el backend ya habia respondido OK.
+            let originHost = '';
+            try { originHost = new URL(event.origin).hostname; } catch { originHost = ''; }
+
+            const originPermitido =
+              event.origin === window.location.origin ||
+              originHost.endsWith('.medilaser.com.co') ||
+              originHost === 'medilaser.com.co' ||
+              originHost.endsWith('.trycloudflare.com') ||
+              originHost === 'localhost';
+
+            if (!originPermitido) {
+              return;
+            }
+
+            // Ignorar mensajes sin estructura (extensiones del navegador, etc.)
+            if (!event.data || typeof event.data !== 'object') {
               return;
             }
 
