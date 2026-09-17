@@ -141,6 +141,18 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   readonly refreshJobs = signal<Record<string, RefreshJob>>({});
   private refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
 
+  // Rastreo de "en proceso ahora": cuando el frontend ve por primera vez una
+  // vista en estado generating, guarda el epoch ms. Asi puede mostrar cuanto
+  // lleva generandose y marcar como "posible bloqueo" si tarda demasiado.
+  private generatingSince = new Map<string, number>();
+
+  // Umbral (segundos) sobre el que una generacion se considera atascada.
+  private readonly STUCK_THRESHOLD_S = 300; // 5 min
+
+  // "Reloj" que fuerza el recalculo del tiempo transcurrido cada segundo.
+  readonly nowTick = signal(Date.now());
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
+
   private autoTimer: ReturnType<typeof setInterval> | null = null;
 
   // Busqueda / filtro
@@ -202,6 +214,29 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     }).filter(l => l.total > 0);
   });
 
+  // Vistas que se estan generando AHORA (panel "En proceso").
+  // Depende de nowTick para recalcular el tiempo transcurrido cada segundo.
+  readonly enProceso = computed<Array<{
+    schema: string; view: string; elapsedS: number; stuck: boolean; rows: number | null;
+  }>>(() => {
+    const now = this.nowTick();
+    return this.statuses()
+      .filter(v => this.isGenerating(v))
+      .map(v => {
+        const key = `${v.schema}.${v.view}`;
+        const since = this.generatingSince.get(key) ?? now;
+        const elapsedS = Math.max(0, Math.round((now - since) / 1000));
+        return {
+          schema: v.schema ?? '',
+          view: v.view ?? '',
+          elapsedS,
+          stuck: elapsedS >= this.STUCK_THRESHOLD_S,
+          rows: v.row_count ?? null,
+        };
+      })
+      .sort((a, b) => b.elapsedS - a.elapsedS); // los que mas llevan, arriba
+  });
+
   // Formulario
   form = this.emptyForm();
 
@@ -221,10 +256,14 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadConfigs();
     this.loadStatus();
     this.loadDashboard();
+
+    // Reloj de 1s: recalcula el tiempo transcurrido del panel "En proceso".
+    this.clockTimer = setInterval(() => this.nowTick.set(Date.now()), 1000);
   }
 
   ngOnDestroy(): void {
     this.stopAutoRefresh();
+    if (this.clockTimer) { clearInterval(this.clockTimer); this.clockTimer = null; }
     // Cortar cualquier polling de force refresh en curso.
     this.refreshTimers.forEach(t => clearInterval(t));
     this.refreshTimers.clear();
@@ -261,9 +300,44 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   loadStatus(): void {
     this.http.get<{ success: boolean; views: ParquetStatus[] }>(`${this.baseUrl}/status`).subscribe({
-      next: res => { this.statuses.set(res.views ?? []); this.lastUpdate.set(new Date()); },
+      next: res => {
+        const views = res.views ?? [];
+        this.trackGenerating(views);
+        this.statuses.set(views);
+        this.lastUpdate.set(new Date());
+      },
       error: () => this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'No se pudo obtener estado de Graph-Fabric' }),
     });
+  }
+
+  /**
+   * Mantiene el mapa de "desde cuando" cada vista esta generando.
+   *
+   * - Si una vista aparece generando y no estaba registrada → guarda ahora.
+   * - Si una vista dejo de generar → se limpia su marca.
+   * Asi el panel "En proceso" puede mostrar el tiempo transcurrido real y
+   * detectar generaciones atascadas.
+   */
+  private trackGenerating(views: ParquetStatus[]): void {
+    const ahora = Date.now();
+    const generandoAhora = new Set<string>();
+
+    for (const v of views) {
+      if (this.isGenerating(v)) {
+        const key = `${v.schema}.${v.view}`;
+        generandoAhora.add(key);
+        if (!this.generatingSince.has(key)) {
+          // Si Graph ya reporta cuanto lleva (running_s), respetarlo; si no, ahora.
+          const runningMs = (v as any).running_s != null ? (v as any).running_s * 1000 : 0;
+          this.generatingSince.set(key, ahora - runningMs);
+        }
+      }
+    }
+
+    // Limpiar las que ya no estan generando.
+    for (const key of Array.from(this.generatingSince.keys())) {
+      if (!generandoAhora.has(key)) this.generatingSince.delete(key);
+    }
   }
 
   loadDashboard(): void {
@@ -785,6 +859,20 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   isStale(st?: ParquetStatus): boolean {
     if (!st) return false;
     return (st.status ?? '').toLowerCase() === 'stale' || !!st.config?.is_stale;
+  }
+
+  /** ¿La vista se está generando en este momento? */
+  isGenerating(st?: ParquetStatus): boolean {
+    if (!st) return false;
+    return ['generating', 'processing'].includes((st.status ?? '').toLowerCase());
+  }
+
+  /** Formatea segundos como "45s" o "2m 10s". */
+  formatElapsed(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
   }
 
   /** Mensaje de error de Graph, si lo hay (acepta varios nombres de campo). */

@@ -142,6 +142,32 @@
     </div>
   </section>
 
+  <!-- Panel: En proceso ahora (generando en vivo) -->
+  <section class="cp-live" *ngIf="enProceso().length > 0">
+    <div class="cp-live__head">
+      <h3><i class="pi pi-spin pi-spinner"></i> Generando ahora ({{ enProceso().length }})</h3>
+      <span class="cp-live__hint">Actualiza cada 15s con Auto ON · en rojo = posible bloqueo (&gt;5 min)</span>
+    </div>
+    <div class="cp-live__list">
+      <div class="cp-live__item" *ngFor="let g of enProceso()" [class.cp-live__item--stuck]="g.stuck">
+        <div class="cp-live__main">
+          <i [class]="g.stuck ? 'pi pi-exclamation-triangle' : 'pi pi-spin pi-spinner'"></i>
+          <div class="cp-live__names">
+            <code class="cp-live__schema">{{ g.schema }}</code>
+            <span class="cp-live__view">{{ g.view }}</span>
+          </div>
+        </div>
+        <div class="cp-live__meta">
+          <span class="cp-live__time" [class.cp-live__time--stuck]="g.stuck">
+            <i class="pi pi-clock"></i> {{ formatElapsed(g.elapsedS) }}
+          </span>
+          <span class="cp-live__rows" *ngIf="g.rows != null">{{ g.rows | number }} filas</span>
+          <span class="cp-live__stuck-tag" *ngIf="g.stuck">posible bloqueo</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Toolbar tabla -->
   <div class="cp-toolbar">
     <span class="p-input-icon-left cp-toolbar__search">
