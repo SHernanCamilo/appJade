@@ -228,6 +228,10 @@
               </span>
               <span *ngIf="st.size_mb"><i class="pi pi-file"></i> {{ st.size_mb }} MB</span>
             </div>
+            <!-- Motivo del error: por que falla esta vista -->
+            <div class="cp-status__error" *ngIf="getErrorMessage(st) as errMsg">
+              <i class="pi pi-exclamation-triangle"></i> {{ errMsg }}
+            </div>
           </ng-container>
           <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
             <i class="pi pi-minus-circle"></i> Sin datos

@@ -41,6 +41,9 @@ interface ParquetStatus {
   row_count?: number;
   avg_generation_s?: number;
   lane?: string;
+  error?: string | null;
+  error_message?: string | null;
+  message?: string | null;
   config?: {
     refresh_interval_min: number;
     priority: string;
@@ -286,10 +289,10 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     if (sf !== 'all') {
       list = list.filter(c => {
         const st = this.getStatusForView(c.schema_name, c.view_name);
-        if (sf === 'stale') return st?.status === 'stale' || st?.config?.is_stale;
-        if (sf === 'error') return st?.status === 'error';
-        if (sf === 'ok') return st?.status === 'ok' && !st?.config?.is_stale;
-        if (sf === 'pending') return st?.status === 'pending' || !st;
+        if (sf === 'stale')   return this.isStale(st);
+        if (sf === 'error')   return this.isError(st);
+        if (sf === 'ok')      return st?.status === 'ok' && !this.isStale(st);
+        if (sf === 'pending') return this.isPending(st);
         return true;
       });
     }
@@ -755,7 +758,39 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   }
 
   getStatusForView(schema: string, view: string): ParquetStatus | undefined {
-    return this.statuses().find(s => s.schema === schema && s.view === view);
+    // Match tolerante: Graph puede devolver el nombre con distinto casing.
+    const s = schema.toLowerCase();
+    const v = view.toLowerCase();
+    return this.statuses().find(x =>
+      (x.schema ?? '').toLowerCase() === s && (x.view ?? '').toLowerCase() === v
+    );
+  }
+
+  /** ¿La vista está en error? Reconoce variantes de Graph y presencia de mensaje de error. */
+  isError(st?: ParquetStatus): boolean {
+    if (!st) return false;
+    const s = (st.status ?? '').toLowerCase();
+    if (['error', 'failed', 'expired'].includes(s)) return true;
+    return !!this.getErrorMessage(st);
+  }
+
+  /** ¿La vista está en cola / pendiente de generarse? */
+  isPending(st?: ParquetStatus): boolean {
+    if (!st) return true; // sin estado aún = en cola
+    const s = (st.status ?? '').toLowerCase();
+    return ['pending', 'queued', 'generating', 'processing', 'nueva', 'missing'].includes(s);
+  }
+
+  /** ¿La vista está desactualizada (stale)? */
+  isStale(st?: ParquetStatus): boolean {
+    if (!st) return false;
+    return (st.status ?? '').toLowerCase() === 'stale' || !!st.config?.is_stale;
+  }
+
+  /** Mensaje de error de Graph, si lo hay (acepta varios nombres de campo). */
+  getErrorMessage(st?: ParquetStatus): string {
+    if (!st) return '';
+    return (st.error_message || st.error || st.message || '').toString().trim();
   }
 
   getLane(st: ParquetStatus): string {
