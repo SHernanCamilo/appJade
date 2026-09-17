@@ -531,7 +531,9 @@ export class RecepcionExcelComponent implements OnInit {
     { headerName: 'Contenido', field: 'contenido_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
     { headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 78, cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 }, type: 'numericColumn', cellClass: 'xl-cell xl-num' },
     {
-      headerName: 'Concepto', field: 'concepto_recepcion', width: 110, editable: false,
+      // Editable: se autollenar según INVIMA/MVD, pero el usuario puede fijarlo.
+      headerName: 'Concepto', field: 'concepto_recepcion', width: 110,
+      cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CONCEPTO_VALUES },
       valueFormatter: (p: any) => {
         const v = String(p.value ?? '').toLowerCase();
         if (v === 'aceptado') return 'Aceptado';
@@ -539,7 +541,7 @@ export class RecepcionExcelComponent implements OnInit {
         return v ? (v.charAt(0).toUpperCase() + v.slice(1)) : '';
       },
       cellClass: (p: CellClassParams<RecepcionRow>) => {
-        const base = 'xl-cell xl-center xl-locked';
+        const base = 'xl-cell xl-center';
         if (p.value === 'aceptado') return `${base} xl-fill-ok`;
         if (p.value === 'rechazado') return `${base} xl-fill-bad`;
         return base;
@@ -694,6 +696,8 @@ export class RecepcionExcelComponent implements OnInit {
             // Si ya venía recepcionado en una recepción previa (parcial), se bloquea
             // esta fila para no re-recepcionarla; el resto sigue editable.
             _yaRecepcionado: Boolean(item.tiene_recepcion_previa),
+            // Fragmento (hijo) marcado por el backend (columna es_desdoblamiento).
+            _esHijo: Boolean(item.es_desdoblamiento),
           } as RecepcionRow;
         });
         this.rowData = items;
@@ -1083,16 +1087,24 @@ export class RecepcionExcelComponent implements OnInit {
     const locked = new Set([
       'codigo_producto', 'producto_nombre', 'tipo_producto', 'forma_farmaceutica', 'concentracion',
       'unidad_empaque', 'marca', 'cantidad_solicitada', 'muestra_poblacion', 'estado_invima',
-      'estado_vencimiento', 'cum_producto_nombre', 'fabricante', 'vida_util', 'concepto_recepcion',
+      'estado_vencimiento', 'cum_producto_nombre', 'fabricante', 'vida_util',
       'mvd_solicitante', 'mvd_principio_activo', 'mvd_forma_farmaceutica', 'mvd_presentacion',
     ]);
     if (locked.has(field)) return false;
 
     if (field === 'es_medicamento_vital') return isMedicamento(row.tipo_producto);
 
+    // Campos físicos de recepción que NO dependen del estado INVIMA: se pueden
+    // registrar siempre (temperatura de cadena de frío, observaciones y el
+    // concepto de recepción, que el usuario puede fijar manualmente).
+    const camposLibres = new Set([
+      'cadena_frio_temperatura', 'observaciones_recepcion', 'concepto_recepcion',
+    ]);
+    if (camposLibres.has(field)) return true;
+
     const receptionFields = new Set([
       'cantidad_recibida', 'numero_lote', 'fecha_vencimiento', 'aspecto_cumple', 'embalaje_cumple',
-      'contenido_cumple', 'cadena_frio_temperatura', 'observaciones_recepcion',
+      'contenido_cumple',
     ]);
     if (receptionFields.has(field)) {
       return row.estado_invima === 'Vigente' || row.estado_invima === 'Override Manual';
@@ -1636,17 +1648,25 @@ export class RecepcionExcelComponent implements OnInit {
     for (const filas of porDetalle.values()) {
       if (filas.length < 2) continue; // sin fragmentos, no es un grupo
       const grupoId = this.nuevoUid();
-      filas.forEach((r, i) => {
+      // El padre es la fila que NO es fragmento (es_desdoblamiento=false). Si el
+      // backend no lo marcó (datos antiguos), se toma la primera como padre.
+      let padreAsignado = false;
+      filas.forEach(r => {
         r._grupoId = grupoId;
         r._uid = r._uid || this.nuevoUid();
-        if (i === 0) {
-          r._esHijo = false;
+        if (!r._esHijo && !padreAsignado) {
           r._expandido = false; // plegado por defecto
+          padreAsignado = true;
         } else {
           r._esHijo = true;
           r._expandido = undefined;
         }
       });
+      // Respaldo: si ninguna venía como padre, forzar la primera.
+      if (!padreAsignado && filas.length) {
+        filas[0]._esHijo = false;
+        filas[0]._expandido = false;
+      }
     }
   }
 
@@ -1686,6 +1706,7 @@ export class RecepcionExcelComponent implements OnInit {
       observaciones: '',
       items: items.map(r => ({
         pedido_detalle_id: r.pedido_detalle_id,
+        es_desdoblamiento: r._esHijo ? 1 : 0,
         codigo_producto: r.codigo_producto,
         producto_nombre: r.producto_nombre,
         marca: r.marca,
