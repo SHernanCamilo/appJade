@@ -425,3 +425,51 @@
 :host ::ng-deep .rep-filter .p-dropdown,
 :host ::ng-deep .rep-filter .p-calendar,
 :host ::ng-deep .rep-filter .p-inputtext { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  Tab "Tiempos de gestión"                                     */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Tabs: look limpio y consistente con el tablero. */
+:host ::ng-deep .rep-tabs .p-tabview-nav {
+    border: none;
+    background: transparent;
+    gap: 4px;
+}
+:host ::ng-deep .rep-tabs .p-tabview-nav li .p-tabview-nav-link {
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.1rem;
+    font-weight: 600;
+    color: #64748b;
+    background: transparent;
+    transition: background .15s, color .15s;
+}
+:host ::ng-deep .rep-tabs .p-tabview-nav li .p-tabview-nav-link:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+:host ::ng-deep .rep-tabs .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+:host ::ng-deep .rep-tabs .p-tabview-panels {
+    padding: 1.25rem 0 0;
+    background: transparent;
+}
+
+/* Filtros de la pestaña de tiempos: los rangos de fecha ocupan más ancho. */
+.rep-filters--tiempos {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.rep-filter--umbral {
+    max-width: 160px;
+}
+
+/* Tarjeta a todo el ancho (tabla de detalle de tiempos). */
+.rep-card--full {
+    grid-column: 1 / -1;
+}
+.rep-tables:has(.rep-card--full) {
+    grid-template-columns: 1fr;
+}

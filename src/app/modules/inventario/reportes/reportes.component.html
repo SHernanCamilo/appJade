@@ -21,6 +21,13 @@
         </div>
     </header>
 
+    <p-tabView [(activeIndex)]="tabActivo" (onChange)="onTabChange($event.index)" styleClass="rep-tabs">
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- TAB 1 · RESUMEN (tablero BI actual)                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <p-tabPanel header="Resumen">
+
     <!-- ══════════════ BARRA DE FILTROS ══════════════ -->
     <section class="rep-filters">
         <div class="rep-filter">
@@ -391,4 +398,196 @@
             </div>
         </div>
     </section>
+
+    </p-tabPanel>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- TAB 2 · TIEMPOS DE GESTIÓN (Pedido → OC → Recepción)         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <p-tabPanel header="Tiempos de gestión">
+
+        <!-- Filtros dinámicos por etapa -->
+        <section class="rep-filters rep-filters--tiempos">
+            <div class="rep-filter">
+                <label><i class="bi bi-cart3 me-1 text-primary"></i> Fecha de Pedido</label>
+                <p-calendar [(ngModel)]="rangoPedido" selectionMode="range" [readonlyInput]="true"
+                            dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                            placeholder="Cualquier fecha" styleClass="w-100" [showClear]="true"></p-calendar>
+            </div>
+            <div class="rep-filter">
+                <label><i class="bi bi-file-earmark-text me-1" style="color:#8b5cf6;"></i> Fecha de Orden de Compra</label>
+                <p-calendar [(ngModel)]="rangoOrden" selectionMode="range" [readonlyInput]="true"
+                            dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                            placeholder="Cualquier fecha" styleClass="w-100" [showClear]="true"></p-calendar>
+            </div>
+            <div class="rep-filter">
+                <label><i class="bi bi-truck me-1 text-success"></i> Fecha de Recepción</label>
+                <p-calendar [(ngModel)]="rangoRecepcion" selectionMode="range" [readonlyInput]="true"
+                            dateFormat="dd/mm/yy" [showIcon]="true" appendTo="body"
+                            placeholder="Cualquier fecha" styleClass="w-100" [showClear]="true"></p-calendar>
+            </div>
+            <div class="rep-filter">
+                <label>Proveedor</label>
+                <input pInputText type="text" [(ngModel)]="filtroProveedorT"
+                       placeholder="Todos los proveedores" class="w-100">
+            </div>
+            <div class="rep-filter">
+                <label>Sede / Almacén</label>
+                <p-dropdown [options]="sucursales()" [(ngModel)]="filtroSucursalIdT"
+                            optionLabel="nombre" optionValue="id" placeholder="Todas las sedes"
+                            [showClear]="true" appendTo="body" styleClass="w-100"></p-dropdown>
+            </div>
+            <div class="rep-filter rep-filter--umbral">
+                <label>Umbral a tiempo (días)</label>
+                <input pInputText type="number" min="1" [(ngModel)]="umbralOk" class="w-100">
+            </div>
+            <div class="rep-filter rep-filter--umbral">
+                <label>Umbral alerta (días)</label>
+                <input pInputText type="number" min="1" [(ngModel)]="umbralAlerta" class="w-100">
+            </div>
+            <div class="rep-filter rep-filter--actions">
+                <button pButton class="p-button-sm rep-btn-apply" (click)="aplicarFiltrosTiempos()" [loading]="isLoadingTiempos()">
+                    <i class="bi bi-funnel me-1"></i> Aplicar filtros
+                </button>
+                <button pButton class="p-button-sm p-button-text p-button-secondary" (click)="limpiarFiltrosTiempos()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+                </button>
+                <button pButton class="p-button-sm p-button-outlined" (click)="exportarTiemposExcel()"
+                        [disabled]="isLoadingTiempos() || !tiempos()">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Exportar
+                </button>
+            </div>
+        </section>
+
+        <!-- KPIs de tiempos -->
+        <section class="rep-kpis">
+            <ng-container *ngIf="isLoadingTiempos()">
+                <div class="rep-kpi" *ngFor="let i of [1,2,3,4]">
+                    <p-skeleton width="2.75rem" height="2.75rem" borderRadius="12px"></p-skeleton>
+                    <div class="flex-grow-1 ms-2">
+                        <p-skeleton width="70%" height="0.7rem" styleClass="mb-2"></p-skeleton>
+                        <p-skeleton width="45%" height="1.5rem"></p-skeleton>
+                    </div>
+                </div>
+            </ng-container>
+
+            <ng-container *ngIf="!isLoadingTiempos() && tiempos() as t">
+                <article class="rep-kpi rep-kpi--blue">
+                    <div class="rep-kpi__icon"><i class="bi bi-hourglass-split"></i></div>
+                    <div class="rep-kpi__body">
+                        <span class="rep-kpi__label">Pedido → OC</span>
+                        <strong class="rep-kpi__value">{{ dias(t.kpis.prom_pedido_oc) }}</strong>
+                        <span class="rep-kpi__foot">promedio de gestión</span>
+                    </div>
+                </article>
+                <article class="rep-kpi rep-kpi--amber">
+                    <div class="rep-kpi__icon"><i class="bi bi-truck"></i></div>
+                    <div class="rep-kpi__body">
+                        <span class="rep-kpi__label">OC → Recepción</span>
+                        <strong class="rep-kpi__value">{{ dias(t.kpis.prom_oc_recepcion) }}</strong>
+                        <span class="rep-kpi__foot">tiempo del proveedor</span>
+                    </div>
+                </article>
+                <article class="rep-kpi rep-kpi--purple">
+                    <div class="rep-kpi__icon"><i class="bi bi-arrow-repeat"></i></div>
+                    <div class="rep-kpi__body">
+                        <span class="rep-kpi__label">Ciclo total</span>
+                        <strong class="rep-kpi__value">{{ dias(t.kpis.prom_ciclo_total) }}</strong>
+                        <span class="rep-kpi__foot">pedido a recepción</span>
+                    </div>
+                </article>
+                <article class="rep-kpi rep-kpi--green">
+                    <div class="rep-kpi__icon"><i class="bi bi-check2-circle"></i></div>
+                    <div class="rep-kpi__body">
+                        <span class="rep-kpi__label">OC analizadas</span>
+                        <strong class="rep-kpi__value">{{ t.kpis.ordenes_analizadas | number }}</strong>
+                        <span class="rep-kpi__foot">{{ t.kpis.con_recepcion }} con recepción · {{ t.kpis.pendientes_recepcion }} pendientes</span>
+                    </div>
+                </article>
+            </ng-container>
+        </section>
+
+        <!-- Gráficos: barras por etapa + dona de distribución -->
+        <section class="rep-charts">
+            <div class="rep-card rep-card--wide">
+                <div class="rep-card__head">
+                    <h6>Días promedio por etapa</h6>
+                    <i class="bi bi-bar-chart text-muted"></i>
+                </div>
+                <div class="rep-card__body rep-chart-h">
+                    <p-skeleton *ngIf="isLoadingTiempos()" width="100%" height="100%"></p-skeleton>
+                    <p-chart *ngIf="!isLoadingTiempos() && etapasChart() as cd"
+                             type="bar" [data]="cd" [options]="etapasOptions" height="100%"></p-chart>
+                    <div *ngIf="!isLoadingTiempos() && !etapasChart()" class="rep-empty">
+                        <i class="bi bi-bar-chart"></i> Sin datos para los filtros seleccionados
+                    </div>
+                </div>
+            </div>
+
+            <div class="rep-card">
+                <div class="rep-card__head">
+                    <h6>Cumplimiento OC → Recepción</h6>
+                    <i class="bi bi-pie-chart text-muted"></i>
+                </div>
+                <div class="rep-card__body rep-chart-h">
+                    <p-skeleton *ngIf="isLoadingTiempos()" width="100%" height="100%"></p-skeleton>
+                    <p-chart *ngIf="!isLoadingTiempos() && distribucionChart() as cd"
+                             type="doughnut" [data]="cd" [options]="distribucionOptions" height="100%"></p-chart>
+                    <div *ngIf="!isLoadingTiempos() && !distribucionChart()" class="rep-empty">
+                        <i class="bi bi-pie-chart"></i> Sin recepciones registradas
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabla detallada por OC -->
+        <section class="rep-tables">
+            <div class="rep-card rep-card--full">
+                <div class="rep-card__head">
+                    <h6><i class="bi bi-clock-history me-1 text-muted"></i> Detalle de tiempos por Orden de Compra</h6>
+                </div>
+                <div class="rep-card__body p-0">
+                    <p-table [value]="tiempos()?.detalle || []" [loading]="isLoadingTiempos()"
+                             styleClass="p-datatable-sm rep-table" [rows]="12"
+                             [paginator]="(tiempos()?.detalle?.length || 0) > 12"
+                             [rowsPerPageOptions]="[12, 25, 50]">
+                        <ng-template pTemplate="header">
+                            <tr>
+                                <th># OC</th>
+                                <th># Pedido</th>
+                                <th>Proveedor</th>
+                                <th class="text-center">Pedido</th>
+                                <th class="text-center">OC</th>
+                                <th class="text-center">Recepción</th>
+                                <th class="text-center">Pedido→OC</th>
+                                <th class="text-center">OC→Recep.</th>
+                                <th class="text-center">Ciclo</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </ng-template>
+                        <ng-template pTemplate="body" let-d>
+                            <tr>
+                                <td><strong class="text-primary">{{ d.numero_orden_compra }}</strong></td>
+                                <td class="rep-sub-strong">{{ d.numero_pedido || '—' }}</td>
+                                <td class="text-truncate rep-td-prov" [pTooltip]="d.proveedor">{{ d.proveedor }}</td>
+                                <td class="text-center">{{ d.fecha_pedido ? (d.fecha_pedido | date:'dd/MM/yy') : '—' }}</td>
+                                <td class="text-center">{{ d.fecha_orden ? (d.fecha_orden | date:'dd/MM/yy') : '—' }}</td>
+                                <td class="text-center">{{ d.fecha_recepcion ? (d.fecha_recepcion | date:'dd/MM/yy') : '—' }}</td>
+                                <td class="text-center">{{ dias(d.dias_pedido_oc) }}</td>
+                                <td class="text-center fw-semibold">{{ dias(d.dias_oc_recepcion) }}</td>
+                                <td class="text-center">{{ dias(d.dias_ciclo_total) }}</td>
+                                <td class="text-center"><span [class]="badgeSemaforo(d.semaforo)">{{ labelSemaforo(d.semaforo) }}</span></td>
+                            </tr>
+                        </ng-template>
+                        <ng-template pTemplate="emptymessage">
+                            <tr><td colspan="10" class="rep-empty-row">Sin órdenes para los filtros seleccionados</td></tr>
+                        </ng-template>
+                    </p-table>
+                </div>
+            </div>
+        </section>
+
+    </p-tabPanel>
+
+    </p-tabView>
 </div>

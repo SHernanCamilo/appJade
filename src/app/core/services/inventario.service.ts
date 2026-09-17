@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto, ReporteFarmacia } from '../models/inventario.model';
+import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto, ReporteFarmacia, ReporteTiempos } from '../models/inventario.model';
 
 @Injectable({
   providedIn: 'root'
@@ -32,6 +32,21 @@ export class InventarioService {
       }
     });
     return this.http.get<ApiResponse<ReporteFarmacia>>(`${this.baseUrl}/reportes/dashboard`, { params });
+  }
+
+  /**
+   * Reporte de Tiempos de Gestión (Pedido → OC → Recepción).
+   * Filtros: pedido_desde/hasta, orden_desde/hasta, recepcion_desde/hasta,
+   *          proveedor, sucursal_id, umbral_ok, umbral_alerta
+   */
+  getReporteTiempos(filtros?: Record<string, any>): Observable<ApiResponse<ReporteTiempos>> {
+    let params = new HttpParams();
+    Object.entries(filtros || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        params = params.set(k, String(v));
+      }
+    });
+    return this.http.get<ApiResponse<ReporteTiempos>>(`${this.baseUrl}/reportes/tiempos`, { params });
   }
 
   // ==========================================

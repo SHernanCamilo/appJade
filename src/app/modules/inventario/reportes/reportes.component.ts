@@ -14,8 +14,10 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 
+import { TabViewModule } from 'primeng/tabview';
+
 import { InventarioService } from '../../../core/services/inventario.service';
-import { ReporteFarmacia } from '../../../core/models/inventario.model';
+import { ReporteFarmacia, ReporteTiempos } from '../../../core/models/inventario.model';
 import * as XLSX from 'xlsx';
 
 /**
@@ -28,7 +30,8 @@ import * as XLSX from 'xlsx';
   imports: [
     CommonModule, FormsModule,
     TableModule, ButtonModule, DropdownModule, CalendarModule,
-    InputTextModule, ChartModule, SkeletonModule, TooltipModule, ToastModule
+    InputTextModule, ChartModule, SkeletonModule, TooltipModule, ToastModule,
+    TabViewModule
   ],
   providers: [MessageService],
   templateUrl: './reportes.component.html',
@@ -183,9 +186,194 @@ export class ReportesComponent implements OnInit {
   /** Total de pedidos que va en el centro de la dona. */
   totalEstados = computed(() => this.data()?.pedidos_por_estado?.total ?? 0);
 
+  // ═══════════════════════════════════════════════════════════
+  //  TAB "TIEMPOS DE GESTIÓN"
+  // ═══════════════════════════════════════════════════════════
+
+  /** Tab activo (0 = Resumen, 1 = Tiempos de gestión). */
+  tabActivo = 0;
+
+  isLoadingTiempos = signal<boolean>(false);
+  tiempos = signal<ReporteTiempos | null>(null);
+
+  // Filtros dinámicos por etapa (cada rango es independiente).
+  rangoPedido: Date[] | null = null;
+  rangoOrden: Date[] | null = null;
+  rangoRecepcion: Date[] | null = null;
+  filtroProveedorT = '';
+  filtroSucursalIdT: number | null = null;
+  umbralOk = 7;
+  umbralAlerta = 15;
+
+  /** Gráfico de barras: promedio de días por etapa. */
+  etapasChart = computed(() => {
+    const etapas = this.tiempos()?.promedios_por_etapa || [];
+    if (etapas.length === 0) return null;
+    return {
+      labels: etapas.map(e => e.etapa),
+      datasets: [{
+        label: 'Días promedio',
+        data: etapas.map(e => e.dias ?? 0),
+        backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6'],
+        borderRadius: 6,
+        barThickness: 40,
+      }],
+    };
+  });
+
+  etapasOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        padding: 10, cornerRadius: 6,
+        callbacks: { label: (ctx: any) => `${ctx.raw} días en promedio` },
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, precision: 0 } },
+    },
+  };
+
+  /** Dona: distribución del tiempo OC → Recepción por rangos (a tiempo/alerta/crítico). */
+  distribucionChart = computed(() => {
+    const dist = this.tiempos()?.distribucion_oc_recepcion || [];
+    if (dist.length === 0 || dist.every(d => d.total === 0)) return null;
+    const colorNivel: Record<string, string> = { ok: '#10b981', alerta: '#f59e0b', critico: '#ef4444' };
+    return {
+      labels: dist.map(d => d.rango),
+      datasets: [{
+        data: dist.map(d => d.total),
+        backgroundColor: dist.map(d => colorNivel[d.nivel] || '#94a3b8'),
+        borderWidth: 0,
+        hoverOffset: 6,
+      }],
+    };
+  });
+
+  distribucionOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    cutout: '62%',
+    plugins: {
+      legend: { position: 'bottom' as const, labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 11 } } },
+      tooltip: { padding: 10, cornerRadius: 6 },
+    },
+  };
+
   ngOnInit(): void {
     this.cargarSucursales();
     this.aplicarFiltros();
+  }
+
+  /** Al cambiar de tab: carga los tiempos la primera vez que se abre. */
+  onTabChange(index: number): void {
+    this.tabActivo = index;
+    if (index === 1 && !this.tiempos()) {
+      this.aplicarFiltrosTiempos();
+    }
+  }
+
+  // ── Carga del reporte de tiempos ──────────────────────────
+  aplicarFiltrosTiempos(): void {
+    this.isLoadingTiempos.set(true);
+
+    const filtros: Record<string, any> = {
+      pedido_desde:    this.aFecha(this.rangoPedido?.[0]),
+      pedido_hasta:    this.aFecha(this.rangoPedido?.[1] ?? this.rangoPedido?.[0]),
+      orden_desde:     this.aFecha(this.rangoOrden?.[0]),
+      orden_hasta:     this.aFecha(this.rangoOrden?.[1] ?? this.rangoOrden?.[0]),
+      recepcion_desde: this.aFecha(this.rangoRecepcion?.[0]),
+      recepcion_hasta: this.aFecha(this.rangoRecepcion?.[1] ?? this.rangoRecepcion?.[0]),
+      proveedor:       this.filtroProveedorT?.trim() || null,
+      sucursal_id:     this.filtroSucursalIdT,
+      umbral_ok:       this.umbralOk,
+      umbral_alerta:   this.umbralAlerta,
+    };
+
+    this.inventarioService.getReporteTiempos(filtros).subscribe({
+      next: (res) => {
+        this.isLoadingTiempos.set(false);
+        if (res.success && res.data) {
+          this.tiempos.set(res.data);
+        } else {
+          this.tiempos.set(null);
+          this.messageService.add({ severity: 'warn', summary: 'Sin datos', detail: 'No se obtuvieron tiempos para los filtros seleccionados.' });
+        }
+      },
+      error: (err) => {
+        this.isLoadingTiempos.set(false);
+        this.tiempos.set(null);
+        this.messageService.add({
+          severity: 'error', summary: 'Error',
+          detail: err?.error?.message || 'No se pudo cargar el reporte de tiempos.',
+        });
+      },
+    });
+  }
+
+  limpiarFiltrosTiempos(): void {
+    this.rangoPedido = null;
+    this.rangoOrden = null;
+    this.rangoRecepcion = null;
+    this.filtroProveedorT = '';
+    this.filtroSucursalIdT = null;
+    this.umbralOk = 7;
+    this.umbralAlerta = 15;
+    this.aplicarFiltrosTiempos();
+  }
+
+  /** Días → texto legible ('—' si es null). */
+  dias(v: number | null | undefined): string {
+    return v === null || v === undefined ? '—' : `${v} d`;
+  }
+
+  /** Clase de badge para el semáforo de tiempo. */
+  badgeSemaforo(nivel: string): string {
+    switch (nivel) {
+      case 'ok':      return 'rep-badge rep-badge--success';
+      case 'alerta':  return 'rep-badge rep-badge--warn';
+      case 'critico': return 'rep-badge rep-badge--danger';
+      default:        return 'rep-badge rep-badge--muted';
+    }
+  }
+
+  /** Etiqueta del semáforo. */
+  labelSemaforo(nivel: string): string {
+    switch (nivel) {
+      case 'ok':      return 'A tiempo';
+      case 'alerta':  return 'Alerta';
+      case 'critico': return 'Crítico';
+      default:        return 'Pendiente';
+    }
+  }
+
+  /** Exporta el detalle de tiempos a Excel. */
+  exportarTiemposExcel(): void {
+    const t = this.tiempos();
+    if (!t || t.detalle.length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay tiempos para exportar.' });
+      return;
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+      t.detalle.map(d => ({
+        'N° OC': d.numero_orden_compra,
+        'N° Pedido': d.numero_pedido || '',
+        'Proveedor': d.proveedor,
+        'Estado': d.estado_label,
+        'Fecha Pedido': d.fecha_pedido || '',
+        'Fecha OC': d.fecha_orden || '',
+        'Fecha Recepción': d.fecha_recepcion || '',
+        'Días Pedido→OC': d.dias_pedido_oc ?? '',
+        'Días OC→Recepción': d.dias_oc_recepcion ?? '',
+        'Días Ciclo Total': d.dias_ciclo_total ?? '',
+        'Estado tiempo': this.labelSemaforo(d.semaforo),
+      }))), 'Tiempos de Gestión');
+    XLSX.writeFile(wb, `Tiempos_Gestion_${this.aFecha(new Date())}.xlsx`);
+    this.messageService.add({ severity: 'success', summary: 'Exportado', detail: 'El reporte de tiempos se descargó en Excel.' });
   }
 
   // ── Carga de datos ────────────────────────────────────────

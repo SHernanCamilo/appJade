@@ -305,3 +305,51 @@ export interface ReporteFarmacia {
   resumen_por_proveedor: ReporteProveedorRow[];
   productos_mas_solicitados: ReporteProductoTop[];
 }
+
+// ── Reporte de Tiempos de Gestión (Pedido → OC → Recepción) ──────────────────
+
+export interface ReporteTiemposKpis {
+  ordenes_analizadas: number;
+  con_recepcion: number;
+  pendientes_recepcion: number;
+  prom_pedido_oc: number | null;
+  prom_oc_recepcion: number | null;
+  prom_ciclo_total: number | null;
+  min_oc_recepcion: number | null;
+  max_oc_recepcion: number | null;
+}
+
+export interface ReporteTiemposEtapa {
+  etapa: string;
+  dias: number | null;
+}
+
+export interface ReporteTiemposDistribucion {
+  rango: string;
+  total: number;
+  nivel: 'ok' | 'alerta' | 'critico';
+}
+
+export interface ReporteTiemposDetalleRow {
+  orden_id: number;
+  numero_orden_compra: string;
+  numero_pedido: string | null;
+  proveedor: string;
+  estado: string;
+  estado_label: string;
+  fecha_pedido: string | null;
+  fecha_orden: string | null;
+  fecha_recepcion: string | null;
+  dias_pedido_oc: number | null;
+  dias_oc_recepcion: number | null;
+  dias_ciclo_total: number | null;
+  semaforo: 'ok' | 'alerta' | 'critico' | 'pendiente';
+}
+
+export interface ReporteTiempos {
+  umbrales: { ok: number; alerta: number };
+  kpis: ReporteTiemposKpis;
+  promedios_por_etapa: ReporteTiemposEtapa[];
+  distribucion_oc_recepcion: ReporteTiemposDistribucion[];
+  detalle: ReporteTiemposDetalleRow[];
+}
