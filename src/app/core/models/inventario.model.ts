@@ -126,6 +126,8 @@ export interface OrdenCompra {
   es_sincronizada?: boolean;
   origen?: 'indigo' | 'aplicativo';
   puede_editar?: boolean;
+  // Pedido(s) de origen relacionados a la OC (manual o automática).
+  pedidos_relacionados?: { id: number; numero_pedido: string }[];
   detalles?: OrdenCompraItem[];
   items?: OrdenCompraDetalle[];
   total_items?: number;

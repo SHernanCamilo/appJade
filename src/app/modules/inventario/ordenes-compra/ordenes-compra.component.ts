@@ -370,6 +370,12 @@ export class OrdenesCompraComponent implements OnInit {
     return this.isSincronizada(oc) ? 'Indigo' : 'Aplicativo';
   }
 
+  /** Números de pedido relacionados a la OC, como texto (ej. "TJA-2026-000001"). */
+  pedidosRelacionadosTexto(oc: OrdenCompra | null): string {
+    const peds = oc?.pedidos_relacionados ?? [];
+    return peds.map(p => p.numero_pedido).filter(Boolean).join(', ');
+  }
+
   origenBadgeClass(oc: OrdenCompra): string {
     return this.isSincronizada(oc) ? 'bg-primary-subtle text-primary' : 'bg-success-subtle text-success';
   }

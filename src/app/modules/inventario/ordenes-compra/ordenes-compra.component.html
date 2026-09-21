@@ -257,6 +257,9 @@
                                 <td>
                                     <strong>{{ oc.numero_orden_compra }}</strong>
                                     <div *ngIf="oc.oc_indigo" class="text-muted" style="font-size: 0.7rem;">Indigo: {{ oc.oc_indigo }}</div>
+                                    <div *ngIf="pedidosRelacionadosTexto(oc)" class="text-primary d-inline-flex align-items-center gap-1 mt-1" style="font-size: 0.7rem;" [pTooltip]="'Pedido(s) de origen: ' + pedidosRelacionadosTexto(oc)">
+                                        <i class="bi bi-link-45deg"></i> {{ pedidosRelacionadosTexto(oc) }}
+                                    </div>
                                     <span *ngIf="tieneDatosIncompletos(oc)" class="badge bg-warning-subtle text-warning d-inline-flex align-items-center gap-1 mt-1" style="font-size: 0.65rem;" pTooltip="Faltan datos (proveedor o ítems). Revisar sincronización.">
                                         <i class="bi bi-exclamation-triangle"></i> Datos incompletos
                                     </span>
@@ -661,6 +664,17 @@
                 <div class="order-info-row">
                     <span class="order-info-label">Creado por:</span>
                     <span class="order-info-value fw-normal">{{ currentOrden()?.creado_por_nombre || 'Sistema' }}</span>
+                </div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Pedido(s):</span>
+                    <span class="order-info-value fw-normal">
+                        <ng-container *ngIf="pedidosRelacionadosTexto(currentOrden()) as peds; else sinPedido">
+                            <span class="badge bg-primary-subtle text-primary" style="font-size:0.72rem;">
+                                <i class="bi bi-link-45deg"></i> {{ peds }}
+                            </span>
+                        </ng-container>
+                        <ng-template #sinPedido><span class="text-muted">Sin pedido vinculado</span></ng-template>
+                    </span>
                 </div>
             </div>
             <div class="text-end d-flex flex-column justify-content-center">
