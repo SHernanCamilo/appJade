@@ -303,3 +303,31 @@ td.acciones-cell {
     white-space: nowrap;
     text-align: center;
 }
+
+/* ============================================ */
+/* Barra de avance mini (trazabilidad de producto) */
+/* ============================================ */
+.rep-progress-mini {
+    position: relative;
+    height: 16px;
+    background: #eef2f7;
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 60px;
+}
+.rep-progress-mini__fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: linear-gradient(90deg, #60a5fa, #3b82f6);
+    border-radius: 8px;
+    transition: width .3s ease;
+}
+.rep-progress-mini span {
+    position: relative;
+    display: block;
+    text-align: center;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 16px;
+}

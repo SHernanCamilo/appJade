@@ -148,8 +148,13 @@
                 <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="m-0 fw-bold" style="color: #0f172a;">Órdenes de Compra</h5>
                     
-                    <!-- Sincronizador Indigo: exige elegir la sucursal destino para el consecutivo correcto -->
+                    <!-- Sincronizador Indigo: la sucursal se detecta por el prefijo del
+                         pedido (TJA, FLA, NVA…). El selector es solo un respaldo opcional. -->
                     <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary btn-sm px-3 d-flex align-items-center gap-2" (click)="openTrazabilidad()">
+                            <i class="bi bi-diagram-3"></i> Trazabilidad
+                        </button>
+                        <span class="vr mx-1"></span>
                         <p-dropdown
                             [options]="sucursales()"
                             [ngModel]="selectedSucursalId()"
@@ -158,9 +163,10 @@
                             optionValue="id"
                             [filter]="true"
                             filterBy="nombre,prefijo"
-                            placeholder="Sucursal destino..."
-                            [style]="{width: '220px'}"
-                            pTooltip="Sucursal destino de la sincronización">
+                            [showClear]="true"
+                            placeholder="Sucursal (respaldo)"
+                            [style]="{width: '200px'}"
+                            pTooltip="Opcional. Solo se usa si no se detecta la sucursal por el prefijo del pedido.">
                             <ng-template let-s pTemplate="item">
                                 <div class="d-flex justify-content-between align-items-center w-100">
                                     <span>{{ s.nombre }}</span>
@@ -717,5 +723,160 @@
                 </tr>
             </ng-template>
         </p-table>
+    </div>
+</p-dialog>
+
+
+<!-- ============================================================== -->
+<!-- MODAL: TRAZABILIDAD DE PRODUCTO                                 -->
+<!-- ============================================================== -->
+<p-dialog
+    [(visible)]="showTrazabilidadModal"
+    [modal]="true"
+    [style]="{width: '92vw', maxWidth: '1300px'}"
+    [contentStyle]="{maxHeight: '80vh', overflow: 'auto'}"
+    [draggable]="false"
+    [resizable]="false"
+    [dismissableMask]="true"
+    (onHide)="closeTrazabilidad()"
+    styleClass="custom-dialog dialog-dark-header"
+>
+    <ng-template pTemplate="header">
+        <div class="d-flex align-items-center gap-2 w-100 pe-2">
+            <i class="bi bi-diagram-3 text-white" style="font-size: 1.2rem;"></i>
+            <h4 class="m-0 fw-bold text-white" style="font-size: 1.1rem;">Trazabilidad de Producto</h4>
+        </div>
+    </ng-template>
+
+    <div class="p-3">
+        <!-- Barra de búsqueda -->
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-lg-6 col-md-5">
+                <label class="form-label small text-muted mb-1">Producto (código o nombre)</label>
+                <input pInputText type="text" class="w-100"
+                       placeholder="Ej: 20039626-1 o CEFTAROLINA"
+                       [ngModel]="trazaQuery()"
+                       (ngModelChange)="trazaQuery.set($event)"
+                       (keyup.enter)="buscarTrazabilidad()">
+            </div>
+            <div class="col-lg-3 col-md-3">
+                <label class="form-label small text-muted mb-1">Estado (opcional)</label>
+                <p-dropdown
+                    [options]="estadoOptions"
+                    [ngModel]="trazaEstado()"
+                    (ngModelChange)="trazaEstado.set($event)"
+                    optionLabel="label" optionValue="value"
+                    placeholder="Todos" appendTo="body"
+                    styleClass="w-100"></p-dropdown>
+            </div>
+            <div class="col-lg-3 col-md-4 d-flex gap-2">
+                <button pButton icon="bi bi-search" label="Buscar"
+                        class="p-button-primary flex-fill"
+                        (click)="buscarTrazabilidad()" [loading]="isLoadingTraza()"></button>
+                <button pButton icon="bi bi-arrow-counterclockwise"
+                        class="p-button-text p-button-secondary"
+                        (click)="limpiarTrazabilidad()" pTooltip="Limpiar"></button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div *ngIf="isLoadingTraza()" class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <div class="mt-2 text-muted">Buscando trazabilidad...</div>
+        </div>
+
+        <!-- Resultados -->
+        <ng-container *ngIf="!isLoadingTraza() && traza() as t">
+            <!-- Resumen del producto -->
+            <div *ngIf="t.producto as p" class="mb-3">
+                <div class="p-3 bg-light rounded border">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                        <div>
+                            <div class="fw-bold" style="font-size: 0.95rem;">
+                                <code class="text-primary">{{ p.codigo_producto }}</code> · {{ p.producto_nombre }}
+                            </div>
+                            <div class="text-muted small mt-1">Aparece en {{ p.total_ordenes }} orden(es) de compra</div>
+                        </div>
+                        <div class="d-flex gap-4 text-center">
+                            <div>
+                                <div class="text-muted small">Comprado</div>
+                                <strong class="text-primary" style="font-size: 1.1rem;">{{ p.total_comprado | number }}</strong>
+                            </div>
+                            <div>
+                                <div class="text-muted small">Recibido</div>
+                                <strong class="text-success" style="font-size: 1.1rem;">{{ p.total_recibido | number }}</strong>
+                            </div>
+                            <div>
+                                <div class="text-muted small">Pendiente</div>
+                                <strong class="text-warning" style="font-size: 1.1rem;">{{ p.total_pendiente | number }}</strong>
+                            </div>
+                            <div style="min-width: 120px;">
+                                <div class="text-muted small">Avance</div>
+                                <strong style="font-size: 1.1rem;">{{ p.avance_porcentaje }}%</strong>
+                                <div class="progress mt-1" style="height: 6px;">
+                                    <div class="progress-bar bg-success" [style.width.%]="p.avance_porcentaje"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de OC donde aparece el producto -->
+            <p-table [value]="t.ordenes" [scrollable]="true" scrollHeight="45vh"
+                     [paginator]="t.ordenes.length > 15" [rows]="15"
+                     styleClass="p-datatable-sm p-datatable-gridlines-none">
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th style="width:16%"># OC</th>
+                        <th style="width:22%">Proveedor</th>
+                        <th style="width:11%">Fecha</th>
+                        <th style="width:12%">Estado</th>
+                        <th style="width:10%" class="text-center">Comprado</th>
+                        <th style="width:10%" class="text-center">Recibido</th>
+                        <th style="width:10%" class="text-center">Pendiente</th>
+                        <th style="width:9%" class="text-center">Recepción</th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-o>
+                    <tr>
+                        <td>
+                            <strong>{{ o.numero_orden_compra }}</strong>
+                            <div *ngIf="o.oc_indigo" class="text-muted" style="font-size: 0.68rem;">Indigo: {{ o.oc_indigo }}</div>
+                        </td>
+                        <td class="text-truncate" style="max-width:200px" [pTooltip]="o.proveedor">{{ o.proveedor }}</td>
+                        <td>{{ o.fecha_orden | date:'dd/MM/yyyy' }}</td>
+                        <td><span class="badge badge-status" [ngClass]="getStatusBadge(o.estado)">{{ o.estado_label }}</span></td>
+                        <td class="text-center">{{ o.cantidad_comprada | number }}</td>
+                        <td class="text-center text-success fw-semibold">{{ o.cantidad_recibida | number }}</td>
+                        <td class="text-center" [class.text-warning]="o.cantidad_pendiente > 0" [class.fw-semibold]="o.cantidad_pendiente > 0">{{ o.cantidad_pendiente | number }}</td>
+                        <td class="text-center">
+                            <span *ngIf="o.recepcion_completa" class="badge bg-success-subtle text-success" style="font-size:0.68rem;">
+                                <i class="bi bi-check-circle"></i> Completa
+                            </span>
+                            <div *ngIf="!o.recepcion_completa" class="rep-progress-mini" [pTooltip]="o.cantidad_recibida + ' de ' + o.cantidad_comprada">
+                                <div class="rep-progress-mini__fill" [style.width.%]="avanceTraza(o)"></div>
+                                <span>{{ avanceTraza(o) }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-search fs-2 d-block mb-2 text-secondary" style="opacity: 0.5;"></i>
+                            Escribe un producto y pulsa "Buscar" para ver su trazabilidad.
+                        </td>
+                    </tr>
+                </ng-template>
+            </p-table>
+        </ng-container>
+
+        <!-- Estado inicial (sin búsqueda) -->
+        <div *ngIf="!isLoadingTraza() && !traza()" class="text-center py-5 text-muted">
+            <i class="bi bi-diagram-3 fs-1 d-block mb-2 text-secondary" style="opacity: 0.4;"></i>
+            Busca un producto por código o nombre para ver en qué órdenes de compra está,
+            su estado y lo que se ha recepcionado vs. lo pendiente.
+        </div>
     </div>
 </p-dialog>

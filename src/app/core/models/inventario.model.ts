@@ -355,3 +355,37 @@ export interface ReporteTiempos {
   distribucion_oc_recepcion: ReporteTiemposDistribucion[];
   detalle: ReporteTiemposDetalleRow[];
 }
+
+// ── Trazabilidad de un producto en las órdenes de compra ─────────────────────
+
+export interface TrazabilidadProductoResumen {
+  codigo_producto: string;
+  producto_nombre: string;
+  total_ordenes: number;
+  total_comprado: number;
+  total_recibido: number;
+  total_pendiente: number;
+  avance_porcentaje: number;
+}
+
+export interface TrazabilidadProductoOrden {
+  orden_id: number;
+  numero_orden_compra: string;
+  oc_indigo?: string;
+  proveedor: string;
+  fecha_orden: string;
+  estado: string;
+  estado_label: string;
+  codigo_producto: string;
+  producto_nombre: string;
+  cantidad_comprada: number;
+  cantidad_recibida: number;
+  cantidad_pendiente: number;
+  recepcion_completa: boolean;
+}
+
+export interface TrazabilidadProducto {
+  producto: TrazabilidadProductoResumen | null;
+  ordenes: TrazabilidadProductoOrden[];
+  total: number;
+}

@@ -13,7 +13,7 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { InventarioService } from '../../../core/services/inventario.service';
-import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption } from '../../../core/models/inventario.model';
+import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption, TrazabilidadProducto } from '../../../core/models/inventario.model';
 
 @Component({
   selector: 'app-ordenes-compra',
@@ -116,6 +116,13 @@ export class OrdenesCompraComponent implements OnInit {
 
   // Acciones sobre una OC
   isProcessingAction = signal<boolean>(false);
+
+  // Modal Trazabilidad de producto
+  showTrazabilidadModal = signal<boolean>(false);
+  isLoadingTraza = signal<boolean>(false);
+  trazaQuery = signal<string>('');
+  trazaEstado = signal<string>('');
+  traza = signal<TrazabilidadProducto | null>(null);
 
   // Modal Ver Detalles Orden
   showDetailsModal = signal<boolean>(false);
@@ -305,17 +312,19 @@ export class OrdenesCompraComponent implements OnInit {
       return;
     }
 
-    // Preguntar/exigir la sucursal destino para que el consecutivo sea el correcto.
+    // La sucursal es OPCIONAL: el backend la deduce automáticamente por el prefijo
+    // del pedido (TJA-…, FLA-…, NVA-…). El selector solo actúa como respaldo por si
+    // la orden de Indigo no trae un número de pedido reconocible.
     const sucursalId = this.selectedSucursalId();
-    if (!sucursalId) {
-      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'Seleccione la sucursal destino. El consecutivo se genera según la sucursal.' });
-      return;
-    }
+    const suc = sucursalId ? this.sucursales().find(s => s.id === sucursalId) : null;
 
-    const suc = this.sucursales().find(s => s.id === sucursalId);
+    const mensaje = sucursalId
+      ? `Se sincronizará la orden <strong>${num}</strong>. Si no se detecta la sucursal por el prefijo del pedido, se usará "<strong>${suc?.nombre ?? sucursalId}</strong>" como respaldo. ¿Continuar?`
+      : `Se sincronizará la orden <strong>${num}</strong>. La sucursal se detectará automáticamente por el prefijo del pedido (TJA, FLA, NVA…). ¿Continuar?`;
+
     this.confirmationService.confirm({
       header: 'Sincronizar desde Indigo',
-      message: `Se sincronizará la orden <strong>${num}</strong> hacia la sucursal "<strong>${suc?.nombre ?? sucursalId}</strong>". ¿Continuar?`,
+      message: mensaje,
       icon: 'bi bi-cloud-download',
       acceptLabel: 'Sí, sincronizar',
       rejectLabel: 'Cancelar',
@@ -323,7 +332,9 @@ export class OrdenesCompraComponent implements OnInit {
       rejectButtonStyleClass: 'p-button-text p-button-secondary',
       accept: () => {
         this.isSyncing.set(true);
-        this.inventarioService.syncOrdenCompra(num, sucursalId).subscribe({
+        // Envía sucursalId solo si el usuario eligió una (respaldo). Si es null, el
+        // backend deducirá la sucursal por prefijo del pedido.
+        this.inventarioService.syncOrdenCompra(num, sucursalId ?? undefined).subscribe({
           next: (res: any) => {
             this.isSyncing.set(false);
             if (res.success) {
@@ -374,6 +385,63 @@ export class OrdenesCompraComponent implements OnInit {
   pedidosRelacionadosTexto(oc: OrdenCompra | null): string {
     const peds = oc?.pedidos_relacionados ?? [];
     return peds.map(p => p.numero_pedido).filter(Boolean).join(', ');
+  }
+
+  // ==========================================
+  // TRAZABILIDAD DE PRODUCTO
+  // ==========================================
+  openTrazabilidad(): void {
+    this.showTrazabilidadModal.set(true);
+    // No autolanza búsqueda; el usuario escribe el producto y busca.
+    if (!this.traza()) {
+      this.traza.set(null);
+    }
+  }
+
+  closeTrazabilidad(): void {
+    this.showTrazabilidadModal.set(false);
+  }
+
+  buscarTrazabilidad(): void {
+    const q = this.trazaQuery().trim();
+    if (q.length < 2) {
+      this.messageService.add({ severity: 'warn', summary: 'Búsqueda muy corta', detail: 'Escribe al menos 2 caracteres del código o nombre del producto.' });
+      return;
+    }
+    this.isLoadingTraza.set(true);
+    const filtros: Record<string, any> = { q };
+    if (this.trazaEstado()) filtros['estado'] = this.trazaEstado();
+
+    this.inventarioService.getTrazabilidadProducto(filtros).subscribe({
+      next: (res) => {
+        this.isLoadingTraza.set(false);
+        if (res.success && res.data) {
+          this.traza.set(res.data);
+          if (!res.data.producto) {
+            this.messageService.add({ severity: 'info', summary: 'Sin resultados', detail: 'No se encontró el producto en ninguna orden de compra.' });
+          }
+        } else {
+          this.traza.set(null);
+        }
+      },
+      error: (err) => {
+        this.isLoadingTraza.set(false);
+        this.traza.set(null);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'No se pudo cargar la trazabilidad.' });
+      }
+    });
+  }
+
+  limpiarTrazabilidad(): void {
+    this.trazaQuery.set('');
+    this.trazaEstado.set('');
+    this.traza.set(null);
+  }
+
+  /** % de avance de recepción de una fila de trazabilidad (para la barra). */
+  avanceTraza(o: { cantidad_comprada: number; cantidad_recibida: number }): number {
+    if (!o?.cantidad_comprada) return 0;
+    return Math.min(100, Math.round((o.cantidad_recibida / o.cantidad_comprada) * 100));
   }
 
   origenBadgeClass(oc: OrdenCompra): string {

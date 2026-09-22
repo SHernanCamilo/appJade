@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto, ReporteFarmacia, ReporteTiempos } from '../models/inventario.model';
+import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto, ReporteFarmacia, ReporteTiempos, TrazabilidadProducto } from '../models/inventario.model';
 
 @Injectable({
   providedIn: 'root'
@@ -47,6 +47,20 @@ export class InventarioService {
       }
     });
     return this.http.get<ApiResponse<ReporteTiempos>>(`${this.baseUrl}/reportes/tiempos`, { params });
+  }
+
+  /**
+   * Trazabilidad de un producto en las órdenes de compra.
+   * Filtros: q (código o nombre), estado, sucursal_id
+   */
+  getTrazabilidadProducto(filtros?: Record<string, any>): Observable<ApiResponse<TrazabilidadProducto>> {
+    let params = new HttpParams();
+    Object.entries(filtros || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        params = params.set(k, String(v));
+      }
+    });
+    return this.http.get<ApiResponse<TrazabilidadProducto>>(`${this.baseUrl}/reportes/trazabilidad-producto`, { params });
   }
 
   // ==========================================
