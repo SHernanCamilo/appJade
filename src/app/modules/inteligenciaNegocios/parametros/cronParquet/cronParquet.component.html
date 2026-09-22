@@ -90,6 +90,16 @@
         <span class="cp-kpi__label">Con error</span>
       </div>
     </button>
+
+    <!-- Indicador de salud del pipeline: vistas muy atrasadas o nunca generadas -->
+    <button class="cp-kpi cp-kpi--sla" pTooltip="Vistas muy atrasadas o que nunca se han generado"
+      tooltipPosition="top">
+      <div class="cp-kpi__icon"><i class="pi pi-shield"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiOverdue() | number }}</span>
+        <span class="cp-kpi__label">En riesgo de SLA</span>
+      </div>
+    </button>
   </section>
 
   <!-- Panel de graficos + carriles -->
@@ -146,7 +156,10 @@
   <section class="cp-live" *ngIf="enProceso().length > 0">
     <div class="cp-live__head">
       <h3><i class="pi pi-spin pi-spinner"></i> Generando ahora ({{ enProceso().length }})</h3>
-      <span class="cp-live__hint">Actualiza cada 15s con Auto ON · en rojo = posible bloqueo (&gt;5 min)</span>
+      <span class="cp-live__hint">
+        Actualiza cada 15s con Auto ON · en rojo = atascado
+        <span *ngIf="kpiStuck() > 0"> · {{ kpiStuck() }} atascada(s)</span>
+      </span>
     </div>
     <div class="cp-live__list">
       <div class="cp-live__item" *ngFor="let g of enProceso()" [class.cp-live__item--stuck]="g.stuck">
@@ -155,6 +168,11 @@
           <div class="cp-live__names">
             <code class="cp-live__schema">{{ g.schema }}</code>
             <span class="cp-live__view">{{ g.view }}</span>
+            <!-- Fase real que reporta Graph-Fabric -->
+            <span class="cp-live__stage">
+              {{ stageLabel(g.stage) }}
+              <span class="cp-live__lane" *ngIf="g.lane">· {{ g.lane }}</span>
+            </span>
           </div>
         </div>
         <div class="cp-live__meta">
@@ -162,7 +180,10 @@
             <i class="pi pi-clock"></i> {{ formatElapsed(g.elapsedS) }}
           </span>
           <span class="cp-live__rows" *ngIf="g.rows != null">{{ g.rows | number }} filas</span>
-          <span class="cp-live__stuck-tag" *ngIf="g.stuck">posible bloqueo</span>
+          <span class="cp-live__stuck-tag" *ngIf="g.stuck">atascado</span>
+        </div>
+        <div class="cp-live__error" *ngIf="g.error">
+          <i class="pi pi-exclamation-triangle"></i> {{ g.error }}
         </div>
       </div>
     </div>
