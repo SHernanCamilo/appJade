@@ -438,7 +438,22 @@
                 [showClear]="true"
                 [filter]="true"
                 appendTo="body"
-                styleClass="dtn-dropdown"></p-dropdown>
+                styleClass="dtn-dropdown">
+                <!-- Item de la lista: punto de color + texto -->
+                <ng-template let-opt pTemplate="item">
+                  <span class="plantilla-opt">
+                    <span *ngIf="opt.color" class="plantilla-color-dot" [style.background-color]="opt.color"></span>
+                    <span>{{ opt.label }}</span>
+                  </span>
+                </ng-template>
+                <!-- Item seleccionado: mismo punto de color + texto -->
+                <ng-template let-opt pTemplate="selectedItem">
+                  <span class="plantilla-opt" *ngIf="opt">
+                    <span *ngIf="opt.color" class="plantilla-color-dot" [style.background-color]="opt.color"></span>
+                    <span>{{ opt.label }}</span>
+                  </span>
+                </ng-template>
+              </p-dropdown>
             </div>
 
             <!-- HORARIOS LIBRES -->

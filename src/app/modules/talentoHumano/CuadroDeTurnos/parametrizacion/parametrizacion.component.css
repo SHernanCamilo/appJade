@@ -106,3 +106,16 @@
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
 }
+
+.sin-parametros {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.sin-parametros i { font-size: 1.1rem; }

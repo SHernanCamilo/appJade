@@ -20,7 +20,8 @@
         <span>Parámetros de Jornada</span>
       </div>
       <button pButton type="button" label="Nueva vigencia" icon="pi pi-plus"
-        class="p-button-sm p-button-outlined" (click)="abrirJornadaDialog()"></button>
+        class="p-button-sm p-button-outlined" [disabled]="idEmpresa == null"
+        (click)="abrirJornadaDialog()"></button>
     </div>
 
     <!-- Skeleton de carga -->
@@ -32,6 +33,12 @@
           <div class="skeleton-line skeleton-value"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Mensaje si la empresa no tiene parametros aun -->
+    <div *ngIf="!isLoading && !parametroVigente && idEmpresa != null" class="sin-parametros">
+      <i class="pi pi-info-circle"></i>
+      <span>Esta empresa aún no tiene parámetros de jornada. Crea una nueva vigencia.</span>
     </div>
 
     <!-- Vigente actual (card destacado) -->
@@ -144,16 +151,6 @@
         <div class="form-field">
           <label>Nocturna fin</label>
           <input type="time" [(ngModel)]="jornadaForm.jornada_nocturna_fin" class="form-input">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-field">
-          <label>Vigente desde *</label>
-          <input type="date" [(ngModel)]="jornadaForm.vigente_desde" class="form-input">
-        </div>
-        <div class="form-field">
-          <label>Vigente hasta</label>
-          <input type="date" [(ngModel)]="jornadaForm.vigente_hasta" class="form-input">
         </div>
       </div>
       <div class="form-field">

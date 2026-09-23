@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -25,7 +25,10 @@ import { ParametrizacionService, TipoRecargo, ParametroJornada } from '../servic
   templateUrl: './parametrizacion.component.html',
   styleUrls: ['./parametrizacion.component.css']
 })
-export class ParametrizacionComponent implements OnInit {
+export class ParametrizacionComponent implements OnChanges {
+
+  /** Empresa seleccionada en el componente padre (selector global). */
+  @Input() idEmpresa: number | null = null;
 
   // ─── Tipos de Recargo ───
   tiposRecargo: TipoRecargo[] = [];
@@ -48,9 +51,13 @@ export class ParametrizacionComponent implements OnInit {
     private message: MessageService
   ) {}
 
-  ngOnInit(): void {
-    // Solo parámetros de jornada — los recargos se movieron al tab "Conceptos Cuadro"
-    this.cargarParametrosJornada();
+  ngOnChanges(changes: SimpleChanges): void {
+    // Recargar cuando el padre cambia la empresa seleccionada.
+    if (changes['idEmpresa']) {
+      this.parametroVigente = null;
+      this.parametrosJornada = [];
+      this.cargarParametrosJornada();
+    }
   }
 
   // ═══════════════════════════════════════════════════════
@@ -118,8 +125,9 @@ export class ParametrizacionComponent implements OnInit {
   // ═══════════════════════════════════════════════════════
 
   cargarParametrosJornada(): void {
+    if (this.idEmpresa == null) { this.parametrosJornada = []; this.parametroVigente = null; return; }
     this.isLoading = true;
-    this.service.getParametrosJornada().subscribe({
+    this.service.getParametrosJornada(this.idEmpresa).subscribe({
       next: (data) => {
         this.parametrosJornada = data;
         this.parametroVigente = data.find(p => p.activo && !p.vigente_hasta) || data[0] || null;
@@ -141,7 +149,18 @@ export class ParametrizacionComponent implements OnInit {
   }
 
   guardarJornada(): void {
-    if (!this.jornadaForm.vigente_desde) return;
+    // Empresa obligatoria (parametros por empresa).
+    if (this.idEmpresa == null) {
+      this.toast('error', 'Selecciona una empresa primero');
+      return;
+    }
+    // vigente_desde ya no se pide en el formulario; se asigna la fecha de hoy
+    // automaticamente (el backend lo requiere para versionar el parametro).
+    if (!this.jornadaForm.vigente_desde) {
+      this.jornadaForm.vigente_desde = new Date().toISOString().substring(0, 10);
+    }
+    // Asignar la empresa seleccionada al parametro.
+    this.jornadaForm.id_empresa = this.idEmpresa;
     this.isSaving = true;
 
     const obs = this.editandoJornada
@@ -175,6 +194,7 @@ export class ParametrizacionComponent implements OnInit {
 
   emptyJornadaForm(): any {
     return {
+      id_empresa: null,
       horas_max_dia: 8, horas_max_semana: 42, horas_max_mes: null,
       jornada_diurna_inicio: '06:00', jornada_diurna_fin: '21:00',
       jornada_nocturna_inicio: '21:00', jornada_nocturna_fin: '06:00',

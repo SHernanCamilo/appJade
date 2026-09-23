@@ -498,10 +498,11 @@ export class CuadroMesEmpleadoComponent implements OnInit {
       next: ps => {
         this.plantillas = ps ?? [];
         this.plantillaOptions = [
-          { label: '— Sin turno (descanso) —', value: null },
+          { label: '— Sin turno (descanso) —', value: null, color: null },
           ...this.plantillas.map(p => ({
             label: this.formatPlantillaLabel(p),
-            value: p.id
+            value: p.id,
+            color: p.color_hex || '#6366f1'
           }))
         ];
       },

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, tap, shareReplay, finalize } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 
 export interface ParametroCierre {
@@ -31,35 +31,21 @@ export class CierreCuadroService {
 
   private apiUrl = `${environment.URL_SERVICIOS}/turnos/cierre-cuadro`;
 
-  // Cache en memoria (servicio singleton). Evita re-pedir al reentrar al tab.
-  private cacheParametros: ParametroCierre[] | null = null;
+  // Cache en memoria del estado de unidades por periodo/empresa.
   private cacheEstado = new Map<string, EstadoUnidad[]>();
-
-  // Peticion en vuelo (evita duplicar: precarga del padre + carga del hijo).
-  private parametrosEnVuelo$: Observable<ParametroCierre[]> | null = null;
 
   constructor(private http: HttpClient) {}
 
-  getParametros(forzarRecarga = false): Observable<ParametroCierre[]> {
-    if (!forzarRecarga && this.cacheParametros) {
-      return of(this.cacheParametros);
-    }
-    if (this.parametrosEnVuelo$) {
-      return this.parametrosEnVuelo$;
-    }
-    this.parametrosEnVuelo$ = this.http.get<any>(`${this.apiUrl}/parametros`).pipe(
-      map(r => r.data),
-      tap(data => this.cacheParametros = data),
-      finalize(() => this.parametrosEnVuelo$ = null),
-      shareReplay(1)
+  getParametros(idEmpresa?: number | null): Observable<ParametroCierre[]> {
+    let params: any = {};
+    if (idEmpresa != null) params.id_empresa = idEmpresa;
+    return this.http.get<any>(`${this.apiUrl}/parametros`, { params }).pipe(
+      map(r => r.data)
     );
-    return this.parametrosEnVuelo$;
   }
 
   guardarParametro(data: Partial<ParametroCierre>): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/parametros`, data).pipe(
-      tap(() => this.cacheParametros = null)
-    );
+    return this.http.post<any>(`${this.apiUrl}/parametros`, data);
   }
 
   getEstado(anio: number, mes: number, idEmpresa?: number, forzarRecarga = false): Observable<EstadoUnidad[]> {

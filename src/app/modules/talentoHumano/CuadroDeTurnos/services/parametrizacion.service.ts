@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, tap, shareReplay, finalize } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 
 export interface TipoRecargo {
@@ -18,6 +18,8 @@ export interface TipoRecargo {
 
 export interface ParametroJornada {
   id?: number;
+  id_empresa?: number | null;
+  empresa?: { id: number; nombre: string } | null;
   horas_max_dia: number;
   horas_max_semana: number;
   horas_max_mes: number | null;
@@ -36,13 +38,8 @@ export class ParametrizacionService {
 
   private apiUrl = `${environment.URL_SERVICIOS}/turnos`;
 
-  // Cache en memoria (servicio singleton). Evita re-pedir al reentrar a config.
+  // Cache en memoria de tipos de recargo (estos siguen siendo globales).
   private cacheTiposRecargo: TipoRecargo[] | null = null;
-  private cacheParametrosJornada: ParametroJornada[] | null = null;
-  private cacheParametroVigente: ParametroJornada | null = null;
-
-  // Peticiones en vuelo (evita duplicar llamadas simultaneas: precarga + hijo).
-  private jornadaEnVuelo$: Observable<ParametroJornada[]> | null = null;
 
   constructor(private http: HttpClient) {}
 
@@ -72,50 +69,28 @@ export class ParametrizacionService {
     );
   }
 
-  // ─── Parámetros de Jornada ───
-  getParametrosJornada(forzarRecarga = false): Observable<ParametroJornada[]> {
-    if (!forzarRecarga && this.cacheParametrosJornada) {
-      return of(this.cacheParametrosJornada);
-    }
-    // Si ya hay una peticion en curso, reutilizarla (evita duplicados)
-    if (this.jornadaEnVuelo$) {
-      return this.jornadaEnVuelo$;
-    }
-    this.jornadaEnVuelo$ = this.http.get<any>(`${this.apiUrl}/parametros-jornada`).pipe(
-      map(r => r.data),
-      tap(data => this.cacheParametrosJornada = data),
-      finalize(() => this.jornadaEnVuelo$ = null),
-      shareReplay(1)
+  // ─── Parámetros de Jornada (por empresa) ───
+  getParametrosJornada(idEmpresa?: number | null): Observable<ParametroJornada[]> {
+    let params: any = {};
+    if (idEmpresa != null) params.id_empresa = idEmpresa;
+    return this.http.get<any>(`${this.apiUrl}/parametros-jornada`, { params }).pipe(
+      map(r => r.data)
     );
-    return this.jornadaEnVuelo$;
   }
-  getParametroVigente(forzarRecarga = false): Observable<ParametroJornada> {
-    if (!forzarRecarga && this.cacheParametroVigente) {
-      return of(this.cacheParametroVigente);
-    }
-    return this.http.get<any>(`${this.apiUrl}/parametros-jornada/vigente`).pipe(
-      map(r => r.data),
-      tap(data => this.cacheParametroVigente = data)
+  getParametroVigente(idEmpresa?: number | null): Observable<ParametroJornada> {
+    let params: any = {};
+    if (idEmpresa != null) params.id_empresa = idEmpresa;
+    return this.http.get<any>(`${this.apiUrl}/parametros-jornada/vigente`, { params }).pipe(
+      map(r => r.data)
     );
   }
   crearParametroJornada(data: Partial<ParametroJornada>): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/parametros-jornada`, data).pipe(
-      tap(() => this.invalidarCacheJornada())
-    );
+    return this.http.post<any>(`${this.apiUrl}/parametros-jornada`, data);
   }
   actualizarParametroJornada(id: number, data: Partial<ParametroJornada>): Observable<any> {
-    return this.http.put<any>(`${this.apiUrl}/parametros-jornada/${id}`, data).pipe(
-      tap(() => this.invalidarCacheJornada())
-    );
+    return this.http.put<any>(`${this.apiUrl}/parametros-jornada/${id}`, data);
   }
   eliminarParametroJornada(id: number): Observable<any> {
-    return this.http.delete<any>(`${this.apiUrl}/parametros-jornada/${id}`).pipe(
-      tap(() => this.invalidarCacheJornada())
-    );
-  }
-
-  private invalidarCacheJornada(): void {
-    this.cacheParametrosJornada = null;
-    this.cacheParametroVigente = null;
+    return this.http.delete<any>(`${this.apiUrl}/parametros-jornada/${id}`);
   }
 }

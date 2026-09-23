@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -36,7 +36,10 @@ import { ConceptoService, Concepto, ProbarFormulaResponse } from '../services/co
   templateUrl: './conceptos-cuadro.component.html',
   styleUrls: ['./conceptos-cuadro.component.css']
 })
-export class ConceptosCuadroComponent implements OnInit {
+export class ConceptosCuadroComponent implements OnChanges {
+
+  /** Empresa seleccionada en el componente padre (selector global). */
+  @Input() idEmpresa: number | null = null;
 
   conceptos: Concepto[] = [];
   variablesDisponibles: string[] = [];
@@ -60,15 +63,19 @@ export class ConceptosCuadroComponent implements OnInit {
 
   constructor(private conceptoService: ConceptoService) {}
 
-  ngOnInit(): void {
-    this.cargarDatos();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['idEmpresa']) {
+      this.conceptos = [];
+      this.cargarDatos();
+    }
   }
 
-  /** Carga conceptos y variables EN PARALELO (evita 2 preflights en serie) */
+  /** Carga conceptos (por empresa) y variables EN PARALELO. */
   cargarDatos(): void {
+    if (this.idEmpresa == null) { this.conceptos = []; return; }
     this.loading = true;
     forkJoin({
-      conceptos: this.conceptoService.getAll(),
+      conceptos: this.conceptoService.getAll({ id_empresa: this.idEmpresa }),
       variables: this.conceptoService.getVariables()
     }).subscribe({
       next: ({ conceptos, variables }) => {
@@ -81,7 +88,8 @@ export class ConceptosCuadroComponent implements OnInit {
   }
 
   cargarConceptos(): void {
-    this.conceptoService.getAll().subscribe({
+    if (this.idEmpresa == null) { this.conceptos = []; return; }
+    this.conceptoService.getAll({ id_empresa: this.idEmpresa }).subscribe({
       next: (data) => { this.conceptos = data; },
       error: () => {}
     });
@@ -106,6 +114,13 @@ export class ConceptosCuadroComponent implements OnInit {
   }
 
   guardar(): void {
+    if (this.idEmpresa == null) {
+      alert('Selecciona una empresa primero');
+      return;
+    }
+    // Asignar la empresa seleccionada al concepto (por empresa).
+    this.conceptoForm.id_empresa = this.idEmpresa;
+
     if (this.editMode && this.conceptoForm.id) {
       this.conceptoService.update(this.conceptoForm.id, this.conceptoForm).subscribe({
         next: () => { this.showModal = false; this.cargarConceptos(); },

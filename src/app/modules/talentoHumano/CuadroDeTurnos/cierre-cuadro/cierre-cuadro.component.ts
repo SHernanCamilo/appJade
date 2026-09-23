@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -26,7 +26,10 @@ import { CierreCuadroService, ParametroCierre, EstadoUnidad } from '../services/
   templateUrl: './cierre-cuadro.component.html',
   styleUrls: ['./cierre-cuadro.component.css']
 })
-export class CierreCuadroComponent implements OnInit {
+export class CierreCuadroComponent implements OnChanges {
+
+  /** Empresa seleccionada en el componente padre (selector global). */
+  @Input() idEmpresa: number | null = null;
 
   // Filtros
   selectedAnio = new Date().getFullYear();
@@ -61,13 +64,24 @@ export class CierreCuadroComponent implements OnInit {
 
   constructor(private service: CierreCuadroService, private message: MessageService) {}
 
-  ngOnInit(): void {
-    this.cargarParametros();
-    // No cargar estado de unidades al inicio — solo cuando sea necesario (tipo Manual)
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['idEmpresa']) {
+      // Reset y recarga al cambiar de empresa
+      this.parametro = {
+        tipo_bloqueo: 'automatico', tipo_nomina: 'mensual',
+        dia_cierre: 0, hora_cierre: '', aplica_mes_actual: true, activo: true
+      };
+      this.unidades = [];
+      this.unidadesFiltradas = [];
+      this.seleccionadas.clear();
+      this.cargarParametros();
+    }
   }
 
   cargarParametros(): void {
-    this.service.getParametros().subscribe({
+    if (this.idEmpresa == null) { this.parametroCargado = true; return; }
+    this.parametroCargado = false;
+    this.service.getParametros(this.idEmpresa).subscribe({
       next: (params) => {
         if (params.length) this.parametro = params[0];
         this.parametroCargado = true;
@@ -81,12 +95,17 @@ export class CierreCuadroComponent implements OnInit {
   }
 
   guardarParametro(): void {
-    this.service.guardarParametro(this.parametro).subscribe({
+    if (this.idEmpresa == null) {
+      this.toast('error', 'Selecciona una empresa primero');
+      return;
+    }
+    // Construir payload explicito con id_empresa (evita depender de mutar el objeto).
+    const payload = { ...this.parametro, id_empresa: this.idEmpresa };
+    this.service.guardarParametro(payload).subscribe({
       next: () => {
         this.toast('success', 'Parámetro guardado');
-        if (this.parametro.tipo_bloqueo === 'manual' && !this.unidades.length) {
-          this.cargarEstado();
-        }
+        // Recargar SIEMPRE para reflejar lo guardado sin recargar la app.
+        this.cargarParametros();
       },
       error: () => this.toast('error', 'Error al guardar parámetro')
     });
@@ -100,7 +119,7 @@ export class CierreCuadroComponent implements OnInit {
 
   cargarEstado(): void {
     this.isLoading = true;
-    this.service.getEstado(this.selectedAnio, this.selectedMes).subscribe({
+    this.service.getEstado(this.selectedAnio, this.selectedMes, this.idEmpresa ?? undefined).subscribe({
       next: (data) => { this.unidades = data; this.filtrar(); this.isLoading = false; },
       error: () => { this.isLoading = false; this.toast('error', 'Error al cargar estado'); }
     });

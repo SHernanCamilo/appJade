@@ -12,17 +12,31 @@
       <h1>Configuración de Turnos</h1>
       <p>Parámetros de jornada, recargos y cierre del cuadro</p>
     </div>
+
+    <!-- Selector de empresa GLOBAL (aplica a los 3 tabs) -->
+    <div class="empresa-selector" *ngIf="empresasLoaded">
+      <span class="empresa-selector-label"><i class="pi pi-building"></i> Empresa</span>
+      <p-dropdown *ngIf="esAdmin"
+        [options]="empresasOptions"
+        [(ngModel)]="selectedEmpresa"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Selecciona empresa"
+        (onChange)="onEmpresaChange()"
+        [style]="{'min-width':'240px'}">
+      </p-dropdown>
+      <span *ngIf="!esAdmin" class="empresa-selector-fijo">{{ getNombreEmpresaSel() }}</span>
+    </div>
   </div>
 
-  <!-- Tabs: los 3 se renderizan y su data se precarga en paralelo al entrar.
-       Cada hijo muestra su propio skeleton mientras su data llega. -->
+  <!-- Tabs: el selector de empresa de arriba se comparte con los 3 tabs vía [idEmpresa]. -->
   <p-tabView styleClass="config-tabs">
     <p-tabPanel>
       <ng-template pTemplate="header">
         <i class="pi pi-clock tab-icon"></i>
         <span>Parámetros de Jornada</span>
       </ng-template>
-      <app-parametrizacion></app-parametrizacion>
+      <app-parametrizacion [idEmpresa]="selectedEmpresa"></app-parametrizacion>
     </p-tabPanel>
 
     <p-tabPanel>
@@ -30,7 +44,7 @@
         <i class="pi pi-lock tab-icon"></i>
         <span>Cierre de Cuadro</span>
       </ng-template>
-      <app-cierre-cuadro></app-cierre-cuadro>
+      <app-cierre-cuadro [idEmpresa]="selectedEmpresa"></app-cierre-cuadro>
     </p-tabPanel>
 
     <p-tabPanel>
@@ -38,7 +52,7 @@
         <i class="pi pi-list tab-icon"></i>
         <span>Conceptos Cuadro</span>
       </ng-template>
-      <app-conceptos-cuadro></app-conceptos-cuadro>
+      <app-conceptos-cuadro [idEmpresa]="selectedEmpresa"></app-conceptos-cuadro>
     </p-tabPanel>
   </p-tabView>
 

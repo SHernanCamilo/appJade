@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environment';
 
 export interface Concepto {
   id?: number;
+  id_empresa?: number | null;
   codigo: string;
   nombre: string;
   tipo_concepto: 'devengado' | 'deducido';
@@ -32,47 +33,21 @@ export class ConceptoService {
 
   private apiBase = `${environment.URL_SERVICIOS}/turnos/conceptos`;
 
-  // Cache en memoria (servicio singleton). Evita re-pedir al reentrar a config.
-  private cacheConceptos = new Map<string, Concepto[]>();
+  // Variables disponibles (globales): estas si se cachean.
   private cacheVariables: string[] | null = null;
-
-  // Peticiones en vuelo (evita duplicar llamadas simultaneas: precarga + hijo).
-  private conceptosEnVuelo = new Map<string, Observable<Concepto[]>>();
   private variablesEnVuelo$: Observable<string[]> | null = null;
 
   constructor(private http: HttpClient) {}
 
-  private conceptosKey(params?: { activo?: boolean; tipo_concepto?: string }): string {
-    if (!params) return 'all';
-    return `act:${params.activo ?? ''}|tipo:${params.tipo_concepto ?? ''}`;
-  }
-
-  /** Invalida la cache de conceptos (usar tras mutaciones). */
-  private invalidarCacheConceptos(): void {
-    this.cacheConceptos.clear();
-  }
-
-  /** Obtener todos los conceptos (con cache en memoria) */
-  getAll(params?: { activo?: boolean; tipo_concepto?: string }, forzarRecarga = false): Observable<Concepto[]> {
-    const key = this.conceptosKey(params);
-    if (!forzarRecarga && this.cacheConceptos.has(key)) {
-      return of(this.cacheConceptos.get(key)!);
-    }
-    // Reutilizar peticion en curso para la misma clave (evita duplicados)
-    const enVuelo = this.conceptosEnVuelo.get(key);
-    if (enVuelo) {
-      return enVuelo;
-    }
-    const obs = this.http
-      .get<{ success: boolean; data: Concepto[] }>(this.apiBase, { params: params as any })
-      .pipe(
-        map(r => r.data),
-        tap(data => this.cacheConceptos.set(key, data)),
-        finalize(() => this.conceptosEnVuelo.delete(key)),
-        shareReplay(1)
-      );
-    this.conceptosEnVuelo.set(key, obs);
-    return obs;
+  /** Obtener conceptos POR EMPRESA (opcionalmente filtrando por activo/tipo). */
+  getAll(params?: { id_empresa?: number | null; activo?: boolean; tipo_concepto?: string }): Observable<Concepto[]> {
+    const query: any = {};
+    if (params?.id_empresa != null) query.id_empresa = params.id_empresa;
+    if (params?.activo != null) query.activo = params.activo;
+    if (params?.tipo_concepto) query.tipo_concepto = params.tipo_concepto;
+    return this.http
+      .get<{ success: boolean; data: Concepto[] }>(this.apiBase, { params: query })
+      .pipe(map(r => r.data));
   }
 
   /** Obtener concepto por ID */
@@ -86,21 +61,21 @@ export class ConceptoService {
   create(data: Concepto): Observable<Concepto> {
     return this.http
       .post<{ success: boolean; data: Concepto }>(this.apiBase, data)
-      .pipe(map(r => r.data), tap(() => this.invalidarCacheConceptos()));
+      .pipe(map(r => r.data));
   }
 
   /** Actualizar concepto */
   update(id: number, data: Concepto): Observable<Concepto> {
     return this.http
       .put<{ success: boolean; data: Concepto }>(`${this.apiBase}/${id}`, data)
-      .pipe(map(r => r.data), tap(() => this.invalidarCacheConceptos()));
+      .pipe(map(r => r.data));
   }
 
   /** Eliminar concepto */
   delete(id: number): Observable<void> {
     return this.http
       .delete<{ success: boolean }>(`${this.apiBase}/${id}`)
-      .pipe(map(() => undefined), tap(() => this.invalidarCacheConceptos()));
+      .pipe(map(() => undefined));
   }
 
   /** Probar fórmula con valores de prueba */
