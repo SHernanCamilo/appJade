@@ -41,6 +41,9 @@ interface ParquetStatus {
   row_count?: number;
   avg_generation_s?: number;
   lane?: string;
+  error?: string | null;
+  error_message?: string | null;
+  message?: string | null;
   config?: {
     refresh_interval_min: number;
     priority: string;
@@ -81,6 +84,46 @@ interface ParquetHistoryEntry {
 
 type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
 
+/** Una vista generandose AHORA, segun /parquet-monitor/live (dato real de Graph-Fabric). */
+interface GeneratingNow {
+  qualified_name: string;
+  lane?: string | null;
+  /** queued | fabric_query | writing_parquet | uploading_r2 */
+  stage?: string | null;
+  started_at?: string | null;
+  running_s?: number | null;
+  is_stuck?: boolean;
+  stuck_threshold_s?: number | null;
+  error_message?: string | null;
+  avg_generation_s?: number | null;
+}
+
+/** Resumen de salud del pipeline (incluye `overdue` = riesgo de SLA). */
+interface LiveSummary {
+  total?: number;
+  ok?: number;
+  stale?: number;
+  missing?: number;
+  cooldown?: number;
+  too_big?: number;
+  generating?: number;
+  stuck?: number;
+  overdue?: number;
+}
+
+/** Estado en vivo de una regeneracion forzada (boton del rayo). */
+interface RefreshJob {
+  key: string;                 // "schema.view"
+  view: string;
+  jobId: string | null;
+  phase: 'starting' | 'running' | 'done' | 'failed';
+  progress: number;            // 0-100
+  stage: string;               // texto que reporta Graph-Fabric
+  rows: number;
+  startedAt: number;           // epoch ms, para calcular transcurrido y detectar congelamiento
+  message?: string;
+}
+
 @Component({
   selector: 'app-cron-parquet',
   standalone: true,
@@ -101,6 +144,13 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   private readonly baseUrl = `${environment.URL_SERVICIOS}/fabric/viewer/parquet-config`;
 
+  /**
+   * Proxy interno de Laravel hacia Graph-Fabric.
+   * El token de servicio nunca llega al navegador: estas rutas lo agregan en
+   * el backend.
+   */
+  private readonly monitorUrl = `${environment.URL_SERVICIOS}/fabric/viewer/parquet-monitor`;
+
   readonly configs     = signal<ParquetConfig[]>([]);
   readonly statuses    = signal<ParquetStatus[]>([]);
   readonly dashboard   = signal<DashboardData | null>(null);
@@ -119,6 +169,28 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   readonly historyLoading  = signal(false);
   readonly historyEntries  = signal<ParquetHistoryEntry[]>([]);
   readonly historyView     = signal<{ schema: string; view: string } | null>(null);
+
+  // Seguimiento del "rayo" (force refresh) por vista: muestra loader + trazabilidad
+  // en vivo mientras Graph-Fabric regenera, y avisa si termina o falla/se congela.
+  readonly refreshJobs = signal<Record<string, RefreshJob>>({});
+  private refreshTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+  // Estado en vivo que reporta Graph-Fabric (/parquet-monitor/live):
+  // lo que se esta generando AHORA y el resumen de salud del pipeline.
+  readonly generatingNow = signal<GeneratingNow[]>([]);
+  readonly liveSummary   = signal<LiveSummary | null>(null);
+
+  // Rastreo de "en proceso ahora": cuando el frontend ve por primera vez una
+  // vista en estado generating, guarda el epoch ms. Asi puede mostrar cuanto
+  // lleva generandose y marcar como "posible bloqueo" si tarda demasiado.
+  private generatingSince = new Map<string, number>();
+
+  // Umbral (segundos) sobre el que una generacion se considera atascada.
+  private readonly STUCK_THRESHOLD_S = 300; // 5 min
+
+  // "Reloj" que fuerza el recalculo del tiempo transcurrido cada segundo.
+  readonly nowTick = signal(Date.now());
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
 
   private autoTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -181,6 +253,89 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     }).filter(l => l.total > 0);
   });
 
+  /**
+   * Vistas generandose AHORA (panel en vivo).
+   *
+   * Fuente primaria: `generating_now` de Graph-Fabric, que ya trae el `stage`
+   * real (queued/fabric_query/writing_parquet/uploading_r2), `running_s` e
+   * `is_stuck`. Si la API no reporta nada, cae al rastreo local sobre /status.
+   *
+   * Depende de nowTick para que el cronometro avance cada segundo entre
+   * refrescos (que ocurren cada 15s con Auto ON).
+   */
+  readonly enProceso = computed<Array<{
+    schema: string; view: string; elapsedS: number; stuck: boolean;
+    rows: number | null; stage: string | null; lane: string | null; error: string | null;
+  }>>(() => {
+    const now  = this.nowTick();
+    const live = this.generatingNow();
+
+    if (live.length > 0) {
+      return live.map(g => {
+        const [schema, ...resto] = (g.qualified_name ?? '').split('.');
+        const view = resto.join('.') || (g.qualified_name ?? '');
+
+        // running_s es el dato autoritativo; si no viene, se calcula de started_at.
+        let elapsedS = g.running_s != null ? Math.round(g.running_s) : 0;
+        if (elapsedS === 0 && g.started_at) {
+          const t = Date.parse(g.started_at);
+          if (!Number.isNaN(t)) elapsedS = Math.max(0, Math.round((now - t) / 1000));
+        }
+
+        const umbral = g.stuck_threshold_s ?? this.STUCK_THRESHOLD_S;
+
+        return {
+          schema,
+          view,
+          elapsedS,
+          stuck: g.is_stuck ?? (elapsedS >= umbral),
+          rows: null,
+          stage: g.stage ?? null,
+          lane: g.lane ?? null,
+          error: g.error_message ?? null,
+        };
+      }).sort((a, b) => b.elapsedS - a.elapsedS);
+    }
+
+    // Respaldo: deducirlo de /status con el rastreo local.
+    return this.statuses()
+      .filter(v => this.isGenerating(v))
+      .map(v => {
+        const key = `${v.schema}.${v.view}`;
+        const since = this.generatingSince.get(key) ?? now;
+        const elapsedS = Math.max(0, Math.round((now - since) / 1000));
+        return {
+          schema: v.schema ?? '',
+          view: v.view ?? '',
+          elapsedS,
+          stuck: elapsedS >= this.STUCK_THRESHOLD_S,
+          rows: v.row_count ?? null,
+          stage: null as string | null,
+          lane: null as string | null,
+          error: null as string | null,
+        };
+      })
+      .sort((a, b) => b.elapsedS - a.elapsedS);
+  });
+
+  /** Vistas en riesgo de SLA (muy atrasadas o nunca generadas). */
+  readonly kpiOverdue = computed(() => this.liveSummary()?.overdue ?? 0);
+
+  /** Vistas atascadas segun Graph-Fabric. */
+  readonly kpiStuck = computed(() => this.liveSummary()?.stuck ?? 0);
+
+  /** Etiqueta legible de la fase de generacion. */
+  stageLabel(stage: string | null): string {
+    if (!stage) return 'Procesando';
+    const map: Record<string, string> = {
+      queued:          'En cola',
+      fabric_query:    'Consultando Fabric',
+      writing_parquet: 'Escribiendo parquet',
+      uploading_r2:    'Subiendo a R2',
+    };
+    return map[stage] ?? stage;
+  }
+
   // Formulario
   form = this.emptyForm();
 
@@ -200,10 +355,18 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadConfigs();
     this.loadStatus();
     this.loadDashboard();
+    this.loadLive();
+
+    // Reloj de 1s: recalcula el tiempo transcurrido del panel "En proceso".
+    this.clockTimer = setInterval(() => this.nowTick.set(Date.now()), 1000);
   }
 
   ngOnDestroy(): void {
     this.stopAutoRefresh();
+    if (this.clockTimer) { clearInterval(this.clockTimer); this.clockTimer = null; }
+    // Cortar cualquier polling de force refresh en curso.
+    this.refreshTimers.forEach(t => clearInterval(t));
+    this.refreshTimers.clear();
   }
 
   // ─── Auto-refresh ────────────────────────────────────────────────────────
@@ -216,6 +379,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
       this.autoTimer = setInterval(() => {
         this.loadStatus();
         this.loadDashboard();
+        this.loadLive();   // panel "Generando ahora" + riesgo de SLA
       }, 15000);
     }
   }
@@ -237,9 +401,44 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   loadStatus(): void {
     this.http.get<{ success: boolean; views: ParquetStatus[] }>(`${this.baseUrl}/status`).subscribe({
-      next: res => { this.statuses.set(res.views ?? []); this.lastUpdate.set(new Date()); },
+      next: res => {
+        const views = res.views ?? [];
+        this.trackGenerating(views);
+        this.statuses.set(views);
+        this.lastUpdate.set(new Date());
+      },
       error: () => this.msg.add({ severity: 'warn', summary: 'Aviso', detail: 'No se pudo obtener estado de Graph-Fabric' }),
     });
+  }
+
+  /**
+   * Mantiene el mapa de "desde cuando" cada vista esta generando.
+   *
+   * - Si una vista aparece generando y no estaba registrada → guarda ahora.
+   * - Si una vista dejo de generar → se limpia su marca.
+   * Asi el panel "En proceso" puede mostrar el tiempo transcurrido real y
+   * detectar generaciones atascadas.
+   */
+  private trackGenerating(views: ParquetStatus[]): void {
+    const ahora = Date.now();
+    const generandoAhora = new Set<string>();
+
+    for (const v of views) {
+      if (this.isGenerating(v)) {
+        const key = `${v.schema}.${v.view}`;
+        generandoAhora.add(key);
+        if (!this.generatingSince.has(key)) {
+          // Si Graph ya reporta cuanto lleva (running_s), respetarlo; si no, ahora.
+          const runningMs = (v as any).running_s != null ? (v as any).running_s * 1000 : 0;
+          this.generatingSince.set(key, ahora - runningMs);
+        }
+      }
+    }
+
+    // Limpiar las que ya no estan generando.
+    for (const key of Array.from(this.generatingSince.keys())) {
+      if (!generandoAhora.has(key)) this.generatingSince.delete(key);
+    }
   }
 
   loadDashboard(): void {
@@ -249,10 +448,30 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Estado en vivo desde Graph-Fabric: panel "Generando ahora" + resumen de
+   * salud (summary.overdue = vistas en riesgo de SLA).
+   */
+  loadLive(): void {
+    this.http.get<{ success: boolean; summary: LiveSummary; generating_now: GeneratingNow[]; message?: string }>(
+      `${this.monitorUrl}/live`
+    ).subscribe({
+      next: res => {
+        this.generatingNow.set(res.generating_now ?? []);
+        this.liveSummary.set(res.summary ?? null);
+      },
+      error: () => {
+        // Sin estado en vivo no se rompe la pantalla: se limpia el panel.
+        this.generatingNow.set([]);
+      },
+    });
+  }
+
   refreshAll(): void {
     this.loadConfigs();
     this.loadStatus();
     this.loadDashboard();
+    this.loadLive();
   }
 
   // ─── Filtro ────────────────────────────────────────────────────────────────
@@ -265,10 +484,10 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     if (sf !== 'all') {
       list = list.filter(c => {
         const st = this.getStatusForView(c.schema_name, c.view_name);
-        if (sf === 'stale') return st?.status === 'stale' || st?.config?.is_stale;
-        if (sf === 'error') return st?.status === 'error';
-        if (sf === 'ok') return st?.status === 'ok' && !st?.config?.is_stale;
-        if (sf === 'pending') return st?.status === 'pending' || !st;
+        if (sf === 'stale')   return this.isStale(st);
+        if (sf === 'error')   return this.isError(st);
+        if (sf === 'ok')      return st?.status === 'ok' && !this.isStale(st);
+        if (sf === 'pending') return this.isPending(st);
         return true;
       });
     }
@@ -404,24 +623,33 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   // ─── Run Cron ────────────────────────────────────────────────────────────
 
+  /**
+   * Ejecuta el cron manualmente. Graph-Fabric responde 202 y corre en
+   * background: aqui solo se confirma que la corrida fue iniciada.
+   */
   runCron(): void {
     this.runningCron.set(true);
-    this.http.post<{ success: boolean; due_count: number; message: string }>(
-      `${this.baseUrl}/run-cron`, {}
+    this.http.post<{ success: boolean; message: string }>(
+      `${this.monitorUrl}/schedule/run`, {}
     ).subscribe({
       next: res => {
         this.runningCron.set(false);
         this.msg.add({
           severity: 'success',
-          summary: 'Cron ejecutado',
-          detail: res.message,
+          summary: 'Corrida iniciada',
+          detail: res.message ?? 'La corrida del cron se ejecuta en segundo plano.',
           life: 6000,
         });
-        setTimeout(() => { this.loadStatus(); this.loadDashboard(); }, 5000);
+        // Dar tiempo a que arranquen las generaciones y mostrarlas en vivo.
+        setTimeout(() => { this.loadStatus(); this.loadDashboard(); this.loadLive(); }, 5000);
       },
       error: err => {
         this.runningCron.set(false);
-        this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo ejecutar el cron' });
+        this.msg.add({
+          severity: 'error', summary: 'Error',
+          detail: err?.error?.message ?? 'No se pudo iniciar la corrida del cron.',
+          life: 8000,
+        });
       },
     });
   }
@@ -492,32 +720,209 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   // ─── Force Refresh ──────────────────────────────────────────────────────
 
+  /**
+   * Boton rayo: prioriza la vista y la genera YA, sin bloquear el navegador.
+   *
+   * Flujo warm + polling (Graph-Fabric es dueño de la generacion y ya deduplica
+   * si dos usuarios fuerzan la misma vista):
+   *   1. POST /parquet-monitor/force  → responde en <200ms
+   *   2. Si status == "generating" → polling a /force/status cada poll_interval_s
+   *   3. Termina en ready | too_big | error, o al agotar el tope de intentos
+   */
   forceRefresh(config: ParquetConfig): void {
-    this.msg.add({ severity: 'info', summary: 'Regenerando...', detail: `Solicitando regeneracion de ${config.view_name}...` });
+    const key = `${config.schema_name}.${config.view_name}`;
 
-    this.http.post<{ success: boolean; r2_status?: string; message?: string }>(
-      `${environment.URL_SERVICIOS}/fabric/viewer/export/start`,
-      {
-        schema_name: config.schema_name,
-        view: config.view_name,
-        format: 'xlsx',
-        max_rows: 1,
-        force_refresh: true,
-      }
-    ).subscribe({
+    // Evitar doble disparo mientras ya hay uno corriendo para la misma vista.
+    const actual = this.refreshJobs()[key];
+    if (actual && (actual.phase === 'starting' || actual.phase === 'running')) {
+      this.msg.add({ severity: 'info', summary: 'En curso', detail: `${config.view_name} ya se esta regenerando.` });
+      return;
+    }
+
+    this.setRefreshJob(key, {
+      key, view: config.view_name, jobId: null, phase: 'starting',
+      progress: 0, stage: 'Priorizando y generando...', rows: 0, startedAt: Date.now(),
+    });
+
+    this.http.post<{
+      success: boolean; status?: string; poll_interval_s?: number;
+      estimated_s?: number; message?: string;
+    }>(`${this.monitorUrl}/force`, {
+      schema_name: config.schema_name,
+      view: config.view_name,
+    }).subscribe({
       next: res => {
-        const status = res.r2_status ?? 'enviado';
-        this.msg.add({
-          severity: status === 'generating' ? 'warn' : 'success',
-          summary: 'Force Refresh',
-          detail: res.message ?? `${config.view_name}: ${status}`,
-          life: 5000,
+        const estado = (res.status ?? 'generating').toLowerCase();
+        const espera = Math.max(2, res.poll_interval_s ?? 5) * 1000;
+        const estimado = res.estimated_s ?? 0;
+
+        // Ya estaba fresco: nada que esperar.
+        if (estado === 'ready') {
+          this.patchRefreshJob(key, { phase: 'done', progress: 100, stage: 'El parquet ya esta actualizado' });
+          this.finishRefresh(key, true, config);
+          return;
+        }
+
+        // Supera el limite de filas: no se puede generar.
+        if (estado === 'too_big') {
+          this.patchRefreshJob(key, { phase: 'failed', stage: res.message ?? 'La vista supera el limite de filas' });
+          this.clearRefreshTimer(key);
+          this.msg.add({
+            severity: 'warn', summary: 'Vista demasiado grande',
+            detail: res.message ?? `${config.view_name} supera el limite de filas permitido.`,
+            life: 9000,
+          });
+          setTimeout(() => this.removeRefreshJob(key), 6000);
+          return;
+        }
+
+        // generating o ready_stale → seguir el progreso con polling.
+        this.patchRefreshJob(key, {
+          phase: 'running',
+          stage: estimado > 0
+            ? `Generando en Graph-Fabric (estimado ${this.formatElapsed(estimado)})...`
+            : 'Generando en Graph-Fabric...',
         });
+
+        this.pollForceStatus(key, config, espera);
       },
       error: err => {
-        this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo forzar la regeneracion' });
+        const detalle = err?.error?.message ?? 'No se pudo iniciar la regeneracion.';
+        this.patchRefreshJob(key, { phase: 'failed', stage: 'Error al iniciar', message: detalle });
+        this.msg.add({ severity: 'error', summary: 'Error', detail: detalle, life: 8000 });
+        setTimeout(() => this.removeRefreshJob(key), 6000);
       },
     });
+  }
+
+  /**
+   * Polling del warm mientras el estado sea "generating".
+   *
+   * Tope de intentos para no hacer polling infinito: 120 x poll_interval
+   * (con 5s = 10 minutos).
+   */
+  private pollForceStatus(key: string, config: ParquetConfig, esperaMs: number): void {
+    this.clearRefreshTimer(key);
+
+    const MAX_INTENTOS = 120;
+    let intentos = 0;
+
+    const timer = setInterval(() => {
+      intentos++;
+
+      if (intentos > MAX_INTENTOS) {
+        this.patchRefreshJob(key, {
+          phase: 'failed',
+          stage: 'Se agoto el tiempo de espera (10 min) sin completar',
+        });
+        this.finishRefresh(key, false, config);
+        return;
+      }
+
+      const params = `?schema=${encodeURIComponent(config.schema_name)}&view=${encodeURIComponent(config.view_name)}`;
+
+      this.http.get<{
+        success: boolean; status?: string; row_count?: number | null;
+        estimated_s?: number; message?: string; size_mb?: number | null;
+      }>(`${this.monitorUrl}/force/status${params}`).subscribe({
+        next: st => {
+          const estado = (st.status ?? 'generating').toLowerCase();
+
+          if (estado === 'ready' || estado === 'ready_stale') {
+            this.patchRefreshJob(key, {
+              phase: 'done',
+              progress: 100,
+              stage: 'Regeneracion completada',
+              rows: st.row_count ?? 0,
+            });
+            this.finishRefresh(key, true, config);
+            return;
+          }
+
+          if (estado === 'too_big') {
+            this.patchRefreshJob(key, {
+              phase: 'failed',
+              stage: st.message ?? 'La vista supera el limite de filas',
+            });
+            this.finishRefresh(key, false, config);
+            return;
+          }
+
+          if (estado === 'error' || estado === 'failed') {
+            this.patchRefreshJob(key, {
+              phase: 'failed',
+              stage: st.message ?? 'Fallo la generacion en Graph-Fabric',
+            });
+            this.finishRefresh(key, false, config);
+            return;
+          }
+
+          // Sigue generando: mostrar referencia de tiempo estimado.
+          const estimado = st.estimated_s ?? 0;
+          this.patchRefreshJob(key, {
+            stage: estimado > 0
+              ? `Generando... (estimado ${this.formatElapsed(estimado)})`
+              : 'Generando en Graph-Fabric...',
+          });
+        },
+        error: () => {
+          // Un error puntual de red no corta el polling; el tope de intentos si.
+        },
+      });
+    }, esperaMs);
+
+    this.refreshTimers.set(key, timer);
+  }
+
+  private finishRefresh(key: string, ok: boolean, config: ParquetConfig): void {
+    this.clearRefreshTimer(key);
+    const job = this.refreshJobs()[key];
+    this.msg.add({
+      severity: ok ? 'success' : 'error',
+      summary: ok ? 'Regeneracion lista' : 'Regeneracion fallida',
+      detail: ok
+        ? `${config.view_name}: parquet actualizado${job?.rows ? ` (${job.rows.toLocaleString()} filas)` : ''}.`
+        : `${config.view_name}: ${job?.stage ?? 'fallo'}. ${job?.message ?? ''}`,
+      life: ok ? 5000 : 9000,
+    });
+    // Refrescar estado/dashboard/en vivo para que la fila muestre el parquet nuevo.
+    setTimeout(() => { this.loadStatus(); this.loadDashboard(); this.loadLive(); }, ok ? 1500 : 0);
+    // Quitar el loader de la fila a los pocos segundos.
+    setTimeout(() => this.removeRefreshJob(key), 6000);
+  }
+
+  private setRefreshJob(key: string, job: RefreshJob): void {
+    this.refreshJobs.update(m => ({ ...m, [key]: job }));
+  }
+
+  private patchRefreshJob(key: string, patch: Partial<RefreshJob>): void {
+    this.refreshJobs.update(m => {
+      const cur = m[key];
+      if (!cur) return m;
+      return { ...m, [key]: { ...cur, ...patch } };
+    });
+  }
+
+  private removeRefreshJob(key: string): void {
+    this.refreshJobs.update(m => {
+      const { [key]: _drop, ...rest } = m;
+      return rest;
+    });
+  }
+
+  private clearRefreshTimer(key: string): void {
+    const t = this.refreshTimers.get(key);
+    if (t) { clearInterval(t); this.refreshTimers.delete(key); }
+  }
+
+  /** Estado del rayo para una fila (usado por el template). */
+  getRefreshJob(schema: string, view: string): RefreshJob | undefined {
+    return this.refreshJobs()[`${schema}.${view}`];
+  }
+
+  isRefreshing(schema: string, view: string): boolean {
+    const j = this.getRefreshJob(schema, view);
+    return !!j && (j.phase === 'starting' || j.phase === 'running');
   }
 
   // ─── Historial (trazabilidad por vista) ─────────────────────────────────
@@ -608,7 +1013,53 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   }
 
   getStatusForView(schema: string, view: string): ParquetStatus | undefined {
-    return this.statuses().find(s => s.schema === schema && s.view === view);
+    // Match tolerante: Graph puede devolver el nombre con distinto casing.
+    const s = schema.toLowerCase();
+    const v = view.toLowerCase();
+    return this.statuses().find(x =>
+      (x.schema ?? '').toLowerCase() === s && (x.view ?? '').toLowerCase() === v
+    );
+  }
+
+  /** ¿La vista está en error? Reconoce variantes de Graph y presencia de mensaje de error. */
+  isError(st?: ParquetStatus): boolean {
+    if (!st) return false;
+    const s = (st.status ?? '').toLowerCase();
+    if (['error', 'failed', 'expired'].includes(s)) return true;
+    return !!this.getErrorMessage(st);
+  }
+
+  /** ¿La vista está en cola / pendiente de generarse? */
+  isPending(st?: ParquetStatus): boolean {
+    if (!st) return true; // sin estado aún = en cola
+    const s = (st.status ?? '').toLowerCase();
+    return ['pending', 'queued', 'generating', 'processing', 'nueva', 'missing'].includes(s);
+  }
+
+  /** ¿La vista está desactualizada (stale)? */
+  isStale(st?: ParquetStatus): boolean {
+    if (!st) return false;
+    return (st.status ?? '').toLowerCase() === 'stale' || !!st.config?.is_stale;
+  }
+
+  /** ¿La vista se está generando en este momento? */
+  isGenerating(st?: ParquetStatus): boolean {
+    if (!st) return false;
+    return ['generating', 'processing'].includes((st.status ?? '').toLowerCase());
+  }
+
+  /** Formatea segundos como "45s" o "2m 10s". */
+  formatElapsed(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
+  }
+
+  /** Mensaje de error de Graph, si lo hay (acepta varios nombres de campo). */
+  getErrorMessage(st?: ParquetStatus): string {
+    if (!st) return '';
+    return (st.error_message || st.error || st.message || '').toString().trim();
   }
 
   getLane(st: ParquetStatus): string {

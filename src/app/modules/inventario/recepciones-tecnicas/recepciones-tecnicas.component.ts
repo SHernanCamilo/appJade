@@ -8,28 +8,10 @@ import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
-import { DropdownModule } from 'primeng/dropdown';
 import { SkeletonModule } from 'primeng/skeleton';
-import { CheckboxModule } from 'primeng/checkbox';
 import { InventarioService } from '../../../core/services/inventario.service';
 import { OrdenCompra, RecepcionItem } from '../../../core/models/inventario.model';
-
-interface RecepcionFormData {
-  pedido_detalle_id?: number | null;
-  codigo_producto: string;
-  producto_nombre: string;
-  cantidad_solicitada_compra: number;
-  cantidad_solicitada?: number;
-  cantidad_recibida: number;
-  muestra_poblacion?: number | null;
-  numero_lote: string;
-  fecha_vencimiento: string;
-  codigo_sanitario: string;
-  concepto_recepcion: 'aceptado' | 'rechazado' | 'cuarentena' | '';
-  es_medicamento_vital: boolean;
-  observaciones: string;
-  recibido?: boolean | number;
-}
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-recepciones-tecnicas',
@@ -43,9 +25,7 @@ interface RecepcionFormData {
     TooltipModule,
     DialogModule,
     InputTextModule,
-    DropdownModule,
-    SkeletonModule,
-    CheckboxModule
+    SkeletonModule
   ],
   templateUrl: './recepciones-tecnicas.component.html',
   styleUrls: ['./recepciones-tecnicas.component.css']
@@ -67,19 +47,6 @@ export class RecepcionesTecnicasComponent implements OnInit {
   currentReception = signal<OrdenCompra | null>(null);
   currentDetails = signal<RecepcionItem[]>([]);
   isLoadingDetails = signal<boolean>(false);
-
-  // Modal Realizar RecepciÃ³n TÃ©cnica
-  showReceptionModal = signal<boolean>(false);
-  isSubmittingReception = signal<boolean>(false);
-  currentReceptionForm = signal<RecepcionFormData[]>([]);
-  receptionGlobalObservations = signal<string>('');
-
-  conceptoOptions = [
-    { label: 'Seleccionar...', value: '' },
-    { label: 'Aceptado', value: 'aceptado' },
-    { label: 'Cuarentena', value: 'cuarentena' },
-    { label: 'Rechazado', value: 'rechazado' }
-  ];
 
   private readonly location = inject(Location);
 
@@ -144,99 +111,6 @@ export class RecepcionesTecnicasComponent implements OnInit {
     const fullUrl = this.location.prepareExternalUrl(url);
 
     window.open(fullUrl, '_blank');
-  }
-
-  // --- Realizar RecepciÃ³n TÃ©cnica ---
-  openReceptionModal(orden: OrdenCompra): void {
-    if (!orden.compra_id) return;
-    
-    this.currentReception.set(orden);
-    this.showReceptionModal.set(true);
-    this.isLoadingDetails.set(true);
-    this.currentReceptionForm.set([]);
-    this.receptionGlobalObservations.set('');
-
-    // Cargar detalles pendientes de la orden de compra
-    this.inventarioService.getRecepcionByCompra(orden.compra_id).subscribe({
-      next: (res) => {
-        this.isLoadingDetails.set(false);
-        if (res.success && res.data) {
-          const formItems: RecepcionFormData[] = res.data.map((item: any) => ({
-            pedido_detalle_id: item.pedido_detalle_id ?? null,
-            codigo_producto: item.codigo_producto,
-            producto_nombre: item.producto_nombre,
-            cantidad_solicitada_compra: item.cantidad_solicitada_compra,
-            cantidad_solicitada: item.cantidad_solicitada ?? item.cantidad_solicitada_compra,
-            cantidad_recibida: item.cantidad_solicitada_compra,
-            muestra_poblacion: item.muestra_poblacion ?? null,
-            numero_lote: item.numero_lote || '',
-            fecha_vencimiento: item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '',
-            codigo_sanitario: item.codigo_sanitario || '',
-            concepto_recepcion: 'aceptado',
-            es_medicamento_vital: Boolean(item.es_medicamento_vital),
-            observaciones: '',
-            recibido: true,
-          }));
-          this.currentReceptionForm.set(formItems);
-        }
-      },
-      error: (err: any) => {
-        this.isLoadingDetails.set(false);
-        console.error('Error loading details for reception:', err);
-      }
-    });
-  }
-
-  closeReceptionModal(): void {
-    this.showReceptionModal.set(false);
-    this.currentReception.set(null);
-    this.currentReceptionForm.set([]);
-  }
-
-  submitReception(): void {
-    const orden = this.currentReception();
-    if (!orden || !orden.compra_id) return;
-
-    // ValidaciÃ³n bÃ¡sica
-    const formItems = this.currentReceptionForm();
-    const hasErrors = formItems.some(item => 
-      item.cantidad_recibida > 0 && (!item.numero_lote || !item.fecha_vencimiento || !item.concepto_recepcion)
-    );
-
-    if (hasErrors) {
-      alert('Por favor complete Lote, Vencimiento y Concepto para todos los Ã­tems que estÃ¡ recibiendo.');
-      return;
-    }
-
-    this.isSubmittingReception.set(true);
-    const payload = {
-      compra_id: orden.compra_id,
-      observaciones: this.receptionGlobalObservations(),
-      items: formItems
-        .filter(i => i.cantidad_recibida > 0)
-        .map(i => ({ ...i, recibido: 1 })),
-    };
-
-    // Usar cualquier mÃ©todo existente para enviar (ej: store)
-    // Asumiendo que inventarioService.createReception maneja el POST /api/inventario/recepciones
-    this.inventarioService.createRecepcion(payload).subscribe({
-      next: (res: any) => {
-        if (res.success) {
-          // Si todo saliÃ³ bien, podrÃ­amos confirmar directamente o esperar otro paso.
-          // AquÃ­ directamente cerramos y recargamos.
-          this.closeReceptionModal();
-          this.loadCompras();
-        } else {
-          this.isSubmittingReception.set(false);
-          alert('Error: ' + res.message);
-        }
-      },
-      error: (err: any) => {
-        this.isSubmittingReception.set(false);
-        console.error(err);
-        alert('OcurriÃ³ un error al guardar la recepciÃ³n tÃ©cnica.');
-      }
-    });
   }
 
   // --- Ver Detalles (Completadas) ---
@@ -308,5 +182,50 @@ export class RecepcionesTecnicasComponent implements OnInit {
     ];
     const rule = rules.find(r => qty >= r.min && qty <= r.max);
     return rule ? rule.sample : qty;
+  }
+
+  /** Normaliza el valor de cumplimiento (acepta string, boolean o número). */
+  formatCumple(value: any): string {
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'string') return value;
+    return (value === true || value === 1) ? 'Cumple' : 'No Cumple';
+  }
+
+  /** Clase de color para el badge de cumplimiento. */
+  cumpleClass(value: any): string {
+    const label = this.formatCumple(value);
+    if (label === 'Cumple') return 'badge bg-success-subtle text-success border border-success';
+    if (label === 'No Cumple') return 'badge bg-danger-subtle text-danger border border-danger';
+    return 'text-muted';
+  }
+
+  /** Exporta el detalle recepcionado a Excel (mismas columnas de la tabla). */
+  exportDetailsExcel(): void {
+    const items = this.currentDetails();
+    if (!items || items.length === 0) return;
+
+    const recepcion = this.currentReception();
+    const filas = items.map((item: any) => ({
+      'Código': item.codigo_producto,
+      'Producto': item.producto_nombre,
+      'Tipo': item.tipo_producto || item.producto_tipo || '',
+      'Cant. Solicitada': item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? '',
+      'Cant. Recibida': item.cantidad_recibida || 0,
+      'Muestra': this.calculateSampleFallback(item),
+      'Lote': item.numero_lote || '',
+      'Vencimiento': item.fecha_vencimiento ? String(item.fecha_vencimiento).substring(0, 10) : '',
+      'Reg. Sanitario': item.codigo_sanitario || '',
+      'Aspecto': this.formatCumple(item.aspecto_cumple),
+      'Embalaje': this.formatCumple(item.embalaje_cumple),
+      'Contenido': this.formatCumple(item.contenido_cumple),
+      'Concepto': item.concepto_recepcion || 'Pendiente',
+      'Observaciones': item.observaciones_recepcion || item.observaciones || ''
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(filas);
+    XLSX.utils.book_append_sheet(wb, ws, 'Recepción');
+    const nombre = recepcion?.numero_recepcion || recepcion?.numero_orden_compra || 'recepcion';
+    XLSX.writeFile(wb, `Recepcion_${nombre}.xlsx`);
   }
 }

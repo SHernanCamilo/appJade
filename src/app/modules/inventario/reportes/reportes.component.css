@@ -1,0 +1,475 @@
+/* ============================================================
+   TABLERO DE REPORTES DE FARMACIA (tipo BI)
+   Paleta y densidad alineadas al resto del módulo de inventario.
+   ============================================================ */
+
+.rep-page {
+    padding: 1.25rem 1.5rem 2rem;
+    background: #f7f9fc;
+    min-height: 100%;
+}
+
+/* ── Encabezado ───────────────────────────────────────────── */
+.rep-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+.rep-header__eyebrow {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.rep-header__title h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0.15rem 0 0.2rem;
+    line-height: 1.25;
+}
+.rep-header__title p {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0;
+}
+.rep-header__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.rep-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8rem;
+    color: #475569;
+    white-space: nowrap;
+}
+
+/* ── Barra de filtros ─────────────────────────────────────── */
+.rep-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 0.75rem;
+    background: #fff;
+    border: 1px solid #e9eef5;
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1.1rem;
+}
+.rep-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+.rep-filter > label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+}
+.rep-filter--actions {
+    justify-content: flex-end;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+.rep-btn-apply {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    white-space: nowrap;
+}
+
+/* ── Tarjetas KPI ─────────────────────────────────────────── */
+.rep-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+}
+.rep-kpi {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #fff;
+    border: 1px solid #e9eef5;
+    border-radius: 14px;
+    padding: 1rem;
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.rep-kpi[pTooltip] { cursor: pointer; }
+.rep-kpi:hover {
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+    transform: translateY(-1px);
+}
+.rep-kpi__icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.rep-kpi__body { display: flex; flex-direction: column; min-width: 0; }
+.rep-kpi__label {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+}
+.rep-kpi__value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.15;
+}
+.rep-kpi__foot {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Variantes de color por KPI */
+.rep-kpi--blue   .rep-kpi__icon { background: #eff6ff; color: #2563eb; }
+.rep-kpi--purple .rep-kpi__icon { background: #f5f3ff; color: #7c3aed; }
+.rep-kpi--green  .rep-kpi__icon { background: #ecfdf5; color: #059669; }
+.rep-kpi--cyan   .rep-kpi__icon { background: #ecfeff; color: #0891b2; }
+.rep-kpi--amber  .rep-kpi__icon { background: #fffbeb; color: #d97706; }
+.rep-kpi--red    .rep-kpi__icon { background: #fef2f2; color: #dc2626; }
+
+/* ── Tarjeta genérica ─────────────────────────────────────── */
+.rep-card {
+    background: #fff;
+    border: 1px solid #e9eef5;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+.rep-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+.rep-card__head h6 {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+}
+.rep-card__body { padding: 0.9rem 1rem; flex: 1; min-width: 0; }
+.rep-card__body.p-0 { padding: 0; }
+
+.rep-link {
+    background: none;
+    border: none;
+    color: #2563eb;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+}
+.rep-link:hover { text-decoration: underline; }
+
+/* ── Grillas de gráficos y tablas ─────────────────────────── */
+.rep-charts {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+}
+.rep-tables {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.85rem;
+    margin-bottom: 1.1rem;
+}
+.rep-bottom {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 0.85rem;
+}
+
+/* Altura fija para que los gráficos no colapsen */
+.rep-chart-h { height: 15rem; }
+
+@media (max-width: 1400px) {
+    .rep-charts { grid-template-columns: 1fr 1fr; }
+    .rep-charts .rep-card--wide { grid-column: 1 / -1; }
+}
+@media (max-width: 1100px) {
+    .rep-tables { grid-template-columns: 1fr; }
+    .rep-bottom { grid-template-columns: 1fr; }
+}
+@media (max-width: 800px) {
+    .rep-charts { grid-template-columns: 1fr; }
+    .rep-page { padding: 1rem; }
+}
+
+/* ── Dona con total al centro ─────────────────────────────── */
+.rep-donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+.rep-donut {
+    position: relative;
+    width: 8.5rem;
+    height: 8.5rem;
+    flex-shrink: 0;
+}
+.rep-donut__center {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    text-align: center;
+    pointer-events: none;
+}
+.rep-donut__center strong {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+}
+.rep-donut__center span {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+/* Leyenda de la dona */
+.rep-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.rep-legend li {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.76rem;
+}
+.rep-legend__dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.rep-legend__label {
+    color: #475569;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rep-legend__val { font-weight: 700; color: #1e293b; }
+.rep-legend__pct { color: #94a3b8; min-width: 2.4rem; text-align: right; }
+
+/* ── Badges de estado ─────────────────────────────────────── */
+.rep-badge {
+    display: inline-block;
+    padding: 0.2em 0.6em;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.rep-badge--warn    { background: #fef3c7; color: #92400e; }
+.rep-badge--info    { background: #dbeafe; color: #1e40af; }
+.rep-badge--purple  { background: #ede9fe; color: #5b21b6; }
+.rep-badge--cyan    { background: #cffafe; color: #155e75; }
+.rep-badge--success { background: #d1fae5; color: #065f46; }
+.rep-badge--danger  { background: #fee2e2; color: #991b1b; }
+.rep-badge--muted   { background: #f1f5f9; color: #475569; }
+
+/* ── Tablas del tablero ───────────────────────────────────── */
+:host ::ng-deep .rep-table .p-datatable-thead > tr > th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #eef2f7;
+    white-space: nowrap;
+}
+:host ::ng-deep .rep-table .p-datatable-tbody > tr > td {
+    font-size: 0.78rem;
+    padding: 0.55rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid #f5f8fb;
+    color: #334155;
+    vertical-align: middle;
+}
+:host ::ng-deep .rep-table .p-datatable-tbody > tr:hover { background: #f9fbfd; }
+:host ::ng-deep .rep-table .p-paginator {
+    border: none;
+    padding: 0.4rem;
+    font-size: 0.75rem;
+    background: transparent;
+}
+
+.rep-td-prov { max-width: 150px; }
+.rep-sub { font-size: 0.66rem; color: #94a3b8; }
+.rep-sub-strong { font-size: 0.74rem; color: #475569; font-weight: 500; }
+
+.rep-empty-row {
+    text-align: center;
+    padding: 1.5rem !important;
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+/* ── Barra de progreso de recepción ───────────────────────── */
+.rep-progress {
+    position: relative;
+    height: 1.15rem;
+    background: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+    min-width: 62px;
+}
+.rep-progress__fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(90deg, #34d399, #10b981);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+.rep-progress span {
+    position: relative;
+    display: block;
+    text-align: center;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.15rem;
+}
+
+/* ── Ranking de productos ─────────────────────────────────── */
+.rep-rank {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.rep-rank li {
+    display: grid;
+    grid-template-columns: 1.3rem 1fr auto 5.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+}
+.rep-rank__pos { color: #94a3b8; font-weight: 600; }
+.rep-rank__name {
+    color: #334155;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rep-rank__qty { font-weight: 700; color: #1e293b; }
+.rep-rank__bar {
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+}
+.rep-rank__fill {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #60a5fa, #2563eb);
+    border-radius: 999px;
+}
+
+/* ── Estado vacío ─────────────────────────────────────────── */
+.rep-empty {
+    height: 100%;
+    min-height: 8rem;
+    display: grid;
+    place-content: center;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    gap: 0.4rem;
+}
+.rep-empty i { font-size: 1.5rem; display: block; opacity: 0.55; }
+
+/* Utilidad */
+.w-100 { width: 100%; }
+:host ::ng-deep .rep-filter .p-dropdown,
+:host ::ng-deep .rep-filter .p-calendar,
+:host ::ng-deep .rep-filter .p-inputtext { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  Tab "Tiempos de gestión"                                     */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Tabs: look limpio y consistente con el tablero. */
+:host ::ng-deep .rep-tabs .p-tabview-nav {
+    border: none;
+    background: transparent;
+    gap: 4px;
+}
+:host ::ng-deep .rep-tabs .p-tabview-nav li .p-tabview-nav-link {
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.1rem;
+    font-weight: 600;
+    color: #64748b;
+    background: transparent;
+    transition: background .15s, color .15s;
+}
+:host ::ng-deep .rep-tabs .p-tabview-nav li .p-tabview-nav-link:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+:host ::ng-deep .rep-tabs .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+:host ::ng-deep .rep-tabs .p-tabview-panels {
+    padding: 1.25rem 0 0;
+    background: transparent;
+}
+
+/* Filtros de la pestaña de tiempos: los rangos de fecha ocupan más ancho. */
+.rep-filters--tiempos {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.rep-filter--umbral {
+    max-width: 160px;
+}
+
+/* Tarjeta a todo el ancho (tabla de detalle de tiempos). */
+.rep-card--full {
+    grid-column: 1 / -1;
+}
+.rep-tables:has(.rep-card--full) {
+    grid-template-columns: 1fr;
+}

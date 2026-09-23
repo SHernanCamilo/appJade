@@ -72,6 +72,8 @@
 .btn-action-primary:hover:not(:disabled) { background: #059669; }
 .btn-action-success { background: #10B981; color: white; }
 .btn-action-success:hover:not(:disabled) { background: #059669; }
+.btn-action-apply { background: #F59E0B; color: #1f2937; }
+.btn-action-apply:hover:not(:disabled) { background: #D97706; color: white; }
 .btn-action-secondary {
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -188,6 +190,56 @@
 .stat-total .sm-icon { background: #6366F1; }
 .stat-total .sm-num { color: #4F46E5; font-size: 1.05rem; }
 
+.cruce-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: -0.25rem 0 1rem;
+}
+
+.chip-cruce {
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.chip-ambas { background: #d1fae5; color: #047857; }
+.chip-placa { background: #dbeafe; color: #1d4ed8; }
+.chip-serial { background: #fef3c7; color: #b45309; }
+.chip-recurso { background: #ede9fe; color: #6d28d9; }
+
+.mapeo-box {
+  background: white;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 0.82rem;
+  color: #374151;
+}
+
+.mapeo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.chip-map {
+  background: #eff6ff;
+  color: #1e3a5f;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+.chip-map small {
+  color: #2563eb;
+  margin-left: 0.2rem;
+}
+
 .alert-warn {
   background: #fffbeb;
   border: 1px solid #fde68a;
@@ -201,6 +253,32 @@
 }
 
 .alert-warn ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+
+.tabla-matriz-completa {
+  background: white;
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.celda-diff {
+  background: #FDE68A !important;
+  font-weight: 600;
+  cursor: help;
+}
+
+:host ::ng-deep .matriz-completa-table .p-datatable-thead > tr > th {
+  background: #f9fafb;
+  color: #374151;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .matriz-completa-table .p-datatable-tbody > tr > td {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
 
 .modern-table-container {
   background: white;
@@ -228,6 +306,17 @@
   border-radius: 999px;
   font-size: 0.8rem;
 }
+.badge-ok {
+  background: #D1FAE5;
+  color: #047857;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+.row-igual { background: #f0fdf4; }
+.row-diff { background: #fffbeb; }
+.val-ok { color: #047857; font-weight: 600; }
 
 .diff-inner {
   width: 100%;

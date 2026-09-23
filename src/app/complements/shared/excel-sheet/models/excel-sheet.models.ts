@@ -28,6 +28,7 @@ export interface ExcelTitleConfig {
     label: string;
     icon?: string;
     action: string; // event identifier
+    disabled?: boolean;
   }[];
 }
 

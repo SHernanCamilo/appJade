@@ -169,6 +169,18 @@ export class KpisBandejaComponent implements OnInit {
 
   private readonly BASE = '/contabilidad/fichas-tecnicas';
 
+  /** Ruta de bandeja para la primera tarjeta según la bandeja activa. */
+  private readonly RUTA_BANDEJA: Record<BandejaFichas, string> = {
+    borradores: 'borradores',
+    procesando: 'procesando',
+    'por-autorizar': 'por-autorizar',
+    'por-aprobar': 'por-aprobar',
+    rechazados: 'rechazados',
+    finalizadas: 'finalizadas',
+    vencidas: 'vencidas',
+    'proximas-vencer': 'proximas-vencer',
+  };
+
   ngOnInit(): void {
     this.cargar();
   }
@@ -199,7 +211,8 @@ export class KpisBandejaComponent implements OnInit {
         etiqueta: this.TITULOS[this.bandeja()] ?? 'Total fichas',
         valor:    conteo ?? r.total,
         clase:    'ft-kpis__card--total',
-        tooltip:  'Fichas en la bandeja actual',
+        ruta:     `${this.BASE}/bandeja/${this.RUTA_BANDEJA[this.bandeja()] ?? 'borradores'}`,
+        tooltip:  'Fichas en la bandeja actual (según tu rol y alcance)',
       },
       {
         icono:    'pi-clock',
@@ -207,7 +220,7 @@ export class KpisBandejaComponent implements OnInit {
         valor:    r.en_proceso,
         clase:    'ft-kpis__card--proceso',
         ruta:     `${this.BASE}/bandeja/procesando`,
-        tooltip:  'Pendientes de autorización o aprobación',
+        tooltip:  'Pendientes de autorización o aprobación (según tu rol)',
       },
       {
         icono:    'pi-check-circle',

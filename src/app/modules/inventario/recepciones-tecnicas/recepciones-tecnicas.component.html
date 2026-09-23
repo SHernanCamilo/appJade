@@ -73,10 +73,8 @@
                             <div class="action-buttons justify-content-center">
                                 <ng-container *ngIf="currentView() === 'pending'">
                                     <p-button *ngIf="p.estado === 'confirmado'" icon="bi bi-truck" styleClass="p-button-sm p-button-info p-button-rounded p-button-text" (onClick)="confirmArrival(p.compra_id)" pTooltip="Registrar Llegada" tooltipPosition="left"></p-button>
-                                    
-                                    <p-button *ngIf="p.estado === 'en_sitio' || p.estado === 'parcial'" icon="bi bi-clipboard-check" styleClass="p-button-sm p-button-primary p-button-rounded p-button-text" (onClick)="openReceptionModal(p)" pTooltip="Recepcionar (Modal)" tooltipPosition="left"></p-button>
-                                    
-                                    <p-button *ngIf="p.estado === 'en_sitio' || p.estado === 'parcial'" icon="bi bi-table" styleClass="p-button-sm p-button-success p-button-rounded p-button-text" (onClick)="openReceptionExcel(p)" pTooltip="Vista Excel (Completa)" tooltipPosition="left"></p-button>
+
+                                    <p-button *ngIf="p.estado === 'en_sitio' || p.estado === 'parcial'" icon="bi bi-table" styleClass="p-button-sm p-button-success p-button-rounded p-button-text" (onClick)="openReceptionExcel(p)" pTooltip="Recepcionar (Excel)" tooltipPosition="left"></p-button>
                                 </ng-container>
 
                                 <ng-container *ngIf="currentView() === 'completed'">
@@ -101,140 +99,105 @@
     </div>
 </div>
 
-<!-- Modal Realizar Recepción Técnica -->
-<p-dialog [(visible)]="showReceptionModal" [modal]="true" [style]="{width: '90vw', maxWidth: '1200px'}" 
-          header="Recepción Técnica - OC {{ currentReception()?.numero_orden_compra }}" [draggable]="false" [resizable]="false">
-    
-    <div *ngIf="isLoadingDetails()" class="text-center py-4">
-        <i class="bi bi-arrow-repeat spin fs-2 text-primary"></i>
-        <p class="mt-2 text-muted">Cargando ítems...</p>
-    </div>
+<!-- Modal Detalles de Recepción (vista tipo Excel con trazabilidad) -->
+<p-dialog [(visible)]="showDetailsModal" [modal]="true" [style]="{width: '95vw', maxWidth: '1500px'}"
+          header="Detalle Recepción Técnica - OC {{ currentReception()?.numero_orden_compra }}" [draggable]="false" [resizable]="false" [dismissableMask]="true">
 
-    <div *ngIf="!isLoadingDetails() && currentReceptionForm().length > 0" class="reception-form-container">
-        
-        <div class="alert alert-info d-flex align-items-center mb-4">
-            <i class="bi bi-info-circle-fill fs-4 me-3"></i>
-            <div>
-                <strong>Instrucciones:</strong> Valide las cantidades recibidas físicamente e ingrese los datos de lote, vencimiento, registro sanitario (CUM) y el concepto técnico de aceptación para cada ítem.
-            </div>
-        </div>
-
-        <p-table [value]="currentReceptionForm()" responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-gridlines editable-table mb-4">
-            <ng-template pTemplate="header">
-                <tr>
-                    <th style="width: 250px">Producto</th>
-                    <th style="width: 90px" class="text-center">Pedida</th>
-                    <th style="width: 110px" class="text-center">Recibida</th>
-                    <th style="width: 150px">Lote <span class="text-danger">*</span></th>
-                    <th style="width: 150px">Vencimiento <span class="text-danger">*</span></th>
-                    <th style="width: 150px">Reg. Sanitario</th>
-                    <th style="width: 150px">Concepto <span class="text-danger">*</span></th>
-                    <th style="width: 80px" class="text-center" pTooltip="Medicamento Vital No Disponible">MVD</th>
-                </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-item let-i="rowIndex">
-                <tr>
-                    <td>
-                        <div class="product-info-cell">
-                            <strong>{{ item.producto_nombre }}</strong>
-                            <span class="text-muted small">{{ item.codigo_producto }}</span>
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge bg-secondary">{{ item.cantidad_solicitada_compra }}</span>
-                    </td>
-                    <td>
-                        <input pInputText type="number" [(ngModel)]="item.cantidad_recibida" class="w-100 p-inputtext-sm text-center fw-bold" min="0" [max]="item.cantidad_solicitada_compra">
-                    </td>
-                    <td>
-                        <input pInputText type="text" [(ngModel)]="item.numero_lote" class="w-100 p-inputtext-sm" placeholder="Lote..." [disabled]="item.cantidad_recibida <= 0">
-                    </td>
-                    <td>
-                        <input pInputText type="date" [(ngModel)]="item.fecha_vencimiento" class="w-100 p-inputtext-sm" [disabled]="item.cantidad_recibida <= 0">
-                    </td>
-                    <td>
-                        <input pInputText type="text" [(ngModel)]="item.codigo_sanitario" class="w-100 p-inputtext-sm" placeholder="Opcional..." [disabled]="item.cantidad_recibida <= 0">
-                    </td>
-                    <td>
-                        <p-dropdown [options]="conceptoOptions" [(ngModel)]="item.concepto_recepcion" appendTo="body" styleClass="w-100 p-dropdown-sm" [disabled]="item.cantidad_recibida <= 0"></p-dropdown>
-                    </td>
-                    <td class="text-center">
-                        <p-checkbox [(ngModel)]="item.es_medicamento_vital" [binary]="true" [disabled]="item.cantidad_recibida <= 0"></p-checkbox>
-                    </td>
-                </tr>
-            </ng-template>
-        </p-table>
-
-        <div class="row">
-            <div class="col-12">
-                <label class="form-label fw-bold">Observaciones Generales de Recepción</label>
-                <textarea pInputTextarea [ngModel]="receptionGlobalObservations()" (ngModelChange)="receptionGlobalObservations.set($event)" rows="3" class="w-100" placeholder="Anote cualquier novedad sobre la entrega..."></textarea>
-            </div>
-        </div>
-
-    </div>
-
-    <ng-template pTemplate="footer">
-        <p-button label="Cancelar" icon="bi bi-x" styleClass="p-button-text p-button-secondary" (onClick)="closeReceptionModal()"></p-button>
-        <p-button label="Guardar Recepción" icon="bi bi-check-circle" styleClass="p-button-primary" [loading]="isSubmittingReception()" (onClick)="submitReception()" [disabled]="isLoadingDetails() || currentReceptionForm().length === 0"></p-button>
-    </ng-template>
-</p-dialog>
-
-
-<!-- Modal Detalles de Recepción -->
-<p-dialog [(visible)]="showDetailsModal" [modal]="true" [style]="{width: '80vw', maxWidth: '1000px'}" 
-          header="Detalles Recepción Técnica - OC {{ currentReception()?.numero_orden_compra }}" [draggable]="false" [resizable]="false">
-    
     <div *ngIf="isLoadingDetails()" class="text-center py-4">
         <p-skeleton width="100%" height="2rem" styleClass="mb-2"></p-skeleton>
         <p-skeleton width="100%" height="2rem" styleClass="mb-2"></p-skeleton>
         <p-skeleton width="100%" height="2rem"></p-skeleton>
     </div>
 
-    <div *ngIf="!isLoadingDetails()" class="table-container">
-        <p-table [value]="currentDetails()" responsiveLayout="scroll" styleClass="p-datatable-sm p-datatable-striped">
-            <ng-template pTemplate="header">
-                <tr>
-                    <th class="text-center" style="width: 50px;"></th>
-                    <th>Producto</th>
-                    <th class="text-center">Cant. Recibida</th>
-                    <th>Muestra</th>
-                    <th>Lote</th>
-                    <th>Vencimiento</th>
-                    <th>Reg. Sanitario</th>
-                    <th class="text-center">Concepto</th>
-                </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-item>
-                <tr>
-                    <td class="text-center">
-                        <i class="bi fs-5" [ngClass]="(item.cantidad_recibida || 0) > 0 ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-muted'"></i>
-                    </td>
-                    <td>
-                        <div class="d-flex flex-column">
-                            <strong>{{ item.producto_nombre }}</strong>
-                            <small class="text-muted">{{ item.codigo_producto }}</small>
-                        </div>
-                    </td>
-                    <td class="text-center fw-bold">{{ item.cantidad_recibida || 0 }}</td>
-                    <td>{{ calculateSampleFallback(item) }}</td>
-                    <td>{{ item.numero_lote || '-' }}</td>
-                    <td>{{ item.fecha_vencimiento | date:'shortDate' }}</td>
-                    <td>{{ item.codigo_sanitario || '-' }}</td>
-                    <td class="text-center">
-                        <p-tag [value]="item.concepto_recepcion || 'Pendiente' | uppercase" 
-                               [severity]="item.concepto_recepcion === 'aceptado' ? 'success' : (item.concepto_recepcion === 'rechazado' ? 'danger' : 'warn')"></p-tag>
-                    </td>
-                </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-                <tr>
-                    <td colspan="8" class="text-center text-muted py-4">No se encontraron ítems recibidos</td>
-                </tr>
-            </ng-template>
-        </p-table>
+    <div *ngIf="!isLoadingDetails()">
+        <!-- Cabecera / trazabilidad de la recepción -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="text-muted small">N° Recepción</div>
+                <div class="fw-bold text-primary">{{ currentReception()?.numero_recepcion || '-' }}</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">N° Orden Compra</div>
+                <div class="fw-bold">{{ currentReception()?.numero_orden_compra || '-' }}</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Fecha Recepción</div>
+                <div class="fw-bold">{{ currentReception()?.fecha_recepcion | date:'dd/MM/yyyy, hh:mm a' }}</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small">Recibido por</div>
+                <div class="fw-bold">{{ currentReception()?.creado_por_nombre || 'Administrador del Sistema' }}</div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold m-0">Productos recepcionados</h6>
+            <button class="btn btn-outline-success btn-sm" (click)="exportDetailsExcel()" [disabled]="currentDetails().length === 0">
+                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+            </button>
+        </div>
+
+        <div class="table-container">
+            <p-table [value]="currentDetails()" [scrollable]="true" scrollHeight="55vh" responsiveLayout="scroll"
+                     styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines">
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th class="text-center" style="width: 44px;"></th>
+                        <th style="width: 110px;">Código</th>
+                        <th style="min-width: 220px;">Producto</th>
+                        <th style="width: 110px;">Tipo</th>
+                        <th class="text-center" style="width: 90px;">Cant. Solic.</th>
+                        <th class="text-center" style="width: 100px;">Cant. Recibida</th>
+                        <th class="text-center" style="width: 80px;">Muestra</th>
+                        <th style="width: 110px;">Lote</th>
+                        <th style="width: 110px;">Vencimiento</th>
+                        <th style="width: 130px;">Reg. Sanitario</th>
+                        <th class="text-center" style="width: 90px;">Aspecto</th>
+                        <th class="text-center" style="width: 90px;">Embalaje</th>
+                        <th class="text-center" style="width: 90px;">Contenido</th>
+                        <th class="text-center" style="width: 110px;">Concepto</th>
+                        <th style="min-width: 160px;">Observaciones</th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-item>
+                    <tr>
+                        <td class="text-center">
+                            <i class="bi fs-5" [ngClass]="(item.cantidad_recibida || 0) > 0 ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-muted'"></i>
+                        </td>
+                        <td><code style="color:#b45309; font-size:0.8rem;">{{ item.codigo_producto }}</code></td>
+                        <td class="fw-medium" style="font-size:0.82rem;">{{ item.producto_nombre }}</td>
+                        <td>{{ item.tipo_producto || item.producto_tipo || '-' }}</td>
+                        <td class="text-center">{{ item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? '-' }}</td>
+                        <td class="text-center fw-bold">{{ item.cantidad_recibida || 0 }}</td>
+                        <td class="text-center">{{ calculateSampleFallback(item) }}</td>
+                        <td>{{ item.numero_lote || '-' }}</td>
+                        <td>{{ item.fecha_vencimiento ? (item.fecha_vencimiento | date:'dd/MM/yyyy') : '-' }}</td>
+                        <td>{{ item.codigo_sanitario || '-' }}</td>
+                        <td class="text-center">
+                            <span [ngClass]="cumpleClass(item.aspecto_cumple)">{{ formatCumple(item.aspecto_cumple) }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span [ngClass]="cumpleClass(item.embalaje_cumple)">{{ formatCumple(item.embalaje_cumple) }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span [ngClass]="cumpleClass(item.contenido_cumple)">{{ formatCumple(item.contenido_cumple) }}</span>
+                        </td>
+                        <td class="text-center">
+                            <p-tag [value]="item.concepto_recepcion || 'Pendiente' | uppercase"
+                                   [severity]="item.concepto_recepcion === 'aceptado' ? 'success' : (item.concepto_recepcion === 'rechazado' ? 'danger' : 'warn')"></p-tag>
+                        </td>
+                        <td style="font-size:0.8rem;">{{ item.observaciones_recepcion || item.observaciones || '-' }}</td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                    <tr>
+                        <td colspan="15" class="text-center text-muted py-4">No se encontraron ítems recibidos</td>
+                    </tr>
+                </ng-template>
+            </p-table>
+        </div>
     </div>
-    
+
     <ng-template pTemplate="footer">
         <p-button label="Cerrar" icon="bi bi-x" styleClass="p-button-text p-button-secondary" (onClick)="closeDetailsModal()"></p-button>
     </ng-template>

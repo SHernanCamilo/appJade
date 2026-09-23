@@ -187,12 +187,21 @@
             </button>
             <button
               type="button"
-              class="btn-toolbar btn-toolbar-excel"
+              class="btn-toolbar btn-toolbar-confirm"
               (click)="confirmar()"
               [disabled]="isConfirming || esConfirmado"
               pTooltip="Confirmar registro">
               <i class="pi" [class.pi-spin]="isConfirming" [class.pi-spinner]="isConfirming" [class.pi-check]="!isConfirming"></i>
               {{ isConfirming ? 'Confirmando...' : 'Confirmar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-toolbar btn-toolbar-excel"
+              (click)="exportarExcel()"
+              [disabled]="isExporting"
+              pTooltip="Exportar hoja de traslado a Excel">
+              <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-excel]="!isExporting"></i>
+              {{ isExporting ? 'Generando...' : 'Exportar' }}
             </button>
             <button type="button" class="btn-toolbar btn-toolbar-primary" (click)="imprimir()">
               <i class="pi pi-print"></i>
@@ -201,7 +210,7 @@
           </div>
         </div>
       </div>
-
+      
       <!-- ===================== HOJA RES. 2284 (7.1.1) ===================== -->
       <div class="formato-sheet page-sheet" *ngIf="tipo === 'primario'">
         <ng-container *ngTemplateOutlet="encabezado; context: { pagina: '1 de 1' }"></ng-container>

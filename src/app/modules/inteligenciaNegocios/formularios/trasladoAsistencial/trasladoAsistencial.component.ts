@@ -12,6 +12,7 @@ import { firstValueFrom } from 'rxjs';
 import { EmpresaService } from '../../../organizacion/empresa/services/empresa.service';
 import { SinDatoDirective } from './sin-dato.directive';
 import { TrasladoAsistencialService } from './services/traslado-asistencial.service';
+import { TrasladoAsistencialExportService } from './services/traslado-asistencial-export.service';
 import { FormParametrosService } from '../parametros/services/form-parametros.service';
 import {
   catalogoPorTipoTraslado
@@ -84,6 +85,7 @@ export class TrasladoAsistencialComponent implements OnInit {
   estadoRegistro: 'guardado' | 'confirmado' | null = null;
   isSaving = false;
   isConfirming = false;
+  isExporting = false;
   isLoadingRegistros = false;
   private paramsPrimario = new Map<string, CampoParametro>();
   private paramsSecundario = new Map<string, CampoParametro>();
@@ -91,6 +93,7 @@ export class TrasladoAsistencialComponent implements OnInit {
   constructor(
     private readonly empresaService: EmpresaService,
     private readonly trasladoService: TrasladoAsistencialService,
+    private readonly exportService: TrasladoAsistencialExportService,
     private readonly formParametros: FormParametrosService,
     private readonly messageService: MessageService,
     private readonly cdr: ChangeDetectorRef
@@ -208,6 +211,52 @@ export class TrasladoAsistencialComponent implements OnInit {
 
   imprimir(): void {
     window.print();
+  }
+
+  async exportarExcel(): Promise<void> {
+    if (!this.tipo || this.isExporting) {
+      return;
+    }
+
+    this.isExporting = true;
+    try {
+      const logoDataUrl = await this.resolveLogoDataUrl();
+      if (!logoDataUrl) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Logo no incluido',
+          detail: 'No se pudo obtener el logo de la empresa; el Excel se genera sin imagen.',
+          life: 5000
+        });
+      }
+
+      const filename = await this.exportService.exportar({
+        tipo: this.tipo,
+        form: this.form,
+        titulo: this.tituloFormulario,
+        codigo: this.codigoFormulario,
+        empresaNombre: this.empresaNombre,
+        logoDataUrl
+      });
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Excel generado',
+        detail: filename,
+        life: 5000
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'No se pudo generar el archivo Excel.';
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error al exportar',
+        detail,
+        life: 6000
+      });
+    } finally {
+      this.isExporting = false;
+      this.cdr.detectChanges();
+    }
   }
 
   limpiar(): void {
@@ -426,6 +475,84 @@ export class TrasladoAsistencialComponent implements OnInit {
     }
     this.logoUrl = null;
     this.cdr.detectChanges();
+  }
+
+  private async resolveLogoDataUrl(): Promise<string | null> {
+    if (this.logoUrl?.startsWith('data:image') && !this.logoUrl.includes('image/svg')) {
+      return this.logoUrl;
+    }
+
+    try {
+      const resp = await firstValueFrom(
+        this.empresaService.getLogoBase64(this.medilaserEmpresaId)
+      );
+      const base64 = String(resp?.logo_base64 ?? '').trim();
+      if (base64.startsWith('data:image') && !base64.includes('image/svg')) {
+        this.logoUrl = base64;
+        this.cdr.detectChanges();
+        return base64;
+      }
+      if (base64.length > 100 && !base64.startsWith('data:')) {
+        const dataUrl = `data:image/png;base64,${base64}`;
+        this.logoUrl = dataUrl;
+        this.cdr.detectChanges();
+        return dataUrl;
+      }
+    } catch {
+      // se intenta con URL fija de Medilaser
+    }
+
+    for (const candidate of [this.logoUrl, this.medilaserLogoUrl]) {
+      if (!candidate?.trim()) {
+        continue;
+      }
+      const dataUrl = await this.loadImageAsDataUrl(candidate.trim());
+      if (dataUrl) {
+        this.logoUrl = dataUrl;
+        this.cdr.detectChanges();
+        return dataUrl;
+      }
+    }
+
+    return null;
+  }
+
+  private async loadImageAsDataUrl(url: string): Promise<string | null> {
+    try {
+      if (url.startsWith('data:image')) {
+        return url.includes('image/svg') ? null : url;
+      }
+
+      const absolute = /^https?:\/\//i.test(url)
+        ? url
+        : `${window.location.origin}/${url.replace(/^\//, '')}`;
+
+      const response = await fetch(absolute, {
+        mode: 'cors',
+        credentials: /^https?:\/\//i.test(url) ? 'omit' : 'same-origin'
+      });
+      if (!response.ok) {
+        return null;
+      }
+
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/') || blob.type.includes('svg')) {
+        return null;
+      }
+
+      return await this.blobToDataUrl(blob);
+    } catch {
+      return null;
+    }
+  }
+
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(new Error('No se pudo leer el logo.'));
+      reader.readAsDataURL(blob);
+    });
   }
 
   private async cargarLogoMedilaser(): Promise<void> {

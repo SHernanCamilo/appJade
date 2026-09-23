@@ -150,3 +150,150 @@
 
 /* ─── Copy/paste visual feedback ──────────────────────────────────────────── */
 :host ::ng-deep .xl-grid .ag-cell-range-copy { border: 1px dashed #217346 !important; background-color: rgba(33, 115, 70, 0.05) !important; }
+
+/* ============================================================ */
+/* Filas desdobladas (fragmentos de un producto por CUM/Lote)   */
+/* Se muestran con un borde izquierdo y fondo tenue para        */
+/* distinguirlas visualmente del renglón original de la OC.     */
+/* ============================================================ */
+/* Fragmentos (hijos): fondo azul muy tenue + borde izquierdo. Sin cursiva ni  */
+/* negrita (rompen el alto compacto de 21px). Solo la 1ª celda va indentada.   */
+:host ::ng-deep .xl-grid .ag-row.xl-row-hijo:not(.ag-row-selected) {
+    background-color: #f4f8ff;
+}
+:host ::ng-deep .xl-grid .ag-row.xl-row-hijo .ag-cell[col-id="codigo_producto"] {
+    padding-left: 16px;
+    color: #64748b;
+}
+/* Borde-guía vertical a la izquierda de los fragmentos (efecto "rama"). */
+:host ::ng-deep .xl-grid .ag-row.xl-row-hijo .ag-cell.xl-expand-cell::before {
+    content: '';
+    position: absolute;
+    left: 13px;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid #cdddf5;
+}
+
+/* Animación suave al mostrar los fragmentos (aparecen al expandir). */
+:host ::ng-deep .xl-grid .ag-row.xl-row-hijo {
+    animation: xlRowIn 0.2s ease both;
+}
+@keyframes xlRowIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    :host ::ng-deep .xl-grid .ag-row.xl-row-hijo { animation: none; }
+    :host ::ng-deep .xl-grp-toggle .pi { transition: none; }
+}
+
+/* ============================================================ */
+/* Agrupación plegable tipo "folio": chevron ▸/▾ en el padre,    */
+/* contador de fragmentos y marca de rama en los hijos.          */
+/* ============================================================ */
+
+/* Celda del chevron: centrar el contenido sin desbordar la columna (30px). */
+:host ::ng-deep .xl-grid .ag-cell.xl-expand-cell {
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+/* Padre de un grupo: solo un borde izquierdo azul discreto (sin cambiar el    */
+/* peso ni el tamaño del texto, para no descuadrar las columnas).              */
+:host ::ng-deep .xl-grid .ag-row.xl-row-padre:not(.ag-row-selected) .ag-cell.xl-expand-cell {
+    box-shadow: inset 2px 0 0 0 #3b82f6;
+}
+
+/* Chevron + badge del padre */
+:host ::ng-deep .xl-grp-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    color: #2563eb;
+    line-height: 1;
+    user-select: none;
+    padding: 1px 2px;
+    border-radius: 3px;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+:host ::ng-deep .xl-grp-toggle:hover {
+    color: #1e40af;
+    background: #e7f0ff;
+}
+:host ::ng-deep .xl-grp-toggle .pi {
+    font-size: 9px;
+    font-weight: 700;
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+}
+/* Chevron rotado (▾) cuando el grupo está abierto */
+:host ::ng-deep .xl-grp-toggle.is-open .pi {
+    transform: rotate(90deg);
+}
+:host ::ng-deep .xl-grp-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    font-size: 9px;
+    font-weight: 700;
+    font-style: normal;
+    color: #fff;
+    background: #3b82f6;
+    border-radius: 7px;
+    line-height: 1;
+}
+
+/* ============================================================ */
+/* Menú contextual propio (clic derecho) — reemplaza el menú     */
+/* Enterprise de AG Grid que no está disponible en Community.    */
+/* ============================================================ */
+.rt-ctx-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+}
+.rt-ctx-menu {
+    position: fixed;
+    min-width: 250px;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+    font-size: 0.82rem;
+}
+.rt-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    color: #334155;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.rt-ctx-item:hover {
+    background: #eff6ff;
+    color: #1e40af;
+}
+.rt-ctx-item i {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+.rt-ctx-item:hover i {
+    color: #2563eb;
+}
+.rt-ctx-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}

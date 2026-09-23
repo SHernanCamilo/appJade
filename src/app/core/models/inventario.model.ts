@@ -10,6 +10,7 @@ export interface ApiResponse<T> {
 export interface ProductoItem {
   product_code: string;
   product_name: string;
+  product_type?: string;
   quantity: number;
   price?: number;
   brand?: string;
@@ -63,7 +64,10 @@ export interface Pedido {
   updated_at?: string;
   detalles?: PedidoDetalle[];
   solicitado_por_nombre?: string;
+  aprobado_por_nombre?: string;
   trazabilidad?: PedidoTrazabilidad[];
+  sucursal_id?: number;
+  sucursal_nombre?: string;
 }
 
 export interface PedidoTrazabilidad {
@@ -122,6 +126,8 @@ export interface OrdenCompra {
   es_sincronizada?: boolean;
   origen?: 'indigo' | 'aplicativo';
   puede_editar?: boolean;
+  // Pedido(s) de origen relacionados a la OC (manual o automática).
+  pedidos_relacionados?: { id: number; numero_pedido: string }[];
   detalles?: OrdenCompraItem[];
   items?: OrdenCompraDetalle[];
   total_items?: number;
@@ -201,4 +207,185 @@ export interface Producto {
   costo_promedio?: number;
   status?: string;
   estado?: string;
+}
+
+// ============================================================
+// REPORTES UNIFICADOS DE FARMACIA (tablero tipo BI)
+// Consolida Pedidos + Órdenes de Compra + Recepciones Técnicas.
+// ============================================================
+
+export interface ReporteKpis {
+  total_pedidos: number;
+  total_ordenes: number;
+  total_recepciones: number;
+  productos_recibidos: number;
+  pendientes_recibir: number;
+  incidencias: number;
+  valor_total_compras: number;
+}
+
+export interface ReporteEvolucion {
+  labels: string[];
+  pedidos: number[];
+  ordenes: number[];
+  recepciones: number[];
+}
+
+export interface ReporteEstadoItem {
+  estado: string;
+  label: string;
+  total: number;
+  porcentaje: number;
+}
+
+export interface ReporteCategoria {
+  categoria: string;
+  total: number;
+}
+
+export interface ReportePedidoRow {
+  id: number;
+  numero_pedido: string;
+  proveedor: string;
+  fecha_pedido: string;
+  estado: string;
+  estado_label: string;
+  total_articulos: number;
+  solicitado_por_nombre?: string;
+  valor: number;
+}
+
+export interface ReporteOrdenRow {
+  id: number;
+  numero_orden_compra: string;
+  oc_indigo?: string;
+  proveedor_nombre?: string;
+  fecha_orden: string;
+  estado: string;
+  estado_label: string;
+  creado_por_nombre?: string;
+  items: number;
+  valor: number;
+}
+
+export interface ReporteRecepcionRow {
+  id: number;
+  numero_recepcion?: string;
+  numero_orden_compra?: string;
+  fecha_recepcion: string;
+  estado: string;
+  estado_label: string;
+  recibido_por_nombre?: string;
+  total_items: number;
+  items_recibidos: number;
+}
+
+export interface ReporteProveedorRow {
+  proveedor: string;
+  ordenes: number;
+  recepciones: number;
+  productos: number;
+  valor: number;
+}
+
+export interface ReporteProductoTop {
+  codigo_producto: string;
+  producto_nombre: string;
+  cantidad: number;
+  porcentaje: number;
+}
+
+export interface ReporteFarmacia {
+  rango: { desde: string; hasta: string };
+  kpis: ReporteKpis;
+  evolucion: ReporteEvolucion;
+  pedidos_por_estado: { total: number; items: ReporteEstadoItem[] };
+  productos_por_categoria: ReporteCategoria[];
+  ultimos_pedidos: ReportePedidoRow[];
+  ultimas_ordenes: ReporteOrdenRow[];
+  ultimas_recepciones: ReporteRecepcionRow[];
+  resumen_por_proveedor: ReporteProveedorRow[];
+  productos_mas_solicitados: ReporteProductoTop[];
+}
+
+// ── Reporte de Tiempos de Gestión (Pedido → OC → Recepción) ──────────────────
+
+export interface ReporteTiemposKpis {
+  ordenes_analizadas: number;
+  con_recepcion: number;
+  pendientes_recepcion: number;
+  prom_pedido_oc: number | null;
+  prom_oc_recepcion: number | null;
+  prom_ciclo_total: number | null;
+  min_oc_recepcion: number | null;
+  max_oc_recepcion: number | null;
+}
+
+export interface ReporteTiemposEtapa {
+  etapa: string;
+  dias: number | null;
+}
+
+export interface ReporteTiemposDistribucion {
+  rango: string;
+  total: number;
+  nivel: 'ok' | 'alerta' | 'critico';
+}
+
+export interface ReporteTiemposDetalleRow {
+  orden_id: number;
+  numero_orden_compra: string;
+  numero_pedido: string | null;
+  proveedor: string;
+  estado: string;
+  estado_label: string;
+  fecha_pedido: string | null;
+  fecha_orden: string | null;
+  fecha_recepcion: string | null;
+  dias_pedido_oc: number | null;
+  dias_oc_recepcion: number | null;
+  dias_ciclo_total: number | null;
+  semaforo: 'ok' | 'alerta' | 'critico' | 'pendiente';
+}
+
+export interface ReporteTiempos {
+  umbrales: { ok: number; alerta: number };
+  kpis: ReporteTiemposKpis;
+  promedios_por_etapa: ReporteTiemposEtapa[];
+  distribucion_oc_recepcion: ReporteTiemposDistribucion[];
+  detalle: ReporteTiemposDetalleRow[];
+}
+
+// ── Trazabilidad de un producto en las órdenes de compra ─────────────────────
+
+export interface TrazabilidadProductoResumen {
+  codigo_producto: string;
+  producto_nombre: string;
+  total_ordenes: number;
+  total_comprado: number;
+  total_recibido: number;
+  total_pendiente: number;
+  avance_porcentaje: number;
+}
+
+export interface TrazabilidadProductoOrden {
+  orden_id: number;
+  numero_orden_compra: string;
+  oc_indigo?: string;
+  proveedor: string;
+  fecha_orden: string;
+  estado: string;
+  estado_label: string;
+  codigo_producto: string;
+  producto_nombre: string;
+  cantidad_comprada: number;
+  cantidad_recibida: number;
+  cantidad_pendiente: number;
+  recepcion_completa: boolean;
+}
+
+export interface TrazabilidadProducto {
+  producto: TrazabilidadProductoResumen | null;
+  ordenes: TrazabilidadProductoOrden[];
+  total: number;
 }

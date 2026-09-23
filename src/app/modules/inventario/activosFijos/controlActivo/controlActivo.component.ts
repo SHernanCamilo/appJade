@@ -10,7 +10,8 @@ import { TagModule } from 'primeng/tag';
 import { TabViewModule } from 'primeng/tabview';
 import { DropdownModule } from 'primeng/dropdown';
 import { AutoCompleteModule } from 'primeng/autocomplete';
-import { MessageService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService, ConfirmationService } from 'primeng/api';
 
 import {
   ActivoFijo,
@@ -119,15 +120,17 @@ const TAB_LOCALIDADES = 2;
     TagModule,
     TabViewModule,
     DropdownModule,
-    AutoCompleteModule
+    AutoCompleteModule,
+    ConfirmDialogModule
   ],
-  providers: [MessageService],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './controlActivo.component.html',
   styleUrl: './controlActivo.component.css'
 })
 export class ControlActivoComponent implements OnInit {
   private readonly service = inject(ActivosFijosService);
   private readonly messages = inject(MessageService);
+  private readonly confirmar = inject(ConfirmationService);
 
   /** 0 = Registrar toma, 1 = Trazabilidad */
   tabActiva = TAB_REGISTRAR;
@@ -404,7 +407,13 @@ export class ControlActivoComponent implements OnInit {
     if (!this.activo || this.guardando) return false;
     if (!this.formulario.tipo_inventario_id) return false;
     if (this.validacionPeriodicidad && !this.validacionPeriodicidad.puede_registrar) return false;
-    return this.novedadesLlenas > 0 || this.formulario.observacion.trim() !== '';
+    // Se permite guardar sin novedades (deja constancia de que el activo se revisó).
+    return true;
+  }
+
+  /** true cuando no hay ningún campo de novedad ni observación llenos. */
+  get sinNovedadNiObservacion(): boolean {
+    return this.novedadesLlenas === 0 && this.formulario.observacion.trim() === '';
   }
 
   get tipoInventarioSeleccionado(): TipoInventario | null {
@@ -414,6 +423,29 @@ export class ControlActivoComponent implements OnInit {
 
   registrar(): void {
     if (!this.puedeRegistrar || !this.activo?.placa) return;
+
+    // Si no hay novedades ni observación, confirmar que quiere dejar constancia
+    // de que el activo se revisó y coincide con Indigo (sin novedad alguna).
+    if (this.sinNovedadNiObservacion) {
+      this.confirmar.confirm({
+        header: 'Guardar sin novedades',
+        message: `El activo <strong>${this.activo.placa}</strong> se registrará como <strong>inventariado sin novedad alguna</strong> `
+          + '(sin cambios ni observaciones), coincidiendo con la información de Indigo. ¿Desea continuar?',
+        icon: 'pi pi-info-circle',
+        acceptLabel: 'Sí, guardar sin novedad',
+        rejectLabel: 'Cancelar',
+        acceptButtonStyleClass: 'p-button-sm',
+        rejectButtonStyleClass: 'p-button-sm p-button-outlined',
+        accept: () => this.ejecutarRegistro()
+      });
+      return;
+    }
+
+    this.ejecutarRegistro();
+  }
+
+  private ejecutarRegistro(): void {
+    if (!this.activo?.placa) return;
 
     this.guardando = true;
     this.alertaPeriodicidad = null;
@@ -442,10 +474,13 @@ export class ControlActivoComponent implements OnInit {
     this.service.registrarNovedad(payload).subscribe({
       next: respuesta => {
         this.guardando = false;
+        const cambios = respuesta.data.total_cambios;
         this.messages.add({
           severity: 'success',
-          summary: 'Novedad registrada',
-          detail: `Se guardaron ${respuesta.data.total_cambios} cambio(s) para la placa ${placaGuardada}.`,
+          summary: cambios > 0 ? 'Novedad registrada' : 'Toma registrada',
+          detail: cambios > 0
+            ? `Se guardaron ${cambios} cambio(s) para la placa ${placaGuardada}.`
+            : `Se registró la toma del activo ${placaGuardada} sin novedades (coincide con Indigo).`,
           life: 6000
         });
         this.formulario = { ...FORMULARIO_VACIO };

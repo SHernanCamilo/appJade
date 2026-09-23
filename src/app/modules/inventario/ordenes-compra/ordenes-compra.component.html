@@ -1,3 +1,6 @@
+<p-toast position="top-right"></p-toast>
+<p-confirmDialog [style]="{width: '460px'}" acceptButtonStyleClass="p-button-sm" rejectButtonStyleClass="p-button-sm"></p-confirmDialog>
+
 <div class="orders-page">
     <header class="page-header mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -21,17 +24,15 @@
                     </div>
                     <div class="d-flex flex-column">
                         <label class="text-muted mb-1" style="font-size: 0.75rem;">Estado</label>
-                        <select class="form-select form-select-sm" style="width: 160px;"
-                                [ngModel]="statusFilterOrdenes()"
-                                (change)="onStatusFilterChange($event)">
-                            <option value="">Todos los estados</option>
-                            <option value="pendiente">Pendiente</option>
-                            <option value="en_transito">En tránsito</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="en_sitio">En sitio</option>
-                            <option value="recibida">Recibida</option>
-                            <option value="cancelada">Cancelada</option>
-                        </select>
+                        <p-dropdown
+                            [options]="estadoOptions"
+                            [ngModel]="statusFilterOrdenes()"
+                            (ngModelChange)="onStatusFilterChange($event)"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Todos los estados"
+                            [style]="{width: '180px'}">
+                        </p-dropdown>
                     </div>
                 </div>
                 
@@ -147,15 +148,33 @@
                 <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="m-0 fw-bold" style="color: #0f172a;">Órdenes de Compra</h5>
                     
-                    <!-- Sincronizador Indigo: exige elegir la sucursal destino para el consecutivo correcto -->
+                    <!-- Sincronizador Indigo: la sucursal se detecta por el prefijo del
+                         pedido (TJA, FLA, NVA…). El selector es solo un respaldo opcional. -->
                     <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" [ngModel]="selectedSucursalId()" (ngModelChange)="selectedSucursalId.set($event)" style="width: 190px;" pTooltip="Sucursal destino de la sincronización">
-                            <option [ngValue]="null">Sucursal destino...</option>
-                            <option *ngFor="let s of sucursales()" [ngValue]="s.id">
-                                {{ s.nombre }}{{ s.prefijo ? ' (' + s.prefijo + ')' : '' }}
-                            </option>
-                        </select>
-                        <input type="text" [ngModel]="numeroOrdenSync()" (ngModelChange)="numeroOrdenSync.set($event)" class="form-control form-control-sm" placeholder="Número OC Indigo..." style="width: 150px;">
+                        <button class="btn btn-outline-secondary btn-sm px-3 d-flex align-items-center gap-2" (click)="openTrazabilidad()">
+                            <i class="bi bi-diagram-3"></i> Trazabilidad
+                        </button>
+                        <span class="vr mx-1"></span>
+                        <p-dropdown
+                            [options]="sucursales()"
+                            [ngModel]="selectedSucursalId()"
+                            (ngModelChange)="selectedSucursalId.set($event)"
+                            optionLabel="nombre"
+                            optionValue="id"
+                            [filter]="true"
+                            filterBy="nombre,prefijo"
+                            [showClear]="true"
+                            placeholder="Sucursal (respaldo)"
+                            [style]="{width: '200px'}"
+                            pTooltip="Opcional. Solo se usa si no se detecta la sucursal por el prefijo del pedido.">
+                            <ng-template let-s pTemplate="item">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <span>{{ s.nombre }}</span>
+                                    <span class="text-muted small" *ngIf="s.prefijo">{{ s.prefijo }}</span>
+                                </div>
+                            </ng-template>
+                        </p-dropdown>
+                        <input type="text" [ngModel]="numeroOrdenSync()" (ngModelChange)="numeroOrdenSync.set($event)" class="form-control form-control-sm" placeholder="Número OC Indigo..." style="width: 160px;">
                         <button class="btn btn-outline-primary btn-sm px-3 d-flex align-items-center gap-2" (click)="syncFromIndigo()" [disabled]="isSyncing()">
                             <i class="bi" [ngClass]="{'bi-arrow-repeat spin': isSyncing(), 'bi-cloud-download': !isSyncing()}"></i>
                             Sincronizar
@@ -214,17 +233,15 @@
                                            (ngModelChange)="filterFecha.set($event)">
                                 </th>
                                 <th>
-                                    <select class="form-select form-select-sm p-1"
-                                            [ngModel]="statusFilterOrdenes()"
-                                            (change)="onStatusFilterChange($event)">
-                                        <option value="">Todos</option>
-                                        <option value="pendiente">Pendiente</option>
-                                        <option value="en_transito">En tránsito</option>
-                                        <option value="confirmado">Confirmado</option>
-                                        <option value="en_sitio">En sitio</option>
-                                        <option value="recibida">Recibida</option>
-                                        <option value="cancelada">Cancelada</option>
-                                    </select>
+                                    <p-dropdown
+                                        [options]="estadoOptions"
+                                        [ngModel]="statusFilterOrdenes()"
+                                        (ngModelChange)="onStatusFilterChange($event)"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        placeholder="Todos"
+                                        styleClass="w-100 p-dropdown-sm">
+                                    </p-dropdown>
                                 </th>
                                 <th></th>
                                 <th>
@@ -246,6 +263,9 @@
                                 <td>
                                     <strong>{{ oc.numero_orden_compra }}</strong>
                                     <div *ngIf="oc.oc_indigo" class="text-muted" style="font-size: 0.7rem;">Indigo: {{ oc.oc_indigo }}</div>
+                                    <div *ngIf="pedidosRelacionadosTexto(oc)" class="text-primary d-inline-flex align-items-center gap-1 mt-1" style="font-size: 0.7rem;" [pTooltip]="'Pedido(s) de origen: ' + pedidosRelacionadosTexto(oc)">
+                                        <i class="bi bi-link-45deg"></i> {{ pedidosRelacionadosTexto(oc) }}
+                                    </div>
                                     <span *ngIf="tieneDatosIncompletos(oc)" class="badge bg-warning-subtle text-warning d-inline-flex align-items-center gap-1 mt-1" style="font-size: 0.65rem;" pTooltip="Faltan datos (proveedor o ítems). Revisar sincronización.">
                                         <i class="bi bi-exclamation-triangle"></i> Datos incompletos
                                     </span>
@@ -265,12 +285,14 @@
                                 </td>
                                 <td class="text-center">{{ oc.items_count || oc.total_items || 0 }}</td>
                                 <td>{{ oc.creado_por_nombre || 'Administrador del Sistema' }}</td>
-                                <td class="text-center">
-                                    <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrden(oc.id)" pTooltip="Ver detalles"></button>
-                                    <button *ngIf="canConfirm(oc)" pButton icon="bi bi-check2-circle" class="p-button-rounded p-button-text p-button-sm p-button-success" (click)="confirmarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Confirmar orden"></button>
-                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openCreateModal()" pTooltip="Editar orden (propia y pendiente)"></button>
-                                    <button *ngIf="canEdit(oc)" pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger" (click)="eliminarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Eliminar orden"></button>
-                                    <i *ngIf="isSincronizada(oc)" class="bi bi-lock-fill text-muted ms-1" style="font-size: 0.75rem;" pTooltip="Orden de Indigo: solo se modifica por sincronización"></i>
+                                <td class="acciones-cell">
+                                    <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                        <button pButton icon="bi bi-eye" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="viewOrden(oc.id)" pTooltip="Ver detalles"></button>
+                                        <button *ngIf="canConfirm(oc)" pButton icon="bi bi-check2-circle" class="p-button-rounded p-button-text p-button-sm p-button-success" (click)="confirmarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Confirmar orden"></button>
+                                        <button *ngIf="canEdit(oc)" pButton icon="bi bi-pencil" class="p-button-rounded p-button-text p-button-sm p-button-secondary" (click)="openEditModal(oc)" pTooltip="Editar orden (propia y pendiente)"></button>
+                                        <button *ngIf="canEdit(oc)" pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger" (click)="eliminarOrden(oc)" [disabled]="isProcessingAction()" pTooltip="Eliminar orden"></button>
+                                        <i *ngIf="isSincronizada(oc)" class="bi bi-lock-fill text-muted ms-1" style="font-size: 0.75rem;" pTooltip="Orden de Indigo: solo se modifica por sincronización"></i>
+                                    </div>
                                 </td>
                             </tr>
                         </ng-template>
@@ -349,19 +371,21 @@
 <!-- MODAL: CREAR ORDEN DE COMPRA (Listado de productos del pedido) -->
 <!-- ============================================================== -->
 <p-dialog 
-    header="Nueva Orden de Compra" 
+    [header]="isEditMode() ? 'Editar Orden de Compra' : 'Nueva Orden de Compra'" 
     [(visible)]="showCreateModal" 
     [modal]="true" 
-    [style]="{width: '75vw', maxWidth: '1000px'}" 
+    [style]="{width: '96vw', maxWidth: '1500px'}"
+    [contentStyle]="{maxHeight: '78vh', overflow: 'auto'}"
     [draggable]="false" 
     [resizable]="false"
     [dismissableMask]="true"
-    styleClass="custom-dialog"
+    (onHide)="closeCreateModal()"
+    styleClass="custom-dialog dialog-dark-header"
 >
     <div class="create-oc-wrapper p-3">
-        
-        <div class="row mb-4">
-            <div class="col-md-6">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6" *ngIf="!isEditMode()">
                 <label class="form-label fw-bold">Seleccionar Pedido Confirmado</label>
                 <p-dropdown 
                     [options]="pedidos()" 
@@ -372,6 +396,8 @@
                     filterBy="numero_pedido,solicitado_por_nombre" 
                     [showClear]="true" 
                     placeholder="Seleccione un pedido" 
+                    appendTo="body"
+                    scrollHeight="260px"
                     styleClass="w-100">
                     <ng-template let-ped pTemplate="item">
                         <div class="d-flex justify-content-between align-items-center w-100">
@@ -382,74 +408,215 @@
                 </p-dropdown>
                 <small class="text-muted d-block mt-1">Solo se permite asociar un (1) pedido por Orden de Compra.</small>
             </div>
-            
-            <div class="col-md-6" *ngIf="newOrdenPedidoSelected()">
-                <div class="p-3 bg-light rounded border h-100 d-flex flex-column justify-content-center">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">Fecha del pedido:</span>
+
+            <!-- Sucursal de la OC -->
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Sucursal de la Orden <span class="text-danger">*</span></label>
+
+                <!-- Caso A: el pedido trae sucursal → se hereda, campo readonly -->
+                <ng-container *ngIf="sucursalHeredadaDelPedido()">
+                    <input type="text" class="form-control bg-light"
+                           [value]="sucursalPedidoNombre()"
+                           readonly>
+                    <small class="text-muted d-block mt-1">
+                        <i class="bi bi-info-circle"></i> La sucursal (y su consecutivo) se hereda del pedido relacionado.
+                    </small>
+                </ng-container>
+
+                <!-- Caso B: el pedido no trae sucursal (histórico) o sin pedido → selector editable -->
+                <ng-container *ngIf="!sucursalHeredadaDelPedido()">
+                    <p-dropdown
+                        [options]="sucursales()"
+                        [ngModel]="selectedSucursalId()"
+                        (ngModelChange)="selectedSucursalId.set($event)"
+                        optionLabel="nombre"
+                        optionValue="id"
+                        [filter]="true"
+                        filterBy="nombre,prefijo"
+                        [showClear]="false"
+                        placeholder="Selecciona la sucursal..."
+                        appendTo="body"
+                        scrollHeight="260px"
+                        styleClass="w-100"
+                        [class.ng-invalid]="!selectedSucursalId()">
+                        <ng-template let-s pTemplate="item">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <span>{{ s.nombre }}</span>
+                                <span class="text-muted small" *ngIf="s.prefijo">{{ s.prefijo }}</span>
+                            </div>
+                        </ng-template>
+                    </p-dropdown>
+                    <small class="text-muted d-block mt-1">
+                        <i class="bi bi-info-circle"></i> Este pedido no tiene sucursal asignada. Selecciona la sucursal para el consecutivo de la OC.
+                    </small>
+                </ng-container>
+            </div>
+
+            <!-- Proveedor de la OC (catálogo de Indigo) -->
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Proveedor</label>
+                <p-dropdown
+                    [options]="proveedores()"
+                    [ngModel]="proveedorSeleccionado()"
+                    (ngModelChange)="proveedorSeleccionado.set($event)"
+                    [filter]="true"
+                    filterBy="nombre,nit"
+                    [showClear]="true"
+                    [loading]="isLoadingProveedores()"
+                    placeholder="Seleccione el proveedor..."
+                    appendTo="body"
+                    scrollHeight="260px"
+                    styleClass="w-100">
+                    <ng-template let-p pTemplate="item">
+                        <div class="d-flex justify-content-between align-items-center w-100" style="gap:1rem;">
+                            <span>{{ p.nombre }}</span>
+                            <span class="text-muted small" *ngIf="p.nit">NIT: {{ p.nit_completo || p.nit }}</span>
+                        </div>
+                    </ng-template>
+                    <ng-template let-p pTemplate="selectedItem">
+                        <span>{{ p.nombre }}</span>
+                    </ng-template>
+                </p-dropdown>
+                <small class="text-muted d-block mt-1">
+                    <i class="bi bi-info-circle"></i> Proveedor tomado del catálogo de Indigo.
+                </small>
+            </div>
+        </div>
+
+        <div class="row mb-4" *ngIf="newOrdenPedidoSelected()">
+            <div class="col-12">
+                <div class="p-3 bg-light rounded border d-flex flex-wrap gap-4">
+                    <div>
+                        <span class="text-muted me-2">Fecha del pedido:</span>
                         <span class="fw-medium">{{ newOrdenPedidoSelected()?.fecha_pedido | date:'dd/MM/yyyy' }}</span>
                     </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="text-muted">Solicitante:</span>
+                    <div>
+                        <span class="text-muted me-2">Solicitante:</span>
                         <span class="fw-medium">{{ newOrdenPedidoSelected()?.solicitado_por_nombre || 'Sistema' }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div *ngIf="newOrdenPedidoSelected()">
-            <h6 class="fw-bold mb-3 border-bottom pb-2">Productos a gestionar</h6>
-            
+        <div *ngIf="newOrdenPedidoSelected() || isEditMode()">
+
             <div *ngIf="isLoadingPedidoDetalle()" class="text-center py-4">
                 <div class="spinner-border text-primary"></div>
                 <div class="mt-2 text-muted">Cargando ítems del pedido...</div>
             </div>
 
-            <p-table 
-                *ngIf="!isLoadingPedidoDetalle()"
-                [value]="newOrdenDetalles()" 
-                [scrollable]="true" 
-                scrollHeight="40vh" 
-                styleClass="p-datatable-sm p-datatable-gridlines-none"
-            >
-                <ng-template pTemplate="header">
-                    <tr>
-                        <th style="width: 3rem">
-                            <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
-                        </th>
-                        <th style="width:15%">Código</th>
-                        <th style="width:40%">Producto</th>
-                        <th style="width:15%" class="text-center">Cant. Solicitada</th>
-                        <th style="width:15%" class="text-center">Cant. A Comprar</th>
-                    </tr>
-                </ng-template>
-                <ng-template pTemplate="body" let-item>
-                    <tr>
-                        <td>
-                            <p-tableCheckbox [value]="item"></p-tableCheckbox>
-                        </td>
-                        <td><code class="text-primary">{{ item.codigo_producto }}</code></td>
-                        <td class="fw-medium">{{ item.producto_nombre }}</td>
-                        <td class="text-center">{{ item.cantidad_solicitada }}</td>
-                        <td class="text-center">
-                            <!-- Input para definir cuántos se van a comprar de este item -->
-                            <input type="number" class="form-control form-control-sm text-center mx-auto" style="width: 80px;" [ngModel]="item.cantidad_solicitada" min="1" [max]="item.cantidad_solicitada">
-                        </td>
-                    </tr>
-                </ng-template>
-                <ng-template pTemplate="emptymessage">
-                    <tr>
-                        <td colspan="5" class="text-center p-4 text-muted">Este pedido no tiene ítems.</td>
-                    </tr>
-                </ng-template>
-            </p-table>
+            <ng-container *ngIf="!isLoadingPedidoDetalle()">
+                <!-- Formulario: elegir producto del pedido + cantidad a comprar (horizontal) -->
+                <div class="card bg-light border-0 mb-3">
+                    <div class="card-body p-3">
+                        <h6 class="mb-3 fw-bold"><i class="bi bi-box-seam me-2"></i>Agregar producto a la orden</h6>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-lg-6 col-md-5">
+                                <label class="form-label small text-muted mb-1">Producto del pedido *</label>
+                                <p-dropdown
+                                    [options]="productosDisponibles()"
+                                    [ngModel]="ocProductoSel()"
+                                    (onChange)="onOcProductoChange($event)"
+                                    [filter]="true"
+                                    filterBy="codigo_producto,producto_nombre"
+                                    [showClear]="true"
+                                    placeholder="Seleccione un producto..."
+                                    appendTo="body"
+                                    scrollHeight="260px"
+                                    styleClass="w-100">
+                                    <ng-template let-p pTemplate="item">
+                                        <div class="d-flex justify-content-between align-items-center w-100" style="gap:1rem;">
+                                            <span><code class="text-primary">{{ p.codigo_producto }}</code> · {{ p.producto_nombre }}</span>
+                                            <span class="text-muted small">Solic: {{ p.cantidad_solicitada }}</span>
+                                        </div>
+                                    </ng-template>
+                                    <ng-template let-p pTemplate="selectedItem">
+                                        <span><code class="text-primary">{{ p.codigo_producto }}</code> · {{ p.producto_nombre }}</span>
+                                    </ng-template>
+                                </p-dropdown>
+                            </div>
+                            <div class="col-lg-3 col-md-3">
+                                <label class="form-label small text-muted mb-1">Cant. solicitada</label>
+                                <input type="text" class="form-control bg-white" readonly
+                                       [value]="ocProductoSel()?.cantidad_solicitada ?? '-'">
+                            </div>
+                            <div class="col-lg-2 col-md-2">
+                                <label class="form-label small text-muted mb-1">Cant. a comprar *</label>
+                                <input type="number" class="form-control"
+                                       [ngModel]="ocCantidad()"
+                                       (ngModelChange)="ocCantidad.set($event)"
+                                       min="1"
+                                       placeholder="0">
+                            </div>
+                            <div class="col-lg-1 col-md-2">
+                                <button pButton icon="bi bi-plus-lg" label="Agregar"
+                                        class="p-button-primary w-100"
+                                        (click)="agregarProductoOc()"
+                                        [disabled]="!ocProductoSel() || !ocCantidad()"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de productos ya agregados a la OC -->
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                    <h6 class="fw-bold m-0">Productos de la orden
+                        <span class="text-primary fw-medium" style="font-size:0.8rem;">
+                            ({{ selectedItems().length }})
+                        </span>
+                    </h6>
+                </div>
+
+                <p-table [value]="selectedItems()" [scrollable]="true" scrollHeight="35vh"
+                         [paginator]="selectedItems().length > 15" [rows]="15"
+                         styleClass="p-datatable-sm p-datatable-gridlines-none">
+                    <ng-template pTemplate="header">
+                        <tr>
+                            <th style="width:20%">Código</th>
+                            <th>Producto</th>
+                            <th style="width:15%" class="text-center">Cant. Solicitada</th>
+                            <th style="width:15%" class="text-center">Cant. A Comprar</th>
+                            <th style="width:8%" class="text-center">Quitar</th>
+                        </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-item>
+                        <tr>
+                            <td><code class="text-primary">{{ item.codigo_producto }}</code></td>
+                            <td class="fw-medium">{{ item.producto_nombre }}</td>
+                            <td class="text-center">{{ item.cantidad_solicitada }}</td>
+                            <td class="text-center">
+                                <input type="number" class="form-control form-control-sm text-center mx-auto"
+                                       style="width: 90px;" [(ngModel)]="item.cantidad_a_comprar"
+                                       min="1">
+                            </td>
+                            <td class="text-center">
+                                <button pButton icon="bi bi-trash" class="p-button-rounded p-button-text p-button-sm p-button-danger"
+                                        (click)="quitarProductoOc(item)" pTooltip="Quitar"></button>
+                            </td>
+                        </tr>
+                    </ng-template>
+                    <ng-template pTemplate="emptymessage">
+                        <tr>
+                            <td colspan="5" class="text-center p-4 text-muted">
+                                Aún no has agregado productos. Selecciona uno arriba y pulsa "Agregar".
+                            </td>
+                        </tr>
+                    </ng-template>
+                </p-table>
+            </ng-container>
         </div>
         
     </div>
 
     <ng-template pTemplate="footer">
         <button pButton label="Cancelar" icon="bi bi-x" class="p-button-text p-button-secondary" (click)="closeCreateModal()"></button>
-        <button pButton label="Confirmar y Crear" icon="bi bi-check2" class="p-button-primary" (click)="submitCrearOrden()" [loading]="isCreating()" [disabled]="!newOrdenPedidoSelected()"></button>
+        <button pButton
+                [label]="isEditMode() ? 'Guardar cambios' : 'Confirmar y Crear'"
+                icon="bi bi-check2"
+                class="p-button-primary"
+                (click)="submitCrearOrden()"
+                [loading]="isCreating()"
+                [disabled]="(!isEditMode() && !newOrdenPedidoSelected()) || selectedItems().length === 0"></button>
     </ng-template>
 </p-dialog>
 
@@ -504,6 +671,17 @@
                     <span class="order-info-label">Creado por:</span>
                     <span class="order-info-value fw-normal">{{ currentOrden()?.creado_por_nombre || 'Sistema' }}</span>
                 </div>
+                <div class="order-info-row">
+                    <span class="order-info-label">Pedido(s):</span>
+                    <span class="order-info-value fw-normal">
+                        <ng-container *ngIf="pedidosRelacionadosTexto(currentOrden()) as peds; else sinPedido">
+                            <span class="badge bg-primary-subtle text-primary" style="font-size:0.72rem;">
+                                <i class="bi bi-link-45deg"></i> {{ peds }}
+                            </span>
+                        </ng-container>
+                        <ng-template #sinPedido><span class="text-muted">Sin pedido vinculado</span></ng-template>
+                    </span>
+                </div>
             </div>
             <div class="text-end d-flex flex-column justify-content-center">
                 <h3 class="mb-0 text-primary fw-bold" style="font-size: 1.5rem;">
@@ -545,5 +723,160 @@
                 </tr>
             </ng-template>
         </p-table>
+    </div>
+</p-dialog>
+
+
+<!-- ============================================================== -->
+<!-- MODAL: TRAZABILIDAD DE PRODUCTO                                 -->
+<!-- ============================================================== -->
+<p-dialog
+    [(visible)]="showTrazabilidadModal"
+    [modal]="true"
+    [style]="{width: '92vw', maxWidth: '1300px'}"
+    [contentStyle]="{maxHeight: '80vh', overflow: 'auto'}"
+    [draggable]="false"
+    [resizable]="false"
+    [dismissableMask]="true"
+    (onHide)="closeTrazabilidad()"
+    styleClass="custom-dialog dialog-dark-header"
+>
+    <ng-template pTemplate="header">
+        <div class="d-flex align-items-center gap-2 w-100 pe-2">
+            <i class="bi bi-diagram-3 text-white" style="font-size: 1.2rem;"></i>
+            <h4 class="m-0 fw-bold text-white" style="font-size: 1.1rem;">Trazabilidad de Producto</h4>
+        </div>
+    </ng-template>
+
+    <div class="p-3">
+        <!-- Barra de búsqueda -->
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-lg-6 col-md-5">
+                <label class="form-label small text-muted mb-1">Producto (código o nombre)</label>
+                <input pInputText type="text" class="w-100"
+                       placeholder="Ej: 20039626-1 o CEFTAROLINA"
+                       [ngModel]="trazaQuery()"
+                       (ngModelChange)="trazaQuery.set($event)"
+                       (keyup.enter)="buscarTrazabilidad()">
+            </div>
+            <div class="col-lg-3 col-md-3">
+                <label class="form-label small text-muted mb-1">Estado (opcional)</label>
+                <p-dropdown
+                    [options]="estadoOptions"
+                    [ngModel]="trazaEstado()"
+                    (ngModelChange)="trazaEstado.set($event)"
+                    optionLabel="label" optionValue="value"
+                    placeholder="Todos" appendTo="body"
+                    styleClass="w-100"></p-dropdown>
+            </div>
+            <div class="col-lg-3 col-md-4 d-flex gap-2">
+                <button pButton icon="bi bi-search" label="Buscar"
+                        class="p-button-primary flex-fill"
+                        (click)="buscarTrazabilidad()" [loading]="isLoadingTraza()"></button>
+                <button pButton icon="bi bi-arrow-counterclockwise"
+                        class="p-button-text p-button-secondary"
+                        (click)="limpiarTrazabilidad()" pTooltip="Limpiar"></button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div *ngIf="isLoadingTraza()" class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <div class="mt-2 text-muted">Buscando trazabilidad...</div>
+        </div>
+
+        <!-- Resultados -->
+        <ng-container *ngIf="!isLoadingTraza() && traza() as t">
+            <!-- Resumen del producto -->
+            <div *ngIf="t.producto as p" class="mb-3">
+                <div class="p-3 bg-light rounded border">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                        <div>
+                            <div class="fw-bold" style="font-size: 0.95rem;">
+                                <code class="text-primary">{{ p.codigo_producto }}</code> · {{ p.producto_nombre }}
+                            </div>
+                            <div class="text-muted small mt-1">Aparece en {{ p.total_ordenes }} orden(es) de compra</div>
+                        </div>
+                        <div class="d-flex gap-4 text-center">
+                            <div>
+                                <div class="text-muted small">Comprado</div>
+                                <strong class="text-primary" style="font-size: 1.1rem;">{{ p.total_comprado | number }}</strong>
+                            </div>
+                            <div>
+                                <div class="text-muted small">Recibido</div>
+                                <strong class="text-success" style="font-size: 1.1rem;">{{ p.total_recibido | number }}</strong>
+                            </div>
+                            <div>
+                                <div class="text-muted small">Pendiente</div>
+                                <strong class="text-warning" style="font-size: 1.1rem;">{{ p.total_pendiente | number }}</strong>
+                            </div>
+                            <div style="min-width: 120px;">
+                                <div class="text-muted small">Avance</div>
+                                <strong style="font-size: 1.1rem;">{{ p.avance_porcentaje }}%</strong>
+                                <div class="progress mt-1" style="height: 6px;">
+                                    <div class="progress-bar bg-success" [style.width.%]="p.avance_porcentaje"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de OC donde aparece el producto -->
+            <p-table [value]="t.ordenes" [scrollable]="true" scrollHeight="45vh"
+                     [paginator]="t.ordenes.length > 15" [rows]="15"
+                     styleClass="p-datatable-sm p-datatable-gridlines-none">
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th style="width:16%"># OC</th>
+                        <th style="width:22%">Proveedor</th>
+                        <th style="width:11%">Fecha</th>
+                        <th style="width:12%">Estado</th>
+                        <th style="width:10%" class="text-center">Comprado</th>
+                        <th style="width:10%" class="text-center">Recibido</th>
+                        <th style="width:10%" class="text-center">Pendiente</th>
+                        <th style="width:9%" class="text-center">Recepción</th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-o>
+                    <tr>
+                        <td>
+                            <strong>{{ o.numero_orden_compra }}</strong>
+                            <div *ngIf="o.oc_indigo" class="text-muted" style="font-size: 0.68rem;">Indigo: {{ o.oc_indigo }}</div>
+                        </td>
+                        <td class="text-truncate" style="max-width:200px" [pTooltip]="o.proveedor">{{ o.proveedor }}</td>
+                        <td>{{ o.fecha_orden | date:'dd/MM/yyyy' }}</td>
+                        <td><span class="badge badge-status" [ngClass]="getStatusBadge(o.estado)">{{ o.estado_label }}</span></td>
+                        <td class="text-center">{{ o.cantidad_comprada | number }}</td>
+                        <td class="text-center text-success fw-semibold">{{ o.cantidad_recibida | number }}</td>
+                        <td class="text-center" [class.text-warning]="o.cantidad_pendiente > 0" [class.fw-semibold]="o.cantidad_pendiente > 0">{{ o.cantidad_pendiente | number }}</td>
+                        <td class="text-center">
+                            <span *ngIf="o.recepcion_completa" class="badge bg-success-subtle text-success" style="font-size:0.68rem;">
+                                <i class="bi bi-check-circle"></i> Completa
+                            </span>
+                            <div *ngIf="!o.recepcion_completa" class="rep-progress-mini" [pTooltip]="o.cantidad_recibida + ' de ' + o.cantidad_comprada">
+                                <div class="rep-progress-mini__fill" [style.width.%]="avanceTraza(o)"></div>
+                                <span>{{ avanceTraza(o) }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-search fs-2 d-block mb-2 text-secondary" style="opacity: 0.5;"></i>
+                            Escribe un producto y pulsa "Buscar" para ver su trazabilidad.
+                        </td>
+                    </tr>
+                </ng-template>
+            </p-table>
+        </ng-container>
+
+        <!-- Estado inicial (sin búsqueda) -->
+        <div *ngIf="!isLoadingTraza() && !traza()" class="text-center py-5 text-muted">
+            <i class="bi bi-diagram-3 fs-1 d-block mb-2 text-secondary" style="opacity: 0.4;"></i>
+            Busca un producto por código o nombre para ver en qué órdenes de compra está,
+            su estado y lo que se ha recepcionado vs. lo pendiente.
+        </div>
     </div>
 </p-dialog>

@@ -9,8 +9,11 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
 import { TooltipModule } from 'primeng/tooltip';
+import { ToastModule } from 'primeng/toast';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { InventarioService } from '../../../core/services/inventario.service';
-import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption } from '../../../core/models/inventario.model';
+import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption, TrazabilidadProducto } from '../../../core/models/inventario.model';
 
 @Component({
   selector: 'app-ordenes-compra',
@@ -24,8 +27,11 @@ import { OrdenCompra, Pedido, PedidoDetalle, SucursalOption } from '../../../cor
     ButtonModule,
     InputTextModule,
     DropdownModule,
-    TooltipModule
+    TooltipModule,
+    ToastModule,
+    ConfirmDialogModule
   ],
+  providers: [ConfirmationService, MessageService],
   templateUrl: './ordenes-compra.component.html',
   styleUrls: ['./ordenes-compra.component.css']
 })
@@ -56,6 +62,17 @@ export class OrdenesCompraComponent implements OnInit {
   filterProveedor  = signal<string>('');
   filterCreadoPor  = signal<string>('');
   filterFecha      = signal<string>('');
+
+  // Opciones de estado para los dropdowns (consistentes en header y filtro de columna).
+  estadoOptions = [
+    { label: 'Todos los estados', value: '' },
+    { label: 'Pendiente', value: 'pendiente' },
+    { label: 'En tránsito', value: 'en_transito' },
+    { label: 'Confirmado', value: 'confirmado' },
+    { label: 'En sitio', value: 'en_sitio' },
+    { label: 'Recibida', value: 'recibida' },
+    { label: 'Cancelada', value: 'cancelada' },
+  ];
 
   // Computed: aplica todos los filtros de columna sobre las OC ya cargadas del backend.
   ordenesFiltradas = computed(() => {
@@ -100,17 +117,68 @@ export class OrdenesCompraComponent implements OnInit {
   // Acciones sobre una OC
   isProcessingAction = signal<boolean>(false);
 
+  // Modal Trazabilidad de producto
+  showTrazabilidadModal = signal<boolean>(false);
+  isLoadingTraza = signal<boolean>(false);
+  trazaQuery = signal<string>('');
+  trazaEstado = signal<string>('');
+  traza = signal<TrazabilidadProducto | null>(null);
+
   // Modal Ver Detalles Orden
   showDetailsModal = signal<boolean>(false);
   currentOrden = signal<OrdenCompra | null>(null);
   isLoadingOrdenDetalle = signal<boolean>(false);
 
-  // Modal Crear Orden de Compra
+  // Modal Crear / Editar Orden de Compra
   showCreateModal = signal<boolean>(false);
   isCreating = signal<boolean>(false);
   newOrdenPedidoSelected = signal<Pedido | null>(null);
   newOrdenDetalles = signal<PedidoDetalle[]>([]);
   isLoadingPedidoDetalle = signal<boolean>(false);
+
+  // Id de la OC en edición (null = modo creación). Cambia el título, el botón y el endpoint.
+  editingOrdenId = signal<number | null>(null);
+  isEditMode = computed(() => this.editingOrdenId() !== null);
+
+  // Ítems que se agregan a la OC (uno por uno, con su cantidad a comprar).
+  // Reemplaza la selección por checkbox: el usuario elige producto + cantidad y lo agrega.
+  selectedItems = signal<any[]>([]);
+
+  // Formulario "Agregar producto": producto elegido del pedido + cantidad a comprar.
+  ocProductoSel = signal<any | null>(null);
+  ocCantidad = signal<number | null>(null);
+
+  // Proveedores (vista Indigo). Se elige uno para la OC.
+  proveedores = signal<any[]>([]);
+  isLoadingProveedores = signal<boolean>(false);
+  proveedorSeleccionado = signal<any | null>(null);
+
+  /** Nombre de la sucursal tomada del pedido seleccionado (solo lectura, no editable). */
+  sucursalPedidoNombre = computed(() => {
+    const id = this.selectedSucursalId();
+    if (id === null) return '';
+    const suc = this.sucursales().find(s => s.id === id);
+    return suc?.nombre ?? '';
+  });
+
+  /**
+   * ¿La sucursal viene heredada del pedido? (el pedido trae sucursal_id).
+   * Si es true → campo readonly. Si es false → hay que dejar elegir la sucursal
+   * (fallback para pedidos históricos que no tienen sucursal asignada).
+   */
+  sucursalHeredadaDelPedido = signal<boolean>(false);
+
+  /** Productos del pedido que todavía NO se han agregado a la OC (para el selector). */
+  productosDisponibles = computed(() => {
+    const yaAgregados = new Set(
+      (this.selectedItems() || []).map((d: any) => String(d.id ?? d.pedido_detalle_id ?? d.codigo_producto))
+    );
+    return (this.newOrdenDetalles() || []).filter((d: any) => {
+      const key = String(d.id ?? d.pedido_detalle_id ?? d.codigo_producto);
+      const cod = String(d.codigo_producto ?? '').trim();
+      return cod !== '' && !yaAgregados.has(key);
+    });
+  });
 
   // Computados
   hasSelectedPedido = computed(() => this.selectedPedido() !== null);
@@ -120,7 +188,12 @@ export class OrdenesCompraComponent implements OnInit {
     return pedido ? (pedido.total_articulos || 0) : 0;
   });
 
-  constructor(private inventarioService: InventarioService, private route: ActivatedRoute) { }
+  constructor(
+    private inventarioService: InventarioService,
+    private route: ActivatedRoute,
+    private confirmationService: ConfirmationService,
+    private messageService: MessageService
+  ) { }
 
   ngOnInit(): void {
     const qpStatus = this.route.snapshot.queryParamMap.get('status');
@@ -148,6 +221,23 @@ export class OrdenesCompraComponent implements OnInit {
       error: (err) => {
         console.error('Error cargando sucursales:', err);
         this.sucursales.set([]);
+      }
+    });
+  }
+
+  /** Carga el catálogo de proveedores (vista Indigo) para el selector de la OC. */
+  loadProveedores(): void {
+    if (this.proveedores().length > 0) return; // ya cargados
+    this.isLoadingProveedores.set(true);
+    this.inventarioService.getProveedores().subscribe({
+      next: (res) => {
+        this.isLoadingProveedores.set(false);
+        this.proveedores.set(res.success && Array.isArray(res.data) ? res.data : []);
+      },
+      error: (err) => {
+        this.isLoadingProveedores.set(false);
+        console.error('Error cargando proveedores:', err);
+        this.proveedores.set([]);
       }
     });
   }
@@ -186,8 +276,10 @@ export class OrdenesCompraComponent implements OnInit {
     });
   }
 
-  onStatusFilterChange(event: any): void {
-    this.statusFilterOrdenes.set(event.target.value);
+  /** Acepta el valor directo (p-dropdown) o un evento de <select> nativo. */
+  onStatusFilterChange(value: any): void {
+    const val = (value && value.target) ? value.target.value : value;
+    this.statusFilterOrdenes.set(val ?? '');
     this.loadOrdenes();
   }
 
@@ -216,42 +308,53 @@ export class OrdenesCompraComponent implements OnInit {
   syncFromIndigo(): void {
     const num = this.numeroOrdenSync();
     if (!num) {
-      alert('Por favor ingrese un número de Orden de Compra.');
+      this.messageService.add({ severity: 'warn', summary: 'Dato requerido', detail: 'Por favor ingrese un número de Orden de Compra.' });
       return;
     }
 
-    // Preguntar/exigir la sucursal destino para que el consecutivo sea el correcto.
+    // La sucursal es OPCIONAL: el backend la deduce automáticamente por el prefijo
+    // del pedido (TJA-…, FLA-…, NVA-…). El selector solo actúa como respaldo por si
+    // la orden de Indigo no trae un número de pedido reconocible.
     const sucursalId = this.selectedSucursalId();
-    if (!sucursalId) {
-      alert('Seleccione la sucursal hacia la que se sincroniza la orden. El consecutivo se genera según la sucursal.');
-      return;
-    }
+    const suc = sucursalId ? this.sucursales().find(s => s.id === sucursalId) : null;
 
-    const suc = this.sucursales().find(s => s.id === sucursalId);
-    const confirmMsg = `Se sincronizará la orden ${num} hacia la sucursal "${suc?.nombre ?? sucursalId}". ¿Continuar?`;
-    if (!confirm(confirmMsg)) return;
+    const mensaje = sucursalId
+      ? `Se sincronizará la orden <strong>${num}</strong>. Si no se detecta la sucursal por el prefijo del pedido, se usará "<strong>${suc?.nombre ?? sucursalId}</strong>" como respaldo. ¿Continuar?`
+      : `Se sincronizará la orden <strong>${num}</strong>. La sucursal se detectará automáticamente por el prefijo del pedido (TJA, FLA, NVA…). ¿Continuar?`;
 
-    this.isSyncing.set(true);
-    this.inventarioService.syncOrdenCompra(num, sucursalId).subscribe({
-      next: (res: any) => {
-        this.isSyncing.set(false);
-        if (res.success) {
-          if (res.ya_existia) {
-            // La OC ya estaba en el sistema: no crea nueva, informa al usuario.
-            alert(`ℹ️ La orden ${num} ya está registrada en el sistema.\n\n${res.message}`);
-          } else {
-            alert(`✅ ${res.message}`);
+    this.confirmationService.confirm({
+      header: 'Sincronizar desde Indigo',
+      message: mensaje,
+      icon: 'bi bi-cloud-download',
+      acceptLabel: 'Sí, sincronizar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-primary',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.isSyncing.set(true);
+        // Envía sucursalId solo si el usuario eligió una (respaldo). Si es null, el
+        // backend deducirá la sucursal por prefijo del pedido.
+        this.inventarioService.syncOrdenCompra(num, sucursalId ?? undefined).subscribe({
+          next: (res: any) => {
+            this.isSyncing.set(false);
+            if (res.success) {
+              if (res.ya_existia) {
+                this.messageService.add({ severity: 'info', summary: 'Ya registrada', detail: `La orden ${num} ya está registrada en el sistema.` });
+              } else {
+                this.messageService.add({ severity: 'success', summary: 'Sincronizada', detail: res.message || `Orden ${num} sincronizada.` });
+              }
+              this.numeroOrdenSync.set('');
+              this.loadOrdenes();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo sincronizar.' });
+            }
+          },
+          error: (err: any) => {
+            this.isSyncing.set(false);
+            console.error('Error syncing:', err);
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al sincronizar con INDIGO.' });
           }
-          this.numeroOrdenSync.set('');
-          this.loadOrdenes();
-        } else {
-          alert('Error: ' + (res.message || 'No se pudo sincronizar.'));
-        }
-      },
-      error: (err: any) => {
-        this.isSyncing.set(false);
-        console.error('Error syncing:', err);
-        alert(err?.error?.message || 'Ocurrió un error al sincronizar con INDIGO.');
+        });
       }
     });
   }
@@ -278,6 +381,69 @@ export class OrdenesCompraComponent implements OnInit {
     return this.isSincronizada(oc) ? 'Indigo' : 'Aplicativo';
   }
 
+  /** Números de pedido relacionados a la OC, como texto (ej. "TJA-2026-000001"). */
+  pedidosRelacionadosTexto(oc: OrdenCompra | null): string {
+    const peds = oc?.pedidos_relacionados ?? [];
+    return peds.map(p => p.numero_pedido).filter(Boolean).join(', ');
+  }
+
+  // ==========================================
+  // TRAZABILIDAD DE PRODUCTO
+  // ==========================================
+  openTrazabilidad(): void {
+    this.showTrazabilidadModal.set(true);
+    // No autolanza búsqueda; el usuario escribe el producto y busca.
+    if (!this.traza()) {
+      this.traza.set(null);
+    }
+  }
+
+  closeTrazabilidad(): void {
+    this.showTrazabilidadModal.set(false);
+  }
+
+  buscarTrazabilidad(): void {
+    const q = this.trazaQuery().trim();
+    if (q.length < 2) {
+      this.messageService.add({ severity: 'warn', summary: 'Búsqueda muy corta', detail: 'Escribe al menos 2 caracteres del código o nombre del producto.' });
+      return;
+    }
+    this.isLoadingTraza.set(true);
+    const filtros: Record<string, any> = { q };
+    if (this.trazaEstado()) filtros['estado'] = this.trazaEstado();
+
+    this.inventarioService.getTrazabilidadProducto(filtros).subscribe({
+      next: (res) => {
+        this.isLoadingTraza.set(false);
+        if (res.success && res.data) {
+          this.traza.set(res.data);
+          if (!res.data.producto) {
+            this.messageService.add({ severity: 'info', summary: 'Sin resultados', detail: 'No se encontró el producto en ninguna orden de compra.' });
+          }
+        } else {
+          this.traza.set(null);
+        }
+      },
+      error: (err) => {
+        this.isLoadingTraza.set(false);
+        this.traza.set(null);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'No se pudo cargar la trazabilidad.' });
+      }
+    });
+  }
+
+  limpiarTrazabilidad(): void {
+    this.trazaQuery.set('');
+    this.trazaEstado.set('');
+    this.traza.set(null);
+  }
+
+  /** % de avance de recepción de una fila de trazabilidad (para la barra). */
+  avanceTraza(o: { cantidad_comprada: number; cantidad_recibida: number }): number {
+    if (!o?.cantidad_comprada) return 0;
+    return Math.min(100, Math.round((o.cantidad_recibida / o.cantidad_comprada) * 100));
+  }
+
   origenBadgeClass(oc: OrdenCompra): string {
     return this.isSincronizada(oc) ? 'bg-primary-subtle text-primary' : 'bg-success-subtle text-success';
   }
@@ -291,52 +457,75 @@ export class OrdenesCompraComponent implements OnInit {
 
   confirmarOrden(oc: OrdenCompra): void {
     if (!this.canConfirm(oc)) {
-      alert('Solo se pueden confirmar órdenes en estado pendiente.');
+      this.messageService.add({ severity: 'warn', summary: 'No permitido', detail: 'Solo se pueden confirmar órdenes en estado pendiente.' });
       return;
     }
-    if (!confirm(`¿Confirmar la orden ${oc.numero_orden_compra}? Esto actualizará los pedidos vinculados.`)) return;
 
-    this.isProcessingAction.set(true);
-    this.inventarioService.changeOrdenEstado(oc.id, 'CONFIRMADO').subscribe({
-      next: (res) => {
-        this.isProcessingAction.set(false);
-        if (res.success) {
-          alert('Orden confirmada.');
-          this.loadOrdenes();
-        } else {
-          alert('Error: ' + (res.message || 'No se pudo confirmar la orden.'));
-        }
-      },
-      error: (err) => {
-        this.isProcessingAction.set(false);
-        console.error('Error confirmando OC:', err);
-        alert(err?.error?.message || 'Ocurrió un error al confirmar la orden.');
+    this.confirmationService.confirm({
+      header: 'Confirmar orden de compra',
+      message: `¿Confirmar la orden <strong>${oc.numero_orden_compra}</strong>? Esto actualizará los pedidos vinculados.`,
+      icon: 'bi bi-check2-circle',
+      acceptLabel: 'Sí, confirmar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.isProcessingAction.set(true);
+        this.inventarioService.changeOrdenEstado(oc.id, 'CONFIRMADO').subscribe({
+          next: (res) => {
+            this.isProcessingAction.set(false);
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Orden confirmada', detail: `La orden ${oc.numero_orden_compra} fue confirmada.` });
+              this.loadOrdenes();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo confirmar la orden.' });
+            }
+          },
+          error: (err) => {
+            this.isProcessingAction.set(false);
+            console.error('Error confirmando OC:', err);
+            const msg = err?.status === 403
+              ? 'No tienes permiso para confirmar órdenes de compra.'
+              : (err?.error?.message || 'Ocurrió un error al confirmar la orden.');
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: msg });
+          }
+        });
       }
     });
   }
 
   eliminarOrden(oc: OrdenCompra): void {
     if (!this.canEdit(oc)) {
-      alert('Solo puedes eliminar órdenes creadas desde el aplicativo, propias y en estado pendiente.');
+      this.messageService.add({ severity: 'warn', summary: 'No permitido', detail: 'Solo puedes eliminar órdenes creadas desde el aplicativo, propias y en estado pendiente.' });
       return;
     }
-    if (!confirm(`¿Eliminar la orden ${oc.numero_orden_compra}? Esta acción no se puede deshacer.`)) return;
 
-    this.isProcessingAction.set(true);
-    this.inventarioService.deleteOrdenCompra(oc.id).subscribe({
-      next: (res) => {
-        this.isProcessingAction.set(false);
-        if (res.success) {
-          alert('Orden eliminada.');
-          this.loadOrdenes();
-        } else {
-          alert('Error: ' + (res.message || 'No se pudo eliminar la orden.'));
-        }
-      },
-      error: (err) => {
-        this.isProcessingAction.set(false);
-        console.error('Error eliminando OC:', err);
-        alert(err?.error?.message || 'Ocurrió un error al eliminar la orden.');
+    this.confirmationService.confirm({
+      header: 'Eliminar orden de compra',
+      message: `¿Eliminar la orden <strong>${oc.numero_orden_compra}</strong>? Esta acción no se puede deshacer.`,
+      icon: 'bi bi-exclamation-triangle text-danger',
+      acceptLabel: 'Sí, eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text p-button-secondary',
+      accept: () => {
+        this.isProcessingAction.set(true);
+        this.inventarioService.deleteOrdenCompra(oc.id).subscribe({
+          next: (res) => {
+            this.isProcessingAction.set(false);
+            if (res.success) {
+              this.messageService.add({ severity: 'success', summary: 'Orden eliminada', detail: `La orden ${oc.numero_orden_compra} fue eliminada.` });
+              this.loadOrdenes();
+            } else {
+              this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo eliminar la orden.' });
+            }
+          },
+          error: (err) => {
+            this.isProcessingAction.set(false);
+            console.error('Error eliminando OC:', err);
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al eliminar la orden.' });
+          }
+        });
       }
     });
   }
@@ -346,10 +535,11 @@ export class OrdenesCompraComponent implements OnInit {
   // ==========================================
   loadPedidos(): void {
     this.isLoadingPedidos.set(true);
-    // Solicitamos pedidos que estén listos para ser procesados (ej. 'confirmado' o 'en_proceso')
-    // El backend de AppCertec maneja estado='en_proceso' para los que van a compras,
-    // o podemos traer todos los pedidos para probar visualmente.
-    this.inventarioService.getPedidos({ estado: 'en_proceso' }).subscribe({
+    // Pedidos listos para generar OC: los CONFIRMADOS por el Jefe de Almacén
+    // quedan en estado 'aprobado', y los que ya tienen compra parcial pasan a
+    // 'en_proceso' (aún se les puede seguir comprando). Se traen ambos.
+    // El backend restringe además por la sucursal del usuario.
+    this.inventarioService.getPedidos({ estado: 'aprobado,en_proceso' }).subscribe({
       next: (res) => {
         this.isLoadingPedidos.set(false);
         if (res.success) {
@@ -378,9 +568,17 @@ export class OrdenesCompraComponent implements OnInit {
   // CREACIÓN DE ORDEN DE COMPRA (MODAL)
   // ==========================================
   openCreateModal(pedidoPrefill: Pedido | null = null): void {
+    this.editingOrdenId.set(null);
+    this.selectedItems.set([]);
+    this.ocProductoSel.set(null);
+    this.ocCantidad.set(null);
+    this.proveedorSeleccionado.set(null);
+    this.sucursalHeredadaDelPedido.set(false);
+    this.loadProveedores();
     this.showCreateModal.set(true);
     if (pedidoPrefill) {
       this.newOrdenPedidoSelected.set(pedidoPrefill);
+      this.aplicarSucursalDelPedido(pedidoPrefill);
       this.fetchPedidoDetailsForCreation(pedidoPrefill.id);
     } else {
       this.newOrdenPedidoSelected.set(null);
@@ -388,21 +586,163 @@ export class OrdenesCompraComponent implements OnInit {
     }
   }
 
+  /** Abre el modal en modo EDICIÓN cargando la OC existente y sus ítems. */
+  openEditModal(oc: OrdenCompra): void {
+    if (!this.canEdit(oc)) {
+      this.messageService.add({ severity: 'warn', summary: 'No permitido', detail: 'Solo puedes editar órdenes creadas desde el aplicativo, propias y en estado pendiente.' });
+      return;
+    }
+    this.editingOrdenId.set(oc.id);
+    this.newOrdenPedidoSelected.set(null);
+    this.selectedItems.set([]);
+    this.proveedorSeleccionado.set(null);
+    this.loadProveedores();
+    this.showCreateModal.set(true);
+    this.isLoadingPedidoDetalle.set(true);
+
+    this.inventarioService.getOrdenCompra(oc.id).subscribe({
+      next: (res) => {
+        this.isLoadingPedidoDetalle.set(false);
+        if (res.success && res.data) {
+          // Preseleccionar la sucursal de la OC si viene (readonly en edición).
+          if ((res.data as any).sucursal_id) {
+            this.selectedSucursalId.set((res.data as any).sucursal_id);
+            this.sucursalHeredadaDelPedido.set(true);
+          } else {
+            this.sucursalHeredadaDelPedido.set(false);
+          }
+          // Preseleccionar el proveedor de la OC (por nombre) si está en el catálogo.
+          const provNombre = (res.data as any).proveedor_nombre || (res.data as any).proveedor;
+          if (provNombre) {
+            const match = this.proveedores().find(p => p.nombre === provNombre);
+            this.proveedorSeleccionado.set(match ?? { nombre: provNombre, nit: '' });
+          }
+          const detalles = ((res.data.detalles as any[]) || []).map(d => ({
+            ...d,
+            codigo_producto: d.codigo_producto_indigo ?? d.codigo_producto ?? d.producto_codigo,
+            producto_nombre: d.producto_nombre,
+            cantidad_solicitada: d.cantidad_solicitada_compra ?? d.cantidad_solicitada ?? 0,
+            cantidad_a_comprar: d.cantidad_solicitada_compra ?? 0,
+          }));
+          this.newOrdenDetalles.set(detalles as PedidoDetalle[]);
+          // En edición: todos los ítems existentes quedan seleccionados.
+          this.selectedItems.set([...detalles]);
+        } else {
+          this.newOrdenDetalles.set([]);
+        }
+      },
+      error: (err) => {
+        this.isLoadingPedidoDetalle.set(false);
+        console.error('Error cargando OC para editar:', err);
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la orden para editar.' });
+      }
+    });
+  }
+
   closeCreateModal(): void {
     this.showCreateModal.set(false);
     this.newOrdenPedidoSelected.set(null);
     this.newOrdenDetalles.set([]);
+    this.selectedItems.set([]);
+    this.editingOrdenId.set(null);
+    this.ocProductoSel.set(null);
+    this.ocCantidad.set(null);
+    this.proveedorSeleccionado.set(null);
+    this.sucursalHeredadaDelPedido.set(false);
   }
 
   onDropdownPedidoChange(event: any): void {
     const pedido = event.value; // Ya pasamos el objeto completo en options
     if (pedido && pedido.id) {
       this.newOrdenPedidoSelected.set(pedido);
+      // La sucursal de la OC = la del pedido (se quema, no se elige a mano).
+      this.aplicarSucursalDelPedido(pedido);
       this.fetchPedidoDetailsForCreation(pedido.id);
     } else {
       this.newOrdenPedidoSelected.set(null);
       this.newOrdenDetalles.set([]);
+      this.selectedItems.set([]);
     }
+  }
+
+  /**
+   * Fija la sucursal de la OC a partir del pedido. Si el pedido tiene sucursal,
+   * se hereda (readonly). Si no la tiene (pedido histórico), se deja elegir a mano.
+   */
+  private aplicarSucursalDelPedido(pedido: any): void {
+    const sucId = pedido?.sucursal_id ?? null;
+    if (sucId) {
+      this.selectedSucursalId.set(sucId);
+      this.sucursalHeredadaDelPedido.set(true);
+    } else {
+      // El pedido no trae sucursal: dejar elegir (preseleccionar la principal si existe).
+      this.sucursalHeredadaDelPedido.set(false);
+      const principal = this.sucursales().find(s => s.principal);
+      this.selectedSucursalId.set(principal ? principal.id : null);
+    }
+  }
+
+  // ── Agregar / quitar productos a la OC (uno por uno) ────────────
+  /** Al elegir un producto en el selector, precarga la cantidad con la solicitada. */
+  onOcProductoChange(event: any): void {
+    const prod = event?.value ?? null;
+    this.ocProductoSel.set(prod);
+    this.ocCantidad.set(prod ? (prod.cantidad_solicitada ?? null) : null);
+  }
+
+  /** Agrega el producto elegido (con su cantidad) a la lista de la OC. */
+  agregarProductoOc(): void {
+    const prod = this.ocProductoSel();
+    const cant = Number(this.ocCantidad() ?? 0);
+    if (!prod) {
+      this.messageService.add({ severity: 'warn', summary: 'Producto requerido', detail: 'Seleccione un producto del pedido.' });
+      return;
+    }
+    if (cant <= 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Cantidad inválida', detail: 'La cantidad a comprar debe ser mayor a 0.' });
+      return;
+    }
+
+    const max = Number(prod.cantidad_solicitada ?? 0);
+    // Si se compra MÁS de lo solicitado, no se bloquea: se avisa y se pide confirmar
+    // (puede pasar que se compre por encima de lo pedido). Igual que el aviso de Indigo.
+    if (max > 0 && cant > max) {
+      const exceso = cant - max;
+      this.confirmationService.confirm({
+        header: 'Compra por encima de lo solicitado',
+        message: `El producto <strong>${prod.producto_nombre}</strong> se solicitó por <strong>${max}</strong> y vas a comprar <strong>${cant}</strong> ` +
+                 `(<strong>${exceso}</strong> más de lo solicitado). ¿Deseas continuar?`,
+        icon: 'bi bi-exclamation-triangle text-warning',
+        acceptLabel: 'Sí, comprar de más',
+        rejectLabel: 'Ajustar cantidad',
+        acceptButtonStyleClass: 'p-button-warning',
+        rejectButtonStyleClass: 'p-button-text p-button-secondary',
+        accept: () => this.confirmarAgregarItem(prod, cant, true),
+      });
+      return;
+    }
+
+    this.confirmarAgregarItem(prod, cant, false);
+  }
+
+  /** Efectivamente agrega el ítem a la lista (marcando si excede lo solicitado). */
+  private confirmarAgregarItem(prod: any, cant: number, excedeSolicitado: boolean): void {
+    const item = { ...prod, cantidad_a_comprar: cant, excede_solicitado: excedeSolicitado };
+    this.selectedItems.update(items => [...items, item]);
+    if (excedeSolicitado) {
+      this.messageService.add({
+        severity: 'info', summary: 'Producto agregado',
+        detail: `${prod.producto_nombre}: se comprarán ${cant} (por encima de lo solicitado).`
+      });
+    }
+    // Limpiar el formulario para el siguiente.
+    this.ocProductoSel.set(null);
+    this.ocCantidad.set(null);
+  }
+
+  /** Quita un producto de la lista de la OC. */
+  quitarProductoOc(item: any): void {
+    this.selectedItems.update(items => items.filter(i => i !== item));
   }
 
   fetchPedidoDetailsForCreation(pedidoId: number): void {
@@ -411,9 +751,19 @@ export class OrdenesCompraComponent implements OnInit {
       next: (res) => {
         this.isLoadingPedidoDetalle.set(false);
         if (res.success && res.data.detalles) {
-          this.newOrdenDetalles.set(res.data.detalles);
+          // Inicializar la cantidad a comprar = cantidad solicitada (editable).
+          const detalles = (res.data.detalles as any[]).map(d => ({
+            ...d,
+            cantidad_a_comprar: d.cantidad_solicitada ?? 0,
+          }));
+          this.newOrdenDetalles.set(detalles as PedidoDetalle[]);
+          // El usuario agrega los productos uno por uno con el selector; no se preselecciona.
+          this.selectedItems.set([]);
+          this.ocProductoSel.set(null);
+          this.ocCantidad.set(null);
         } else {
           this.newOrdenDetalles.set([]);
+          this.selectedItems.set([]);
         }
       },
       error: (err) => {
@@ -425,30 +775,76 @@ export class OrdenesCompraComponent implements OnInit {
   }
 
   submitCrearOrden(): void {
-    const pedido = this.newOrdenPedidoSelected();
-    if (!pedido) {
-      alert('Debe seleccionar un pedido para continuar.');
-      return;
-    }
-
     const sucursalId = this.selectedSucursalId();
-    if (!sucursalId) {
-      alert('Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.');
+    // Si la sucursal NO se hereda del pedido (histórico o edición sin sucursal),
+    // el usuario debe elegirla explícitamente.
+    if (!this.sucursalHeredadaDelPedido() && !sucursalId) {
+      this.messageService.add({ severity: 'warn', summary: 'Sucursal requerida', detail: 'Seleccione la sucursal de la orden. El consecutivo se genera según la sucursal.' });
       return;
     }
 
-    // Construir los detalles a partir de los ítems del pedido cargados en el modal.
-    const detalles = (this.newOrdenDetalles() || []).map((d: any) => ({
+    // Solo los ítems agregados con código válido y cantidad a comprar > 0 se relacionan a la OC.
+    // El filtro por código evita insertar líneas basura (código/nombre vacíos) como pasó antes.
+    const seleccionados = (this.selectedItems() || []).filter((d: any) => {
+      const cant = Number(d.cantidad_a_comprar ?? 0);
+      const cod = String(d.codigo_producto ?? '').trim();
+      return cant > 0 && cod !== '';
+    });
+    if (seleccionados.length === 0) {
+      this.messageService.add({ severity: 'warn', summary: 'Sin productos válidos', detail: 'Seleccione al menos un producto con código y cantidad a comprar mayor a 0.' });
+      return;
+    }
+
+    const detalles = seleccionados.map((d: any) => ({
       pedido_detalle_id: d.id ?? d.pedido_detalle_id ?? null,
       codigo_producto: d.codigo_producto,
+      codigo_producto_indigo: d.codigo_producto,
       producto_nombre: d.producto_nombre,
-      cantidad_solicitada_compra: d.cantidad_a_comprar ?? d.cantidad_solicitada ?? 0,
+      cantidad_solicitada_compra: Number(d.cantidad_a_comprar ?? d.cantidad_solicitada ?? 0),
     }));
+
+    // ── Modo EDICIÓN ────────────────────────────────────────────
+    const editId = this.editingOrdenId();
+    if (editId !== null) {
+      const payload = {
+        sucursal_id: sucursalId,
+        fecha_orden: new Date().toISOString().substring(0, 10),
+        proveedor_nombre: this.proveedorSeleccionado()?.nombre ?? null,
+        detalles,
+      };
+      this.isCreating.set(true);
+      this.inventarioService.updateOrdenCompra(editId, payload).subscribe({
+        next: (res) => {
+          this.isCreating.set(false);
+          if (res.success) {
+            this.messageService.add({ severity: 'success', summary: 'Orden actualizada', detail: 'La orden de compra fue actualizada.' });
+            this.closeCreateModal();
+            this.loadOrdenes();
+          } else {
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo actualizar la orden.' });
+          }
+        },
+        error: (err) => {
+          this.isCreating.set(false);
+          console.error('Error actualizando OC:', err);
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al actualizar la orden.' });
+        }
+      });
+      return;
+    }
+
+    // ── Modo CREACIÓN ───────────────────────────────────────────
+    const pedido = this.newOrdenPedidoSelected();
+    if (!pedido) {
+      this.messageService.add({ severity: 'warn', summary: 'Pedido requerido', detail: 'Debe seleccionar un pedido para continuar.' });
+      return;
+    }
 
     const payload = {
       pedido_id: pedido.id,
       sucursal_id: sucursalId,
       fecha_orden: new Date().toISOString().substring(0, 10),
+      proveedor_nombre: this.proveedorSeleccionado()?.nombre ?? null,
       detalles,
     };
 
@@ -457,19 +853,19 @@ export class OrdenesCompraComponent implements OnInit {
       next: (res) => {
         this.isCreating.set(false);
         if (res.success) {
-          alert(`Orden de compra creada para el pedido: ${pedido.numero_pedido}.`);
+          this.messageService.add({ severity: 'success', summary: 'Orden creada', detail: `Orden de compra creada para el pedido ${pedido.numero_pedido} (${detalles.length} productos).` });
           this.closeCreateModal();
           this.loadOrdenes();
           this.setTab('ordenes');
           this.selectedPedido.set(null);
         } else {
-          alert('Error: ' + (res.message || 'No se pudo crear la orden.'));
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo crear la orden.' });
         }
       },
       error: (err) => {
         this.isCreating.set(false);
         console.error('Error creando OC:', err);
-        alert(err?.error?.message || 'Ocurrió un error al crear la orden de compra.');
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Ocurrió un error al crear la orden de compra.' });
       }
     });
   }

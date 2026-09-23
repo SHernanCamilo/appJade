@@ -83,6 +83,7 @@ export interface CampoDiferencia {
   etiqueta: string;
   excel: string;
   bd: string;
+  igual?: boolean;
 }
 
 export interface CoincidenciaComparador {
@@ -90,15 +91,51 @@ export interface CoincidenciaComparador {
   id_activo: number;
   id_activo_glpi: number | null;
   nombre_equipo: string;
+  agente?: string;
+  sucursal_sede?: string;
+  recurso_id?: string;
   placa: string;
   serial: string;
+  marca?: string;
+  tipo?: string;
+  referencia?: string;
+  ubicacion?: string;
+  tipo_unidad?: string;
+  procesador?: string;
+  ram?: string;
+  max_ram?: string;
+  generacion_ram?: string;
+  tipo_disco?: string;
+  disco?: string;
+  edad?: string;
+  valoracion_edad?: string;
+  valoracion_ram?: string;
+  valoracion_procesador?: string;
+  valoracion_disco?: string;
+  fecha_compra?: string;
+  modalidad?: string;
+  puntaje?: string;
+  concepto?: string;
+  puntaje_excel?: string;
+  puntaje_bd?: string;
+  concepto_excel?: string;
+  concepto_bd?: string;
+  fecha_compra_excel?: string;
+  fecha_compra_bd?: string;
+  modalidad_excel?: string;
+  modalidad_bd?: string;
+  max_ram_excel?: string;
+  max_ram_bd?: string;
   coincidencia_por: string;
   total_diferencias?: number;
+  total_iguales?: number;
   campos?: CampoDiferencia[];
+  camposMap?: Record<string, CampoDiferencia>;
 }
 
 export interface FilaExcelComparador {
   fila_excel: number;
+  recurso_id?: string;
   placa: string;
   serial: string;
   sucursal_sede?: string;
@@ -106,6 +143,8 @@ export interface FilaExcelComparador {
   tipo?: string;
   referencia?: string;
   ubicacion?: string;
+  puntaje?: string;
+  concepto?: string;
   [key: string]: string | number | undefined;
 }
 
@@ -113,12 +152,15 @@ export interface FilaBdComparador {
   id_activo: number;
   id_activo_glpi: number | null;
   nombre_equipo: string;
+  recurso_id?: string;
   placa: string;
   serial: string;
   sucursal_sede: string;
   marca: string;
   tipo: string;
   ubicacion: string;
+  puntaje?: string;
+  concepto?: string;
 }
 
 export interface ResumenComparador {
@@ -130,6 +172,10 @@ export interface ResumenComparador {
   diferencias: number;
   solo_excel: number;
   solo_bd: number;
+  cruce_placa_serial?: number;
+  cruce_placa?: number;
+  cruce_serial?: number;
+  cruce_recurso?: number;
 }
 
 export interface ResultadoComparador {
@@ -226,6 +272,8 @@ export class MatrizObsActivosService {
     
     if (error.error instanceof ErrorEvent) {
       errorMessage = `Error: ${error.error.message}`;
+    } else if (error.status === 0) {
+      errorMessage = 'La comparación tardó demasiado o se cortó la conexión. Intente de nuevo.';
     } else if (error.status) {
       switch (error.status) {
         case 400:
@@ -482,6 +530,19 @@ export class MatrizObsActivosService {
 
   descargarPlantillaComparador(): Observable<Blob> {
     return this.http.get(`${this.apiUrl}/comparador/plantilla`, { responseType: 'blob' })
+      .pipe(catchError(this.handleError.bind(this)));
+  }
+
+  aplicarFechaYModalidad(items: Array<{ id_activo: number; fecha_compra?: string; modalidad?: string; max_ram?: string }>): Observable<{
+    success: boolean;
+    message?: string;
+    data: { actualizados: number; omitidos: number; errores: number };
+  }> {
+    return this.http.post<{
+      success: boolean;
+      message?: string;
+      data: { actualizados: number; omitidos: number; errores: number };
+    }>(`${this.apiUrl}/comparador/aplicar-compra`, { items })
       .pipe(catchError(this.handleError.bind(this)));
   }
 

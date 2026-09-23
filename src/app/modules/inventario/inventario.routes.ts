@@ -33,6 +33,13 @@ export const INVENTARIO_ROUTES: Routes = [
         loadComponent: () => import('./productos/productos.component').then(m => m.ProductosComponent),
         canActivate: [moduleGuard],
         data: { moduleCode: 'INV-PRODUCTOS' }
+      },
+      {
+        // Tablero unificado: Pedidos + Órdenes de Compra + Recepciones Técnicas.
+        path: 'reportes',
+        loadComponent: () => import('./reportes/reportes.component').then(m => m.ReportesComponent),
+        canActivate: [moduleGuard],
+        data: { moduleCode: 'INV-REPORTES' }
       }
     ]
   },
@@ -64,10 +71,15 @@ export const INVENTARIO_ROUTES: Routes = [
         data: { moduleCode: 'INV-MATRIX-CIERRE' }
       },
       {
-        path: 'comparadorMaObsolescencia',
+        path: 'comparar',
         loadComponent: () => import('./matrizObsolescencia/comparadorMaObsolescencia/comparadorMaObsolescencia.component').then(m => m.ComparadorMaObsolescenciaComponent),
         canActivate: [moduleGuard],
-        data: { moduleCode: 'INV-MATRIX-COMPARADOR' }
+        data: { moduleCode: 'INV-MATRIX-COMPARAR' }
+      },
+      {
+        path: 'comparadorMaObsolescencia',
+        redirectTo: 'comparar',
+        pathMatch: 'full'
       }
     ]
   },

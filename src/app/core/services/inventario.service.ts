@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto } from '../models/inventario.model';
+import { ApiResponse, Pedido, OrdenCompra, RecepcionItem, Producto, ReporteFarmacia, ReporteTiempos, TrazabilidadProducto } from '../models/inventario.model';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +20,49 @@ export class InventarioService {
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/dashboard/stats`);
   }
 
+  /**
+   * Tablero unificado de Farmacia (Pedidos + Órdenes de Compra + Recepciones).
+   * Filtros: fecha_desde, fecha_hasta, proveedor, estado_pedido, estado_recepcion, sucursal_id
+   */
+  getReporteDashboard(filtros?: Record<string, any>): Observable<ApiResponse<ReporteFarmacia>> {
+    let params = new HttpParams();
+    Object.entries(filtros || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        params = params.set(k, String(v));
+      }
+    });
+    return this.http.get<ApiResponse<ReporteFarmacia>>(`${this.baseUrl}/reportes/dashboard`, { params });
+  }
+
+  /**
+   * Reporte de Tiempos de Gestión (Pedido → OC → Recepción).
+   * Filtros: pedido_desde/hasta, orden_desde/hasta, recepcion_desde/hasta,
+   *          proveedor, sucursal_id, umbral_ok, umbral_alerta
+   */
+  getReporteTiempos(filtros?: Record<string, any>): Observable<ApiResponse<ReporteTiempos>> {
+    let params = new HttpParams();
+    Object.entries(filtros || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        params = params.set(k, String(v));
+      }
+    });
+    return this.http.get<ApiResponse<ReporteTiempos>>(`${this.baseUrl}/reportes/tiempos`, { params });
+  }
+
+  /**
+   * Trazabilidad de un producto en las órdenes de compra.
+   * Filtros: q (código o nombre), estado, sucursal_id
+   */
+  getTrazabilidadProducto(filtros?: Record<string, any>): Observable<ApiResponse<TrazabilidadProducto>> {
+    let params = new HttpParams();
+    Object.entries(filtros || {}).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        params = params.set(k, String(v));
+      }
+    });
+    return this.http.get<ApiResponse<TrazabilidadProducto>>(`${this.baseUrl}/reportes/trazabilidad-producto`, { params });
+  }
+
   // ==========================================
   // PEDIDOS
   // ==========================================
@@ -29,6 +72,11 @@ export class InventarioService {
 
   getPedido(id: number | string): Observable<ApiResponse<Pedido>> {
     return this.http.get<ApiResponse<Pedido>>(`${this.baseUrl}/pedidos/${id}`);
+  }
+
+  // Sucursales disponibles para crear un pedido (incluye almacén por sucursal y permisos).
+  getSucursalesDisponiblesPedido(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/pedidos/sucursales-disponibles`);
   }
 
   createPedido(data: any): Observable<ApiResponse<Pedido>> {
@@ -41,6 +89,16 @@ export class InventarioService {
 
   changePedidoEstado(id: number | string, estado: string): Observable<ApiResponse<any>> {
     return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/estado`, { estado });
+  }
+
+  // Confirmar/aprobar un pedido (solo Jefe de Almacén con permiso 'confirmar-pedido').
+  confirmarPedido(id: number | string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/confirmar`, {});
+  }
+
+  // Rechazar un pedido (mismo permiso 'confirmar-pedido').
+  rechazarPedido(id: number | string, motivo?: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/pedidos/${id}/rechazar`, { motivo: motivo || null });
   }
 
   // ==========================================
@@ -57,6 +115,15 @@ export class InventarioService {
   // Sucursales disponibles para el usuario (para el selector y la sincronización).
   getSucursalesDisponibles(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/ordenes-compra/sucursales-disponibles`);
+  }
+
+  // Proveedores desde la vista de Indigo (INDIGO026). Solo activos por defecto.
+  getProveedores(search?: string): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams().set('solo_activos', '1');
+    if (search && search.trim() !== '') {
+      params = params.set('search', search.trim());
+    }
+    return this.http.get<ApiResponse<any[]>>(`${this.baseUrl}/ordenes-compra/proveedores`, { params });
   }
 
   // Sincroniza desde Indigo hacia la sucursal indicada (para que el consecutivo/prefijo sea correcto).
@@ -98,12 +165,25 @@ export class InventarioService {
     return this.http.get<ApiResponse<RecepcionItem[]>>(`${this.baseUrl}/recepciones/${compraId}`, { params });
   }
 
+  // Tabla de muestreo (niveles ISO 2859-1 + exclusiones) para cálculo en vivo.
+  getTablaMuestreo(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/recepciones/tabla-muestreo`);
+  }
+
   createRecepcion(data: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.baseUrl}/recepciones`, data);
   }
 
   confirmarRecepcion(id: number | string): Observable<ApiResponse<any>> {
     return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/recepciones/${id}/confirmar`, {});
+  }
+
+  /**
+   * Finaliza/confirma la recepción técnica de una OC (acción del Jefe de Almacén).
+   * Requiere el permiso 'confirmar-recepcion' (validado en el backend).
+   */
+  confirmarRecepcionTecnica(compraId: number | string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.baseUrl}/recepciones/${compraId}/confirmar-tecnica`, {});
   }
 
   // ==========================================

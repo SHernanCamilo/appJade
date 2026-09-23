@@ -167,13 +167,13 @@ export class BandejaFichasComponent {
         void this.router.navigate([base, 'ficha', id]);
         break;
       case 'editar':
-        void this.router.navigate([base, 'ficha', id, 'editar']);
+        void this.router.navigate([base, 'formulario', id]);
         break;
       case 'validar':
         void this.router.navigate([base, 'ficha', id], { queryParams: { validar: 1 } });
         break;
       case 'actualizar':
-        void this.router.navigate([base, 'ficha', id, 'actualizacion']);
+        void this.router.navigate([base, 'formulario', id], { queryParams: { os: 1 } });
         break;
       case 'pdf':
         this.abrirPdf(id);

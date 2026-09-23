@@ -90,6 +90,16 @@
         <span class="cp-kpi__label">Con error</span>
       </div>
     </button>
+
+    <!-- Indicador de salud del pipeline: vistas muy atrasadas o nunca generadas -->
+    <button class="cp-kpi cp-kpi--sla" pTooltip="Vistas muy atrasadas o que nunca se han generado"
+      tooltipPosition="top">
+      <div class="cp-kpi__icon"><i class="pi pi-shield"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiOverdue() | number }}</span>
+        <span class="cp-kpi__label">En riesgo de SLA</span>
+      </div>
+    </button>
   </section>
 
   <!-- Panel de graficos + carriles -->
@@ -138,6 +148,43 @@
           <div class="cp-efficiency__fill" [style.width.%]="kpiEfficiency()"></div>
         </div>
         <span class="cp-efficiency__val">{{ kpiEfficiency() }}%</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel: En proceso ahora (generando en vivo) -->
+  <section class="cp-live" *ngIf="enProceso().length > 0">
+    <div class="cp-live__head">
+      <h3><i class="pi pi-spin pi-spinner"></i> Generando ahora ({{ enProceso().length }})</h3>
+      <span class="cp-live__hint">
+        Actualiza cada 15s con Auto ON · en rojo = atascado
+        <span *ngIf="kpiStuck() > 0"> · {{ kpiStuck() }} atascada(s)</span>
+      </span>
+    </div>
+    <div class="cp-live__list">
+      <div class="cp-live__item" *ngFor="let g of enProceso()" [class.cp-live__item--stuck]="g.stuck">
+        <div class="cp-live__main">
+          <i [class]="g.stuck ? 'pi pi-exclamation-triangle' : 'pi pi-spin pi-spinner'"></i>
+          <div class="cp-live__names">
+            <code class="cp-live__schema">{{ g.schema }}</code>
+            <span class="cp-live__view">{{ g.view }}</span>
+            <!-- Fase real que reporta Graph-Fabric -->
+            <span class="cp-live__stage">
+              {{ stageLabel(g.stage) }}
+              <span class="cp-live__lane" *ngIf="g.lane">· {{ g.lane }}</span>
+            </span>
+          </div>
+        </div>
+        <div class="cp-live__meta">
+          <span class="cp-live__time" [class.cp-live__time--stuck]="g.stuck">
+            <i class="pi pi-clock"></i> {{ formatElapsed(g.elapsedS) }}
+          </span>
+          <span class="cp-live__rows" *ngIf="g.rows != null">{{ g.rows | number }} filas</span>
+          <span class="cp-live__stuck-tag" *ngIf="g.stuck">atascado</span>
+        </div>
+        <div class="cp-live__error" *ngIf="g.error">
+          <i class="pi pi-exclamation-triangle"></i> {{ g.error }}
+        </div>
       </div>
     </div>
   </section>
@@ -228,10 +275,32 @@
               </span>
               <span *ngIf="st.size_mb"><i class="pi pi-file"></i> {{ st.size_mb }} MB</span>
             </div>
+            <!-- Motivo del error: por que falla esta vista -->
+            <div class="cp-status__error" *ngIf="getErrorMessage(st) as errMsg">
+              <i class="pi pi-exclamation-triangle"></i> {{ errMsg }}
+            </div>
           </ng-container>
           <span *ngIf="!getStatusForView(config.schema_name, config.view_name)" class="cp-no-status">
             <i class="pi pi-minus-circle"></i> Sin datos
           </span>
+
+          <!-- Trazabilidad en vivo del force refresh (boton del rayo) -->
+          <ng-container *ngIf="getRefreshJob(config.schema_name, config.view_name) as rj">
+            <div class="cp-refresh"
+              [class.cp-refresh--done]="rj.phase === 'done'"
+              [class.cp-refresh--failed]="rj.phase === 'failed'">
+              <div class="cp-refresh__head">
+                <i [class]="rj.phase === 'failed' ? 'pi pi-times-circle'
+                          : rj.phase === 'done' ? 'pi pi-check-circle'
+                          : 'pi pi-spin pi-spinner'"></i>
+                <span class="cp-refresh__stage">{{ rj.stage }}</span>
+              </div>
+              <div class="cp-refresh__bar" *ngIf="rj.phase === 'running' || rj.phase === 'starting'">
+                <div class="cp-refresh__fill" [style.width.%]="rj.progress"></div>
+              </div>
+              <small class="cp-refresh__meta" *ngIf="rj.rows > 0">{{ rj.rows | number }} filas</small>
+            </div>
+          </ng-container>
         </td>
 
         <!-- Ultima sync -->
@@ -239,8 +308,12 @@
 
         <!-- Acciones -->
         <td class="cp-actions">
-          <button pButton icon="pi pi-bolt" class="p-button-text p-button-warning p-button-sm"
-            (click)="forceRefresh(config)" pTooltip="Forzar regeneracion ahora"></button>
+          <button pButton
+            [icon]="isRefreshing(config.schema_name, config.view_name) ? 'pi pi-spin pi-spinner' : 'pi pi-bolt'"
+            class="p-button-text p-button-warning p-button-sm"
+            [disabled]="isRefreshing(config.schema_name, config.view_name)"
+            (click)="forceRefresh(config)"
+            [pTooltip]="isRefreshing(config.schema_name, config.view_name) ? 'Regenerando...' : 'Forzar regeneracion ahora'"></button>
           <button pButton icon="pi pi-history" class="p-button-text p-button-info p-button-sm"
             (click)="openHistory(config)" pTooltip="Ver historial / trazabilidad"></button>
           <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="editConfig(config)"

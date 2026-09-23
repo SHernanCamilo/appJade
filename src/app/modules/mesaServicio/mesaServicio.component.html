@@ -17,7 +17,7 @@
   <div class="dashboard-grid" *ngIf="dashboardCards.length > 0">
     <p-card *ngFor="let card of dashboardCards" [styleClass]="'dashboard-card card-' + card.color">
       <ng-template pTemplate="header">
-        <div class="card-header-custom">
+        <div class="card-header-custom" [style.background]="card.headerStyle">
           <i [class]="card.icon"></i>
           <div class="header-text">
             <h3>{{ card.title }}</h3>

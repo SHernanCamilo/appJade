@@ -387,3 +387,48 @@
         min-width: auto;
     }
 }
+
+/* ============================================ */
+/* FILTRO TIPO EXCEL POR COLUMNA (tabla ítems)  */
+/* ============================================ */
+.excel-funnel {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+.excel-funnel:hover {
+    color: #64748b;
+}
+.excel-funnel.active {
+    color: #2563eb; /* embudo activo = columna filtrada */
+}
+
+.excel-col-filter {
+    font-size: 0.85rem;
+}
+.excel-col-item:hover {
+    background: #f1f5f9;
+}
+
+/* ============================================ */
+/* Uniformar filas y columna de acciones        */
+/* (evita que las filas con 1 vs 3 botones       */
+/*  cambien de altura y se vean desalineadas)    */
+/* ============================================ */
+:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td {
+    vertical-align: middle;
+}
+
+/* Contenedor de botones de acción: en línea, centrado, sin saltos */
+:host ::ng-deep .p-datatable .p-datatable-tbody > tr > td .p-button.p-button-rounded {
+    width: 2rem;
+    height: 2rem;
+    margin: 0 1px;
+}
+
+/* La celda de acciones no debe partir los botones en varias líneas */
+td.acciones-cell {
+    white-space: nowrap;
+    text-align: center;
+}
