@@ -529,7 +529,21 @@ export class RecepcionExcelComponent implements OnInit {
     { headerName: 'Aspecto', field: 'aspecto_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
     { headerName: 'Embalaje', field: 'embalaje_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
     { headerName: 'Contenido', field: 'contenido_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
-    { headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 78, cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 }, type: 'numericColumn', cellClass: 'xl-cell xl-num' },
+    {
+      headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 78,
+      // cellDataType explícito: sin esto AG Grid infiere el tipo desde los datos
+      // (todos null al inicio) y descartaba el valor tecleado. Además permite
+      // negativos y decimales (cadena de frío puede ser -20, 4.5, etc.).
+      cellDataType: 'number',
+      cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 },
+      type: 'numericColumn', cellClass: 'xl-cell xl-num',
+      valueParser: (p: any) => {
+        const raw = String(p.newValue ?? '').trim().replace(',', '.');
+        if (raw === '') return null;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+      },
+    },
     {
       // Editable: se autollenar según INVIMA/MVD, pero el usuario puede fijarlo.
       headerName: 'Concepto', field: 'concepto_recepcion', width: 110,
@@ -873,6 +887,14 @@ export class RecepcionExcelComponent implements OnInit {
         columns: ['cantidad_recibida', 'muestra_poblacion'],
         force: true,
       });
+    }
+    // Temperatura de cadena de frío: asegurar que quede como número (o null) en la
+    // fila, aceptando negativos y decimales. Red de seguridad además del valueParser.
+    if (field === 'cadena_frio_temperatura') {
+      const raw = String(event.newValue ?? '').trim().replace(',', '.');
+      const n = raw === '' ? null : Number(raw);
+      row.cadena_frio_temperatura = (n !== null && Number.isFinite(n)) ? n : null;
+      this.gridApi?.refreshCells({ rowNodes: event.node ? [event.node] : undefined, columns: ['cadena_frio_temperatura'], force: true });
     }
     if (field === 'cantidad_recibida' || field === 'recibido' || field === 'concepto_recepcion') this.recalcTotals();
     this.cellInfo.update(c => ({ ...c, value: event.newValue === null || event.newValue === undefined ? '' : String(event.newValue) }));
