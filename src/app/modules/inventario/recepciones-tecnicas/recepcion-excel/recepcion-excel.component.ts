@@ -530,19 +530,20 @@ export class RecepcionExcelComponent implements OnInit {
     { headerName: 'Embalaje', field: 'embalaje_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
     { headerName: 'Contenido', field: 'contenido_cumple', width: 96, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: CUMPLE_VALUES } },
     {
+      // Temperatura de cadena de frío (puede ser negativa/decimal: -20, 4.5).
+      // IMPORTANTE: se usa el editor de TEXTO por defecto (no agNumberCellEditor)
+      // y SIN cellDataType:'number'. Con el editor numérico + data-type number,
+      // AG Grid re-parseaba el valor y lo descartaba (la celda quedaba vacía).
+      // Aquí el valueParser convierte el texto a número (o null) de forma directa.
       headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 78,
-      // cellDataType explícito: sin esto AG Grid infiere el tipo desde los datos
-      // (todos null al inicio) y descartaba el valor tecleado. Además permite
-      // negativos y decimales (cadena de frío puede ser -20, 4.5, etc.).
-      cellDataType: 'number',
-      cellEditor: 'agNumberCellEditor', cellEditorParams: { precision: 1 },
-      type: 'numericColumn', cellClass: 'xl-cell xl-num',
+      cellClass: 'xl-cell xl-num',
       valueParser: (p: any) => {
         const raw = String(p.newValue ?? '').trim().replace(',', '.');
         if (raw === '') return null;
         const n = Number(raw);
         return Number.isFinite(n) ? n : null;
       },
+      valueFormatter: (p: any) => (p.value === null || p.value === undefined || p.value === '' ? '' : String(p.value)),
     },
     {
       // Editable: se autollenar según INVIMA/MVD, pero el usuario puede fijarlo.
