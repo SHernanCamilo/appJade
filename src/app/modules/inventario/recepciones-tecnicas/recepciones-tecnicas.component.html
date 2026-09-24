@@ -100,7 +100,8 @@
 </div>
 
 <!-- Modal Detalles de Recepción (vista tipo Excel con trazabilidad) -->
-<p-dialog [(visible)]="showDetailsModal" [modal]="true" [style]="{width: '95vw', maxWidth: '1500px'}"
+<p-dialog [(visible)]="showDetailsModal" [modal]="true" [style]="{width: '98vw', maxWidth: '1720px'}"
+          [contentStyle]="{maxHeight: '86vh', overflow: 'auto'}"
           header="Detalle Recepción Técnica - OC {{ currentReception()?.numero_orden_compra }}" [draggable]="false" [resizable]="false" [dismissableMask]="true">
 
     <div *ngIf="isLoadingDetails()" class="text-center py-4">
@@ -130,72 +131,35 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="fw-bold m-0">Productos recepcionados</h6>
-            <button class="btn btn-outline-success btn-sm" (click)="exportDetailsExcel()" [disabled]="currentDetails().length === 0">
-                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
-            </button>
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+            <h6 class="fw-bold m-0">Productos recepcionados
+                <span class="text-muted fw-normal" style="font-size:0.8rem;">({{ currentDetails().length }})</span>
+            </h6>
+            <div class="d-flex align-items-center gap-2">
+                <span class="p-input-icon-left">
+                    <i class="bi bi-search"></i>
+                    <input pInputText type="text" [ngModel]="detalleQuickFilter"
+                           (ngModelChange)="onDetalleQuickFilter($event)"
+                           placeholder="Filtrar producto, lote, concepto..." style="width: 280px;" />
+                </span>
+                <button class="btn btn-outline-success btn-sm" (click)="exportDetailsExcel()" [disabled]="currentDetails().length === 0">
+                    <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                </button>
+            </div>
         </div>
 
-        <div class="table-container">
-            <p-table [value]="currentDetails()" [scrollable]="true" scrollHeight="55vh" responsiveLayout="scroll"
-                     styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines">
-                <ng-template pTemplate="header">
-                    <tr>
-                        <th class="text-center" style="width: 44px;"></th>
-                        <th style="width: 110px;">Código</th>
-                        <th style="min-width: 220px;">Producto</th>
-                        <th style="width: 110px;">Tipo</th>
-                        <th class="text-center" style="width: 90px;">Cant. Solic.</th>
-                        <th class="text-center" style="width: 100px;">Cant. Recibida</th>
-                        <th class="text-center" style="width: 80px;">Muestra</th>
-                        <th style="width: 110px;">Lote</th>
-                        <th style="width: 110px;">Vencimiento</th>
-                        <th style="width: 130px;">Reg. Sanitario</th>
-                        <th class="text-center" style="width: 90px;">Aspecto</th>
-                        <th class="text-center" style="width: 90px;">Embalaje</th>
-                        <th class="text-center" style="width: 90px;">Contenido</th>
-                        <th class="text-center" style="width: 110px;">Concepto</th>
-                        <th style="min-width: 160px;">Observaciones</th>
-                    </tr>
-                </ng-template>
-                <ng-template pTemplate="body" let-item>
-                    <tr>
-                        <td class="text-center">
-                            <i class="bi fs-5" [ngClass]="(item.cantidad_recibida || 0) > 0 ? 'bi-check-circle-fill text-success' : 'bi-dash-circle text-muted'"></i>
-                        </td>
-                        <td><code style="color:#b45309; font-size:0.8rem;">{{ item.codigo_producto }}</code></td>
-                        <td class="fw-medium" style="font-size:0.82rem;">{{ item.producto_nombre }}</td>
-                        <td>{{ item.tipo_producto || item.producto_tipo || '-' }}</td>
-                        <td class="text-center">{{ item.cantidad_solicitada ?? item.cantidad_solicitada_compra ?? '-' }}</td>
-                        <td class="text-center fw-bold">{{ item.cantidad_recibida || 0 }}</td>
-                        <td class="text-center">{{ calculateSampleFallback(item) }}</td>
-                        <td>{{ item.numero_lote || '-' }}</td>
-                        <td>{{ item.fecha_vencimiento ? (item.fecha_vencimiento | date:'dd/MM/yyyy') : '-' }}</td>
-                        <td>{{ item.codigo_sanitario || '-' }}</td>
-                        <td class="text-center">
-                            <span [ngClass]="cumpleClass(item.aspecto_cumple)">{{ formatCumple(item.aspecto_cumple) }}</span>
-                        </td>
-                        <td class="text-center">
-                            <span [ngClass]="cumpleClass(item.embalaje_cumple)">{{ formatCumple(item.embalaje_cumple) }}</span>
-                        </td>
-                        <td class="text-center">
-                            <span [ngClass]="cumpleClass(item.contenido_cumple)">{{ formatCumple(item.contenido_cumple) }}</span>
-                        </td>
-                        <td class="text-center">
-                            <p-tag [value]="item.concepto_recepcion || 'Pendiente' | uppercase"
-                                   [severity]="item.concepto_recepcion === 'aceptado' ? 'success' : (item.concepto_recepcion === 'rechazado' ? 'danger' : 'warn')"></p-tag>
-                        </td>
-                        <td style="font-size:0.8rem;">{{ item.observaciones_recepcion || item.observaciones || '-' }}</td>
-                    </tr>
-                </ng-template>
-                <ng-template pTemplate="emptymessage">
-                    <tr>
-                        <td colspan="15" class="text-center text-muted py-4">No se encontraron ítems recibidos</td>
-                    </tr>
-                </ng-template>
-            </p-table>
-        </div>
+        <ag-grid-angular
+            class="ag-theme-alpine rt-detalle-grid"
+            [rowData]="currentDetails()"
+            [columnDefs]="detalleColumnDefs"
+            [defaultColDef]="detalleDefaultColDef"
+            [localeText]="detalleLocaleText"
+            [tooltipShowDelay]="400"
+            [suppressCellFocus]="true"
+            [rowHeight]="34"
+            [headerHeight]="34"
+            (gridReady)="onDetalleGridReady($event)">
+        </ag-grid-angular>
     </div>
 
     <ng-template pTemplate="footer">

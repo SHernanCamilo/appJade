@@ -840,20 +840,29 @@ export class RecepcionExcelComponent implements OnInit {
     if (field === 'cantidad_recibida') {
       let recibida = Math.floor(Number(event.newValue ?? 0));
       if (recibida < 0) recibida = 0;
-      row.cantidad_recibida = recibida;
 
-      // Al desdoblar, se compara la SUMA de todas las filas del mismo renglón
-      // (mismo pedido_detalle_id + código) contra lo solicitado. Si el total
-      // supera lo pedido, se AVISA pero NO se bloquea (puede llegar de más).
+      // La SUMA de todas las filas del mismo renglón (padre + fragmentos) NO puede
+      // superar lo solicitado: si llegó una cantidad total, el reparto entre lotes
+      // debe cuadrar. Ej: solicitado 20 → padre 15 + hijo 5. No se permite 20 + 5.
       const maxSolic = Number(row.cantidad_solicitada ?? 0);
-      const totalGrupo = this.totalRecibidoDelGrupo(row);
-      if (maxSolic > 0 && totalGrupo > maxSolic) {
-        this.msg.add({
-          severity: 'warn',
-          summary: 'Recibido por encima de lo solicitado',
-          detail: `El producto "${row.producto_nombre}" se solicitó por ${maxSolic} y ya suma ${totalGrupo} recibido entre sus lotes.`,
-        });
+      if (maxSolic > 0) {
+        // Cuánto suman los OTROS renglones del mismo grupo (sin contar esta fila).
+        const otros = this.totalRecibidoDelGrupo(row) - Number(row.cantidad_recibida ?? 0);
+        const disponible = Math.max(0, maxSolic - otros);
+        if (recibida > disponible) {
+          recibida = disponible;
+          this.msg.add({
+            severity: 'warn',
+            summary: 'Cantidad ajustada',
+            detail: `"${row.producto_nombre}" se solicitó por ${maxSolic}. ` +
+                    (otros > 0
+                      ? `Los otros lotes ya suman ${otros}, así que este fragmento se ajustó a ${disponible} (máximo disponible).`
+                      : `La cantidad recibida no puede superar lo solicitado; se ajustó a ${disponible}.`),
+          });
+        }
       }
+
+      row.cantidad_recibida = recibida;
       // La muestra SIEMPRE se recalcula según la nueva cantidad a recibir.
       // Sin cantidad → celda de muestra vacía (no 0), para que el usuario complete.
       row.muestra_poblacion = recibida > 0

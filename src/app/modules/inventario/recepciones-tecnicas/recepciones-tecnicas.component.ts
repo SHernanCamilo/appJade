@@ -9,8 +9,11 @@ import { TooltipModule } from 'primeng/tooltip';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { SkeletonModule } from 'primeng/skeleton';
+import { AgGridAngular } from 'ag-grid-angular';
+import type { ColDef, GridApi, GridReadyEvent } from 'ag-grid-community';
 import { InventarioService } from '../../../core/services/inventario.service';
 import { OrdenCompra, RecepcionItem } from '../../../core/models/inventario.model';
+import { AG_GRID_LOCALE } from '../../../core/config/ag-grid.config';
 import * as XLSX from 'xlsx';
 
 @Component({
@@ -25,7 +28,8 @@ import * as XLSX from 'xlsx';
     TooltipModule,
     DialogModule,
     InputTextModule,
-    SkeletonModule
+    SkeletonModule,
+    AgGridAngular
   ],
   templateUrl: './recepciones-tecnicas.component.html',
   styleUrls: ['./recepciones-tecnicas.component.css']
@@ -47,6 +51,84 @@ export class RecepcionesTecnicasComponent implements OnInit {
   currentReception = signal<OrdenCompra | null>(null);
   currentDetails = signal<RecepcionItem[]>([]);
   isLoadingDetails = signal<boolean>(false);
+
+  // ── AG Grid del detalle de recepción ──
+  readonly detalleLocaleText = AG_GRID_LOCALE;
+  detalleQuickFilter = '';
+  private detalleGridApi?: GridApi;
+
+  readonly detalleDefaultColDef: ColDef = {
+    sortable: true,
+    resizable: true,
+    filter: true,
+    floatingFilter: true,
+    minWidth: 90,
+    suppressHeaderMenuButton: true,
+  };
+
+  readonly detalleColumnDefs: ColDef[] = [
+    {
+      headerName: 'Código', field: 'codigo_producto', width: 120, pinned: 'left',
+      cellClass: 'rt-cell-code',
+    },
+    { headerName: 'Producto', field: 'producto_nombre', minWidth: 240, flex: 1, tooltipField: 'producto_nombre' },
+    {
+      headerName: 'Tipo', width: 130,
+      valueGetter: (p) => p.data?.tipo_producto || p.data?.producto_tipo || '-',
+    },
+    {
+      headerName: 'Fragmento', width: 110, filter: true,
+      valueGetter: (p) => (p.data?.es_desdoblamiento ? 'Sí (CUM/Lote)' : 'No'),
+      cellClassRules: { 'rt-frag-yes': (p) => !!p.data?.es_desdoblamiento },
+    },
+    { headerName: 'CUM Recibido', field: 'cum_recibido', width: 130 },
+    {
+      headerName: 'Cant. Solic.', width: 110, type: 'numericColumn',
+      valueGetter: (p) => p.data?.cantidad_solicitada ?? p.data?.cantidad_solicitada_compra ?? null,
+    },
+    { headerName: 'Cant. Recibida', field: 'cantidad_recibida', width: 120, type: 'numericColumn', cellClass: 'rt-cell-strong' },
+    {
+      headerName: 'Muestra', width: 100, type: 'numericColumn',
+      valueGetter: (p) => this.calculateSampleFallback(p.data),
+    },
+    { headerName: 'Lote', field: 'numero_lote', width: 120 },
+    {
+      headerName: 'Vencimiento', field: 'fecha_vencimiento', width: 130,
+      valueFormatter: (p) => (p.value ? String(p.value).substring(0, 10) : '-'),
+    },
+    { headerName: 'Reg. Sanitario', field: 'codigo_sanitario', width: 140 },
+    { headerName: 'Aspecto', width: 110, valueGetter: (p) => this.formatCumple(p.data?.aspecto_cumple) },
+    { headerName: 'Embalaje', width: 110, valueGetter: (p) => this.formatCumple(p.data?.embalaje_cumple) },
+    { headerName: 'Contenido', width: 110, valueGetter: (p) => this.formatCumple(p.data?.contenido_cumple) },
+    { headerName: 'Temp. °C', field: 'cadena_frio_temperatura', width: 95, type: 'numericColumn' },
+    {
+      headerName: 'Concepto', field: 'concepto_recepcion', width: 120,
+      cellClassRules: {
+        'rt-concepto-ok': (p) => String(p.value).toLowerCase() === 'aceptado',
+        'rt-concepto-bad': (p) => String(p.value).toLowerCase() === 'rechazado',
+      },
+      valueFormatter: (p) => {
+        const v = String(p.value ?? '').toLowerCase();
+        if (v === 'aceptado') return 'Aceptado';
+        if (v === 'rechazado') return 'Rechazado';
+        return p.value ? p.value : 'Pendiente';
+      },
+    },
+    {
+      headerName: 'Observaciones', minWidth: 220, flex: 1,
+      valueGetter: (p) => p.data?.observaciones_recepcion || p.data?.observaciones || '-',
+      tooltipValueGetter: (p) => p.data?.observaciones_recepcion || p.data?.observaciones || '',
+    },
+  ];
+
+  onDetalleGridReady(e: GridReadyEvent): void {
+    this.detalleGridApi = e.api;
+  }
+
+  onDetalleQuickFilter(value: string): void {
+    this.detalleQuickFilter = value;
+    this.detalleGridApi?.setGridOption('quickFilterText', value);
+  }
 
   private readonly location = inject(Location);
 

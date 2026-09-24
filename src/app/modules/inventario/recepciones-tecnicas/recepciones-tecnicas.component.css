@@ -146,3 +146,48 @@
     width: 2rem;
     height: 2rem;
 }
+
+/* ============================================================ */
+/* AG Grid del Detalle de Recepción (modal)                     */
+/* ============================================================ */
+.rt-detalle-grid {
+    width: 100%;
+    height: 62vh;
+    --ag-font-family: 'Segoe UI', system-ui, sans-serif;
+    --ag-font-size: 13px;
+    --ag-border-color: #e2e8f0;
+    --ag-row-border-color: #eef2f7;
+    --ag-header-background-color: #f1f5f9;
+    --ag-header-foreground-color: #334155;
+    --ag-odd-row-background-color: #fafbfc;
+    --ag-row-hover-color: #eef6f1;
+    --ag-selected-row-background-color: #d2e9da;
+}
+.rt-detalle-grid ::ng-deep .ag-header-cell-text {
+    font-weight: 700;
+}
+/* Código en color ámbar como en el resto del aplicativo */
+.rt-detalle-grid ::ng-deep .rt-cell-code {
+    color: #b45309;
+    font-weight: 600;
+}
+.rt-detalle-grid ::ng-deep .rt-cell-strong {
+    font-weight: 700;
+    color: #0f172a;
+}
+/* Concepto: verde aceptado / rojo rechazado */
+.rt-detalle-grid ::ng-deep .rt-concepto-ok {
+    background-color: #dcfce7;
+    color: #166534;
+    font-weight: 600;
+}
+.rt-detalle-grid ::ng-deep .rt-concepto-bad {
+    background-color: #fee2e2;
+    color: #991b1b;
+    font-weight: 600;
+}
+/* Marca de fragmento (desdoblamiento) */
+.rt-detalle-grid ::ng-deep .rt-frag-yes {
+    color: #1d4ed8;
+    font-weight: 600;
+}
