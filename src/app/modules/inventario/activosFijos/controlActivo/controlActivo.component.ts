@@ -1,4 +1,6 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -127,10 +129,15 @@ const TAB_LOCALIDADES = 2;
   templateUrl: './controlActivo.component.html',
   styleUrl: './controlActivo.component.css'
 })
-export class ControlActivoComponent implements OnInit {
+export class ControlActivoComponent implements OnInit, OnDestroy {
   private readonly service = inject(ActivosFijosService);
   private readonly messages = inject(MessageService);
   private readonly confirmar = inject(ConfirmationService);
+
+  /** Buscador de localizaciones con debounce (evita una petición por tecla). */
+  private readonly localizacionBuscador$ = new Subject<string>();
+  private localizacionSub?: Subscription;
+  cargandoLocalizaciones = false;
 
   /** 0 = Registrar toma, 1 = Trazabilidad */
   tabActiva = TAB_REGISTRAR;
@@ -248,9 +255,19 @@ export class ControlActivoComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarOpciones();
-    this.cargarLocalizaciones();
+    this.cargarLocalizaciones();       // primeros 50 al iniciar
     this.cargarTrazabilidad();
     this.cargarResumen();
+
+    // Buscador de localizaciones tipo servidor: espera 300 ms tras la última
+    // tecla y solo consulta si el texto cambió (menos peticiones, más rápido).
+    this.localizacionSub = this.localizacionBuscador$
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(termino => this.cargarLocalizaciones(termino));
+  }
+
+  ngOnDestroy(): void {
+    this.localizacionSub?.unsubscribe();
   }
 
   // =========================================================================
@@ -546,21 +563,29 @@ export class ControlActivoComponent implements OnInit {
   }
 
   private cargarLocalizaciones(busqueda = ''): void {
-    this.service.localizaciones(busqueda, 300).subscribe({
+    this.cargandoLocalizaciones = true;
+    // 50 resultados: suficientes para el select, y la carga es rápida (parquet).
+    this.service.localizaciones(busqueda, 50).subscribe({
       next: respuesta => {
+        this.cargandoLocalizaciones = false;
         this.localizacionesOpciones = (respuesta.data ?? []).map(item => ({
           label: item.valor,
           value: item.valor
         }));
       },
       error: () => {
+        this.cargandoLocalizaciones = false;
         this.localizacionesOpciones = [];
       }
     });
   }
 
+  /**
+   * Se dispara al escribir en el filtro del dropdown de localización.
+   * Emite al Subject con debounce; NO consulta en cada tecla.
+   */
   buscarLocalizaciones(evento: { filter?: string }): void {
-    this.cargarLocalizaciones(evento.filter ?? '');
+    this.localizacionBuscador$.next((evento.filter ?? '').trim());
   }
 
   buscarResponsables(evento: { query: string }): void {

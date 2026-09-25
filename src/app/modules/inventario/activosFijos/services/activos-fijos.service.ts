@@ -54,7 +54,6 @@ export interface TipoInventarioPayload {
  */
 export interface ActivoFijo {
   placa: string | null;
-  /** Estado del activo (EstadoActivo desde Fabric — SOLO LECTURA). */
   estado: string | null;
   articulo: string | null;
   articulo_codigo: string | null;
@@ -62,13 +61,11 @@ export interface ActivoFijo {
   modelo: string | null;
   serie: string | null;
   responsable: string | null;
-  /** Localización (Localizacion - Sucursal desde Fabric). */
   localizacion: string | null;
   tipo_inventario: string | null;
   sucursal: string | null;
   estado_fisico: string | null;
   observacion: string | null;
-  /** Fila cruda de la vista, por si se necesita un campo no mapeado. */
   _raw?: Record<string, unknown>;
 }
 
