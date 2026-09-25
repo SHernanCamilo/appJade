@@ -581,11 +581,22 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Se dispara al escribir en el filtro del dropdown de localización.
-   * Emite al Subject con debounce; NO consulta en cada tecla.
+   * Se dispara al escribir (o borrar) en el filtro del panel del dropdown.
+   * Emite al Subject con debounce; NO consulta en cada tecla. Si el texto queda
+   * vacío, recarga los primeros 50.
    */
   buscarLocalizaciones(evento: { filter?: string }): void {
     this.localizacionBuscador$.next((evento.filter ?? '').trim());
+  }
+
+  /**
+   * Al abrir el panel del dropdown: si no hay opciones cargadas (o quedaron de
+   * una búsqueda previa), refresca los primeros 50 para que siempre haya lista.
+   */
+  alAbrirLocalizaciones(): void {
+    if (this.localizacionesOpciones.length === 0 && !this.cargandoLocalizaciones) {
+      this.cargarLocalizaciones('');
+    }
   }
 
   buscarResponsables(evento: { query: string }): void {

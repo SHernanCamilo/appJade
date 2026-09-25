@@ -188,15 +188,14 @@
                 [options]="localizacionesOpciones"
                 optionLabel="label"
                 optionValue="value"
-                [editable]="true"
                 [filter]="true"
                 filterBy="label"
                 [showClear]="true"
                 [loading]="cargandoLocalizaciones"
-                [resetFilterOnHide]="true"
                 (onFilter)="buscarLocalizaciones($event)"
-                emptyFilterMessage="Escriba para buscar la localización..."
-                placeholder="Escriba para buscar la localización..."
+                (onShow)="alAbrirLocalizaciones()"
+                [emptyFilterMessage]="cargandoLocalizaciones ? 'Buscando...' : 'Sin coincidencias. Escriba para buscar otra localización.'"
+                placeholder="Seleccione o escriba para buscar..."
                 styleClass="ti-dropdown-prime">
               </p-dropdown>
             </div>
@@ -423,15 +422,14 @@
                 [options]="localizacionesOpciones"
                 optionLabel="label"
                 optionValue="value"
-                [editable]="true"
                 [filter]="true"
                 filterBy="label"
                 [showClear]="true"
                 [loading]="cargandoLocalizaciones"
-                [resetFilterOnHide]="true"
                 (onFilter)="buscarLocalizaciones($event)"
-                emptyFilterMessage="Escriba para buscar la localización..."
-                placeholder="Escriba para buscar la localización..."
+                (onShow)="alAbrirLocalizaciones()"
+                [emptyFilterMessage]="cargandoLocalizaciones ? 'Buscando...' : 'Sin coincidencias. Escriba para buscar otra localización.'"
+                placeholder="Seleccione o escriba para buscar..."
                 styleClass="ti-dropdown-prime">
               </p-dropdown>
             </div>
