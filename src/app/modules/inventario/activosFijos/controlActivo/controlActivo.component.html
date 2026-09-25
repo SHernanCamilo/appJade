@@ -183,21 +183,18 @@
 
             <div class="ti-fila">
               <label>Localización</label>
-              <p-dropdown
+              <p-autoComplete
                 [(ngModel)]="formularioExterno.localizacion"
-                [options]="localizacionesOpciones"
-                optionLabel="label"
-                optionValue="value"
-                [filter]="true"
-                filterBy="label"
-                [showClear]="true"
-                [loading]="cargandoLocalizaciones"
-                (onFilter)="buscarLocalizaciones($event)"
-                (onShow)="alAbrirLocalizaciones()"
-                [emptyFilterMessage]="cargandoLocalizaciones ? 'Buscando...' : 'Sin coincidencias. Escriba para buscar otra localización.'"
-                placeholder="Seleccione o escriba para buscar..."
-                styleClass="ti-dropdown-prime">
-              </p-dropdown>
+                [suggestions]="localizacionesSugerencias"
+                (completeMethod)="buscarLocalizaciones($event)"
+                [dropdown]="true"
+                [minLength]="0"
+                [forceSelection]="false"
+                [completeOnFocus]="true"
+                emptyMessage="Sin coincidencias. Puede escribir una localización nueva y usarla."
+                placeholder="Seleccione o escriba una localización..."
+                styleClass="ti-autocomplete-prime">
+              </p-autoComplete>
             </div>
 
             <div class="ti-fila">
@@ -417,21 +414,18 @@
             <div class="ti-fila">
               <label>Localización</label>
               <input type="text" [value]="valor(activo.localizacion)" class="ti-input ti-input--readonly" readonly />
-              <p-dropdown
+              <p-autoComplete
                 [(ngModel)]="formulario.novedad_localizacion"
-                [options]="localizacionesOpciones"
-                optionLabel="label"
-                optionValue="value"
-                [filter]="true"
-                filterBy="label"
-                [showClear]="true"
-                [loading]="cargandoLocalizaciones"
-                (onFilter)="buscarLocalizaciones($event)"
-                (onShow)="alAbrirLocalizaciones()"
-                [emptyFilterMessage]="cargandoLocalizaciones ? 'Buscando...' : 'Sin coincidencias. Escriba para buscar otra localización.'"
-                placeholder="Seleccione o escriba para buscar..."
-                styleClass="ti-dropdown-prime">
-              </p-dropdown>
+                [suggestions]="localizacionesSugerencias"
+                (completeMethod)="buscarLocalizaciones($event)"
+                [dropdown]="true"
+                [minLength]="0"
+                [forceSelection]="false"
+                [completeOnFocus]="true"
+                emptyMessage="Sin coincidencias. Puede escribir una localización nueva y usarla."
+                placeholder="Seleccione o escriba una localización..."
+                styleClass="ti-autocomplete-prime">
+              </p-autoComplete>
             </div>
 
             <div class="ti-fila">

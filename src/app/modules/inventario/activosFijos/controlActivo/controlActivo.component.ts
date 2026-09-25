@@ -172,8 +172,8 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
   tiposInventario: TipoInventario[] = [];
   tiposInventarioOpciones: Array<{ label: string; value: number }> = [];
 
-  /** Localizaciones desde DetalleActivos (Indigo). */
-  localizacionesOpciones: Array<{ label: string; value: string }> = [];
+  /** Localizaciones desde DetalleActivos (Indigo) — para autocomplete (permite valor libre). */
+  localizacionesSugerencias: string[] = [];
 
   /** Responsables desde DetalleActivos (Indigo). */
   responsablesSugerencias: string[] = [];
@@ -255,7 +255,7 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.cargarOpciones();
-    this.cargarLocalizaciones();       // primeros 50 al iniciar
+    this.cargarLocalizaciones();       // primeros 50 disponibles al iniciar
     this.cargarTrazabilidad();
     this.cargarResumen();
 
@@ -564,39 +564,27 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
 
   private cargarLocalizaciones(busqueda = ''): void {
     this.cargandoLocalizaciones = true;
-    // 50 resultados: suficientes para el select, y la carga es rápida (parquet).
+    // 50 resultados: suficientes para el autocomplete, y la carga es rápida (parquet).
     this.service.localizaciones(busqueda, 50).subscribe({
       next: respuesta => {
         this.cargandoLocalizaciones = false;
-        this.localizacionesOpciones = (respuesta.data ?? []).map(item => ({
-          label: item.valor,
-          value: item.valor
-        }));
+        this.localizacionesSugerencias = (respuesta.data ?? []).map(item => item.valor);
       },
       error: () => {
         this.cargandoLocalizaciones = false;
-        this.localizacionesOpciones = [];
+        this.localizacionesSugerencias = [];
       }
     });
   }
 
   /**
-   * Se dispara al escribir (o borrar) en el filtro del panel del dropdown.
-   * Emite al Subject con debounce; NO consulta en cada tecla. Si el texto queda
-   * vacío, recarga los primeros 50.
+   * Se dispara al escribir en el autocomplete de localización (completeMethod).
+   * Emite al Subject con debounce; si el texto queda vacío, recarga los 50.
+   * NOTA: el autocomplete permite además escribir una localidad que NO exista
+   * en el maestro (valor libre), útil cuando se necesita registrar una nueva.
    */
-  buscarLocalizaciones(evento: { filter?: string }): void {
-    this.localizacionBuscador$.next((evento.filter ?? '').trim());
-  }
-
-  /**
-   * Al abrir el panel del dropdown: si no hay opciones cargadas (o quedaron de
-   * una búsqueda previa), refresca los primeros 50 para que siempre haya lista.
-   */
-  alAbrirLocalizaciones(): void {
-    if (this.localizacionesOpciones.length === 0 && !this.cargandoLocalizaciones) {
-      this.cargarLocalizaciones('');
-    }
+  buscarLocalizaciones(evento: { query?: string }): void {
+    this.localizacionBuscador$.next((evento.query ?? '').trim());
   }
 
   buscarResponsables(evento: { query: string }): void {
