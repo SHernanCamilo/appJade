@@ -10,6 +10,18 @@ const DATOS_PERSONA: CampoFormularioDef[] = [
   { key: 'sexo', seccion: 'Datos de la persona', label: 'Sexo biológico', tipo: 'radio', requeridoPorDefecto: false }
 ];
 
+const DATOS_PERSONA_PRIMARIO: CampoFormularioDef[] = [
+  ...DATOS_PERSONA,
+  { key: 'lugarExpedicion', seccion: 'Datos de la persona', label: 'Lugar de expedición', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'fechaNacimiento', seccion: 'Datos de la persona', label: 'Fecha de nacimiento', tipo: 'date', requeridoPorDefecto: false },
+  { key: 'ocupacion', seccion: 'Datos de la persona', label: 'Ocupación', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'telefono', seccion: 'Datos de la persona', label: 'Teléfono', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'estadoCivil', seccion: 'Datos de la persona', label: 'Estado civil', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'correoEmail', seccion: 'Datos de la persona', label: 'Correo email', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'direccionResidencia', seccion: 'Datos de la persona', label: 'Dirección de residencia', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'zonaResidencia', seccion: 'Datos de la persona', label: 'Zona de residencia', tipo: 'radio', requeridoPorDefecto: false }
+];
+
 const PROCEDIMIENTOS: CampoFormularioDef[] = [
   { key: 'procedimientos', seccion: 'Procedimientos, medicamentos y código de traslado', label: 'Procedimientos realizados (CUPS)', tipo: 'tabla', requeridoPorDefecto: true },
   { key: 'medicamentos', seccion: 'Procedimientos, medicamentos y código de traslado', label: 'Medicamentos (CUMS o IUMS)', tipo: 'tabla', requeridoPorDefecto: true },
@@ -39,16 +51,16 @@ const ACOMPANANTE: CampoFormularioDef[] = [
 
 const TRIPULACION_SIN_MEDICO: CampoFormularioDef[] = [
   { key: 'auxiliar1.nombre', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
-  { key: 'auxiliar1.tipoDocumento', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'auxiliar1.tipoDocumento', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Tipo de documento', tipo: 'radio', requeridoPorDefecto: false },
   { key: 'auxiliar1.documento', seccion: 'Tripulación', label: 'Auxiliar de enfermería — Número de documento', tipo: 'text', requeridoPorDefecto: false },
   { key: 'comandante1.nombre', seccion: 'Tripulación', label: 'Comandante / conductor — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
-  { key: 'comandante1.tipoDocumento', seccion: 'Tripulación', label: 'Comandante / conductor — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'comandante1.tipoDocumento', seccion: 'Tripulación', label: 'Comandante / conductor — Tipo de documento', tipo: 'radio', requeridoPorDefecto: false },
   { key: 'comandante1.documento', seccion: 'Tripulación', label: 'Comandante / conductor — Número de documento', tipo: 'text', requeridoPorDefecto: false }
 ];
 
 const TRIPULACION: CampoFormularioDef[] = [
   { key: 'medico1.nombre', seccion: 'Tripulación', label: 'Médico — Nombres y apellidos', tipo: 'text', requeridoPorDefecto: true },
-  { key: 'medico1.tipoDocumento', seccion: 'Tripulación', label: 'Médico — Tipo de documento', tipo: 'text', requeridoPorDefecto: false },
+  { key: 'medico1.tipoDocumento', seccion: 'Tripulación', label: 'Médico — Tipo de documento', tipo: 'radio', requeridoPorDefecto: false },
   { key: 'medico1.documento', seccion: 'Tripulación', label: 'Médico — Número de documento', tipo: 'text', requeridoPorDefecto: false },
   ...TRIPULACION_SIN_MEDICO
 ];
@@ -60,13 +72,13 @@ const PROFESIONAL_RECIBE: CampoFormularioDef[] = [
 ];
 
 export const CATALOGO_TRASLADO_PRIMARIO: CampoFormularioDef[] = [
-  ...DATOS_PERSONA,
+  ...DATOS_PERSONA_PRIMARIO,
   { key: 'horaDespacho', seccion: 'Tiempos del servicio y escena', label: 'Hora del despacho', tipo: 'time', requeridoPorDefecto: true },
   { key: 'horaLlegadaEscena', seccion: 'Tiempos del servicio y escena', label: 'Hora de llegada al lugar de la escena', tipo: 'time', requeridoPorDefecto: true },
   { key: 'signosInicio.triage', seccion: 'Tiempos del servicio y escena', label: 'Triage del paciente en escena', tipo: 'text', requeridoPorDefecto: true },
   { key: 'horaSalidaEscena', seccion: 'Tiempos del servicio y escena', label: 'Hora de salida del lugar de la escena', tipo: 'time', requeridoPorDefecto: true },
   ...PROCEDIMIENTOS,
-  { key: 'causaAtencion', seccion: 'Examen físico', label: 'Causa de la atención', tipo: 'checkbox', requeridoPorDefecto: false },
+  { key: 'causaAtencion', seccion: 'Examen físico', label: 'Causa de la atención', tipo: 'radio', requeridoPorDefecto: false },
   { key: 'causaAtencionOtra', seccion: 'Examen físico', label: 'Causa de la atención (otra)', tipo: 'text', requeridoPorDefecto: false },
   { key: 'signosInicio.taSistolica', seccion: 'Examen físico', label: 'Tensión arterial sistólica', tipo: 'text', requeridoPorDefecto: false },
   { key: 'signosInicio.taDiastolica', seccion: 'Examen físico', label: 'Tensión arterial diastólica', tipo: 'text', requeridoPorDefecto: false },

@@ -16,7 +16,7 @@
           Parámetros de formularios
         </h1>
         <p class="page-subtitle-modern">
-          Configure visibilidad, obligatoriedad y etiqueta de cada campo
+          Configure visibilidad, obligatoriedad, etiqueta y catálogos de procedimientos y medicamentos
         </p>
       </div>
 
@@ -120,6 +120,25 @@
             </td>
             <td>
               <input pInputText type="text" class="w-full" [(ngModel)]="row.label" />
+              <div class="catalogo-box" *ngIf="esCatalogo(row)">
+                <div class="catalogo-head">
+                  <span>{{ etiquetaCatalogo(row) }}</span>
+                  <button type="button" class="btn-add-opcion" (click)="agregarOpcion(row)">
+                    <i class="pi pi-plus"></i>
+                    Agregar
+                  </button>
+                </div>
+                <div class="catalogo-empty" *ngIf="!row.opciones?.length">
+                  Agregue código y descripción para que el formulario los muestre como lista.
+                </div>
+                <div class="catalogo-row" *ngFor="let op of row.opciones; let i = index">
+                  <input pInputText type="text" [(ngModel)]="op.codigo" placeholder="Código" />
+                  <input pInputText type="text" [(ngModel)]="op.descripcion" placeholder="Descripción" />
+                  <button type="button" class="btn-del-opcion" (click)="quitarOpcion(row, i)" pTooltip="Quitar">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </div>
+              </div>
             </td>
           </tr>
         </ng-template>

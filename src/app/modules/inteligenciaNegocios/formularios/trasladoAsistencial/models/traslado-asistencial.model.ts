@@ -1,11 +1,14 @@
 export type TipoTrasladoAsistencial = 'primario' | 'secundario' | 'primarioCompleto' | 'secundarioCompleto';
 
+export const CUPS_TRASLADO_PRIMARIO = '601T01 - TRASLADO ASISTENCIAL BÁSICO TERRESTRE PRIMARIO';
+
 export interface RegistroTrasladoLista {
   id: number;
   tipo: 'primario' | 'secundario';
   formato?: TipoTrasladoAsistencial;
   estado: 'guardado' | 'confirmado';
   fechaAtencion: string;
+  fechaCreacion?: string;
   paciente: string;
   identificacion: string;
   estadoFinal: string;
@@ -144,8 +147,10 @@ export interface HistoriaTrasladoAsistencial {
   tipoIdentificacion: '' | 'as' | 'ms' | 'msi' | 'rc' | 'ti' | 'cc' | 'ce' | 'otro';
   tipoIdentificacionOtro: string;
   numeroIdentificacion: string;
+  lugarExpedicion: string;
+  correoEmail: string;
   fechaNacimiento: string;
-  estadoCivil: '' | 'casado' | 'soltero' | 'divorciado' | 'union_libre' | 'viudo' | 'otro';
+  estadoCivil: string;
   estadoCivilOtro: string;
   ocupacion: string;
   direccionResidencia: string;
@@ -318,7 +323,7 @@ function emptyMedicamento(): MedicamentoTrasladoFila {
   return { codigoCumIum: '', nombre: '' };
 }
 
-export function crearHistoriaVacia(): HistoriaTrasladoAsistencial {
+export function crearHistoriaVacia(tipo?: TipoTrasladoAsistencial | null): HistoriaTrasladoAsistencial {
   return {
     recordNumero: '',
     identificacionNumero: '',
@@ -341,7 +346,7 @@ export function crearHistoriaVacia(): HistoriaTrasladoAsistencial {
     tipoTraslado: '',
     tipoServicio: '',
     tipoUsuario: '',
-    cupsTraslado: '',
+    cupsTraslado: tipo === 'primario' || tipo === 'primarioCompleto' ? CUPS_TRASLADO_PRIMARIO : '',
     horaSolicitud: '',
     solicitadoPor: '',
     horaLlegada1: '',
@@ -389,6 +394,8 @@ export function crearHistoriaVacia(): HistoriaTrasladoAsistencial {
     tipoIdentificacion: '',
     tipoIdentificacionOtro: '',
     numeroIdentificacion: '',
+    lugarExpedicion: '',
+    correoEmail: '',
     fechaNacimiento: '',
     estadoCivil: '',
     estadoCivilOtro: '',

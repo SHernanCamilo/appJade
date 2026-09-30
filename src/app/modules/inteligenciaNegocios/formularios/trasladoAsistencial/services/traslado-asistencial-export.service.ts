@@ -162,13 +162,25 @@ export class TrasladoAsistencialExportService {
       form.numeroIdentificacion,
       false
     );
+    row = this.campo2(sheet, row, 'Lugar de expedición:', form.lugarExpedicion, false, 'Fecha de nacimiento:', form.fechaNacimiento, false);
     row = this.campo2(
       sheet, row,
       'Edad:',
-      `${this.dato(form.edad)}   ${this.radios([['anos', 'Años'], ['meses', 'Mes'], ['dias', 'Días']], form.edadUnidad)}`,
+      `${this.dato(form.edad)}   ${this.radios([['anos', 'Años'], ['meses', 'Meses'], ['dias', 'Días']], form.edadUnidad)}`,
       true,
       'Sexo biológico:',
       this.radios([['femenino', 'Femenino'], ['masculino', 'Masculino']], form.sexo),
+      false
+    );
+    row = this.campo2(sheet, row, 'Ocupación:', form.ocupacion, false, 'Teléfono:', form.telefono, false);
+    row = this.campo2(sheet, row, 'Estado civil:', form.estadoCivil, false, 'Correo email:', form.correoEmail, false);
+    row = this.campo2(
+      sheet, row,
+      'Dirección de residencia:',
+      form.direccionResidencia,
+      false,
+      'Zona de residencia:',
+      this.radios([['urbano', 'Urbana'], ['rural', 'Rural']], form.zonaResidencia),
       false
     );
 
@@ -351,10 +363,10 @@ export class TrasladoAsistencialExportService {
       row = this.tablaPlain(
         sheet, row,
         [
-          { titulo: 'PROCEDIMIENTOS', span: 8 },
-          { titulo: 'CÓDIGO CUPS', span: 4 }
+          { titulo: 'CÓDIGO CUPS', span: 4 },
+          { titulo: 'PROCEDIMIENTOS', span: 8 }
         ],
-        form.procedimientos.map(f => [f.procedimientos, f.cupsProcedimientos])
+        form.procedimientos.map(f => [f.cupsProcedimientos, f.procedimientos])
       );
     }
 
@@ -383,7 +395,7 @@ export class TrasladoAsistencialExportService {
     row = this.campo(
       sheet, row,
       'Causa de la atención:',
-      `${this.checks(CAUSAS_ATENCION, form.causaAtencion)}    ${this.dato(form.causaAtencionOtra)}`,
+      `${this.radios(CAUSAS_ATENCION.map(op => [op, op]), form.causaAtencion[0] || '')}${form.causaAtencion.includes('Otra') ? `  ${this.dato(form.causaAtencionOtra)}` : ''}`,
       false,
       26
     );

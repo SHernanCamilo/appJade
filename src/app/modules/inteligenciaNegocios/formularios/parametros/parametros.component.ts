@@ -19,6 +19,7 @@ import {
 import {
   CampoParametroRow,
   FormularioParametrizable,
+  esCampoCatalogo,
   mergeCamposCatalogo,
   toCamposPayload
 } from './models/form-parametros.model';
@@ -102,6 +103,28 @@ export class FormulariosParametrosComponent implements OnInit {
     if (row.requerido) {
       row.visible = true;
     }
+  }
+
+  esCatalogo(row: CampoParametroRow): boolean {
+    return esCampoCatalogo(row.key);
+  }
+
+  agregarOpcion(row: CampoParametroRow): void {
+    row.opciones = [...(row.opciones ?? []), { codigo: '', descripcion: '' }];
+  }
+
+  quitarOpcion(row: CampoParametroRow, index: number): void {
+    row.opciones = (row.opciones ?? []).filter((_, i) => i !== index);
+  }
+
+  etiquetaCatalogo(row: CampoParametroRow): string {
+    if (row.key === 'medicamentos') {
+      return 'Códigos CUM / IUM y nombre del medicamento';
+    }
+    if (row.key === 'destino1Reps') {
+      return 'Códigos REPS y nombre de la institución receptora';
+    }
+    return 'Códigos CUPS y descripción del procedimiento';
   }
 
   async guardar(): Promise<void> {

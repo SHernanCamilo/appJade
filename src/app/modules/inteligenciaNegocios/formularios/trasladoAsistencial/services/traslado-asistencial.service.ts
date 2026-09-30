@@ -34,6 +34,12 @@ interface ApiItemResponse {
   message?: string;
 }
 
+interface PacienteParquetResponse {
+  success: boolean;
+  data: Record<string, unknown> | null;
+  message?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TrasladoAsistencialService {
   private readonly apiUrl = '/fabric/traslado-asistencial';
@@ -52,6 +58,22 @@ export class TrasladoAsistencialService {
     return this.http.get<ApiListResponse>(this.apiUrl, { params }).pipe(
       timeout(12000),
       map(r => r.data ?? [])
+    );
+  }
+
+  buscarPaciente(documento: string): Observable<Record<string, unknown> | null> {
+    const params = new HttpParams().set('documento', documento);
+    return this.http.get<PacienteParquetResponse>(`${this.apiUrl}/paciente`, { params }).pipe(
+      timeout(15000),
+      map(r => r.data ?? null)
+    );
+  }
+
+  buscarProfesional(documento: string): Observable<Record<string, unknown> | null> {
+    const params = new HttpParams().set('documento', documento);
+    return this.http.get<PacienteParquetResponse>(`${this.apiUrl}/profesional`, { params }).pipe(
+      timeout(15000),
+      map(r => r.data ?? null)
     );
   }
 

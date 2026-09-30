@@ -234,6 +234,64 @@
   padding: 1.5rem !important;
 }
 
+.form-params-page .catalogo-box {
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.form-params-page .catalogo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.form-params-page .btn-add-opcion,
+.form-params-page .btn-del-opcion {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1d4ed8;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.form-params-page .btn-add-opcion {
+  padding: 0.28rem 0.6rem;
+}
+
+.form-params-page .btn-del-opcion {
+  color: #b91c1c;
+  padding: 0.28rem 0.4rem;
+}
+
+.form-params-page .catalogo-empty {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.form-params-page .catalogo-row {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr auto;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.form-params-page .catalogo-row input {
+  font-size: 0.8rem;
+}
+
 @media (max-width: 760px) {
   .form-params-page .page-header-modern,
   .form-params-page .dashboard-content {

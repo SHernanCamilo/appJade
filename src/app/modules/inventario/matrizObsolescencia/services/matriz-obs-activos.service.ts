@@ -286,7 +286,7 @@ export class MatrizObsActivosService {
           errorMessage = 'No tiene permisos para realizar esta acción';
           break;
         case 404:
-          errorMessage = 'Recurso no encontrado';
+          errorMessage = error.error?.message || 'No se encontró la ruta o el activo en el servidor';
           break;
         case 422:
           errorMessage = error.error?.message || 'Error de validación';

@@ -76,6 +76,7 @@
           <span class="registros-count">{{ registros.length }} registro(s)</span>
         </div>
 
+        <div class="registros-table-wrap">
         <p-table
           [value]="registros"
           [paginator]="true"
@@ -112,7 +113,7 @@
                   </p-tag>
                 </div>
               </td>
-              <td>{{ row.fechaAtencion || '—' }}</td>
+              <td>{{ row.fechaCreacion || row.fechaAtencion || (row.fechaGuarda | slice:0:10) || '—' }}</td>
               <td>{{ row.paciente || '—' }}</td>
               <td>{{ row.identificacion || '—' }}</td>
               <td>
@@ -153,6 +154,7 @@
             </tr>
           </ng-template>
         </p-table>
+        </div>
       </div>
     </div>
 
@@ -198,14 +200,19 @@
               type="button"
               class="btn-toolbar btn-toolbar-excel"
               (click)="exportarExcel()"
-              [disabled]="isExporting"
+              [disabled]="isExporting || !esConfirmado"
               pTooltip="Exportar hoja de traslado a Excel">
               <i class="pi" [class.pi-spin]="isExporting" [class.pi-spinner]="isExporting" [class.pi-file-excel]="!isExporting"></i>
-              {{ isExporting ? 'Generando...' : 'Exportar' }}
+              {{ isExporting ? 'Generando...' : 'Exportar Excel' }}
             </button>
-            <button type="button" class="btn-toolbar btn-toolbar-primary" (click)="imprimir()">
-              <i class="pi pi-print"></i>
-              Imprimir
+            <button
+              type="button"
+              class="btn-toolbar btn-toolbar-pdf"
+              (click)="exportarPdf()"
+              [disabled]="isExportingPdf || !esConfirmado"
+              pTooltip="Exportar hoja de traslado a PDF">
+              <i class="pi" [class.pi-spin]="isExportingPdf" [class.pi-spinner]="isExportingPdf" [class.pi-file-pdf]="!isExportingPdf"></i>
+              {{ isExportingPdf ? 'Generando...' : 'Exportar PDF' }}
             </button>
           </div>
         </div>
@@ -217,51 +224,122 @@
 
         <ng-container *ngIf="seccionVisible('Datos de la persona')">
         <div class="section-bar">DATOS DE LA PERSONA</div>
-        <table class="form-table">
+        <table class="form-table persona-table">
           <tr *ngIf="campoVisible('nombresApellidos')">
             <th><span class="req-num" *ngIf="campoRequerido('nombresApellidos')">*</span> {{ campoLabel('nombresApellidos', 'Nombres y apellidos') }}:</th>
-            <td colspan="5">
-              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off">
+            <td colspan="9">
+              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off" [disabled]="personaCampoBloqueado('nombresApellidos')">
             </td>
           </tr>
-          <tr *ngIf="algunoVisible('tipoIdentificacion', 'numeroIdentificacion')">
+          <tr *ngIf="algunoVisible('tipoIdentificacion', 'numeroIdentificacion', 'lugarExpedicion')">
             <ng-container *ngIf="campoVisible('tipoIdentificacion')">
               <th><span class="req-num" *ngIf="campoRequerido('tipoIdentificacion')">*</span> {{ campoLabel('tipoIdentificacion', 'Tipo de documento') }}:</th>
               <td colspan="3">
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="as"> AS</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ms"> MS</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="rc"> RC</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ti"> TI</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
-                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otros</label>
-                <input *ngIf="campoVisible('tipoIdentificacionOtro')" type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="as" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> AS</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ms" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> MS</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="rc" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> RC</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ti" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> TI</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="cc" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> CC</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="ce" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> CE</label>
+                <label class="chk"><input type="radio" name="tipoIdRes" [(ngModel)]="form.tipoIdentificacion" value="otro" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> Otros</label>
+                <span class="req-num" *ngIf="campoRequerido('tipoIdentificacionOtro')">*</span>
+                <input *ngIf="campoVisible('tipoIdentificacionOtro')" type="text" class="tiny" [(ngModel)]="form.tipoIdentificacionOtro" autocomplete="off" [disabled]="personaCampoBloqueado('tipoIdentificacionOtro')">
               </td>
             </ng-container>
             <ng-container *ngIf="campoVisible('numeroIdentificacion')">
-              <th><span class="req-num" *ngIf="campoRequerido('numeroIdentificacion')">*</span> {{ campoLabel('numeroIdentificacion', 'Número') }}:</th>
-              <td>
-                <input type="text" class="full" [(ngModel)]="form.numeroIdentificacion" autocomplete="off">
+              <th [class.campo-primero]="destacarDocumentoPaciente">
+                <span class="req-num">*</span>
+                {{ campoLabel('numeroIdentificacion', 'Número de documento') }}:
+              </th>
+              <td [class.campo-primero-celda]="destacarDocumentoPaciente">
+                <div class="doc-lookup" [class.doc-lookup-inicio]="destacarDocumentoPaciente">
+                  <input
+                    #docPacienteInput
+                    type="text"
+                    class="full"
+                    [(ngModel)]="form.numeroIdentificacion"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    enterkeyhint="search"
+                    placeholder="Digite el documento y pulse Enter"
+                    [disabled]="personaCampoBloqueado('numeroIdentificacion')"
+                    (blur)="buscarPacienteFabric()"
+                    (keydown.enter)="$event.preventDefault(); buscarPacienteFabric()">
+                  <i *ngIf="isBuscandoPaciente" class="pi pi-spin pi-spinner doc-lookup-spin" aria-hidden="true"></i>
+                </div>
+                <div class="doc-lookup-hint" *ngIf="destacarDocumentoPaciente">Primero busque al paciente; el resto se habilita después.</div>
+              </td>
+            </ng-container>
+            <ng-container *ngIf="campoVisible('lugarExpedicion')">
+              <th><span class="req-num" *ngIf="campoRequerido('lugarExpedicion')">*</span> {{ campoLabel('lugarExpedicion', 'Lugar de expedición') }}:</th>
+              <td colspan="3">
+                <input type="text" class="full" [(ngModel)]="form.lugarExpedicion" autocomplete="off" [disabled]="personaCampoBloqueado('lugarExpedicion')">
               </td>
             </ng-container>
           </tr>
-          <tr *ngIf="algunoVisible('edad', 'sexo')">
+          <tr *ngIf="algunoVisible('fechaNacimiento', 'edad', 'sexo', 'ocupacion')">
+            <ng-container *ngIf="campoVisible('fechaNacimiento')">
+              <th><span class="req-num" *ngIf="campoRequerido('fechaNacimiento')">*</span> {{ campoLabel('fechaNacimiento', 'Fecha de Nacimiento') }}:</th>
+              <td>
+                <input type="date" class="full" [(ngModel)]="form.fechaNacimiento" [disabled]="personaCampoBloqueado('fechaNacimiento')" (ngModelChange)="actualizarEdadPorNacimiento()">
+              </td>
+            </ng-container>
             <ng-container *ngIf="campoVisible('edad')">
               <th><span class="req-num" *ngIf="campoRequerido('edad')">*</span> {{ campoLabel('edad', 'Edad') }}:</th>
               <td>
-                <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
+                <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off" [disabled]="personaCampoBloqueado('edad')">
                 <ng-container *ngIf="campoVisible('edadUnidad')">
-                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
-                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="meses"> Mes</label>
-                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
+                  <span class="req-num" *ngIf="campoRequerido('edadUnidad')">*</span>
+                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="anos" [disabled]="personaCampoBloqueado('edadUnidad')"> Años</label>
+                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="meses" [disabled]="personaCampoBloqueado('edadUnidad')"> Meses</label>
+                  <label class="chk"><input type="radio" name="edadUnidadRes" [(ngModel)]="form.edadUnidad" value="dias" [disabled]="personaCampoBloqueado('edadUnidad')"> Días</label>
                 </ng-container>
               </td>
             </ng-container>
             <ng-container *ngIf="campoVisible('sexo')">
               <th><span class="req-num" *ngIf="campoRequerido('sexo')">*</span> {{ campoLabel('sexo', 'Sexo biológico') }}:</th>
+              <td>
+                <label class="chk"><input type="radio" name="sexoRes" [(ngModel)]="form.sexo" value="femenino" [disabled]="personaCampoBloqueado('sexo')"> Femenino</label>
+                <label class="chk"><input type="radio" name="sexoRes" [(ngModel)]="form.sexo" value="masculino" [disabled]="personaCampoBloqueado('sexo')"> Masculino</label>
+              </td>
+            </ng-container>
+            <ng-container *ngIf="campoVisible('ocupacion')">
+              <th><span class="req-num" *ngIf="campoRequerido('ocupacion')">*</span> {{ campoLabel('ocupacion', 'Ocupación') }}:</th>
               <td colspan="3">
-                <label class="chk"><input type="radio" name="sexoRes" [(ngModel)]="form.sexo" value="femenino"> Femenino</label>
-                <label class="chk"><input type="radio" name="sexoRes" [(ngModel)]="form.sexo" value="masculino"> Masculino</label>
+                <input type="text" class="full" [(ngModel)]="form.ocupacion" autocomplete="off" [disabled]="personaCampoBloqueado('ocupacion')">
+              </td>
+            </ng-container>
+          </tr>
+          <tr *ngIf="algunoVisible('telefono', 'estadoCivil', 'correoEmail', 'direccionResidencia', 'zonaResidencia')">
+            <ng-container *ngIf="campoVisible('telefono')">
+              <th><span class="req-num" *ngIf="campoRequerido('telefono')">*</span> {{ campoLabel('telefono', 'Teléfono') }}:</th>
+              <td>
+                <input type="text" class="full" [(ngModel)]="form.telefono" autocomplete="off" inputmode="tel" [disabled]="personaCampoBloqueado('telefono')">
+              </td>
+            </ng-container>
+            <ng-container *ngIf="campoVisible('estadoCivil')">
+              <th><span class="req-num" *ngIf="campoRequerido('estadoCivil')">*</span> {{ campoLabel('estadoCivil', 'Estado civil') }}:</th>
+              <td>
+                <input type="text" class="full" [(ngModel)]="form.estadoCivil" autocomplete="off" [disabled]="personaCampoBloqueado('estadoCivil')">
+              </td>
+            </ng-container>
+            <ng-container *ngIf="campoVisible('correoEmail')">
+              <th><span class="req-num" *ngIf="campoRequerido('correoEmail')">*</span> {{ campoLabel('correoEmail', 'Correo email') }}:</th>
+              <td>
+                <input type="text" class="full" [(ngModel)]="form.correoEmail" autocomplete="off" [disabled]="personaCampoBloqueado('correoEmail')">
+              </td>
+            </ng-container>
+            <ng-container *ngIf="campoVisible('direccionResidencia')">
+              <th><span class="req-num" *ngIf="campoRequerido('direccionResidencia')">*</span> {{ campoLabel('direccionResidencia', 'Dirección de residencia') }}:</th>
+              <td>
+                <input type="text" class="full" [(ngModel)]="form.direccionResidencia" autocomplete="off" [disabled]="personaCampoBloqueado('direccionResidencia')">
+              </td>
+            </ng-container>
+            <ng-container *ngIf="campoVisible('zonaResidencia')">
+              <th><span class="req-num" *ngIf="campoRequerido('zonaResidencia')">*</span> {{ campoLabel('zonaResidencia', 'Zona de residencia') }}:</th>
+              <td>
+                <label class="chk"><input type="radio" name="zonaRes" [(ngModel)]="form.zonaResidencia" value="urbano" [disabled]="personaCampoBloqueado('zonaResidencia')"> Urbana</label>
+                <label class="chk"><input type="radio" name="zonaRes" [(ngModel)]="form.zonaResidencia" value="rural" [disabled]="personaCampoBloqueado('zonaResidencia')"> Rural</label>
               </td>
             </ng-container>
           </tr>
@@ -301,14 +379,40 @@
         <table class="grid-table headers-plain">
           <thead>
             <tr>
-              <th>PROCEDIMIENTOS</th>
               <th>CÓDIGO CUPS</th>
+              <th>PROCEDIMIENTOS</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let fila of form.procedimientos">
-              <td><input type="text" class="full" [(ngModel)]="fila.procedimientos"></td>
-              <td class="col-cum"><input type="text" class="full" [(ngModel)]="fila.cupsProcedimientos"></td>
+              <td class="col-cum">
+                <p-dropdown
+                  *ngIf="tieneOpciones('procedimientos')"
+                  [options]="opcionesCampo('procedimientos')"
+                  optionValue="codigo"
+                  [ngModel]="fila.cupsProcedimientos"
+                  (ngModelChange)="aplicarOpcionProcedimiento(fila, $event)"
+                  [disabled]="esConfirmado"
+                  [filter]="true"
+                  filterBy="codigo,descripcion"
+                  placeholder="Seleccione"
+                  appendTo="body"
+                  [showClear]="true"
+                  styleClass="full catalogo-dd"
+                  panelStyleClass="catalogo-dd-panel">
+                  <ng-template pTemplate="filtericon"></ng-template>
+                  <ng-template let-sel pTemplate="selectedItem">
+                    {{ codigoOpcion(sel) }}
+                  </ng-template>
+                  <ng-template let-opt pTemplate="item">
+                    {{ opt.codigo }} — {{ opt.descripcion }}
+                  </ng-template>
+                </p-dropdown>
+                <input *ngIf="!tieneOpciones('procedimientos')" type="text" class="full" [(ngModel)]="fila.cupsProcedimientos">
+              </td>
+              <td>
+                <input type="text" class="full" [(ngModel)]="fila.procedimientos" [readonly]="tieneOpciones('procedimientos')">
+              </td>
             </tr>
           </tbody>
         </table>
@@ -325,8 +429,34 @@
           </thead>
           <tbody>
             <tr *ngFor="let med of form.medicamentos">
-              <td class="col-cum"><input type="text" class="full" [(ngModel)]="med.codigoCumIum"></td>
-              <td><input type="text" class="full" [(ngModel)]="med.nombre"></td>
+              <td class="col-cum">
+                <p-dropdown
+                  *ngIf="tieneOpciones('medicamentos')"
+                  [options]="opcionesCampo('medicamentos')"
+                  optionValue="codigo"
+                  [ngModel]="med.codigoCumIum"
+                  (ngModelChange)="aplicarOpcionMedicamento(med, $event)"
+                  [disabled]="esConfirmado"
+                  [filter]="true"
+                  filterBy="codigo,descripcion"
+                  placeholder="Seleccione"
+                  appendTo="body"
+                  [showClear]="true"
+                  styleClass="full catalogo-dd"
+                  panelStyleClass="catalogo-dd-panel">
+                  <ng-template pTemplate="filtericon"></ng-template>
+                  <ng-template let-sel pTemplate="selectedItem">
+                    {{ codigoOpcion(sel) }}
+                  </ng-template>
+                  <ng-template let-opt pTemplate="item">
+                    {{ opt.codigo }} — {{ opt.descripcion }}
+                  </ng-template>
+                </p-dropdown>
+                <input *ngIf="!tieneOpciones('medicamentos')" type="text" class="full" [(ngModel)]="med.codigoCumIum">
+              </td>
+              <td>
+                <input type="text" class="full" [(ngModel)]="med.nombre" [readonly]="tieneOpciones('medicamentos')">
+              </td>
             </tr>
           </tbody>
         </table>
@@ -352,22 +482,23 @@
 
         <table class="form-table" *ngIf="algunoVisible('causaAtencion', 'causaAtencionOtra')">
           <tr>
-            <th><span class="req-num" *ngIf="campoRequerido('causaAtencion')">*</span> {{ campoLabel('causaAtencion', 'Causa de la atención') }}:</th>
+            <th><span class="req-num" *ngIf="algunoRequerido('causaAtencion', 'causaAtencionOtra')">*</span> {{ campoLabel('causaAtencion', 'Causa de la atención') }}:</th>
             <td colspan="5">
               @if (campoVisible('causaAtencion')) {
                 @for (c of causasAtencion; track c) {
                   <label class="chk">
-                    <input type="checkbox" [checked]="estaEnLista(form.causaAtencion, c)" (change)="toggleLista(form.causaAtencion, c)">
+                    <input type="radio" name="causaAtencionRes" [checked]="estaEnLista(form.causaAtencion, c)" (change)="seleccionarCausa(c)">
                     {{ c }}
                   </label>
                 }
               }
-              @if (campoVisible('causaAtencionOtra')) {
+              @if (campoVisible('causaAtencionOtra') && estaEnLista(form.causaAtencion, 'Otra')) {
+                <span class="req-num" *ngIf="campoRequerido('causaAtencionOtra')">*</span>
                 <input
                   type="text"
                   class="short"
                   [(ngModel)]="form.causaAtencionOtra"
-                  placeholder="Otra"
+                  placeholder="¿Cuál?"
                   autocomplete="off">
               }
             </td>
@@ -379,6 +510,11 @@
           'signosInicio.fc', 'signosInicio.fr', 'signosInicio.temperatura', 'signosInicio.fcf',
           'signosInicio.pupilaDerecha', 'signosInicio.pupilaIzquierda', 'signosInicio.spo2',
           'signosInicio.triage')">
+          <span class="req-num" *ngIf="algunoRequerido(
+            'signosInicio.taSistolica', 'signosInicio.taDiastolica', 'signosInicio.tamSistolica', 'signosInicio.tamDiastolica',
+            'signosInicio.fc', 'signosInicio.fr', 'signosInicio.temperatura', 'signosInicio.fcf',
+            'signosInicio.pupilaDerecha', 'signosInicio.pupilaIzquierda', 'signosInicio.spo2',
+            'signosInicio.triage')">*</span>
           Signos vitales al inicio del traslado:
         </div>
         <table class="form-table vitals-table" *ngIf="algunoVisible(
@@ -388,49 +524,63 @@
           'signosInicio.triage')">
           <tr *ngIf="algunoVisible('signosInicio.taSistolica', 'signosInicio.taDiastolica', 'signosInicio.tamSistolica', 'signosInicio.tamDiastolica', 'signosInicio.fc', 'signosInicio.fr')">
             <td *ngIf="algunoVisible('signosInicio.taSistolica', 'signosInicio.taDiastolica')">
+              <span class="req-num" *ngIf="algunoRequerido('signosInicio.taSistolica', 'signosInicio.taDiastolica')">*</span>
               Tensión arterial
               <input *ngIf="campoVisible('signosInicio.taSistolica')" type="text" class="tiny" [(ngModel)]="form.signosInicio.taSistolica">
               <ng-container *ngIf="algunoVisible('signosInicio.taSistolica', 'signosInicio.taDiastolica')"> / </ng-container>
               <input *ngIf="campoVisible('signosInicio.taDiastolica')" type="text" class="tiny" [(ngModel)]="form.signosInicio.taDiastolica"> mmHg
             </td>
             <td *ngIf="algunoVisible('signosInicio.tamSistolica', 'signosInicio.tamDiastolica')">
+              <span class="req-num" *ngIf="algunoRequerido('signosInicio.tamSistolica', 'signosInicio.tamDiastolica')">*</span>
               TAM
               <input *ngIf="campoVisible('signosInicio.tamSistolica')" type="text" class="tiny" [(ngModel)]="form.signosInicio.tamSistolica">
               <ng-container *ngIf="algunoVisible('signosInicio.tamSistolica', 'signosInicio.tamDiastolica')"> / </ng-container>
               <input *ngIf="campoVisible('signosInicio.tamDiastolica')" type="text" class="tiny" [(ngModel)]="form.signosInicio.tamDiastolica"> mmHg
             </td>
             <td *ngIf="campoVisible('signosInicio.fc')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.fc')">*</span>
               FC <input type="text" class="tiny" [(ngModel)]="form.signosInicio.fc"> lpm
             </td>
             <td *ngIf="campoVisible('signosInicio.fr')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.fr')">*</span>
               FR <input type="text" class="tiny" [(ngModel)]="form.signosInicio.fr"> rpm
             </td>
           </tr>
           <tr *ngIf="algunoVisible('signosInicio.temperatura', 'signosInicio.fcf', 'signosInicio.pupilaDerecha', 'signosInicio.pupilaIzquierda')">
             <td *ngIf="campoVisible('signosInicio.temperatura')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.temperatura')">*</span>
               Temperatura <input type="text" class="tiny" [(ngModel)]="form.signosInicio.temperatura"> °C
             </td>
             <td *ngIf="campoVisible('signosInicio.fcf')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.fcf')">*</span>
               FCF <input type="text" class="tiny" [(ngModel)]="form.signosInicio.fcf"> lpm
             </td>
             <td *ngIf="campoVisible('signosInicio.pupilaDerecha')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.pupilaDerecha')">*</span>
               Pupila der. <input type="text" class="tiny" [(ngModel)]="form.signosInicio.pupilaDerecha"> mm
             </td>
             <td *ngIf="campoVisible('signosInicio.pupilaIzquierda')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.pupilaIzquierda')">*</span>
               Pupila izq. <input type="text" class="tiny" [(ngModel)]="form.signosInicio.pupilaIzquierda"> mm
             </td>
           </tr>
           <tr *ngIf="algunoVisible('signosInicio.spo2', 'signosInicio.triage')">
             <td *ngIf="campoVisible('signosInicio.spo2')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.spo2')">*</span>
               SPO2 <input type="text" class="tiny" [(ngModel)]="form.signosInicio.spo2"> %
             </td>
             <td colspan="3" *ngIf="campoVisible('signosInicio.triage')">
+              <span class="req-num" *ngIf="campoRequerido('signosInicio.triage')">*</span>
               {{ campoLabel('signosInicio.triage', 'Triage del paciente en escena') }}:
               <input type="text" class="short" [(ngModel)]="form.signosInicio.triage">
             </td>
           </tr>
         </table>
 
+        <div class="sub-label" *ngIf="campoVisible('glasgow')">
+          <span class="req-num" *ngIf="campoRequerido('glasgow')">*</span>
+          {{ campoLabel('glasgow', 'Escala de Glasgow') }}:
+        </div>
         <div class="glasgow-wrap" *ngIf="campoVisible('glasgow')">
           <table class="glasgow-table">
             <thead>
@@ -497,15 +647,18 @@
         <div class="section-bar">ORIGEN, DESTINO Y ESTADO</div>
         <table class="form-table">
           <tr *ngIf="algunoVisible('origenDepartamento', 'origenMunicipio', 'origenLocalidad', 'origenBarrio', 'origenDireccion')">
-            <th>Lugar de origen:</th>
+            <th>
+              <span class="req-num" *ngIf="algunoRequerido('origenDepartamento', 'origenMunicipio', 'origenLocalidad', 'origenBarrio', 'origenDireccion')">*</span>
+              Lugar de origen:
+            </th>
             <td colspan="5">
               <div class="ob-row">
-                <ng-container *ngIf="campoVisible('origenDepartamento')">Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
-                <ng-container *ngIf="campoVisible('origenMunicipio')">Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
-                <ng-container *ngIf="campoVisible('origenLocalidad')">Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
-                <ng-container *ngIf="campoVisible('origenBarrio')">Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio"></ng-container>
+                <ng-container *ngIf="campoVisible('origenDepartamento')"><span class="req-num" *ngIf="campoRequerido('origenDepartamento')">*</span> Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
+                <ng-container *ngIf="campoVisible('origenMunicipio')"><span class="req-num" *ngIf="campoRequerido('origenMunicipio')">*</span> Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
+                <ng-container *ngIf="campoVisible('origenLocalidad')"><span class="req-num" *ngIf="campoRequerido('origenLocalidad')">*</span> Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
+                <ng-container *ngIf="campoVisible('origenBarrio')"><span class="req-num" *ngIf="campoRequerido('origenBarrio')">*</span> Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio"></ng-container>
               </div>
-              <ng-container *ngIf="campoVisible('origenDireccion')">Dirección <input type="text" class="full" [(ngModel)]="form.origenDireccion" autocomplete="off"></ng-container>
+              <ng-container *ngIf="campoVisible('origenDireccion')"><span class="req-num" *ngIf="campoRequerido('origenDireccion')">*</span> Dirección <input type="text" class="full" [(ngModel)]="form.origenDireccion" autocomplete="off"></ng-container>
             </td>
           </tr>
           <tr *ngIf="algunoVisible('horaLlegadaServicio', 'destino1Reps')">
@@ -515,7 +668,30 @@
             </ng-container>
             <ng-container *ngIf="campoVisible('destino1Reps')">
               <th><span class="req-num" *ngIf="campoRequerido('destino1Reps')">*</span> {{ campoLabel('destino1Reps', 'Código REPS de la institución receptora') }}:</th>
-              <td><input type="text" class="full" [(ngModel)]="form.destino1Reps" autocomplete="off"></td>
+              <td>
+                <p-dropdown
+                  *ngIf="tieneOpciones('destino1Reps')"
+                  [options]="opcionesCampo('destino1Reps')"
+                  optionValue="codigo"
+                  [(ngModel)]="form.destino1Reps"
+                  [disabled]="esConfirmado"
+                  [filter]="true"
+                  filterBy="codigo,descripcion"
+                  placeholder="Seleccione"
+                  appendTo="body"
+                  [showClear]="true"
+                  styleClass="full catalogo-dd"
+                  panelStyleClass="catalogo-dd-panel">
+                  <ng-template pTemplate="filtericon"></ng-template>
+                  <ng-template let-sel pTemplate="selectedItem">
+                    {{ codigoOpcion(sel) }}
+                  </ng-template>
+                  <ng-template let-opt pTemplate="item">
+                    {{ opt.codigo }} — {{ opt.descripcion }}
+                  </ng-template>
+                </p-dropdown>
+                <input *ngIf="!tieneOpciones('destino1Reps')" type="text" class="full" [(ngModel)]="form.destino1Reps" autocomplete="off">
+              </td>
             </ng-container>
           </tr>
           <tr *ngIf="algunoVisible('horaRecepcion', 'estadoFinal')">
@@ -575,22 +751,40 @@
         <table class="grid-table headers-plain firmas-table">
           <tbody>
             <tr class="rol-row">
-              <th *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">Auxiliar de Enfermería</th>
-              <th *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">Comandante / Conductor</th>
+              <th *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">
+                <span class="req-num" *ngIf="campoRequerido('auxiliar1.nombre')">*</span> Auxiliar de Enfermería
+              </th>
+              <th *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">
+                <span class="req-num" *ngIf="campoRequerido('comandante1.nombre')">*</span> Comandante / Conductor
+              </th>
             </tr>
             <tr>
               <td *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">
-                <input *ngIf="campoVisible('auxiliar1.nombre')" type="text" class="full" [placeholder]="campoLabel('auxiliar1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.auxiliar1.nombre">
-                <div class="doc-line" *ngIf="algunoVisible('auxiliar1.tipoDocumento', 'auxiliar1.documento')">
-                  <ng-container *ngIf="campoVisible('auxiliar1.tipoDocumento')">Tipo <input type="text" class="tiny" [(ngModel)]="form.auxiliar1.tipoDocumento" placeholder="CC"></ng-container>
-                  <ng-container *ngIf="campoVisible('auxiliar1.documento')">N° <input type="text" [(ngModel)]="form.auxiliar1.documento"></ng-container>
+                <input *ngIf="campoVisible('auxiliar1.nombre')" type="text" class="full" [placeholder]="campoLabel('auxiliar1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.auxiliar1.nombre" [disabled]="auxiliarCampoBloqueado()">
+                <div class="trip-doc" *ngIf="algunoVisible('auxiliar1.tipoDocumento', 'auxiliar1.documento')">
+                  <div class="trip-doc-tipo" *ngIf="campoVisible('auxiliar1.tipoDocumento')">
+                    <span><span class="req-num" *ngIf="campoRequerido('auxiliar1.tipoDocumento')">*</span> Tipo de documento:</span>
+                    <label class="chk"><input type="radio" name="tipoDocAuxiliar" [(ngModel)]="form.auxiliar1.tipoDocumento" value="cc" [disabled]="auxiliarCampoBloqueado()"> CC</label>
+                    <label class="chk"><input type="radio" name="tipoDocAuxiliar" [(ngModel)]="form.auxiliar1.tipoDocumento" value="ce" [disabled]="auxiliarCampoBloqueado()"> CE</label>
+                    <label class="chk"><input type="radio" name="tipoDocAuxiliar" [(ngModel)]="form.auxiliar1.tipoDocumento" value="otro" [disabled]="auxiliarCampoBloqueado()"> Otro</label>
+                  </div>
+                  <div class="doc-line" *ngIf="campoVisible('auxiliar1.documento')">
+                    <span class="req-num" *ngIf="campoRequerido('auxiliar1.documento')">*</span> N° <input type="text" [(ngModel)]="form.auxiliar1.documento" [disabled]="auxiliarCampoBloqueado()">
+                  </div>
                 </div>
               </td>
               <td *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">
                 <input *ngIf="campoVisible('comandante1.nombre')" type="text" class="full" [placeholder]="campoLabel('comandante1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.comandante1.nombre">
-                <div class="doc-line" *ngIf="algunoVisible('comandante1.tipoDocumento', 'comandante1.documento')">
-                  <ng-container *ngIf="campoVisible('comandante1.tipoDocumento')">Tipo <input type="text" class="tiny" [(ngModel)]="form.comandante1.tipoDocumento" placeholder="CC"></ng-container>
-                  <ng-container *ngIf="campoVisible('comandante1.documento')">N° <input type="text" [(ngModel)]="form.comandante1.documento"></ng-container>
+                <div class="trip-doc" *ngIf="algunoVisible('comandante1.tipoDocumento', 'comandante1.documento')">
+                  <div class="trip-doc-tipo" *ngIf="campoVisible('comandante1.tipoDocumento')">
+                    <span><span class="req-num" *ngIf="campoRequerido('comandante1.tipoDocumento')">*</span> Tipo de documento:</span>
+                    <label class="chk"><input type="radio" name="tipoDocComandante" [(ngModel)]="form.comandante1.tipoDocumento" value="cc"> CC</label>
+                    <label class="chk"><input type="radio" name="tipoDocComandante" [(ngModel)]="form.comandante1.tipoDocumento" value="ce"> CE</label>
+                    <label class="chk"><input type="radio" name="tipoDocComandante" [(ngModel)]="form.comandante1.tipoDocumento" value="otro"> Otro</label>
+                  </div>
+                  <div class="doc-line" *ngIf="campoVisible('comandante1.documento')">
+                    <span class="req-num" *ngIf="campoRequerido('comandante1.documento')">*</span> N° <input type="text" [(ngModel)]="form.comandante1.documento">
+                  </div>
                 </div>
               </td>
             </tr>
@@ -604,22 +798,34 @@
           <tr *ngIf="campoVisible('profesionalDestino1')">
             <th><span class="req-num" *ngIf="campoRequerido('profesionalDestino1')">*</span> {{ campoLabel('profesionalDestino1', 'Nombres y apellidos') }}:</th>
             <td colspan="3">
-              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1" autocomplete="off">
+              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1" autocomplete="off" [disabled]="profesionalCampoBloqueado('profesionalDestino1')">
             </td>
           </tr>
           <tr *ngIf="algunoVisible('profesionalRecibeTipoId', 'profesionalDestino1Cc')">
             <ng-container *ngIf="campoVisible('profesionalRecibeTipoId')">
               <th><span class="req-num" *ngIf="campoRequerido('profesionalRecibeTipoId')">*</span> {{ campoLabel('profesionalRecibeTipoId', 'Tipo de documento') }}:</th>
               <td>
-                <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="cc"> CC</label>
-                <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="ce"> CE</label>
-                <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="otro"> Otro</label>
+                <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="cc" [disabled]="profesionalCampoBloqueado('profesionalRecibeTipoId')"> CC</label>
+                <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="ce" [disabled]="profesionalCampoBloqueado('profesionalRecibeTipoId')"> CE</label>
+                <label class="chk"><input type="radio" name="recibeTipoId" [(ngModel)]="form.profesionalRecibeTipoId" value="otro" [disabled]="profesionalCampoBloqueado('profesionalRecibeTipoId')"> Otro</label>
               </td>
             </ng-container>
             <ng-container *ngIf="campoVisible('profesionalDestino1Cc')">
               <th><span class="req-num" *ngIf="campoRequerido('profesionalDestino1Cc')">*</span> {{ campoLabel('profesionalDestino1Cc', 'Número') }}:</th>
               <td>
-                <input type="text" class="full" [(ngModel)]="form.profesionalDestino1Cc" autocomplete="off">
+                <div class="doc-lookup">
+                  <input
+                    type="text"
+                    class="full"
+                    [(ngModel)]="form.profesionalDestino1Cc"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    enterkeyhint="search"
+                    [disabled]="profesionalCampoBloqueado('profesionalDestino1Cc')"
+                    (blur)="buscarProfesionalFabric()"
+                    (keydown.enter)="$event.preventDefault(); buscarProfesionalFabric()">
+                  <i *ngIf="isBuscandoProfesional" class="pi pi-spin pi-spinner doc-lookup-spin" aria-hidden="true"></i>
+                </div>
               </td>
             </ng-container>
           </tr>
@@ -650,6 +856,7 @@
                 <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
                 <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
                 <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otro</label>
+                <span class="req-num" *ngIf="campoRequerido('tipoIdentificacionOtro')">*</span>
                 <input *ngIf="campoVisible('tipoIdentificacionOtro')" type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
               </td>
             </ng-container>
@@ -666,6 +873,7 @@
               <td>
                 <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
                 <ng-container *ngIf="campoVisible('edadUnidad')">
+                  <span class="req-num" *ngIf="campoRequerido('edadUnidad')">*</span>
                   <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
                   <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="meses"> Meses</label>
                   <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
@@ -700,14 +908,40 @@
         <table class="grid-table headers-plain">
           <thead>
             <tr>
-              <th>PROCEDIMIENTOS</th>
               <th>CÓDIGO CUPS</th>
+              <th>PROCEDIMIENTOS</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let fila of form.procedimientos">
-              <td><input type="text" class="full" [(ngModel)]="fila.procedimientos"></td>
-              <td class="col-cum"><input type="text" class="full" [(ngModel)]="fila.cupsProcedimientos"></td>
+              <td class="col-cum">
+                <p-dropdown
+                  *ngIf="tieneOpciones('procedimientos')"
+                  [options]="opcionesCampo('procedimientos')"
+                  optionValue="codigo"
+                  [ngModel]="fila.cupsProcedimientos"
+                  (ngModelChange)="aplicarOpcionProcedimiento(fila, $event)"
+                  [disabled]="esConfirmado"
+                  [filter]="true"
+                  filterBy="codigo,descripcion"
+                  placeholder="Seleccione"
+                  appendTo="body"
+                  [showClear]="true"
+                  styleClass="full catalogo-dd"
+                  panelStyleClass="catalogo-dd-panel">
+                  <ng-template pTemplate="filtericon"></ng-template>
+                  <ng-template let-sel pTemplate="selectedItem">
+                    {{ codigoOpcion(sel) }}
+                  </ng-template>
+                  <ng-template let-opt pTemplate="item">
+                    {{ opt.codigo }} — {{ opt.descripcion }}
+                  </ng-template>
+                </p-dropdown>
+                <input *ngIf="!tieneOpciones('procedimientos')" type="text" class="full" [(ngModel)]="fila.cupsProcedimientos">
+              </td>
+              <td>
+                <input type="text" class="full" [(ngModel)]="fila.procedimientos" [readonly]="tieneOpciones('procedimientos')">
+              </td>
             </tr>
           </tbody>
         </table>
@@ -723,8 +957,34 @@
           </thead>
           <tbody>
             <tr *ngFor="let med of form.medicamentos">
-              <td class="col-cum"><input type="text" class="full" [(ngModel)]="med.codigoCumIum"></td>
-              <td><input type="text" class="full" [(ngModel)]="med.nombre"></td>
+              <td class="col-cum">
+                <p-dropdown
+                  *ngIf="tieneOpciones('medicamentos')"
+                  [options]="opcionesCampo('medicamentos')"
+                  optionValue="codigo"
+                  [ngModel]="med.codigoCumIum"
+                  (ngModelChange)="aplicarOpcionMedicamento(med, $event)"
+                  [disabled]="esConfirmado"
+                  [filter]="true"
+                  filterBy="codigo,descripcion"
+                  placeholder="Seleccione"
+                  appendTo="body"
+                  [showClear]="true"
+                  styleClass="full catalogo-dd"
+                  panelStyleClass="catalogo-dd-panel">
+                  <ng-template pTemplate="filtericon"></ng-template>
+                  <ng-template let-sel pTemplate="selectedItem">
+                    {{ codigoOpcion(sel) }}
+                  </ng-template>
+                  <ng-template let-opt pTemplate="item">
+                    {{ opt.codigo }} — {{ opt.descripcion }}
+                  </ng-template>
+                </p-dropdown>
+                <input *ngIf="!tieneOpciones('medicamentos')" type="text" class="full" [(ngModel)]="med.codigoCumIum">
+              </td>
+              <td>
+                <input type="text" class="full" [(ngModel)]="med.nombre" [readonly]="tieneOpciones('medicamentos')">
+              </td>
             </tr>
           </tbody>
         </table>
@@ -763,29 +1023,54 @@
             </ng-container>
           </tr>
           <tr *ngIf="algunoVisible('origenReps', 'origenDepartamento', 'origenMunicipio', 'origenLocalidad', 'origenBarrio', 'origenDireccion')">
-            <th><span class="req-num" *ngIf="campoRequerido('origenReps')">*</span> Lugar de origen:</th>
+            <th><span class="req-num" *ngIf="algunoRequerido('origenReps', 'origenDepartamento', 'origenMunicipio', 'origenLocalidad', 'origenBarrio', 'origenDireccion')">*</span> Lugar de origen:</th>
             <td colspan="5">
               <div class="ob-row">
-                <ng-container *ngIf="campoVisible('origenReps')">Código REPS <input type="text" class="short" [(ngModel)]="form.origenReps"></ng-container>
-                <ng-container *ngIf="campoVisible('origenDepartamento')">Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
-                <ng-container *ngIf="campoVisible('origenMunicipio')">Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
-                <ng-container *ngIf="campoVisible('origenLocalidad')">Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
-                <ng-container *ngIf="campoVisible('origenBarrio')">Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio"></ng-container>
+                <ng-container *ngIf="campoVisible('origenReps')"><span class="req-num" *ngIf="campoRequerido('origenReps')">*</span> Código REPS <input type="text" class="short" [(ngModel)]="form.origenReps"></ng-container>
+                <ng-container *ngIf="campoVisible('origenDepartamento')"><span class="req-num" *ngIf="campoRequerido('origenDepartamento')">*</span> Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
+                <ng-container *ngIf="campoVisible('origenMunicipio')"><span class="req-num" *ngIf="campoRequerido('origenMunicipio')">*</span> Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
+                <ng-container *ngIf="campoVisible('origenLocalidad')"><span class="req-num" *ngIf="campoRequerido('origenLocalidad')">*</span> Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
+                <ng-container *ngIf="campoVisible('origenBarrio')"><span class="req-num" *ngIf="campoRequerido('origenBarrio')">*</span> Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio"></ng-container>
               </div>
-              <ng-container *ngIf="campoVisible('origenDireccion')">Dirección <input type="text" class="full" [(ngModel)]="form.origenDireccion" autocomplete="off"></ng-container>
+              <ng-container *ngIf="campoVisible('origenDireccion')"><span class="req-num" *ngIf="campoRequerido('origenDireccion')">*</span> Dirección <input type="text" class="full" [(ngModel)]="form.origenDireccion" autocomplete="off"></ng-container>
             </td>
           </tr>
           <tr *ngIf="algunoVisible('destino1Reps', 'destinoDepartamento', 'destinoMunicipio', 'destinoLocalidad', 'destinoBarrio', 'destinoDireccion')">
-            <th><span class="req-num" *ngIf="campoRequerido('destino1Reps')">*</span> Lugar de destino:</th>
+            <th><span class="req-num" *ngIf="algunoRequerido('destino1Reps', 'destinoDepartamento', 'destinoMunicipio', 'destinoLocalidad', 'destinoBarrio', 'destinoDireccion')">*</span> Lugar de destino:</th>
             <td colspan="5">
               <div class="ob-row">
-                <ng-container *ngIf="campoVisible('destino1Reps')">Código REPS <input type="text" class="short" [(ngModel)]="form.destino1Reps"></ng-container>
-                <ng-container *ngIf="campoVisible('destinoDepartamento')">Departamento <input type="text" class="short" [(ngModel)]="form.destinoDepartamento"></ng-container>
-                <ng-container *ngIf="campoVisible('destinoMunicipio')">Municipio <input type="text" class="short" [(ngModel)]="form.destinoMunicipio"></ng-container>
-                <ng-container *ngIf="campoVisible('destinoLocalidad')">Localidad <input type="text" class="short" [(ngModel)]="form.destinoLocalidad"></ng-container>
-                <ng-container *ngIf="campoVisible('destinoBarrio')">Barrio <input type="text" class="short" [(ngModel)]="form.destinoBarrio"></ng-container>
+                <ng-container *ngIf="campoVisible('destino1Reps')">
+                  <span class="req-num" *ngIf="campoRequerido('destino1Reps')">*</span>
+                  Código REPS
+                  <p-dropdown
+                    *ngIf="tieneOpciones('destino1Reps')"
+                    [options]="opcionesCampo('destino1Reps')"
+                    optionValue="codigo"
+                    [(ngModel)]="form.destino1Reps"
+                    [disabled]="esConfirmado"
+                    [filter]="true"
+                    filterBy="codigo,descripcion"
+                    placeholder="Seleccione"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd catalogo-dd-short"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                    <ng-template let-sel pTemplate="selectedItem">
+                      {{ codigoOpcion(sel) }}
+                    </ng-template>
+                    <ng-template let-opt pTemplate="item">
+                      {{ opt.codigo }} — {{ opt.descripcion }}
+                    </ng-template>
+                  </p-dropdown>
+                  <input *ngIf="!tieneOpciones('destino1Reps')" type="text" class="short" [(ngModel)]="form.destino1Reps">
+                </ng-container>
+                <ng-container *ngIf="campoVisible('destinoDepartamento')"><span class="req-num" *ngIf="campoRequerido('destinoDepartamento')">*</span> Departamento <input type="text" class="short" [(ngModel)]="form.destinoDepartamento"></ng-container>
+                <ng-container *ngIf="campoVisible('destinoMunicipio')"><span class="req-num" *ngIf="campoRequerido('destinoMunicipio')">*</span> Municipio <input type="text" class="short" [(ngModel)]="form.destinoMunicipio"></ng-container>
+                <ng-container *ngIf="campoVisible('destinoLocalidad')"><span class="req-num" *ngIf="campoRequerido('destinoLocalidad')">*</span> Localidad <input type="text" class="short" [(ngModel)]="form.destinoLocalidad"></ng-container>
+                <ng-container *ngIf="campoVisible('destinoBarrio')"><span class="req-num" *ngIf="campoRequerido('destinoBarrio')">*</span> Barrio <input type="text" class="short" [(ngModel)]="form.destinoBarrio"></ng-container>
               </div>
-              <ng-container *ngIf="campoVisible('destinoDireccion')">Dirección <input type="text" class="full" [(ngModel)]="form.destinoDireccion" autocomplete="off"></ng-container>
+              <ng-container *ngIf="campoVisible('destinoDireccion')"><span class="req-num" *ngIf="campoRequerido('destinoDireccion')">*</span> Dirección <input type="text" class="full" [(ngModel)]="form.destinoDireccion" autocomplete="off"></ng-container>
             </td>
           </tr>
           <tr *ngIf="algunoVisible('estadoFinal', 'trasladoRedondo', 'horasEspera')">
@@ -804,6 +1089,7 @@
                   <label class="chk"><input type="radio" name="redondoSec" [(ngModel)]="form.trasladoRedondo" value="no"> No</label>
                 </ng-container>
                 <ng-container *ngIf="campoVisible('horasEspera')">
+                  <span class="req-num" *ngIf="campoRequerido('horasEspera')">*</span>
                   {{ campoLabel('horasEspera', 'Horas de espera') }}
                   <input type="text" class="tiny" [(ngModel)]="form.horasEspera">
                 </ng-container>
@@ -871,30 +1157,57 @@
         <table class="grid-table headers-plain firmas-table">
           <tbody>
             <tr class="rol-row">
-              <th *ngIf="algunoVisible('medico1.nombre', 'medico1.tipoDocumento', 'medico1.documento')">Médico</th>
-              <th *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">Auxiliar de Enfermería</th>
-              <th *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">Comandante / Conductor</th>
+              <th *ngIf="algunoVisible('medico1.nombre', 'medico1.tipoDocumento', 'medico1.documento')">
+                <span class="req-num" *ngIf="campoRequerido('medico1.nombre')">*</span> Médico
+              </th>
+              <th *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">
+                <span class="req-num" *ngIf="campoRequerido('auxiliar1.nombre')">*</span> Auxiliar de Enfermería
+              </th>
+              <th *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">
+                <span class="req-num" *ngIf="campoRequerido('comandante1.nombre')">*</span> Comandante / Conductor
+              </th>
             </tr>
             <tr>
               <td *ngIf="algunoVisible('medico1.nombre', 'medico1.tipoDocumento', 'medico1.documento')">
                 <input *ngIf="campoVisible('medico1.nombre')" type="text" class="full" [placeholder]="campoLabel('medico1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.medico1.nombre">
-                <div class="doc-line" *ngIf="algunoVisible('medico1.tipoDocumento', 'medico1.documento')">
-                  <ng-container *ngIf="campoVisible('medico1.tipoDocumento')">Tipo <input type="text" class="tiny" [(ngModel)]="form.medico1.tipoDocumento" placeholder="CC"></ng-container>
-                  <ng-container *ngIf="campoVisible('medico1.documento')">N° <input type="text" [(ngModel)]="form.medico1.documento"></ng-container>
+                <div class="trip-doc" *ngIf="algunoVisible('medico1.tipoDocumento', 'medico1.documento')">
+                  <div class="trip-doc-tipo" *ngIf="campoVisible('medico1.tipoDocumento')">
+                    <span><span class="req-num" *ngIf="campoRequerido('medico1.tipoDocumento')">*</span> Tipo de documento:</span>
+                    <label class="chk"><input type="radio" name="tipoDocMedicoSec" [(ngModel)]="form.medico1.tipoDocumento" value="cc"> CC</label>
+                    <label class="chk"><input type="radio" name="tipoDocMedicoSec" [(ngModel)]="form.medico1.tipoDocumento" value="ce"> CE</label>
+                    <label class="chk"><input type="radio" name="tipoDocMedicoSec" [(ngModel)]="form.medico1.tipoDocumento" value="otro"> Otro</label>
+                  </div>
+                  <div class="doc-line" *ngIf="campoVisible('medico1.documento')">
+                    <span class="req-num" *ngIf="campoRequerido('medico1.documento')">*</span> N° <input type="text" [(ngModel)]="form.medico1.documento">
+                  </div>
                 </div>
               </td>
               <td *ngIf="algunoVisible('auxiliar1.nombre', 'auxiliar1.tipoDocumento', 'auxiliar1.documento')">
-                <input *ngIf="campoVisible('auxiliar1.nombre')" type="text" class="full" [placeholder]="campoLabel('auxiliar1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.auxiliar1.nombre">
-                <div class="doc-line" *ngIf="algunoVisible('auxiliar1.tipoDocumento', 'auxiliar1.documento')">
-                  <ng-container *ngIf="campoVisible('auxiliar1.tipoDocumento')">Tipo <input type="text" class="tiny" [(ngModel)]="form.auxiliar1.tipoDocumento" placeholder="CC"></ng-container>
-                  <ng-container *ngIf="campoVisible('auxiliar1.documento')">N° <input type="text" [(ngModel)]="form.auxiliar1.documento"></ng-container>
+                <input *ngIf="campoVisible('auxiliar1.nombre')" type="text" class="full" [placeholder]="campoLabel('auxiliar1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.auxiliar1.nombre" [disabled]="auxiliarCampoBloqueado()">
+                <div class="trip-doc" *ngIf="algunoVisible('auxiliar1.tipoDocumento', 'auxiliar1.documento')">
+                  <div class="trip-doc-tipo" *ngIf="campoVisible('auxiliar1.tipoDocumento')">
+                    <span><span class="req-num" *ngIf="campoRequerido('auxiliar1.tipoDocumento')">*</span> Tipo de documento:</span>
+                    <label class="chk"><input type="radio" name="tipoDocAuxiliarSec" [(ngModel)]="form.auxiliar1.tipoDocumento" value="cc" [disabled]="auxiliarCampoBloqueado()"> CC</label>
+                    <label class="chk"><input type="radio" name="tipoDocAuxiliarSec" [(ngModel)]="form.auxiliar1.tipoDocumento" value="ce" [disabled]="auxiliarCampoBloqueado()"> CE</label>
+                    <label class="chk"><input type="radio" name="tipoDocAuxiliarSec" [(ngModel)]="form.auxiliar1.tipoDocumento" value="otro" [disabled]="auxiliarCampoBloqueado()"> Otro</label>
+                  </div>
+                  <div class="doc-line" *ngIf="campoVisible('auxiliar1.documento')">
+                    <span class="req-num" *ngIf="campoRequerido('auxiliar1.documento')">*</span> N° <input type="text" [(ngModel)]="form.auxiliar1.documento" [disabled]="auxiliarCampoBloqueado()">
+                  </div>
                 </div>
               </td>
               <td *ngIf="algunoVisible('comandante1.nombre', 'comandante1.tipoDocumento', 'comandante1.documento')">
                 <input *ngIf="campoVisible('comandante1.nombre')" type="text" class="full" [placeholder]="campoLabel('comandante1.nombre', 'Nombres y apellidos')" [(ngModel)]="form.comandante1.nombre">
-                <div class="doc-line" *ngIf="algunoVisible('comandante1.tipoDocumento', 'comandante1.documento')">
-                  <ng-container *ngIf="campoVisible('comandante1.tipoDocumento')">Tipo <input type="text" class="tiny" [(ngModel)]="form.comandante1.tipoDocumento" placeholder="CC"></ng-container>
-                  <ng-container *ngIf="campoVisible('comandante1.documento')">N° <input type="text" [(ngModel)]="form.comandante1.documento"></ng-container>
+                <div class="trip-doc" *ngIf="algunoVisible('comandante1.tipoDocumento', 'comandante1.documento')">
+                  <div class="trip-doc-tipo" *ngIf="campoVisible('comandante1.tipoDocumento')">
+                    <span><span class="req-num" *ngIf="campoRequerido('comandante1.tipoDocumento')">*</span> Tipo de documento:</span>
+                    <label class="chk"><input type="radio" name="tipoDocComandanteSec" [(ngModel)]="form.comandante1.tipoDocumento" value="cc"> CC</label>
+                    <label class="chk"><input type="radio" name="tipoDocComandanteSec" [(ngModel)]="form.comandante1.tipoDocumento" value="ce"> CE</label>
+                    <label class="chk"><input type="radio" name="tipoDocComandanteSec" [(ngModel)]="form.comandante1.tipoDocumento" value="otro"> Otro</label>
+                  </div>
+                  <div class="doc-line" *ngIf="campoVisible('comandante1.documento')">
+                    <span class="req-num" *ngIf="campoRequerido('comandante1.documento')">*</span> N° <input type="text" [(ngModel)]="form.comandante1.documento">
+                  </div>
                 </div>
               </td>
             </tr>
@@ -908,22 +1221,34 @@
           <tr *ngIf="campoVisible('profesionalDestino1')">
             <th><span class="req-num" *ngIf="campoRequerido('profesionalDestino1')">*</span> {{ campoLabel('profesionalDestino1', 'Nombres y apellidos') }}:</th>
             <td colspan="3">
-              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1" autocomplete="off">
+              <input type="text" class="full" [(ngModel)]="form.profesionalDestino1" autocomplete="off" [disabled]="profesionalCampoBloqueado('profesionalDestino1')">
             </td>
           </tr>
           <tr *ngIf="algunoVisible('profesionalRecibeTipoId', 'profesionalDestino1Cc')">
             <ng-container *ngIf="campoVisible('profesionalRecibeTipoId')">
               <th><span class="req-num" *ngIf="campoRequerido('profesionalRecibeTipoId')">*</span> {{ campoLabel('profesionalRecibeTipoId', 'Tipo de documento') }}:</th>
               <td>
-                <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="cc"> CC</label>
-                <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="ce"> CE</label>
-                <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="otro"> Otro</label>
+                <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="cc" [disabled]="profesionalCampoBloqueado('profesionalRecibeTipoId')"> CC</label>
+                <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="ce" [disabled]="profesionalCampoBloqueado('profesionalRecibeTipoId')"> CE</label>
+                <label class="chk"><input type="radio" name="recibeTipoIdSec" [(ngModel)]="form.profesionalRecibeTipoId" value="otro" [disabled]="profesionalCampoBloqueado('profesionalRecibeTipoId')"> Otro</label>
               </td>
             </ng-container>
             <ng-container *ngIf="campoVisible('profesionalDestino1Cc')">
               <th><span class="req-num" *ngIf="campoRequerido('profesionalDestino1Cc')">*</span> {{ campoLabel('profesionalDestino1Cc', 'Número') }}:</th>
               <td>
-                <input type="text" class="full" [(ngModel)]="form.profesionalDestino1Cc" autocomplete="off">
+                <div class="doc-lookup">
+                  <input
+                    type="text"
+                    class="full"
+                    [(ngModel)]="form.profesionalDestino1Cc"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    enterkeyhint="search"
+                    [disabled]="profesionalCampoBloqueado('profesionalDestino1Cc')"
+                    (blur)="buscarProfesionalFabric()"
+                    (keydown.enter)="$event.preventDefault(); buscarProfesionalFabric()">
+                  <i *ngIf="isBuscandoProfesional" class="pi pi-spin pi-spinner doc-lookup-spin" aria-hidden="true"></i>
+                </div>
               </td>
             </ng-container>
           </tr>
@@ -1344,7 +1669,7 @@
             <th>Causa de la atención:</th>
             <td colspan="5">
               <label class="chk" *ngFor="let c of causasAtencion">
-                <input type="checkbox" [checked]="estaEnLista(form.causaAtencion, c)" (change)="toggleLista(form.causaAtencion, c)">
+                <input type="radio" name="causaAtencionCompleto" [checked]="estaEnLista(form.causaAtencion, c)" (change)="seleccionarCausa(c)">
                 {{ c }}
               </label>
               <input type="text" class="short" [(ngModel)]="form.causaAtencionOtra" placeholder="Otra" autocomplete="off">
@@ -1616,8 +1941,34 @@
           </thead>
           <tbody>
             <tr *ngFor="let med of form.medicamentos">
-              <td class="col-cum"><input type="text" class="full" [(ngModel)]="med.codigoCumIum"></td>
-              <td><input type="text" class="full" [(ngModel)]="med.nombre"></td>
+              <td class="col-cum">
+                <p-dropdown
+                  *ngIf="tieneOpciones('medicamentos')"
+                  [options]="opcionesCampo('medicamentos')"
+                  optionValue="codigo"
+                  [ngModel]="med.codigoCumIum"
+                  (ngModelChange)="aplicarOpcionMedicamento(med, $event)"
+                  [disabled]="esConfirmado"
+                  [filter]="true"
+                  filterBy="codigo,descripcion"
+                  placeholder="Seleccione"
+                  appendTo="body"
+                  [showClear]="true"
+                  styleClass="full catalogo-dd"
+                  panelStyleClass="catalogo-dd-panel">
+                  <ng-template pTemplate="filtericon"></ng-template>
+                  <ng-template let-sel pTemplate="selectedItem">
+                    {{ codigoOpcion(sel) }}
+                  </ng-template>
+                  <ng-template let-opt pTemplate="item">
+                    {{ opt.codigo }} — {{ opt.descripcion }}
+                  </ng-template>
+                </p-dropdown>
+                <input *ngIf="!tieneOpciones('medicamentos')" type="text" class="full" [(ngModel)]="med.codigoCumIum">
+              </td>
+              <td>
+                <input type="text" class="full" [(ngModel)]="med.nombre" [readonly]="tieneOpciones('medicamentos')">
+              </td>
             </tr>
           </tbody>
         </table>
