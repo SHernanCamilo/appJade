@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject } from '@angular/core';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -171,6 +171,9 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
   /** Tipos de inventario activos para el dropdown requerido. */
   tiposInventario: TipoInventario[] = [];
   tiposInventarioOpciones: Array<{ label: string; value: number }> = [];
+
+  /** Id del tipo "Inventario Aleatorio" — se preselecciona por defecto en la toma. */
+  private tipoInventarioAleatorioId: number | null = null;
 
   /** Localizaciones desde DetalleActivos (Indigo) — para autocomplete (permite valor libre). */
   localizacionesSugerencias: string[] = [];
@@ -357,7 +360,12 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
   seleccionar(activo: ActivoFijo): void {
     this.activo = activo;
     this.resultados = [];
-    this.formulario = { ...FORMULARIO_VACIO };
+    // Tipo de inventario por defecto: "Inventario Aleatorio" (si está disponible).
+    // Así el botón de guardar queda habilitado sin pasos extra.
+    this.formulario = {
+      ...FORMULARIO_VACIO,
+      tipo_inventario_id: this.tipoInventarioAleatorioId
+    };
     this.alertaPeriodicidad = null;
     this.validacionPeriodicidad = null;
 
@@ -436,6 +444,40 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
   get tipoInventarioSeleccionado(): TipoInventario | null {
     if (!this.formulario.tipo_inventario_id) return null;
     return this.tiposInventario.find(t => t.id === this.formulario.tipo_inventario_id) ?? null;
+  }
+
+  /**
+   * Enter global para guardar la toma (además del clic en el botón).
+   *
+   * Reglas para no interferir con la escritura:
+   *  - Solo aplica en el tab "Registrar toma" con un activo seleccionado y
+   *    cuando `puedeRegistrar` es true.
+   *  - Se ignora si el foco está en el <textarea> de observación (ahí Enter
+   *    debe crear una nueva línea).
+   *  - Se ignora si hay un panel de autocomplete/dropdown abierto (el Enter
+   *    debe usarse para elegir la sugerencia, no para guardar).
+   *  - Se ignora si el evento trae Shift/Ctrl/Alt (combinaciones).
+   */
+  @HostListener('document:keydown.enter', ['$event'])
+  onEnterGuardar(evento: KeyboardEvent): void {
+    if (this.tabActiva !== TAB_REGISTRAR) return;
+    if (!this.activo || !this.puedeRegistrar) return;
+    if (evento.shiftKey || evento.ctrlKey || evento.altKey || evento.metaKey) return;
+
+    const objetivo = evento.target as HTMLElement | null;
+
+    // No interferir con la observación (multilínea).
+    if (objetivo && objetivo.tagName === 'TEXTAREA') return;
+
+    // No guardar si hay un overlay de autocomplete/dropdown abierto: en ese
+    // caso el Enter sirve para seleccionar la opción resaltada.
+    const hayOverlayAbierto = document.querySelector(
+      '.p-autocomplete-panel, .p-dropdown-panel, .p-overlay-content'
+    );
+    if (hayOverlayAbierto) return;
+
+    evento.preventDefault();
+    this.registrar();
   }
 
   registrar(): void {
@@ -553,6 +595,19 @@ export class ControlActivoComponent implements OnInit, OnDestroy {
           label: `${t.nombre} (${t.periodicidad_nombre})`,
           value: t.id
         }));
+
+        // Detectar el tipo "Inventario Aleatorio" (por nombre) para
+        // preseleccionarlo por defecto al iniciar una toma.
+        const aleatorio = this.tiposInventario.find(t =>
+          (t.nombre ?? '').toLowerCase().includes('aleatorio')
+        );
+        this.tipoInventarioAleatorioId = aleatorio?.id ?? null;
+
+        // Si ya hay un activo seleccionado sin tipo, aplicarlo ahora.
+        if (this.activo && !this.formulario.tipo_inventario_id && this.tipoInventarioAleatorioId) {
+          this.formulario.tipo_inventario_id = this.tipoInventarioAleatorioId;
+          this.onTipoInventarioChange();
+        }
       },
       error: () => {
         this.estadosFisicos = ['En buen estado', 'Para Reparacion', 'Dar de baja'];
