@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
@@ -37,6 +37,9 @@ interface ParquetStatus {
   status?: string;
   age_hours?: number;
   age_minutes?: number;
+  last_generated?: string | null;
+  /** Hora en que se escribió el archivo de parquet_cache. No es R2. */
+  local_generated?: string | null;
   size_mb?: number;
   row_count?: number;
   avg_generation_s?: number;
@@ -138,6 +141,8 @@ interface RefreshJob {
   styleUrl: './cronParquet.component.css',
 })
 export class CronParquetComponent implements OnInit, OnDestroy {
+  @ViewChild('parquetTable') private parquetTable?: Table;
+
   private readonly http = inject(HttpClient);
   private readonly msg  = inject(MessageService);
   private readonly confirm = inject(ConfirmationService);
@@ -150,7 +155,8 @@ export class CronParquetComponent implements OnInit, OnDestroy {
    * el backend.
    */
   private readonly monitorUrl = `${environment.URL_SERVICIOS}/fabric/viewer/parquet-monitor`;
-
+  /** Reloj local para que la cuenta regresiva avance sin esperar el refresh. */
+  readonly nowLocal    = signal(Date.now());
   readonly configs     = signal<ParquetConfig[]>([]);
   readonly statuses    = signal<ParquetStatus[]>([]);
   readonly dashboard   = signal<DashboardData | null>(null);
@@ -194,25 +200,25 @@ export class CronParquetComponent implements OnInit, OnDestroy {
 
   private autoTimer: ReturnType<typeof setInterval> | null = null;
 
-  // Busqueda / filtro
+  // Busqueda / filtro. Por defecto los problemas quedan arriba para monitorear.
   searchTerm = '';
   statusFilter = signal<string>('all');
+  readonly problemsFirst = signal(true);
 
   // Chart data (donut de estados)
   readonly statusChartData = computed(() => {
-    const d = this.dashboard();
-    const by = d?.stats?.by_status ?? {};
-    const labels = Object.keys(by);
-    const data = Object.values(by);
-    const colorMap: Record<string, string> = {
-      ok: '#22c55e', stale: '#ef4444', pending: '#f59e0b',
-      generating: '#3b82f6', error: '#dc2626', missing: '#9ca3af',
-    };
+    const slices: Array<{ label: string; value: number; color: string }> = [
+      { label: 'ok', value: this.kpiOk(), color: '#22c55e' },
+      { label: 'stale', value: this.kpiStale(), color: '#ef4444' },
+      { label: 'pending', value: this.kpiPending(), color: '#f59e0b' },
+      { label: 'generating', value: this.kpiGenerating(), color: '#3b82f6' },
+      { label: 'error', value: this.kpiError(), color: '#dc2626' },
+    ].filter(s => s.value > 0);
     return {
-      labels,
+      labels: slices.map(s => s.label),
       datasets: [{
-        data,
-        backgroundColor: labels.map(l => colorMap[l] ?? '#c084fc'),
+        data: slices.map(s => s.value),
+        backgroundColor: slices.map(s => s.color),
         borderWidth: 0,
       }],
     };
@@ -227,15 +233,34 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     maintainAspectRatio: false,
   };
 
-  // KPIs derivados
+  // KPIs derivados del mismo estado que pinta la tabla (/parquet-config/status).
+  // El resumen del scheduler (dashboard.stats.by_status) usa otra fuente y puede
+  // llegar vacio: por eso las tarjetas se quedaban en 0 con filas en "ok".
   readonly kpiTotal    = computed(() => this.dashboard()?.stats?.total_active ?? this.configs().length);
-  readonly kpiOk       = computed(() => this.dashboard()?.stats?.by_status?.['ok'] ?? 0);
-  readonly kpiStale    = computed(() => this.dashboard()?.stats?.by_status?.['stale'] ?? 0);
-  readonly kpiPending  = computed(() => this.dashboard()?.stats?.by_status?.['pending'] ?? 0);
-  readonly kpiError    = computed(() => this.dashboard()?.stats?.by_status?.['error'] ?? 0);
-  readonly kpiGenerating = computed(() => this.dashboard()?.stats?.by_status?.['generating'] ?? 0);
+  readonly kpiOk       = computed(() => this.countWhere(st => (st?.status ?? '').toLowerCase() === 'ok' && !this.isStale(st)));
+  readonly kpiStale    = computed(() => this.countWhere(st => this.isStale(st)));
+  readonly kpiPending  = computed(() => this.countWhere(st => this.isPending(st) && !this.isGenerating(st) && !this.isError(st)));
+  readonly kpiError    = computed(() => this.countWhere(st => this.isError(st)));
+  readonly kpiGenerating = computed(() => this.countWhere(st => this.isGenerating(st)));
   readonly kpiEfficiency = computed(() => this.dashboard()?.stats?.efficiency_pct ?? 0);
   readonly kpiDue      = computed(() => this.dashboard()?.due_count ?? 0);
+
+  /** Barra de salud: un solo vistazo de cuánto está al día frente a lo que hay que atender. */
+  readonly monitorBar = computed(() => {
+    const parts = [
+      { key: 'ok', label: 'Frescas', n: this.kpiOk(), color: '#16a34a' },
+      { key: 'stale', label: 'Desactualizadas', n: this.kpiStale(), color: '#dc2626' },
+      { key: 'pending', label: 'En cola', n: this.kpiPending(), color: '#d97706' },
+      { key: 'generating', label: 'Generando', n: this.kpiGenerating(), color: '#2563eb' },
+      { key: 'error', label: 'Con error', n: this.kpiError(), color: '#991b1b' },
+    ];
+    const sum = parts.reduce((acc, p) => acc + p.n, 0) || 1;
+    const total = this.configs().length || this.kpiTotal() || 1;
+    return {
+      freshPct: Math.round((this.kpiOk() / total) * 100),
+      parts: parts.filter(p => p.n > 0).map(p => ({ ...p, pct: (p.n / sum) * 100 })),
+    };
+  });
 
   readonly lanesList = computed<Array<{ key: LaneKey; label: string; total: number; stale: number; pct: number }>>(() => {
     const d = this.dashboard();
@@ -297,7 +322,6 @@ export class CronParquetComponent implements OnInit, OnDestroy {
       }).sort((a, b) => b.elapsedS - a.elapsedS);
     }
 
-    // Respaldo: deducirlo de /status con el rastreo local.
     return this.statuses()
       .filter(v => this.isGenerating(v))
       .map(v => {
@@ -357,8 +381,12 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadDashboard();
     this.loadLive();
 
-    // Reloj de 1s: recalcula el tiempo transcurrido del panel "En proceso".
-    this.clockTimer = setInterval(() => this.nowTick.set(Date.now()), 1000);
+    // Reloj de 1s: recalcula "En proceso" y el "hace X min" de parquet_cache.
+    this.clockTimer = setInterval(() => {
+      const t = Date.now();
+      this.nowTick.set(t);
+      this.nowLocal.set(t);
+    }, 1000);
   }
 
   ngOnDestroy(): void {
@@ -503,11 +531,89 @@ export class CronParquetComponent implements OnInit, OnDestroy {
       );
     }
 
+    const userSort = this.parquetTable?.sortField;
+    if (!userSort) {
+      const problems = this.problemsFirst();
+      list = [...list].sort((a, b) => {
+        if (problems) {
+          const diff = this.watchRank(a) - this.watchRank(b);
+          if (diff !== 0) return diff;
+        }
+        return a.schema_name.localeCompare(b.schema_name) || a.view_name.localeCompare(b.view_name);
+      });
+    }
+
     return list;
   }
 
   setStatusFilter(status: string): void {
     this.statusFilter.set(this.statusFilter() === status ? 'all' : status);
+  }
+
+  private ignoreSort = false;
+
+  /** Vuelve a dejar errores, generaciones y desactualizadas al inicio de la tabla. */
+  showProblemsFirst(): void {
+    this.ignoreSort = true;
+    if (this.parquetTable) {
+      this.parquetTable.sortField = null;
+      this.parquetTable.sortOrder = 1;
+      this.parquetTable.first = 0;
+    }
+    this.problemsFirst.set(true);
+    this.ignoreSort = false;
+  }
+
+  onUserSort(event: { field?: string | null }): void {
+    if (this.ignoreSort) return;
+    if (event?.field) this.problemsFirst.set(false);
+  }
+
+  shareOf(count: number): number {
+    const total = this.configs().length || this.kpiTotal();
+    if (!total) return 0;
+    return Math.round((count / total) * 100);
+  }
+
+  /** 0 = lo más urgente de atender. */
+  private watchRank(config: ParquetConfig): number {
+    const st = this.getStatusForView(config.schema_name, config.view_name);
+    if (this.isError(st)) return 0;
+    if (this.isGenerating(st)) return 1;
+    if (this.isStale(st)) return 2;
+    if (this.isPending(st)) return 3;
+    if ((st?.status ?? '').toLowerCase() === 'ok') return 5;
+    return 4;
+  }
+
+  rowTone(config: ParquetConfig): string {
+    const st = this.getStatusForView(config.schema_name, config.view_name);
+    if (this.isError(st)) return 'cp-row--error';
+    if (this.isGenerating(st)) return 'cp-row--generating';
+    if (this.isStale(st)) return 'cp-row--stale';
+    if ((st?.status ?? '').toLowerCase() === 'ok') return 'cp-row--ok';
+    return 'cp-row--pending';
+  }
+
+  /** Color de "hace X min" según el intervalo configurado de esa vista. */
+  localGeneratedTone(config: ParquetConfig): 'fresh' | 'aging' | 'old' | 'none' {
+    this.nowLocal();
+    const iso = this.getStatusForView(config.schema_name, config.view_name)?.local_generated;
+    if (!iso) return 'none';
+    const generated = new Date(iso).getTime();
+    if (!Number.isFinite(generated)) return 'none';
+    const mins = Math.max(0, (this.nowLocal() - generated) / 60000);
+    const interval = Math.max(1, config.refresh_interval_min || 60);
+    if (mins <= interval) return 'fresh';
+    if (mins <= interval * 2) return 'aging';
+    return 'old';
+  }
+
+  /** Cuenta las configs con el mismo estado que muestra la columna de la tabla. */
+  private countWhere(pred: (st?: ParquetStatus) => boolean): number {
+    return this.configs().filter(c =>
+      pred(this.getStatusForView(c.schema_name, c.view_name))
+    ).length;
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
@@ -654,6 +760,22 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     });
   }
 
+
+  /** Hace cuánto se escribió el parquet de parquet_cache. */
+  localGeneratedLabel(config: ParquetConfig): string {
+    const ahora = this.nowLocal();
+    const iso = this.getStatusForView(config.schema_name, config.view_name)?.local_generated;
+    if (!iso) return 'Sin archivo';
+    const generated = new Date(iso).getTime();
+    if (!Number.isFinite(generated)) return 'Sin archivo';
+    const mins = Math.max(0, Math.floor((ahora - generated) / 60000));
+    if (mins < 1) return 'hace <1 min';
+    if (mins < 60) return `hace ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `hace ${hours}h ${mins % 60}min`;
+    return `hace ${Math.floor(hours / 24)}d ${hours % 24}h`;
+  }
+  
   // ─── Rebalanceo inteligente ─────────────────────────────────────────────
 
   rebalance(): void {

@@ -463,6 +463,9 @@ export class ViewVistasRefreshComponent implements OnInit, OnDestroy {
 
   private readonly baseUrl = `${environment.URL_SERVICIOS}/fabric/viewer`;
 
+  /** Fecha/hora en que se escribió el parquet de la vista activa. */
+  readonly parquetGeneratedAt = signal<string | null>(null);
+
   /** Maximo de VISTAS de datos cargadas a la vez (las hojas de analisis no cuentan) */
   private static readonly MAX_LOADED_VIEWS = 5;
 
@@ -815,11 +818,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // Treasury). Leyendo de la hoja activa, encabezado y pestaña no se pueden
     // desincronizar.
     const active = this.sheets().find(s => s.active);
+    const stamp = this.formatParquetStamp(this.parquetGeneratedAt());
+    const parts = [
+      active?.schema || this.schema,
+      stamp ? `Actualizado ${stamp}` : '',
+      tr > 0 ? `${tr.toLocaleString('es-CO')} registros` : '',
+      af.length > 0 ? `${af.length} filtro(s)` : '',
+    ].filter(Boolean);
 
     return {
       title: {
         documentName: active?.label || this.vista?.nombre || this.viewName,
-        subtitle:     `${active?.schema || this.schema}  ${tr > 0 ? tr.toLocaleString('es-CO') + ' registros' : ''}${af.length > 0 ? `  ${af.length} filtro(s)` : ''}`,
+        subtitle:     parts.join('  ·  '),
         saveState:    p.status === 'processing' ? 'saving' : 'saved',
         secondaryActions: [
           { label: 'Cerrar', icon: 'pi pi-times', action: 'close' },
@@ -961,6 +971,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     // La carga inicial ocupa el turno de la cola: si el usuario abre otra vista
     // mientras esta llega, la segunda espera en vez de pedirle dos exports a Fabric.
     this.loadInFlight = true;
+
+    this.loadParquetStamp(this.schema, this.viewName);
 
     // Si tenemos un workbook guardado, restaurar su estado (hojas, filtros, zoom)
     // ANTES de cargar las vistas, asi abrimos directamente las que el usuario tenia.
@@ -1466,6 +1478,34 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     });
   }
 
+  /** Fecha/hora de creación del parquet de la vista (cache local o R2). */
+  private loadParquetStamp(schema: string, view: string): void {
+    if (!schema || !view) {
+      this.parquetGeneratedAt.set(null);
+      return;
+    }
+    this.http.get<{ success: boolean; generated_at?: string | null }>(
+      `${this.baseUrl}/r2/status`,
+      { params: { schema, view } },
+    ).subscribe({
+      next: res => this.parquetGeneratedAt.set(res.generated_at ?? null),
+      error: () => this.parquetGeneratedAt.set(null),
+    });
+  }
+
+  private formatParquetStamp(iso: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   private loadMeta(): void {
     this.vistasService.getVista(this.schema, this.viewName).subscribe({
       next: res => {
@@ -1828,11 +1868,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         r2_status: string;
         estimated_s?: number;
         row_count?: number;
+        generated_at?: string | null;
         message?: string;
       }>(`${this.baseUrl}/r2/status`, {
         params: { schema: this.schema, view: this.viewName },
       }).subscribe({
         next: res => {
+          if (res.generated_at) this.parquetGeneratedAt.set(res.generated_at);
           const status = res.r2_status;
           console.log('[R2Poll]', status, res.message);
 
@@ -5922,6 +5964,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
     // 3. Hidratar la grilla con la hoja nueva
     this.loadSheetData(sheetId);
+
+    const sheet = this.sheets().find(s => s.id === sheetId);
+    if (sheet && (sheet.kind ?? 'view') === 'view' && sheet.schema && sheet.viewName) {
+      this.loadParquetStamp(sheet.schema, sheet.viewName);
+    }
   }
 
   /**

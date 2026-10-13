@@ -156,4 +156,80 @@ export class TaskSchedulerService {
       minute: '2-digit'
     });
   }
+
+  /** Hora en que empezó la última ejecución. */
+  comenzo(task: ScheduledTask): string {
+    return this.formatDate(task.started_at);
+  }
+
+  /**
+   * Recurrente: próxima ejecución. Una sola vez: hora programada.
+   */
+  programada(task: ScheduledTask): string {
+    if (task.is_recurring) {
+      return this.formatDate(task.next_run_at);
+    }
+    return this.formatDate(task.scheduled_at);
+  }
+
+  programadaDetalle(task: ScheduledTask): string {
+    if (!task.is_recurring) {
+      return '';
+    }
+    return task.recurrence_type_label || 'Próxima';
+  }
+
+  /**
+   * Recurrente: duración de la última corrida. Una sola vez: lo que demoró.
+   * En curso todavía no hay duración cerrada.
+   */
+  duracion(task: ScheduledTask): string {
+    if (task.status === 'running' || task.run_state === 'running') {
+      return 'en curso';
+    }
+    return task.duration_formatted || '-';
+  }
+
+  estadoFila(task: ScheduledTask): string {
+    if (task.run_state === 'queued') {
+      return task.next_run_at ? `En cola hasta ${this.formatDate(task.next_run_at)}` : 'En cola';
+    }
+    if (task.run_state === 'running') {
+      return 'En curso';
+    }
+    if (task.run_state === 'paused') {
+      return 'Pausada';
+    }
+    if (task.run_state === 'failed') {
+      return 'Fallida';
+    }
+    if (task.run_state === 'due') {
+      return 'Vencida, no encolada';
+    }
+    if (task.run_state === 'unscheduled') {
+      return 'Sin encolar';
+    }
+    if (task.run_state === 'cancelled') {
+      return 'Cancelada';
+    }
+    if (task.run_state === 'pending') {
+      return 'Pendiente';
+    }
+    return task.status_label || 'Lista';
+  }
+
+  estadoSeverity(task: ScheduledTask): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
+      queued: 'info',
+      running: 'info',
+      paused: 'secondary',
+      failed: 'danger',
+      due: 'warn',
+      unscheduled: 'warn',
+      cancelled: 'secondary',
+      pending: 'warn',
+      done: 'success',
+    };
+    return map[task.run_state || ''] || 'secondary';
+  }
 }

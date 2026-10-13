@@ -102,16 +102,23 @@
 
       <div class="filter-block">
         <span class="filter-label">Entidad</span>
-        <p-dropdown
+        <p-multiSelect
           [options]="opcionesEntidad"
-          [(ngModel)]="entidadSeleccionada"
+          [(ngModel)]="entidadesSeleccionadas"
+          optionLabel="label"
+          optionValue="value"
           placeholder="Todas"
           [showClear]="true"
           [filter]="true"
           filterBy="label"
+          filterPlaceHolder="Buscar entidad"
           appendTo="body"
-          [style]="{ width: '100%' }">
-        </p-dropdown>
+          [maxSelectedLabels]="1"
+          selectedItemsLabel="{0} entidades"
+          [style]="{ width: '100%' }"
+          styleClass="entidad-multiselect"
+          [panelStyle]="{ minWidth: '16rem' }">
+        </p-multiSelect>
       </div>
 
       <button
@@ -248,7 +255,7 @@
             *ngFor="let entidad of panelEntidades"
             type="button"
             class="break-row"
-            [class.is-active]="entidadSeleccionada === entidad.nombre"
+            [class.is-active]="entidadActiva(entidad.nombre)"
             [title]="entidad.vencidos + ' vencidos'"
             (click)="filtrarEntidad(entidad.nombre)">
             <span class="break-bar" [style.width.%]="maxEntidad ? (entidad.total / maxEntidad) * 100 : 0"></span>

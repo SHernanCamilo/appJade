@@ -40,6 +40,15 @@
     </div>
   </div>
 
+  <div class="worker-banner worker-banner-off" *ngIf="stats?.worker && !stats?.worker?.online">
+    <i class="pi pi-exclamation-triangle"></i>
+    <span>{{ stats?.worker?.message }}</span>
+  </div>
+  <div class="worker-banner worker-banner-busy" *ngIf="stats?.worker?.online && stats?.worker?.busy">
+    <i class="pi pi-spin pi-spinner"></i>
+    <span>{{ stats?.worker?.message }}</span>
+  </div>
+
   <!-- Dashboard Content -->
   <div class="dashboard-content">
     
@@ -251,9 +260,10 @@
                 <th class="table-header-modern">Tarea</th>
                 <th class="table-header-modern">Tipo</th>
                 <th class="table-header-modern">Estado</th>
-                <th class="table-header-modern">Programada</th>
+                <th class="table-header-modern">Comenzó</th>
+                <th class="table-header-modern">Programada (Próxima)</th>
                 <th class="table-header-modern">Duración</th>
-                <th class="table-header-modern">Acciones</th>
+                <th class="table-header-modern">Acción</th>
               </tr>
             </ng-template>
 
@@ -273,22 +283,22 @@
                 </td>
                 <td class="table-cell-modern">
                   <p-tag 
-                    [value]="task.status_label" 
-                    [severity]="getStatusSeverity(task.status)"
+                    [value]="estadoFila(task)" 
+                    [severity]="estadoSeverity(task)"
                     [style]="{'font-size': '0.75rem'}">
                   </p-tag>
-                  <p-tag 
-                    value="Vencida" 
-                    severity="danger"
-                    [style]="{'font-size': '0.75rem', 'margin-left': '0.25rem'}"
-                    *ngIf="task.is_overdue">
-                  </p-tag>
                 </td>
                 <td class="table-cell-modern">
-                  <span class="task-date">{{ formatDate(task.scheduled_at) }}</span>
+                  <span class="task-date">{{ comenzo(task) }}</span>
                 </td>
                 <td class="table-cell-modern">
-                  <span class="task-duration">{{ task.duration_formatted || '-' }}</span>
+                  <div class="task-info">
+                    <span class="task-date">{{ programada(task) }}</span>
+                    <div class="task-id" *ngIf="programadaDetalle(task)">{{ programadaDetalle(task) }}</div>
+                  </div>
+                </td>
+                <td class="table-cell-modern">
+                  <span class="task-duration">{{ duracion(task) }}</span>
                 </td>
                 <td class="table-cell-modern">
                   <div class="action-buttons">
@@ -299,7 +309,27 @@
                       size="small"
                       severity="info"
                       pTooltip="Ver detalles"
-                      (onClick)="navigateToTask(task.id)">
+                      (onClick)="openDetail(task)">
+                    </p-button>
+                    <p-button 
+                      icon="pi pi-pencil"
+                      [text]="true" 
+                      [rounded]="true"
+                      size="small"
+                      severity="secondary"
+                      pTooltip="Editar"
+                      *ngIf="task.status !== 'running'"
+                      [routerLink]="['/organizacion/servicios/task-scheduler/edit', task.id]">
+                    </p-button>
+                    <p-button 
+                      [icon]="task.is_active ? 'pi pi-pause' : 'pi pi-play'"
+                      [text]="true" 
+                      [rounded]="true"
+                      size="small"
+                      [severity]="task.is_active ? 'secondary' : 'success'"
+                      [pTooltip]="task.is_active ? 'Pausar' : 'Reanudar'"
+                      *ngIf="task.is_recurring"
+                      (onClick)="toggleTask(task)">
                     </p-button>
                     <p-button 
                       icon="pi pi-play" 
@@ -328,7 +358,7 @@
 
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="6" class="text-center py-4">
+                <td colspan="7" class="text-center py-4">
                   <i class="pi pi-inbox text-muted" style="font-size: 3rem;"></i>
                   <p class="text-muted mt-2 mb-0">No hay tareas recientes</p>
                   <small class="text-muted">Las tareas aparecerán aquí cuando se creen</small>
@@ -338,6 +368,7 @@
 
             <ng-template pTemplate="loadingbody">
               <tr *ngFor="let i of [1,2,3,4,5]">
+                <td><p-skeleton></p-skeleton></td>
                 <td><p-skeleton></p-skeleton></td>
                 <td><p-skeleton></p-skeleton></td>
                 <td><p-skeleton></p-skeleton></td>
@@ -359,4 +390,53 @@
     <i class="pi pi-exclamation-triangle me-2"></i>
     {{ error }}
   </div>
+
+  <p-dialog
+    header="Detalle de la tarea"
+    [(visible)]="detailVisible"
+    [modal]="true"
+    [style]="{ width: '720px' }"
+    [draggable]="false">
+    <div *ngIf="detailLoading" class="py-3">
+      <p-skeleton height="2rem" styleClass="mb-2"></p-skeleton>
+      <p-skeleton height="6rem"></p-skeleton>
+    </div>
+    <div *ngIf="!detailLoading && selectedTask" class="task-detail">
+      <h3 class="task-name">{{ selectedTask.name }} <span class="task-id">#{{ selectedTask.id }}</span></h3>
+      <p class="task-id">{{ selectedTask.type_name }} · {{ selectedTask.recurrence_type_label || 'Una sola vez' }}</p>
+      <p><strong>Último resultado:</strong> {{ selectedTask.status_label }}</p>
+      <p><strong>Situación:</strong> {{ selectedTask.run_state_label || '-' }}</p>
+      <p><strong>Comenzó:</strong> {{ comenzo(selectedTask) }}</p>
+      <p><strong>Próxima:</strong> {{ programada(selectedTask) }}</p>
+      <p><strong>Duración:</strong> {{ duracion(selectedTask) }}</p>
+      <p *ngIf="selectedTask.error_message"><strong>Error:</strong> {{ selectedTask.error_message }}</p>
+      <p><strong>Parámetros</strong></p>
+      <pre class="task-detail-pre">{{ parametros(selectedTask) }}</pre>
+      <p *ngIf="selectedTask.result"><strong>Última salida</strong></p>
+      <pre class="task-detail-pre" *ngIf="selectedTask.result">{{ selectedTask.result }}</pre>
+      <p><strong>Últimas corridas</strong></p>
+      <table class="task-runs" *ngIf="selectedTask.runs?.length">
+        <thead>
+          <tr>
+            <th>Comenzó</th>
+            <th>Terminó</th>
+            <th>Duración</th>
+            <th>Resultado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let run of selectedTask.runs">
+            <td>{{ formatDate(run.started_at) }}</td>
+            <td>{{ formatDate(run.completed_at) }}</td>
+            <td>{{ run.duration_formatted || '-' }}</td>
+            <td>
+              {{ run.status_label }}
+              <div class="task-id" *ngIf="run.error_message">{{ run.error_message }}</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="task-id" *ngIf="!selectedTask.runs?.length">Todavía no hay corridas guardadas. Las siguientes quedan en este historial.</p>
+    </div>
+  </p-dialog>
 </div>

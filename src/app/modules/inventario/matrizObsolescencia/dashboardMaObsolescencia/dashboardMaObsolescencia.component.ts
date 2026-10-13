@@ -19,6 +19,7 @@ import { ExcelExportService, ExcelColumn, ExcelReportHeader } from '../../../../
 import { PdfExportService } from '../../../../core/services/pdf-export.service';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
+import { UnidadFuncionalService } from '../../../organizacion/empresa/services/unidad-funcional.service';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -114,16 +115,24 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   selectedEmpresa: number | null = null;
   selectedSucursal: number | null = null;
   selectedSede: number | null = null;
+  selectedUnidadFuncional: number | null = null;
   
   // Filter options
   empresasOptions: any[] = [];
   sucursalesOptions: any[] = [];
   sedesOptions: any[] = [];
+  unidadesFuncionalesOptions: any[] = [];
   
   // Data for filters
   empresasList: any[] = [];
   sucursalesList: any[] = [];
   sedesList: any[] = [];
+  unidadesFuncionalesList: any[] = [];
+  /** True cuando ya respondió la consulta de sedes de la sucursal actual. */
+  sedesConsultadas = false;
+
+  /** Nivel actual de la gráfica: empresa, sucursal, sede o unidad funcional. */
+  agrupacionGrafica: 'empresa' | 'sucursal' | 'sede' | 'unidad_funcional' = 'empresa';
   
   // Stats
   stats = {
@@ -166,6 +175,13 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     proveedor: '',
     max_ram: null as number | null
   };
+
+  // Ubicación: selector de unidades funcionales de la sede del equipo
+  cargandoUbicacionUnidad = false;
+  opcionesUbicacionUnidad: { label: string; value: string }[] = [];
+  mostrarModalNuevaUnidad = false;
+  guardandoNuevaUnidad = false;
+  nuevaUnidad = { codigo: '', nombre: '', estado: true };
 
   // Opciones para selects de campos editables
   tipoUnidadOptions = [
@@ -220,7 +236,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     private excelExportService: ExcelExportService,
     private pdfExportService: PdfExportService,
     public permissionService: PermissionService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private unidadFuncionalService: UnidadFuncionalService
   ) {
     this.initChartOptions();
     this.initBarChartOptions();
@@ -248,7 +265,39 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     if (this.selectedSede) {
       filtros.sede_id = this.selectedSede;
     }
+    if (this.selectedUnidadFuncional) {
+      filtros.unidad_funcional_id = this.selectedUnidadFuncional;
+    }
     return filtros;
+  }
+
+  /**
+   * La sucursal no tiene sede, o ya se eligió una: el siguiente nivel son las unidades funcionales.
+   */
+  get mostrarSede(): boolean {
+    return !this.selectedSucursal || !this.sedesConsultadas || this.sedesOptions.length > 0;
+  }
+
+  get mostrarUnidadFuncional(): boolean {
+    return !!this.selectedSucursal && this.sedesConsultadas && (this.sedesOptions.length === 0 || !!this.selectedSede);
+  }
+
+  get tituloGraficaUbicacion(): string {
+    if (this.agrupacionGrafica === 'unidad_funcional') {
+      return 'Gráfica por unidad funcional / concepto';
+    }
+    if (this.agrupacionGrafica === 'sede') {
+      return 'Gráfica por sede / concepto';
+    }
+    if (this.agrupacionGrafica === 'sucursal') {
+      return 'Gráfica por sucursal / concepto';
+    }
+    return 'Gráfica por empresa / concepto';
+  }
+
+  get alturaGraficaUbicacion(): string {
+    const filas = this.estadisticasPorUbicacion.length;
+    return String(Math.max(300, filas * 28));
   }
 
   /**
@@ -310,6 +359,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       this.stats.totalActivos = data?.total_activos || 0;
       this.estadisticasPorTipo = data?.estadisticas_por_tipo || [];
       this.estadisticasPorUbicacion = data?.estadisticas_por_ubicacion || [];
+      this.agrupacionGrafica = data?.agrupacion || 'empresa';
       this.updateChartData();
       this.updateBarChartData();
 
@@ -669,6 +719,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.selectedEmpresa = null;
     this.selectedSucursal = null;
     this.selectedSede = null;
+    this.selectedUnidadFuncional = null;
     this.currentPage = 1;
     this.loadActivos();
   }
@@ -812,6 +863,9 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     if (this.selectedSede) {
       filtros.sede_id = this.selectedSede;
     }
+    if (this.selectedUnidadFuncional) {
+      filtros.unidad_funcional_id = this.selectedUnidadFuncional;
+    }
     if (this.searchTermTodos) {
       filtros.search = this.searchTermTodos;
     }
@@ -843,6 +897,7 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     if (this.selectedEmpresa)   filtros.empresa_id   = this.selectedEmpresa;
     if (this.selectedSucursal)  filtros.sucursal_id  = this.selectedSucursal;
     if (this.selectedSede)      filtros.sede_id      = this.selectedSede;
+    if (this.selectedUnidadFuncional) filtros.unidad_funcional_id = this.selectedUnidadFuncional;
     if (this.searchTermTodos)   filtros.search       = this.searchTermTodos;
 
     this.activosService.getActivosPorPermisos(filtros).pipe(takeUntil(this.destroy$)).subscribe({
@@ -1079,9 +1134,149 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       proveedor: (activo.detalle as any)?.proveedor || '',
       max_ram: (activo.detalle as any)?.max_ram || null
     };
+
+    this.opcionesUbicacionUnidad = [];
+    this.cargarUnidadesParaUbicacion(activo);
     
     this.generarMatrizCompleta(activo);
     this.mostrarMatrizCompleta = true;
+  }
+
+  /**
+   * Unidades funcionales de la empresa, sucursal y sede del equipo.
+   * Con sede, solo las de esa sede. Sin sede, las de la sucursal que no tienen sede.
+   */
+  private cargarUnidadesParaUbicacion(activo: ActivoMatriz): void {
+    const activoId = activo.id;
+    const empresaId = Number(activo.id_empresa) > 0 ? Number(activo.id_empresa) : undefined;
+    const sucursalId = Number(activo.id_sucursal) > 0 ? Number(activo.id_sucursal) : undefined;
+    const sedeId = Number(activo.id_sede) > 0 ? Number(activo.id_sede) : undefined;
+
+    const ubicacionActual = String(activo.ubicacion || '').trim();
+    if (!empresaId || !sucursalId) {
+      this.cargandoUbicacionUnidad = false;
+      this.opcionesUbicacionUnidad = ubicacionActual
+        ? [{ label: ubicacionActual, value: ubicacionActual }]
+        : [];
+      return;
+    }
+
+    this.cargandoUbicacionUnidad = true;
+    this.activosService.getOpcionesFiltro('unidad_funcional', {
+      empresa_id: empresaId,
+      sucursal_id: sucursalId,
+      sede_id: sedeId
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        if (this.activoSeleccionado?.id !== activoId) {
+          return;
+        }
+        const lista = response.data || [];
+        const opciones = lista.map(item => ({
+          label: item.nombre,
+          value: item.nombre
+        }));
+        if (ubicacionActual) {
+          const coincidencia = opciones.find(
+            opcion => opcion.value.toUpperCase() === ubicacionActual.toUpperCase()
+          );
+          if (coincidencia) {
+            this.camposEditables.ubicacion = coincidencia.value;
+          } else {
+            opciones.unshift({ label: ubicacionActual, value: ubicacionActual });
+          }
+        }
+        this.opcionesUbicacionUnidad = opciones;
+        this.cargandoUbicacionUnidad = false;
+      },
+      error: (error) => {
+        console.error('Error cargando unidades funcionales para ubicación:', error);
+        this.opcionesUbicacionUnidad = ubicacionActual
+          ? [{ label: ubicacionActual, value: ubicacionActual }]
+          : [];
+        this.cargandoUbicacionUnidad = false;
+        this.showError('Error al cargar las unidades funcionales');
+      }
+    });
+  }
+
+  abrirModalNuevaUnidad(): void {
+    const activo = this.activoSeleccionado;
+    if (!activo || Number(activo.id_empresa) <= 0 || Number(activo.id_sucursal) <= 0) {
+      this.showWarn('El equipo necesita empresa y sucursal para crear la unidad funcional');
+      return;
+    }
+
+    this.nuevaUnidad = { codigo: '', nombre: '', estado: true };
+    this.mostrarModalNuevaUnidad = true;
+  }
+
+  cerrarModalNuevaUnidad(): void {
+    if (this.guardandoNuevaUnidad) {
+      return;
+    }
+    this.mostrarModalNuevaUnidad = false;
+  }
+
+  guardarNuevaUnidad(): void {
+    const activo = this.activoSeleccionado;
+    if (!activo) {
+      return;
+    }
+
+    const codigo = this.nuevaUnidad.codigo.trim().toUpperCase();
+    const nombre = this.nuevaUnidad.nombre.trim();
+    if (!codigo || nombre.length < 2) {
+      this.showWarn('Complete el código y un nombre de al menos 2 caracteres');
+      return;
+    }
+
+    this.guardandoNuevaUnidad = true;
+    this.unidadFuncionalService.createUnidadFuncional({
+      codigo,
+      nombre,
+      id_empresa: Number(activo.id_empresa),
+      id_sucursal: Number(activo.id_sucursal),
+      id_sede: Number(activo.id_sede) > 0 ? Number(activo.id_sede) : null,
+      estado: this.nuevaUnidad.estado ? 1 : 0
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (unidad) => {
+        const nombreCreado = (unidad?.nombre || nombre).trim();
+        const yaExiste = this.opcionesUbicacionUnidad.some(
+          opcion => opcion.value.toUpperCase() === nombreCreado.toUpperCase()
+        );
+        if (!yaExiste) {
+          this.opcionesUbicacionUnidad = [
+            ...this.opcionesUbicacionUnidad,
+            { label: nombreCreado, value: nombreCreado }
+          ];
+        }
+        this.camposEditables.ubicacion = nombreCreado;
+        this.guardandoNuevaUnidad = false;
+        this.mostrarModalNuevaUnidad = false;
+        this.showSuccess('Unidad funcional creada. Guarde la matriz para asignarla al equipo.');
+      },
+      error: (error) => {
+        this.guardandoNuevaUnidad = false;
+        const errores = error?.error?.errors
+          ? Object.values(error.error.errors).flat().join(' ')
+          : '';
+        this.showError(errores || error?.error?.message || 'Error al crear la unidad funcional');
+      }
+    });
+  }
+
+  get placeholderUbicacion(): string {
+    if (this.cargandoUbicacionUnidad) {
+      return 'Cargando unidades funcionales...';
+    }
+    if (!this.opcionesUbicacionUnidad.length) {
+      const tieneSede = Number(this.activoSeleccionado?.id_sede) > 0;
+      return tieneSede
+        ? 'No hay unidades funcionales en esta sede'
+        : 'No hay unidades funcionales en esta sucursal';
+    }
+    return 'Seleccione unidad funcional';
   }
 
   /**
@@ -1599,7 +1794,8 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
       tipo: tipo,
       empresa_id: this.selectedEmpresa,
       sucursal_id: this.selectedSucursal,
-      sede_id: this.selectedSede
+      sede_id: this.selectedSede,
+      unidad_funcional_id: this.selectedUnidadFuncional
     };
     this.currentPageModal = 1;
     this.cargarEquiposFiltrados();
@@ -1615,10 +1811,27 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
     this.tituloModalEquipos = `Equipos en: ${stat?.ubicacion ?? ''}`;
 
     const filtro: any = {};
-    if (stat?.empresa_id != null) {
+    if (stat?.sin_unidad) {
+      filtro.sin_unidad = true;
+      filtro.empresa_id = stat.empresa_id;
+      filtro.sucursal_id = stat.sucursal_id;
+      if (stat.sede_id != null) {
+        filtro.sede_id = stat.sede_id;
+      }
+    } else if (stat?.unidad_funcional_id != null) {
+      filtro.unidad_funcional_id = stat.unidad_funcional_id;
+      filtro.empresa_id = stat.empresa_id;
+      filtro.sucursal_id = stat.sucursal_id;
+      if (stat.sede_id != null) {
+        filtro.sede_id = stat.sede_id;
+      }
+    } else if (stat?.empresa_id != null) {
       filtro.empresa_id = stat.empresa_id;
       if (stat.sucursal_id != null) {
         filtro.sucursal_id = stat.sucursal_id;
+      }
+      if (stat.sede_id != null) {
+        filtro.sede_id = stat.sede_id;
       }
     } else {
       // Barra "Sin empresa": activos sin empresa asignada
@@ -1766,6 +1979,14 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
         const lista = response.data || [];
         this.sedesList = lista;
         this.sedesOptions = lista.map(item => ({ label: item.nombre, value: item.id }));
+        this.sedesConsultadas = true;
+        this.selectedUnidadFuncional = null;
+        if (lista.length === 0) {
+          this.loadUnidadesFuncionales();
+        } else {
+          this.unidadesFuncionalesOptions = [];
+          this.unidadesFuncionalesList = [];
+        }
       },
       error: (error) => {
         console.error('Error cargando sedes:', error);
@@ -1775,20 +1996,63 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Cargar unidades funcionales.
+   * Sin sede, toma las unidades de la sucursal que no tienen ubicación.
+   * Con sede, toma las unidades de esa sede.
+   */
+  loadUnidadesFuncionales(): void {
+    if (!this.selectedSucursal) {
+      this.unidadesFuncionalesOptions = [];
+      this.unidadesFuncionalesList = [];
+      return;
+    }
+
+    this.activosService.getOpcionesFiltro('unidad_funcional', {
+      empresa_id: this.selectedEmpresa ?? undefined,
+      sucursal_id: this.selectedSucursal,
+      sede_id: this.selectedSede ?? undefined
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response) => {
+        const lista = response.data || [];
+        this.unidadesFuncionalesList = lista;
+        this.unidadesFuncionalesOptions = lista.map(item => ({ label: item.nombre, value: item.id }));
+      },
+      error: (error) => {
+        console.error('Error cargando unidades funcionales:', error);
+        this.unidadesFuncionalesOptions = [];
+        this.unidadesFuncionalesList = [];
+        this.showError('Error al cargar las unidades funcionales');
+      }
+    });
+  }
+
+  /**
    * Limpiar filtros dependientes
    */
-  private limpiarFiltrosDependientes(nivel: 'empresa' | 'sucursal'): void {
+  private limpiarFiltrosDependientes(nivel: 'empresa' | 'sucursal' | 'sede'): void {
     if (nivel === 'empresa') {
       this.selectedSucursal = null;
       this.selectedSede = null;
+      this.selectedUnidadFuncional = null;
+      this.sedesConsultadas = false;
       this.sucursalesOptions = [];
       this.sedesOptions = [];
+      this.unidadesFuncionalesOptions = [];
       this.sucursalesList = [];
       this.sedesList = [];
+      this.unidadesFuncionalesList = [];
     } else if (nivel === 'sucursal') {
       this.selectedSede = null;
+      this.selectedUnidadFuncional = null;
+      this.sedesConsultadas = false;
       this.sedesOptions = [];
+      this.unidadesFuncionalesOptions = [];
       this.sedesList = [];
+      this.unidadesFuncionalesList = [];
+    } else if (nivel === 'sede') {
+      this.selectedUnidadFuncional = null;
+      this.unidadesFuncionalesOptions = [];
+      this.unidadesFuncionalesList = [];
     }
   }
 
@@ -1822,6 +2086,19 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    * Manejar cambio de sede
    */
   onSedeChange(): void {
+    this.limpiarFiltrosDependientes('sede');
+
+    if (this.selectedSede || (this.selectedSucursal && this.sedesOptions.length === 0)) {
+      this.loadUnidadesFuncionales();
+    }
+
+    this.aplicarFiltros();
+  }
+
+  /**
+   * Manejar cambio de unidad funcional
+   */
+  onUnidadFuncionalChange(): void {
     this.aplicarFiltros();
   }
 
@@ -1876,6 +2153,13 @@ export class DashboardMaObsolescenciaComponent implements OnInit, OnDestroy {
    */
   getSedeName(sedeId: number): string {
     return this.getEntityName(this.sedesList, sedeId);
+  }
+
+  /**
+   * Obtener nombre de unidad funcional por ID
+   */
+  getUnidadFuncionalName(unidadId: number): string {
+    return this.getEntityName(this.unidadesFuncionalesList, unidadId);
   }
 
   /**

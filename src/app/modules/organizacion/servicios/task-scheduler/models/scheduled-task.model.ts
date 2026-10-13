@@ -24,6 +24,9 @@ export interface ScheduledTask {
   job_id?: number;
   is_recurring?: boolean;
   is_active?: boolean;
+  run_state?: 'paused' | 'running' | 'failed' | 'cancelled' | 'queued' | 'due' | 'unscheduled' | 'pending' | 'done';
+  run_state_label?: string;
+  runs?: ScheduledTaskRun[];
   recurrence_type?: RecurrenceType;
   recurrence_type_label?: string;
   recurrence_value?: RecurrenceValue;
@@ -38,6 +41,16 @@ export interface TaskCreator {
   id: number;
   name: string;
   email: string;
+}
+
+export interface ScheduledTaskRun {
+  id: number;
+  status: 'completed' | 'failed';
+  status_label: string;
+  started_at?: string;
+  completed_at?: string;
+  duration_formatted?: string | null;
+  error_message?: string | null;
 }
 
 export type TaskType = 
@@ -97,6 +110,12 @@ export interface TaskStats {
   total: number;
   by_type: Record<string, number>;
   recent_failures: ScheduledTask[];
+  worker?: {
+    online: boolean;
+    busy: boolean;
+    last_seen?: string | null;
+    message: string;
+  };
 }
 
 export interface CreateTaskRequest {
@@ -116,6 +135,8 @@ export interface UpdateTaskRequest {
   description?: string;
   scheduled_at?: string;
   parameters?: Record<string, any>;
+  recurrence_type?: RecurrenceType;
+  recurrence_value?: RecurrenceValue;
 }
 
 export interface TaskListParams {

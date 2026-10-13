@@ -12,5 +12,9 @@ export const TASK_SCHEDULER_ROUTES: Routes = [
   {
     path: 'create',
     loadComponent: () => import('./components/task-create.component').then(m => m.TaskCreateComponent)
+  },
+  {
+    path: 'edit/:id',
+    loadComponent: () => import('./components/task-create.component').then(m => m.TaskCreateComponent)
   }
 ];

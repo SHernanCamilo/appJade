@@ -282,6 +282,30 @@ export class TaskSchedulerDashboardComponent implements OnInit, OnDestroy {
     return this.taskService.formatDate(dateString);
   }
 
+  comenzo(task: ScheduledTask): string {
+    return this.taskService.comenzo(task);
+  }
+
+  programada(task: ScheduledTask): string {
+    return this.taskService.programada(task);
+  }
+
+  programadaDetalle(task: ScheduledTask): string {
+    return this.taskService.programadaDetalle(task);
+  }
+
+  duracion(task: ScheduledTask): string {
+    return this.taskService.duracion(task);
+  }
+
+  estadoFila(task: ScheduledTask): string {
+    return this.taskService.estadoFila(task);
+  }
+
+  estadoSeverity(task: ScheduledTask): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+    return this.taskService.estadoSeverity(task);
+  }
+
   navigateToList(status?: string, type?: string): void {
     const queryParams: any = {};
     if (status) queryParams.status = status;
@@ -291,9 +315,50 @@ export class TaskSchedulerDashboardComponent implements OnInit, OnDestroy {
     window.location.href = `/organizacion/servicios/task-scheduler/list${Object.keys(queryParams).length ? '?' + new URLSearchParams(queryParams).toString() : ''}`;
   }
 
+  detailVisible = false;
+  detailLoading = false;
+  selectedTask: ScheduledTask | null = null;
+
   navigateToTask(taskId: number): void {
-    // Por ahora solo mostrar info, más adelante se puede implementar modal de detalles
-    this.showInfo(`Funcionalidad de detalles de tarea #${taskId} en desarrollo`);
+    this.openDetail({ id: taskId } as ScheduledTask);
+  }
+
+  openDetail(task: ScheduledTask): void {
+    this.detailVisible = true;
+    this.detailLoading = true;
+    this.selectedTask = task;
+    this.taskService.getTask(task.id).subscribe({
+      next: (response) => {
+        this.selectedTask = response.data;
+        this.detailLoading = false;
+      },
+      error: () => {
+        this.detailLoading = false;
+        this.showError('No se pudo abrir el detalle');
+      }
+    });
+  }
+
+  toggleTask(task: ScheduledTask): void {
+    this.taskService.toggleTask(task.id).subscribe({
+      next: (response) => {
+        this.showSuccess(response.message);
+        this.loadRecentTasks();
+        if (this.selectedTask?.id === task.id) {
+          this.selectedTask = response.data;
+        }
+      },
+      error: (err) => {
+        this.showError(err.error?.message || 'No se pudo cambiar la tarea');
+      }
+    });
+  }
+
+  parametros(task: ScheduledTask): string {
+    if (!task.parameters || Object.keys(task.parameters).length === 0) {
+      return 'Sin parámetros';
+    }
+    return JSON.stringify(task.parameters, null, 2);
   }
 
   executeTask(task: ScheduledTask): void {

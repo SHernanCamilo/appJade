@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TaskSchedulerService } from '../services/task-scheduler.service';
-import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } from '../models/scheduled-task.model';
+import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue, ScheduledTask } from '../models/scheduled-task.model';
 
 @Component({
   selector: 'app-task-create',
@@ -17,7 +17,8 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
           <i class="bi bi-arrow-left me-2"></i>Volver a la Lista
         </button>
         <h1 class="page-title">
-          <i class="bi bi-plus-circle me-2"></i>Nueva Tarea Programada
+          <i class="bi me-2" [ngClass]="editingId ? 'bi-pencil' : 'bi-plus-circle'"></i>
+          {{ editingId ? 'Editar tarea' : 'Nueva Tarea Programada' }}
         </h1>
       </div>
 
@@ -45,6 +46,7 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
               [(ngModel)]="task.type"
               name="type"
               required
+              [disabled]="!!editingId"
               (change)="onTypeChange()">
               <option [value]="undefined">Seleccione un tipo...</option>
               <option *ngFor="let type of taskTypes" [value]="type.key">
@@ -78,6 +80,7 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
                   class="toggle-input"
                   [(ngModel)]="task.is_recurring"
                   name="is_recurring"
+                  [disabled]="!!editingId"
                   (change)="onRecurringChange()"
                   id="isRecurring"
                 />
@@ -256,29 +259,21 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
             <label class="form-label">Parámetros</label>
             
             <!-- Parámetros para sync_activos -->
-            <div *ngIf="task.type === 'sync_activos'" class="parameters-grid">
-              <div class="param-group">
-                <label>ID Empresa</label>
-                <input 
-                  type="number" 
-                  class="form-control" 
-                  [(ngModel)]="parameters.empresa_id"
-                  name="param_empresa_id"
-                  placeholder="Opcional"
+            <div *ngIf="task.type === 'sync_activos'" class="parameters-panel">
+              <p class="parameters-note">Recorre todos los equipos de GLPI. La empresa, la sucursal y la sede salen del agente de cada equipo.</p>
+              <label class="toggle-label parameter-toggle">
+                <input
+                  type="checkbox"
+                  class="toggle-input"
+                  [(ngModel)]="parameters.force_full_sync"
+                  name="param_force_full_sync"
                 />
-              </div>
-              <div class="param-group">
-                <label>Sincronización Completa</label>
-                <div class="form-check form-switch">
-                  <input 
-                    class="form-check-input" 
-                    type="checkbox" 
-                    [(ngModel)]="parameters.force_full_sync"
-                    name="param_force_full_sync"
-                  />
-                  <label class="form-check-label">Forzar sincronización completa</label>
-                </div>
-              </div>
+                <span class="toggle-switch"></span>
+                <span class="toggle-text">
+                  <strong>Sincronización completa</strong>
+                  <small>Recorre todo GLPI y actualiza los que ya existen. Apagada, solo trae los cambios recientes.</small>
+                </span>
+              </label>
             </div>
 
             <!-- Parámetros para cierre_automatico -->
@@ -308,29 +303,31 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
             </div>
 
             <!-- Parámetros para mantenimiento_db -->
-            <div *ngIf="task.type === 'mantenimiento_db'" class="parameters-grid">
-              <div class="param-group">
-                <div class="form-check">
-                  <input 
-                    class="form-check-input" 
-                    type="checkbox" 
-                    [(ngModel)]="parameters.clean_logs"
-                    name="param_clean_logs"
-                  />
-                  <label class="form-check-label">Limpiar logs antiguos</label>
-                </div>
-              </div>
-              <div class="param-group">
-                <div class="form-check">
-                  <input 
-                    class="form-check-input" 
-                    type="checkbox" 
-                    [(ngModel)]="parameters.optimize_tables"
-                    name="param_optimize_tables"
-                  />
-                  <label class="form-check-label">Optimizar tablas</label>
-                </div>
-              </div>
+            <div *ngIf="task.type === 'mantenimiento_db'" class="parameters-panel">
+              <label class="toggle-label parameter-toggle">
+                <input
+                  type="checkbox"
+                  class="toggle-input"
+                  [(ngModel)]="parameters.clean_logs"
+                  name="param_clean_logs"
+                />
+                <span class="toggle-switch"></span>
+                <span class="toggle-text">
+                  <strong>Limpiar logs antiguos</strong>
+                </span>
+              </label>
+              <label class="toggle-label parameter-toggle">
+                <input
+                  type="checkbox"
+                  class="toggle-input"
+                  [(ngModel)]="parameters.optimize_tables"
+                  name="param_optimize_tables"
+                />
+                <span class="toggle-switch"></span>
+                <span class="toggle-text">
+                  <strong>Optimizar tablas</strong>
+                </span>
+              </label>
             </div>
 
             <!-- Parámetros para envio_reportes -->
@@ -384,7 +381,7 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
             </button>
             <button type="submit" class="btn btn-primary" [disabled]="!taskForm.valid || submitting">
               <i class="bi bi-check-circle me-2"></i>
-              {{ submitting ? 'Creando...' : 'Crear Tarea' }}
+              {{ submitting ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Crear Tarea') }}
             </button>
           </div>
         </form>
@@ -443,13 +440,12 @@ import { CreateTaskRequest, TaskTypeConfig, RecurrenceType, RecurrenceValue } fr
     .toggle-text strong{color:#1e293b;font-size:.95rem}
     .toggle-text small{color:#64748b;font-size:.75rem}
     
-    .parameters-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem;background:#f8fafc;border-radius:8px}
+    .parameters-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
     .param-group{display:flex;flex-direction:column}
-    .param-group label{font-size:.75rem;font-weight:500;color:#475569;margin-bottom:.5rem}
-    .form-check{padding-left:0}
-    .form-check-input{margin-right:.5rem;cursor:pointer}
-    .form-switch .form-check-input{width:2.5rem;height:1.25rem;cursor:pointer}
-    .form-check-label{cursor:pointer}
+    .param-group label{font-size:.8rem;font-weight:600;color:#334155;margin-bottom:.4rem}
+    .parameters-panel{display:flex;flex-direction:column;gap:.85rem;padding:1rem 1.1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
+    .parameters-note{margin:0;font-size:.85rem;line-height:1.45;color:#64748b}
+    .parameter-toggle{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.85rem 1rem;margin:0}
     
     .days-selector{display:flex;flex-wrap:wrap;gap:.75rem;padding:1rem;background:#f8fafc;border-radius:8px}
     .day-checkbox{display:flex;align-items:center;padding:.5rem 1rem;background:#fff;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer;transition:all .2s}
@@ -494,21 +490,31 @@ export class TaskCreateComponent implements OnInit {
     days: []
   };
   selectedDays: Set<number> = new Set();
+  editingId: number | null = null;
 
   constructor(
     private taskService: TaskSchedulerService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+    this.editingId = id ? Number(id) : null;
     this.loadTaskTypes();
     this.loadRecurrenceTypes();
+    if (this.editingId) {
+      this.loadExistingTask(this.editingId);
+    }
   }
 
   loadTaskTypes(): void {
     this.taskService.getTaskTypes().subscribe({
       next: (response) => {
         this.taskTypes = response.data;
+        if (this.task.type) {
+          this.selectedType = this.taskTypes.find(t => t.key === this.task.type) || null;
+        }
       },
       error: (err) => {
         console.error('Error loading task types:', err);
@@ -525,6 +531,44 @@ export class TaskCreateComponent implements OnInit {
         console.error('Error loading recurrence types:', err);
       }
     });
+  }
+
+  loadExistingTask(id: number): void {
+    this.taskService.getTask(id).subscribe({
+      next: (response) => {
+        const current = response.data;
+        if (current.status === 'running') {
+          this.error = 'No se puede editar mientras la tarea está en ejecución';
+          return;
+        }
+        this.fillForm(current);
+      },
+      error: () => {
+        this.error = 'No se pudo cargar la tarea';
+      }
+    });
+  }
+
+  fillForm(current: ScheduledTask): void {
+    this.task.name = current.name;
+    this.task.type = current.type;
+    this.task.description = current.description || '';
+    this.task.is_recurring = !!current.is_recurring;
+    this.task.recurrence_type = current.recurrence_type;
+    this.parameters = { ...(current.parameters || {}) };
+    this.selectedType = this.taskTypes.find(type => type.key === current.type) || null;
+    if (current.recurrence_value) {
+      this.recurrenceValue = { ...this.recurrenceValue, ...current.recurrence_value };
+      if (current.recurrence_value.days) {
+        this.selectedDays = new Set(current.recurrence_value.days);
+      }
+    }
+    if (Array.isArray(this.parameters.recipients)) {
+      this.recipientsString = this.parameters.recipients.join(', ');
+    }
+    if (current.scheduled_at) {
+      this.scheduledDateTime = current.scheduled_at.slice(0, 16);
+    }
   }
 
   onTypeChange(): void {
@@ -618,13 +662,24 @@ export class TaskCreateComponent implements OnInit {
       taskData.scheduled_at = this.scheduledDateTime || undefined;
     }
 
-    this.taskService.createTask(taskData).subscribe({
-      next: (response) => {
-        alert('Tarea creada exitosamente');
-        this.router.navigate(['/organizacion/servicios/task-scheduler/list']);
+    const request = this.editingId
+      ? this.taskService.updateTask(this.editingId, {
+          name: taskData.name,
+          description: taskData.description,
+          parameters: taskData.parameters,
+          recurrence_type: taskData.recurrence_type,
+          recurrence_value: taskData.recurrence_value,
+          scheduled_at: taskData.scheduled_at
+        })
+      : this.taskService.createTask(taskData);
+
+    request.subscribe({
+      next: () => {
+        alert(this.editingId ? 'Tarea actualizada' : 'Tarea creada exitosamente');
+        this.router.navigate(['/organizacion/servicios/task-scheduler']);
       },
       error: (err) => {
-        this.error = err.error?.message || 'Error al crear la tarea';
+        this.error = err.error?.message || (this.editingId ? 'Error al guardar la tarea' : 'Error al crear la tarea');
         this.submitting = false;
       }
     });

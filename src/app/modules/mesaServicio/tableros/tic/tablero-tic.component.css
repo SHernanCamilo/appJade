@@ -194,6 +194,15 @@
   padding: 0.7rem 1rem 0;
 }
 
+::ng-deep .entidad-multiselect.p-multiselect {
+  width: 100%;
+  border-radius: 10px;
+}
+
+::ng-deep .entidad-multiselect .p-multiselect-label {
+  font-size: 0.85rem;
+}
+
 .filter-label {
   font-size: 0.68rem;
   font-weight: 700;

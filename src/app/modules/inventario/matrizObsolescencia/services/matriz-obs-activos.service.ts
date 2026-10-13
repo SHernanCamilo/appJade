@@ -209,6 +209,7 @@ export interface FiltrosActivos {
   empresa_id?: number;
   sucursal_id?: number;
   sede_id?: number;
+  unidad_funcional_id?: number;
   agente?: string;
   search?: string;
   page?: number;
@@ -231,6 +232,9 @@ export interface EstadisticaPorUbicacion {
   ubicacion: string;
   empresa_id: number | null;
   sucursal_id: number | null;
+  sede_id?: number | null;
+  unidad_funcional_id?: number | null;
+  sin_unidad?: boolean;
   total: number;
   distribucion: DistribucionEstado;
 }
@@ -240,6 +244,7 @@ export interface DashboardData {
   estadisticas_por_estado: DistribucionEstado;
   estadisticas_por_tipo: EstadisticaPorTipo[];
   estadisticas_por_ubicacion: EstadisticaPorUbicacion[];
+  agrupacion?: 'empresa' | 'sucursal' | 'sede' | 'unidad_funcional';
 }
 
 export interface DashboardResponse {
@@ -319,6 +324,9 @@ export class MatrizObsActivosService {
       if (filtros.sede_id) {
         params = params.set('sede_id', filtros.sede_id.toString());
         // console.log('  ✓ sede_id:', filtros.sede_id);
+      }
+      if (filtros.unidad_funcional_id) {
+        params = params.set('unidad_funcional_id', filtros.unidad_funcional_id.toString());
       }
       if (filtros.agente) {
         params = params.set('agente', filtros.agente);
@@ -427,6 +435,7 @@ export class MatrizObsActivosService {
       if (filtros.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
       if (filtros.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
       if (filtros.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
+      if (filtros.unidad_funcional_id) params = params.set('unidad_funcional_id', filtros.unidad_funcional_id.toString());
       if (filtros.search) params = params.set('search', filtros.search);
     }
 
@@ -438,13 +447,14 @@ export class MatrizObsActivosService {
    * Opciones para los dropdowns de filtros (empresa/sucursal/sede) según permisos.
    */
   getOpcionesFiltro(
-    tipo: 'empresa' | 'sucursal' | 'sede',
-    filtros?: { empresa_id?: number; sucursal_id?: number }
+    tipo: 'empresa' | 'sucursal' | 'sede' | 'unidad_funcional',
+    filtros?: { empresa_id?: number; sucursal_id?: number; sede_id?: number }
   ): Observable<OpcionesFiltroResponse> {
     let params = new HttpParams().set('tipo', tipo);
 
     if (filtros?.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
     if (filtros?.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
+    if (filtros?.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
 
     return this.http.get<OpcionesFiltroResponse>(`${this.apiUrl}/filtros`, { params })
       .pipe(catchError(this.handleError.bind(this)));
@@ -499,6 +509,7 @@ export class MatrizObsActivosService {
       if (filtros.empresa_id) params = params.set('empresa_id', filtros.empresa_id.toString());
       if (filtros.sucursal_id) params = params.set('sucursal_id', filtros.sucursal_id.toString());
       if (filtros.sede_id) params = params.set('sede_id', filtros.sede_id.toString());
+      if (filtros.unidad_funcional_id) params = params.set('unidad_funcional_id', filtros.unidad_funcional_id.toString());
       if (filtros.agente) params = params.set('agente', filtros.agente);
       if (filtros.search) params = params.set('search', filtros.search);
     }

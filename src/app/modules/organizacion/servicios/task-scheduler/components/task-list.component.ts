@@ -87,21 +87,20 @@ import { switchMap } from 'rxjs/operators';
           <table class="table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Nombre</th>
+                <th>Tarea</th>
                 <th>Tipo</th>
                 <th>Estado</th>
-                <th>Programada</th>
+                <th>Comenzó</th>
+                <th>Programada (Próxima)</th>
                 <th>Duración</th>
-                <th>Intentos</th>
-                <th>Acciones</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let task of tasks">
-                <td>{{ task.id }}</td>
                 <td>
                   <div class="task-name">{{ task.name }}</div>
+                  <div class="task-description">#{{ task.id }}</div>
                   <div class="task-description" *ngIf="task.description">
                     {{ task.description }}
                   </div>
@@ -111,16 +110,16 @@ import { switchMap } from 'rxjs/operators';
                   {{ task.type_name }}
                 </td>
                 <td>
-                  <span class="badge {{ getStatusBadgeClass(task.status) }}">
-                    {{ task.status_label }}
-                  </span>
-                  <span class="badge badge-danger ms-1" *ngIf="task.is_overdue">
-                    Vencida
+                  <span class="badge {{ estadoBadge(task) }}">
+                    {{ estadoFila(task) }}
                   </span>
                 </td>
-                <td>{{ formatDate(task.scheduled_at) }}</td>
-                <td>{{ task.duration_formatted || '-' }}</td>
-                <td>{{ task.attempts }}/{{ task.max_attempts }}</td>
+                <td>{{ comenzo(task) }}</td>
+                <td>
+                  <div>{{ programada(task) }}</div>
+                  <div class="task-description" *ngIf="programadaDetalle(task)">{{ programadaDetalle(task) }}</div>
+                </td>
+                <td>{{ duracion(task) }}</td>
                 <td>
                   <div class="action-buttons">
                     <button 
@@ -128,6 +127,20 @@ import { switchMap } from 'rxjs/operators';
                       (click)="viewTask(task)"
                       title="Ver detalles">
                       <i class="bi bi-eye"></i>
+                    </button>
+                    <a
+                      class="btn btn-sm btn-outline-secondary"
+                      *ngIf="task.status !== 'running'"
+                      [routerLink]="['/organizacion/servicios/task-scheduler/edit', task.id]"
+                      title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    <button
+                      class="btn btn-sm btn-outline-secondary"
+                      *ngIf="task.is_recurring"
+                      (click)="toggleTask(task)"
+                      [title]="task.is_active ? 'Pausar' : 'Reanudar'">
+                      <i class="bi" [ngClass]="task.is_active ? 'bi-pause-fill' : 'bi-play-fill'"></i>
                     </button>
                     <button 
                       class="btn btn-sm btn-outline-success"
@@ -161,7 +174,7 @@ import { switchMap } from 'rxjs/operators';
                 </td>
               </tr>
               <tr *ngIf="tasks.length === 0 && !loading">
-                <td colspan="8" class="text-center text-muted py-4">
+                <td colspan="7" class="text-center text-muted py-4">
                   No se encontraron tareas
                 </td>
               </tr>
@@ -191,6 +204,45 @@ import { switchMap } from 'rxjs/operators';
               <i class="bi bi-chevron-right"></i>
             </button>
           </div>
+        </div>
+      </div>
+
+      <div class="content-card task-detail-card" *ngIf="selectedTask">
+        <div class="table-header" style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;">
+          <h3 style="margin:0;">{{ selectedTask.name }} <span class="task-description">#{{ selectedTask.id }}</span></h3>
+          <button class="btn btn-outline-secondary" (click)="selectedTask = null">Cerrar</button>
+        </div>
+        <div style="padding:1rem 1.25rem;" *ngIf="detailLoading">Cargando detalle...</div>
+        <div style="padding:0 1.25rem 1.25rem;" *ngIf="!detailLoading">
+          <p><strong>Situación:</strong> {{ selectedTask.run_state_label || '-' }}</p>
+          <p><strong>Último resultado:</strong> {{ selectedTask.status_label }}</p>
+          <p><strong>Comenzó:</strong> {{ comenzo(selectedTask) }}</p>
+          <p><strong>Próxima:</strong> {{ programada(selectedTask) }}</p>
+          <p><strong>Duración:</strong> {{ duracion(selectedTask) }}</p>
+          <p *ngIf="selectedTask.error_message"><strong>Error:</strong> {{ selectedTask.error_message }}</p>
+          <p><strong>Parámetros</strong></p>
+          <pre class="task-detail-pre">{{ parametros(selectedTask) }}</pre>
+          <pre class="task-detail-pre" *ngIf="selectedTask.result">{{ selectedTask.result }}</pre>
+          <p><strong>Últimas corridas</strong></p>
+          <table class="table" *ngIf="selectedTask.runs?.length">
+            <thead>
+              <tr>
+                <th>Comenzó</th>
+                <th>Terminó</th>
+                <th>Duración</th>
+                <th>Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let run of selectedTask.runs">
+                <td>{{ formatDate(run.started_at) }}</td>
+                <td>{{ formatDate(run.completed_at) }}</td>
+                <td>{{ run.duration_formatted || '-' }}</td>
+                <td>{{ run.status_label }}<div class="task-description" *ngIf="run.error_message">{{ run.error_message }}</div></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="task-description" *ngIf="!selectedTask.runs?.length">Todavía no hay corridas guardadas.</p>
         </div>
       </div>
 
@@ -247,10 +299,13 @@ import { switchMap } from 'rxjs/operators';
     .pagination-controls{display:flex;align-items:center;gap:1rem}
     .pagination-current{color:#475569;font-weight:500}
     
+    .task-detail-pre{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;max-height:160px;overflow:auto;white-space:pre-wrap;font-size:.8rem}
     .loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;z-index:1000}
   `]
 })
 export class TaskListComponent implements OnInit, OnDestroy {
+  selectedTask: ScheduledTask | null = null;
+  detailLoading = false;
   tasks: ScheduledTask[] = [];
   pagination: any = null;
   loading = false;
@@ -317,8 +372,38 @@ export class TaskListComponent implements OnInit, OnDestroy {
   }
 
   viewTask(task: ScheduledTask): void {
-    console.log('View task:', task);
-    // Implementar modal o navegación
+    this.selectedTask = task;
+    this.detailLoading = true;
+    this.taskService.getTask(task.id).subscribe({
+      next: (response) => {
+        this.selectedTask = response.data;
+        this.detailLoading = false;
+      },
+      error: () => {
+        this.detailLoading = false;
+        alert('No se pudo abrir el detalle');
+      }
+    });
+  }
+
+  toggleTask(task: ScheduledTask): void {
+    this.taskService.toggleTask(task.id).subscribe({
+      next: (response) => {
+        alert(response.message);
+        this.loadTasks();
+        if (this.selectedTask?.id === task.id) {
+          this.selectedTask = response.data;
+        }
+      },
+      error: (err) => alert(err.error?.message || 'No se pudo cambiar la tarea')
+    });
+  }
+
+  parametros(task: ScheduledTask): string {
+    if (!task.parameters || Object.keys(task.parameters).length === 0) {
+      return 'Sin parámetros';
+    }
+    return JSON.stringify(task.parameters, null, 2);
   }
 
   executeTask(task: ScheduledTask): void {
@@ -379,5 +464,37 @@ export class TaskListComponent implements OnInit, OnDestroy {
 
   formatDate(dateString?: string): string {
     return this.taskService.formatDate(dateString);
+  }
+
+  comenzo(task: ScheduledTask): string {
+    return this.taskService.comenzo(task);
+  }
+
+  programada(task: ScheduledTask): string {
+    return this.taskService.programada(task);
+  }
+
+  programadaDetalle(task: ScheduledTask): string {
+    return this.taskService.programadaDetalle(task);
+  }
+
+  duracion(task: ScheduledTask): string {
+    return this.taskService.duracion(task);
+  }
+
+  estadoFila(task: ScheduledTask): string {
+    return this.taskService.estadoFila(task);
+  }
+
+  estadoBadge(task: ScheduledTask): string {
+    const severity = this.taskService.estadoSeverity(task);
+    const map: Record<string, string> = {
+      success: 'badge-success',
+      info: 'badge-info',
+      warn: 'badge-warning',
+      danger: 'badge-danger',
+      secondary: 'badge-secondary',
+    };
+    return map[severity] || 'badge-secondary';
   }
 }

@@ -6,6 +6,7 @@ import { RouterModule } from '@angular/router';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { DropdownModule } from 'primeng/dropdown';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
 import { ToastModule } from 'primeng/toast';
@@ -52,6 +53,7 @@ interface RendimientoPanel {
     TableModule,
     ButtonModule,
     DropdownModule,
+    MultiSelectModule,
     TagModule,
     SkeletonModule,
     ToastModule
@@ -64,7 +66,7 @@ export class TableroTicComponent implements OnInit, OnDestroy {
   tablero: GlpiTableroTic | null = null;
   isLoading = false;
   busqueda = '';
-  entidadSeleccionada: string | null = null;
+  entidadesSeleccionadas: string[] | null = null;
   alertaSeleccionada: GlpiTicketAlerta | null = null;
   nivelSeleccionado: number | null = null;
   grupoSeleccionado: string | null = null;
@@ -232,7 +234,15 @@ export class TableroTicComponent implements OnInit, OnDestroy {
   }
 
   filtrarEntidad(nombre: string): void {
-    this.entidadSeleccionada = this.entidadSeleccionada === nombre ? null : nombre;
+    const actuales = this.entidadesSeleccionadas ?? [];
+    const siguientes = actuales.includes(nombre)
+      ? actuales.filter((item) => item !== nombre)
+      : [...actuales, nombre];
+    this.entidadesSeleccionadas = siguientes.length ? siguientes : null;
+  }
+
+  entidadActiva(nombre: string): boolean {
+    return (this.entidadesSeleccionadas ?? []).includes(nombre);
   }
 
   kpiActivo(id: KpiCard['id']): boolean {
@@ -248,7 +258,7 @@ export class TableroTicComponent implements OnInit, OnDestroy {
 
   limpiarFiltros(): void {
     this.busqueda = '';
-    this.entidadSeleccionada = null;
+    this.entidadesSeleccionadas = null;
     this.alertaSeleccionada = null;
     this.nivelSeleccionado = null;
     this.grupoSeleccionado = null;
@@ -277,7 +287,7 @@ export class TableroTicComponent implements OnInit, OnDestroy {
           ticket.tecnico,
           ticket.categoria
         ]
-          .map((valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`)
+          .map((valor) => this.celdaCsv(valor))
           .join(',')
       )
     ];
@@ -289,6 +299,14 @@ export class TableroTicComponent implements OnInit, OnDestroy {
     enlace.download = 'tablero-tic.csv';
     enlace.click();
     URL.revokeObjectURL(url);
+  }
+
+  private celdaCsv(valor: unknown): string {
+    let texto = String(valor ?? '');
+    if (/^[\t\r\n]*[=+\-@]/.test(texto)) {
+      texto = `'${texto}`;
+    }
+    return `"${texto.replace(/"/g, '""')}"`;
   }
 
   etiquetaNivel(nivel: number): string {
@@ -359,7 +377,8 @@ export class TableroTicComponent implements OnInit, OnDestroy {
       if (opciones.nivel && this.nivelSeleccionado && ticket.nivel !== this.nivelSeleccionado) {
         return false;
       }
-      if (aplicarEntidad && this.entidadSeleccionada && ticket.entidad !== this.entidadSeleccionada) {
+      const entidades = this.entidadesSeleccionadas ?? [];
+      if (aplicarEntidad && entidades.length > 0 && !entidades.includes(ticket.entidad)) {
         return false;
       }
       if (aplicarGrupo && this.grupoSeleccionado && ticket.grupo_actual !== this.grupoSeleccionado) {

@@ -50,7 +50,7 @@
         <button 
           class="btn-clear-filters" 
           (click)="limpiarFiltros()"
-          *ngIf="selectedEmpresa || selectedSucursal || selectedSede">
+          *ngIf="selectedEmpresa || selectedSucursal || selectedSede || selectedUnidadFuncional">
           <i class="pi pi-times me-1"></i>
           Limpiar Filtros
         </button>
@@ -59,7 +59,7 @@
       <div class="filters-body">
         <div class="row g-3">
           <!-- Filtro Empresa -->
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-6" [ngClass]="mostrarUnidadFuncional ? 'col-xl-3' : 'col-xl-4'">
             <label class="filter-label">
               <i class="pi pi-building me-1"></i>
               Empresa
@@ -79,7 +79,7 @@
           </div>
           
           <!-- Filtro Sucursal -->
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-6" [ngClass]="mostrarUnidadFuncional ? 'col-xl-3' : 'col-xl-4'">
             <label class="filter-label">
               <i class="pi pi-map-marker me-1"></i>
               Sucursal
@@ -100,7 +100,7 @@
           </div>
           
           <!-- Filtro Sede -->
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-6" [ngClass]="mostrarUnidadFuncional ? 'col-xl-3' : 'col-xl-4'" *ngIf="mostrarSede">
             <label class="filter-label">
               <i class="pi pi-home me-1"></i>
               Sede
@@ -119,10 +119,31 @@
               styleClass="w-100">
             </p-dropdown>
           </div>
+
+          <!-- Filtro Unidad funcional: visible cuando la sucursal no tiene sede, o ya hay sede -->
+          <div class="col-12 col-md-6 col-xl-3" *ngIf="mostrarUnidadFuncional">
+            <label class="filter-label">
+              <i class="pi pi-sitemap me-1"></i>
+              Unidad funcional
+            </label>
+            <p-dropdown
+              [options]="unidadesFuncionalesOptions"
+              [(ngModel)]="selectedUnidadFuncional"
+              (onChange)="onUnidadFuncionalChange()"
+              placeholder="Seleccionar unidad funcional"
+              [showClear]="true"
+              [disabled]="!selectedSucursal"
+              optionLabel="label"
+              optionValue="value"
+              [filter]="true"
+              filterBy="label"
+              styleClass="w-100">
+            </p-dropdown>
+          </div>
         </div>
         
         <!-- Indicador de filtros activos -->
-        <div class="active-filters mt-3" *ngIf="selectedEmpresa || selectedSucursal || selectedSede">
+        <div class="active-filters mt-3" *ngIf="selectedEmpresa || selectedSucursal || selectedSede || selectedUnidadFuncional">
           <small class="text-muted">
             <i class="pi pi-info-circle me-1"></i>
             Filtros activos:
@@ -134,6 +155,9 @@
             </span>
             <span class="filter-tag" *ngIf="selectedSede">
               Sede: {{ getSedeName(selectedSede) }}
+            </span>
+            <span class="filter-tag" *ngIf="selectedUnidadFuncional">
+              Unidad funcional: {{ getUnidadFuncionalName(selectedUnidadFuncional) }}
             </span>
           </small>
         </div>
@@ -218,8 +242,12 @@
         <!-- Gráfico por Empresa/Concepto -->
         <div class="chart-card mb-4">
           <div class="chart-header">
-            <h3>{{ selectedEmpresa ? 'Gráfica por sucursal / concepto' : 'Gráfica por empresa / concepto' }}</h3>
-            <small class="text-muted">Distribución de equipos por estado</small>
+            <h3>{{ tituloGraficaUbicacion }}</h3>
+            <small class="text-muted">
+              {{ agrupacionGrafica === 'unidad_funcional' && !selectedSede
+                ? 'Esta sucursal no tiene sede. Distribución por unidad funcional'
+                : 'Distribución de equipos por estado' }}
+            </small>
           </div>
           
           <!-- Gráfico de barras con Chart.js -->
@@ -230,7 +258,7 @@
                 [data]="barChartData" 
                 [options]="barChartOptions"
                 width="100%"
-                height="300">
+                [height]="alturaGraficaUbicacion">
               </p-chart>
             </div>
             
@@ -253,7 +281,7 @@
           <div class="bar-chart-container" *ngIf="!isLoadingBarChart && estadisticasPorUbicacion.length === 0">
             <div class="text-center py-5">
               <i class="pi pi-chart-bar text-muted" style="font-size: 4rem;"></i>
-              <p class="text-muted mt-3 mb-2">No hay datos por ubicación</p>
+              <p class="text-muted mt-3 mb-2">{{ agrupacionGrafica === 'unidad_funcional' ? 'No hay unidades funcionales' : 'No hay datos por ubicación' }}</p>
               <small class="text-muted">Los datos aparecerán después de sincronizar activos</small>
             </div>
           </div>
@@ -560,7 +588,7 @@
               </div>
               
               <!-- Filtro Sede -->
-              <div class="col-12 col-md-2">
+              <div class="col-12 col-md-2" *ngIf="mostrarSede">
                 <p-dropdown
                   [options]="sedesOptions"
                   [(ngModel)]="selectedSede"
@@ -583,6 +611,35 @@
                   <ng-template pTemplate="item" let-option>
                     <div class="flex align-items-center">
                       <i class="pi pi-home me-2"></i>
+                      <span>{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                </p-dropdown>
+              </div>
+
+              <!-- Filtro Unidad funcional -->
+              <div class="col-12 col-md-2" *ngIf="mostrarUnidadFuncional">
+                <p-dropdown
+                  [options]="unidadesFuncionalesOptions"
+                  [(ngModel)]="selectedUnidadFuncional"
+                  (onChange)="onUnidadFuncionalChange()"
+                  placeholder="Unidad funcional"
+                  [showClear]="true"
+                  optionLabel="label"
+                  optionValue="value"
+                  [filter]="true"
+                  filterBy="label"
+                  styleClass="w-100"
+                  appendTo="body">
+                  <ng-template pTemplate="selectedItem" let-option>
+                    <div class="flex align-items-center" *ngIf="option">
+                      <i class="pi pi-sitemap me-1" style="font-size: 0.875rem;"></i>
+                      <span style="font-size: 0.875rem;">{{ option.label }}</span>
+                    </div>
+                  </ng-template>
+                  <ng-template pTemplate="item" let-option>
+                    <div class="flex align-items-center">
+                      <i class="pi pi-sitemap me-2"></i>
                       <span>{{ option.label }}</span>
                     </div>
                   </ng-template>
@@ -900,13 +957,31 @@
               </td>
               <td class="valor-cell">
                 <ng-container [ngSwitch]="item.campo">
-                  <input
-                    *ngSwitchCase="'UBICACIÓN'"
-                    type="text"
-                    pInputText
-                    [(ngModel)]="camposEditables.ubicacion"
-                    placeholder="Ingrese ubicación"
-                    class="w-100">
+                  <div *ngSwitchCase="'UBICACIÓN'" class="ubicacion-field">
+                    <p-dropdown
+                      [options]="opcionesUbicacionUnidad"
+                      [(ngModel)]="camposEditables.ubicacion"
+                      [placeholder]="placeholderUbicacion"
+                      [showClear]="true"
+                      [filter]="true"
+                      filterBy="label"
+                      [loading]="cargandoUbicacionUnidad"
+                      [disabled]="cargandoUbicacionUnidad"
+                      optionLabel="label"
+                      optionValue="value"
+                      appendTo="body"
+                      styleClass="w-100">
+                    </p-dropdown>
+                    <button
+                      *hasPermission="'uf-mas-matriz'"
+                      type="button"
+                      class="btn-add-ubicacion"
+                      (click)="abrirModalNuevaUnidad()"
+                      pTooltip="Crear unidad funcional"
+                      tooltipPosition="top">
+                      <i class="pi pi-plus"></i>
+                    </button>
+                  </div>
 
                   <p-dropdown
                     *ngSwitchCase="'TIPO DE UNIDAD'"
@@ -1194,6 +1269,65 @@
       </div>
     </ng-template>
     
+  </p-dialog>
+
+  <p-dialog
+    header="Nueva unidad funcional"
+    [(visible)]="mostrarModalNuevaUnidad"
+    [modal]="true"
+    [closable]="!guardandoNuevaUnidad"
+    [draggable]="false"
+    [resizable]="false"
+    appendTo="body"
+    [baseZIndex]="12000"
+    [style]="{ width: '32rem' }"
+    styleClass="modal-nueva-unidad">
+    <div class="nueva-unidad-form" *ngIf="activoSeleccionado">
+      <div class="nueva-unidad-contexto">
+        <span><i class="pi pi-building"></i> {{ activoSeleccionado.empresa?.nombre || 'Sin empresa' }}</span>
+        <span><i class="pi pi-map-marker"></i> {{ activoSeleccionado.sucursal?.nombre || 'Sin sucursal' }}</span>
+        <span><i class="pi pi-home"></i> {{ activoSeleccionado.sede?.nombre || 'Sin sede' }}</span>
+      </div>
+
+      <label class="param-label">Código *</label>
+      <input
+        pInputText
+        [(ngModel)]="nuevaUnidad.codigo"
+        maxlength="20"
+        placeholder="Ej: N01"
+        class="w-100 mb-3"
+        [disabled]="guardandoNuevaUnidad">
+
+      <label class="param-label">Nombre *</label>
+      <input
+        pInputText
+        [(ngModel)]="nuevaUnidad.nombre"
+        maxlength="150"
+        placeholder="Ej: URGENCIAS-NVA"
+        class="w-100 mb-3"
+        [disabled]="guardandoNuevaUnidad">
+
+      <div class="nueva-unidad-estado">
+        <input type="checkbox" id="estadoNuevaUnidad" [(ngModel)]="nuevaUnidad.estado" [disabled]="guardandoNuevaUnidad">
+        <label for="estadoNuevaUnidad">Activa</label>
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancelar"
+        icon="pi pi-times"
+        [text]="true"
+        [disabled]="guardandoNuevaUnidad"
+        (onClick)="cerrarModalNuevaUnidad()">
+      </p-button>
+      <p-button
+        label="Crear"
+        icon="pi pi-check"
+        [loading]="guardandoNuevaUnidad"
+        (onClick)="guardarNuevaUnidad()">
+      </p-button>
+    </ng-template>
   </p-dialog>
 
 </div>
