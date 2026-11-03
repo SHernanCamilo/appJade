@@ -29,6 +29,8 @@ interface ParquetConfig {
   estimated_rows: number | null;
   created_at: string;
   updated_at: string;
+  /** Estado de la vista en bi_vistas: 'activo' | 'mantenimiento' | 'inactivo' | null (no registrada) */
+  bi_vista_estado?: string | null;
 }
 
 interface ParquetStatus {
@@ -587,6 +589,9 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   }
 
   rowTone(config: ParquetConfig): string {
+    // Conflicto (parquet activo + vista inactiva) tiene máxima prioridad visual
+    if (this.isConflictoParquet(config)) return 'cp-row--conflicto';
+    if (this.isMantenimientoParquet(config)) return 'cp-row--mantenimiento';
     const st = this.getStatusForView(config.schema_name, config.view_name);
     if (this.isError(st)) return 'cp-row--error';
     if (this.isGenerating(st)) return 'cp-row--generating';
@@ -1207,4 +1212,49 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     if (pct >= 40) return '#f59e0b';
     return '#22c55e';
   }
+
+  // ─── Estado bi_vistas ────────────────────────────────────────────────────
+
+  /**
+   * ¿La vista tiene un conflicto de estado?
+   * enabled=true pero bi_vistas dice 'inactivo' → situación inconsistente.
+   */
+  isConflictoParquet(config: ParquetConfig): boolean {
+    return config.enabled && config.bi_vista_estado === 'inactivo';
+  }
+
+  /**
+   * ¿La vista está en mantenimiento según bi_vistas?
+   * Útil para avisar, pero no es crítico (el parquet puede seguir activo durante mantenimiento).
+   */
+  isMantenimientoParquet(config: ParquetConfig): boolean {
+    return config.enabled && config.bi_vista_estado === 'mantenimiento';
+  }
+
+  /**
+   * Icono y tooltip del badge de estado de la vista en bi_vistas.
+   */
+  getBiVistaEstadoInfo(config: ParquetConfig): { icon: string; label: string; severity: string } | null {
+    if (!config.bi_vista_estado || config.bi_vista_estado === 'activo') return null;
+    if (config.bi_vista_estado === 'inactivo') {
+      return {
+        icon: 'pi pi-ban',
+        label: 'Vista INACTIVA en bi_vistas — el parquet no debería estar habilitado',
+        severity: 'danger',
+      };
+    }
+    if (config.bi_vista_estado === 'mantenimiento') {
+      return {
+        icon: 'pi pi-wrench',
+        label: 'Vista en MANTENIMIENTO en bi_vistas',
+        severity: 'warn',
+      };
+    }
+    return null;
+  }
+
+  /** Total de configs con conflicto (habilitadas y vista inactiva). Usado en KPI. */
+  readonly kpiConflicto = computed(() =>
+    this.configs().filter(c => c.enabled && c.bi_vista_estado === 'inactivo').length
+  );
 }

@@ -220,9 +220,21 @@
 :host ::ng-deep .cp-row--generating > td:first-child { box-shadow: inset 4px 0 0 #2563eb; }
 :host ::ng-deep .cp-row--ok > td:first-child { box-shadow: inset 4px 0 0 #22c55e; }
 :host ::ng-deep .cp-row--pending > td:first-child { box-shadow: inset 4px 0 0 #f59e0b; }
+:host ::ng-deep .cp-row--conflicto > td { background: #fef2f2; }
+:host ::ng-deep .cp-row--conflicto > td:first-child { box-shadow: inset 4px 0 0 #ef4444; }
+:host ::ng-deep .cp-row--mantenimiento > td { background: #fffbeb; }
+:host ::ng-deep .cp-row--mantenimiento > td:first-child { box-shadow: inset 4px 0 0 #f59e0b; }
 :host ::ng-deep .cp-status .p-tag { font-size: 12px; font-weight: 700; }
 
-.cp-schema {
+/* Badge de conflicto junto al toggle */
+.cp-conflicto-icon {
+  font-size: 13px;
+  margin-left: 4px;
+  vertical-align: middle;
+  cursor: help;
+}
+.cp-conflicto-icon--danger { color: #ef4444; }
+.cp-conflicto-icon--warn   { color: #f59e0b; }
   background: #eef2ff; padding: 2px 7px; border-radius: 5px;
   font-size: 11.5px; color: var(--cp-primary); font-weight: 600;
 }

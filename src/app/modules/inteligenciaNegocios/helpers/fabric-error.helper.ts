@@ -29,6 +29,15 @@ export function isVistaEnMantenimiento(vista: { bi_estado?: string } | null | un
   return vista?.bi_estado === 'mantenimiento';
 }
 
+export function isVistaInactiva(vista: { bi_estado?: string } | null | undefined): boolean {
+  return vista?.bi_estado === 'inactivo';
+}
+
+/** Retorna true si la vista NO debería tener parquet habilitado (inactiva o en mantenimiento). */
+export function vistaDeberiaTenerParquetDesactivado(biVistaEstado: string | null | undefined): boolean {
+  return biVistaEstado === 'inactivo';
+}
+
 export function handleFabricError(error: HttpErrorResponse): string {
   switch (error.status) {
     case 422:

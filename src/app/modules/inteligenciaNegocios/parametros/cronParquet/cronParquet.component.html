@@ -132,6 +132,27 @@
         <span class="cp-kpi__label">Con error</span>
       </div>
     </button>
+
+    <!-- Indicador de salud del pipeline: vistas muy atrasadas o nunca generadas -->
+    <button class="cp-kpi cp-kpi--sla" pTooltip="Vistas muy atrasadas o que nunca se han generado"
+      tooltipPosition="top">
+      <div class="cp-kpi__icon"><i class="pi pi-shield"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiOverdue() | number }}</span>
+        <span class="cp-kpi__label">En riesgo de SLA</span>
+      </div>
+    </button>
+
+    <!-- Conflictos: parquet habilitado pero vista inactiva en bi_vistas -->
+    <button class="cp-kpi" [class.cp-kpi--error]="kpiConflicto() > 0" [class.cp-kpi--ok]="kpiConflicto() === 0"
+      pTooltip="Parquets habilitados cuya vista está marcada como INACTIVA en bi_vistas. Deberían desactivarse."
+      tooltipPosition="top">
+      <div class="cp-kpi__icon"><i class="pi pi-ban"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiConflicto() | number }}</span>
+        <span class="cp-kpi__label">Conflictos vista/parquet</span>
+      </div>
+    </button>
   </section>
 
   <!-- Panel de graficos + carriles -->
@@ -268,11 +289,21 @@
         <td>
           <button pButton [icon]="config.enabled ? 'pi pi-check-circle' : 'pi pi-circle'"
             class="p-button-text p-button-sm"
-            [class.p-button-success]="config.enabled"
+            [class.p-button-success]="config.enabled && !isConflictoParquet(config)"
+            [class.p-button-danger]="isConflictoParquet(config)"
             [class.p-button-secondary]="!config.enabled"
             (click)="toggleEnabled(config)"
             [pTooltip]="config.enabled ? 'Activo - clic para desactivar' : 'Inactivo - clic para activar'">
           </button>
+          <!-- Badge de conflicto: parquet activo pero vista inactiva/mantenimiento en bi_vistas -->
+          <ng-container *ngIf="getBiVistaEstadoInfo(config) as info">
+            <i [class]="'pi ' + info.icon + ' cp-conflicto-icon'"
+               [class.cp-conflicto-icon--danger]="info.severity === 'danger'"
+               [class.cp-conflicto-icon--warn]="info.severity === 'warn'"
+               [pTooltip]="info.label"
+               tooltipPosition="right">
+            </i>
+          </ng-container>
         </td>
 
         <!-- Schema -->
