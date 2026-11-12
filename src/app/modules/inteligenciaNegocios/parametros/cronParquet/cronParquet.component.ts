@@ -103,6 +103,32 @@ interface ParquetIncident {
   created_at: string;
 }
 
+/** Una vista dentro del reporte del barrido de las 04:00. */
+interface NightlyView {
+  schema: string;
+  view: string;
+  priority: string;
+  /** ok = en la ventana del barrido · despues = actualizada mas tarde (clic) */
+  estado: 'ok' | 'error' | 'despues' | 'pendiente';
+  generated_at: string | null;
+  duration_s: number | null;
+  rows: number | null;
+  error: string | null;
+  en_graph: boolean;
+}
+
+interface NightlyReport {
+  success: boolean;
+  date: string;
+  window: { start: string; until: string };
+  summary: {
+    ok: number; error: number; despues: number; pendiente: number; total: number;
+    first_start: string | null; last_end: string | null;
+    elapsed_min: number | null; generation_min: number;
+  };
+  views: NightlyView[];
+}
+
 type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
 
 /** Una vista generandose AHORA, segun /parquet-monitor/live (dato real de Graph-Fabric). */
@@ -395,6 +421,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadDashboard();
     this.loadLive();
     this.loadIncidents();
+    this.loadNightly();
 
     // Reloj de 1s: recalcula "En proceso" y el "hace X min" de parquet_cache.
     this.clockTimer = setInterval(() => {
@@ -424,6 +451,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
         this.loadDashboard();
         this.loadLive();   // panel "Generando ahora" + riesgo de SLA
         this.loadIncidents();
+        this.loadNightly();
       }, 15000);
     }
   }
@@ -499,6 +527,45 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   /** Fallos y demoras de "Actualizar" de las ultimas 24 h, con su motivo. */
   readonly incidents = signal<ParquetIncident[]>([]);
 
+  /** Reporte del barrido de las 04:00 del dia elegido. */
+  readonly nightly = signal<NightlyReport | null>(null);
+  readonly nightlyLoading = signal(false);
+  /** Dia del reporte (YYYY-MM-DD, hora local). */
+  nightlyDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  /** Filtro de la lista del barrido; por defecto lo que hay que atender. */
+  readonly nightlyFilter = signal<'atender' | NightlyView['estado'] | 'todas'>('atender');
+
+  /** Filas visibles del barrido segun el filtro (maximo 200 para no cargar la pagina). */
+  readonly nightlyRows = computed(() => {
+    const r = this.nightly();
+    if (!r) return [];
+    const f = this.nightlyFilter();
+    const filas = f === 'todas' ? r.views
+      : f === 'atender' ? r.views.filter(v => v.estado === 'error' || v.estado === 'pendiente')
+      : r.views.filter(v => v.estado === f);
+    return filas.slice(0, 200);
+  });
+
+  loadNightly(): void {
+    this.nightlyLoading.set(true);
+    this.http.get<NightlyReport>(`${this.monitorUrl}/nightly`, { params: { date: this.nightlyDate } })
+      .subscribe({
+        next: res => { this.nightly.set(res?.success ? res : null); this.nightlyLoading.set(false); },
+        error: () => { this.nightly.set(null); this.nightlyLoading.set(false); },
+      });
+  }
+
+  /** Hora local HH:mm de un ISO, o '-' */
+  hora(iso: string | null): string {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  nightlyLabel(e: NightlyView['estado']): string {
+    return ({ ok: 'Ejecutada', error: 'Con error', despues: 'Después (clic)', pendiente: 'Pendiente' } as const)[e];
+  }
+
   loadIncidents(): void {
     this.http.get<{ success: boolean; data: ParquetIncident[] }>(`${this.monitorUrl}/incidents`, { params: { hours: 24 } })
       .subscribe({
@@ -529,6 +596,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadDashboard();
     this.loadLive();
     this.loadIncidents();
+    this.loadNightly();
   }
 
   // ─── Filtro ────────────────────────────────────────────────────────────────

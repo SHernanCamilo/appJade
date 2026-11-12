@@ -135,6 +135,65 @@
     </div>
   </section>
 
+  <!-- Barrido de las 04:00: que se ejecuto, que fallo y que falta -->
+  <section class="cp-nightly">
+    <div class="cp-nightly__head">
+      <h3><i class="pi pi-moon"></i> Barrido de las 04:00</h3>
+      <div class="cp-nightly__tools">
+        <label class="cp-nightly__date">
+          Día
+          <input type="date" [(ngModel)]="nightlyDate" (change)="loadNightly()" />
+        </label>
+        <button pButton icon="pi pi-refresh" class="p-button-text p-button-sm" [loading]="nightlyLoading()"
+          (click)="loadNightly()" pTooltip="Recargar el reporte"></button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="nightly() as n; else nightlyEmpty">
+      <div class="cp-nightly__summary">
+        <button class="cp-nightly__stat cp-nightly__stat--ok" [class.is-active]="nightlyFilter() === 'ok'" (click)="nightlyFilter.set('ok')">
+          <b>{{ n.summary.ok | number }}</b> ejecutadas
+        </button>
+        <button class="cp-nightly__stat cp-nightly__stat--error" [class.is-active]="nightlyFilter() === 'error'" (click)="nightlyFilter.set('error')">
+          <b>{{ n.summary.error | number }}</b> con error
+        </button>
+        <button class="cp-nightly__stat cp-nightly__stat--pend" [class.is-active]="nightlyFilter() === 'pendiente'" (click)="nightlyFilter.set('pendiente')">
+          <b>{{ n.summary.pendiente | number }}</b> pendientes
+        </button>
+        <button class="cp-nightly__stat" [class.is-active]="nightlyFilter() === 'despues'" (click)="nightlyFilter.set('despues')"
+          pTooltip="Se actualizaron después de la ventana del barrido (normalmente por un clic en Actualizar)">
+          <b>{{ n.summary.despues | number }}</b> después
+        </button>
+        <span class="cp-nightly__times">
+          Inicio <b>{{ hora(n.summary.first_start) }}</b> · Fin <b>{{ hora(n.summary.last_end) }}</b>
+          <ng-container *ngIf="n.summary.elapsed_min != null"> · Duró <b>{{ n.summary.elapsed_min }} min</b></ng-container>
+          · de {{ n.summary.total | number }} vistas
+        </span>
+      </div>
+
+      <div class="cp-nightly__filters">
+        <button type="button" [class.is-active]="nightlyFilter() === 'atender'" (click)="nightlyFilter.set('atender')">Por atender</button>
+        <button type="button" [class.is-active]="nightlyFilter() === 'todas'" (click)="nightlyFilter.set('todas')">Todas</button>
+      </div>
+
+      <div class="cp-nightly__list" *ngIf="nightlyRows().length > 0; else nightlyNone">
+        <div class="cp-nightly__row" *ngFor="let v of nightlyRows()">
+          <span class="cp-nightly__tag" [ngClass]="'cp-nightly__tag--' + v.estado">{{ nightlyLabel(v.estado) }}</span>
+          <code class="cp-nightly__view">{{ v.schema }}.{{ v.view }}</code>
+          <span class="cp-nightly__at">{{ hora(v.generated_at) }}</span>
+          <span class="cp-nightly__dur">{{ v.duration_s != null ? formatElapsed(v.duration_s) : '' }}</span>
+          <span class="cp-nightly__err" [title]="v.error || ''">{{ v.error || (v.en_graph ? '' : 'No está en el scheduler de Graph') }}</span>
+        </div>
+      </div>
+      <ng-template #nightlyNone>
+        <p class="cp-nightly__hint">Nada que mostrar con este filtro.</p>
+      </ng-template>
+    </ng-container>
+    <ng-template #nightlyEmpty>
+      <p class="cp-nightly__hint">{{ nightlyLoading() ? 'Cargando...' : 'Sin datos del barrido para este día.' }}</p>
+    </ng-template>
+  </section>
+
   <!-- Panel de graficos + carriles -->
   <section class="cp-panels" *ngIf="dashboard()">
     <!-- Donut de estados -->
