@@ -2082,8 +2082,12 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
       const antes = this.stampBeforeRefresh ? Date.parse(this.stampBeforeRefresh) : NaN;
       const ahora = nueva ? Date.parse(nueva) : NaN;
-      // Se regenero si ahora hay hora y es posterior a la de antes (o antes no habia parquet)
-      const confirmado = !Number.isNaN(ahora) && (Number.isNaN(antes) || ahora > antes);
+      // Se regenero si ahora hay hora y es claramente posterior a la de antes (o antes
+      // no habia parquet). El margen de 60 s absorbe el redondeo cuando la hora se deriva
+      // de la edad (age_hours con 2 decimales = +-18 s), para no dar por actualizado un
+      // parquet que no cambio. Graph-Fabric no regenera dos veces en menos de 60 s.
+      const MARGEN_MS = 60_000;
+      const confirmado = !Number.isNaN(ahora) && (Number.isNaN(antes) || ahora - antes > MARGEN_MS);
 
       if (!confirmado || resultado === 'error' || resultado === 'skipped') {
         const motivo = resultado === 'error' || resultado === 'skipped'
