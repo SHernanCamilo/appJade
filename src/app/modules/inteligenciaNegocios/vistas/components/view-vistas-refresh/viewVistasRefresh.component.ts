@@ -25,7 +25,7 @@ import type { ColDef, ColGroupDef, GridApi, GridReadyEvent, CellFocusedEvent } f
 import * as XLSX from 'xlsx';
 
 import {
-  VistasService, VistaBi, FabricColumn,
+  VistasService, VistaBi, FabricColumn, ForceStatus,
 } from '../../../services/vistas.service';
 import {
   getColumnType, humanizeColumnName,
@@ -1963,6 +1963,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     const schema = target?.schema || this.schema;
     const view   = target?.viewName || this.viewName;
 
+    // Hora del parquet ANTES de actualizar: al terminar se compara con la nueva
+    // para saber si de verdad se genero (sin depender del reloj del navegador).
+    this.stampBeforeRefresh = this.parquetGeneratedAt();
+    this.refreshNotice.set(null);
+
     this.progress.update(p => ({
       ...p, status: 'queuing', percent: 3,
       message: 'Pidiendo a Graph-Fabric que genere el parquet desde Fabric...',
@@ -2037,22 +2042,65 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         // generating=false: ya termino. Si nunca se vio "generating", se da un margen
         // de 10 s por si Graph todavia no habia registrado el inicio.
         if (sawGenerating || Date.now() - startedAt >= 10_000) {
-          this.proceedAfterGenerate(schema, view);
+          this.proceedAfterGenerate(schema, view, st);
         }
       });
     }, everyMs);
   }
 
-  /** Parquet ya generado: se actualiza la hora y se cargan los datos. */
-  private proceedAfterGenerate(schema: string, view: string): void {
+  /** Hora del parquet antes de pulsar Actualizar (para confirmar que cambio). */
+  private stampBeforeRefresh: string | null = null;
+
+  /**
+   * Aviso sobre la ultima actualizacion cuando NO se pudo confirmar que el
+   * parquet se regenero. Los datos que se ven son los anteriores.
+   */
+  readonly refreshNotice = signal<{ text: string; stamp: string } | null>(null);
+
+  /**
+   * La generacion termino (o Graph dejo de reportarla). Se confirma que el
+   * parquet realmente cambio antes de presentarlo como "actualizado", y despues
+   * se cargan los datos que haya.
+   */
+  private proceedAfterGenerate(schema: string, view: string, st?: ForceStatus): void {
     if (this.generatePollTimer) { clearInterval(this.generatePollTimer); this.generatePollTimer = null; }
 
     this.progress.update(p => ({
       ...p, status: 'queuing', percent: 58, elapsed: this.elapsed(),
-      message: 'Parquet generado. Descargando los datos...',
+      message: 'Comprobando el parquet generado...',
     }));
-    this.loadParquetStamp(schema, view, true);
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, false);
+
+    // Graph-Fabric reporta un fallo explicito (cuando envie last_result): se guarda el motivo
+    const resultado = (st?.last_result ?? '').toLowerCase();
+    if (resultado === 'error') {
+      this.reportGenerationError(st?.last_error || 'La generacion fallo en Graph-Fabric (sin detalle).');
+    }
+
+    this.vistasService.getParquetStamp(schema, view, true).subscribe(at => {
+      const nueva = at ?? st?.generated_at ?? null;
+      if (nueva) this.parquetGeneratedAt.set(nueva);
+
+      const antes = this.stampBeforeRefresh ? Date.parse(this.stampBeforeRefresh) : NaN;
+      const ahora = nueva ? Date.parse(nueva) : NaN;
+      // Se regenero si ahora hay hora y es posterior a la de antes (o antes no habia parquet)
+      const confirmado = !Number.isNaN(ahora) && (Number.isNaN(antes) || ahora > antes);
+
+      if (!confirmado || resultado === 'error' || resultado === 'skipped') {
+        const motivo = resultado === 'error' || resultado === 'skipped'
+          ? (st?.last_error || 'Graph-Fabric no pudo generarlo ahora.')
+          : 'No se pudo confirmar que el parquet se haya regenerado.';
+        this.refreshNotice.set({
+          text: `${motivo} Se muestran los datos anteriores. Intente de nuevo en unos minutos.`,
+          stamp: this.formatParquetStamp(nueva),
+        });
+      }
+
+      this.progress.update(p => ({
+        ...p, percent: 60,
+        message: confirmado ? 'Parquet generado. Descargando los datos...' : 'Descargando los datos disponibles...',
+      }));
+      this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, false);
+    });
   }
 
   /**

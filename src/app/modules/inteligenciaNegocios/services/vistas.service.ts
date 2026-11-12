@@ -53,6 +53,22 @@ export interface VistaBi {
   column_count: number;
 }
 
+/** Estado de la generacion pedida con "Actualizar" (proxy de GET /api/r2/warm). */
+export interface ForceStatus {
+  status?: string;
+  /** true mientras Graph-Fabric sigue consultando Fabric */
+  generating?: boolean;
+  estimated_s?: number;
+  row_count?: number | null;
+  message?: string;
+  /** Hora en que termino la ultima generacion (si Graph-Fabric la envia) */
+  generated_at?: string | null;
+  /** Resultado de la ultima generacion a demanda: ok | unchanged | skipped | error */
+  last_result?: string | null;
+  /** Motivo cuando last_result es error o skipped */
+  last_error?: string | null;
+}
+
 export interface FabricColumn {
   name: string;
   type: string;
@@ -304,11 +320,9 @@ export class VistasService {
    * consultando Fabric. null si no se pudo consultar (un corte puntual de red no
    * debe abortar la espera).
    */
-  forceStatus(schema: string, view: string): Observable<{
-    status?: string; generating?: boolean; estimated_s?: number; row_count?: number | null; message?: string;
-  } | null> {
+  forceStatus(schema: string, view: string): Observable<ForceStatus | null> {
     return this.http
-      .get<{ status?: string; generating?: boolean; estimated_s?: number; row_count?: number | null; message?: string }>(
+      .get<ForceStatus>(
         `${this.baseUrl}/parquet-monitor/force/status`, { params: { schema, view } })
       .pipe(catchError(() => of(null)));
   }

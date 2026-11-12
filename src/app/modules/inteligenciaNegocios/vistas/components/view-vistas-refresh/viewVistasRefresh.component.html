@@ -219,6 +219,21 @@
         <i class="pi pi-spin pi-spinner"></i> Procesando datos...
       </div>
 
+      <!-- Aviso: "Actualizar" termino pero no se confirmo un parquet nuevo -->
+      <div *ngIf="refreshNotice() as rn" class="vr-mismatch-banner" role="status">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>
+          {{ rn.text }}
+          <ng-container *ngIf="rn.stamp"> Datos del <strong>{{ rn.stamp }}</strong>.</ng-container>
+        </span>
+        <button class="vr-mismatch-banner__btn" (click)="startRefresh()">
+          <i class="pi pi-refresh"></i> Reintentar
+        </button>
+        <button class="vr-mismatch-banner__close" (click)="refreshNotice.set(null)" aria-label="Cerrar aviso">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+
       <!-- Aviso: parquet no coincide con la vista real (posible cache desactualizado) -->
       <div *ngIf="parquetMismatch() as mm" class="vr-mismatch-banner">
         <i class="pi pi-exclamation-triangle"></i>
