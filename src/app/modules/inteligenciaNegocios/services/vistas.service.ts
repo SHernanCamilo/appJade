@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ColDef } from 'ag-grid-community';
 import { environment } from '../../../environments/environment';
 import { getColumnType } from '../helpers/column-type.helper';
@@ -256,6 +256,61 @@ export class VistasService {
    * partir del cual la vista debe abrirse en JadeOne Desktop y no en el navegador.
    * Las vistas sin parquet no vienen en el mapa: su tamaño es desconocido.
    */
+  /**
+   * Hora (ISO) en que Graph-Fabric TERMINÓ de generar el parquet de la vista.
+   * null si todavía no existe o no se pudo consultar (nunca rompe la pantalla).
+   */
+  getParquetStamp(schema: string, view: string, fresh = false): Observable<string | null> {
+    // fresh=1: el backend salta su cache de unos segundos. Se usa justo despues de
+    // generar, para no mostrar la hora de la generacion anterior.
+    const params: Record<string, string> = fresh ? { schema, view, fresh: '1' } : { schema, view };
+
+    return this.http
+      .get<{ generated_at?: string | null }>(`${this.baseUrl}/r2/status`, { params })
+      .pipe(
+        map(res => res.generated_at ?? null),
+        catchError(() => of(null)),
+      );
+  }
+
+  /** Formato único de la hora de actualización (zona horaria del navegador). */
+  static formatStamp(iso: string | null | undefined): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('es-CO', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  /**
+   * Guarda y avisa a TI que "Actualizar" no se completó, con el motivo:
+   *   - 'timeout': superó el tope de espera (5 min). La generación NO se cancela,
+   *     sigue en Graph-Fabric.
+   *   - 'error':   la generación falló; `detail` lleva lo que devolvió el servidor
+   *     (por ejemplo el error de la consulta a Fabric).
+   *
+   * Fire-and-forget: un fallo al reportar nunca debe afectar al usuario.
+   */
+  reportRefreshFailure(
+    schema: string,
+    view: string,
+    elapsedS: number,
+    reason: 'timeout' | 'error',
+    detail?: string,
+  ): Observable<unknown> {
+    return this.http
+      .post(`${this.baseUrl}/parquet-monitor/refresh-failure`, {
+        schema_name: schema,
+        view,
+        elapsed_s: Math.max(0, Math.round(elapsedS)),
+        reason,
+        detail: detail ? detail.slice(0, 500) : null,
+      })
+      .pipe(catchError(() => of(null)));
+  }
+
   getRowCounts(): Observable<ViewRowCountsResponse> {
     return this.http.get<ViewRowCountsResponse>(`${this.baseUrl}/views/row-counts`);
   }

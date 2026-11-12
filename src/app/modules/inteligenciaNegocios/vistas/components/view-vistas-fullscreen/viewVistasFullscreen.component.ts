@@ -48,6 +48,13 @@ export class ViewVistasFullscreenComponent implements OnInit, OnDestroy {
   readonly getColumnType = getColumnType;
   readonly humanizeColumnName = humanizeColumnName;
 
+  /** Hora en que Graph-Fabric terminó de generar el parquet de esta vista. */
+  parquetGeneratedAt: string | null = null;
+
+  get parquetStamp(): string {
+    return VistasService.formatStamp(this.parquetGeneratedAt);
+  }
+
   defaultColDef: ColDef = {
     sortable: true,
     filter: true,
@@ -130,6 +137,9 @@ export class ViewVistasFullscreenComponent implements OnInit, OnDestroy {
           this.isLoading = false;
           return;
         }
+
+        this.vistasService.getParquetStamp(this.schema, this.viewName)
+          .subscribe(at => this.parquetGeneratedAt = at);
 
         this.cargarDatos();
       },

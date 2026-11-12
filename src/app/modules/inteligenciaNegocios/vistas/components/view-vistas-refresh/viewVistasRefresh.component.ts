@@ -1479,31 +1479,27 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   /** Fecha/hora de creación del parquet de la vista (cache local o R2). */
-  private loadParquetStamp(schema: string, view: string): void {
+  private loadParquetStamp(schema: string, view: string, fresh = false): void {
     if (!schema || !view) {
       this.parquetGeneratedAt.set(null);
       return;
     }
-    this.http.get<{ success: boolean; generated_at?: string | null }>(
-      `${this.baseUrl}/r2/status`,
-      { params: { schema, view } },
-    ).subscribe({
-      next: res => this.parquetGeneratedAt.set(res.generated_at ?? null),
-      error: () => this.parquetGeneratedAt.set(null),
+
+    // Si el usuario cambia de pestaña antes de que responda, esa respuesta tardia
+    // no debe pisar la hora de la hoja que ahora esta viendo.
+    const key = `${schema}.${view}`.toLowerCase();
+    this.stampRequestKey = key;
+
+    this.vistasService.getParquetStamp(schema, view, fresh).subscribe(at => {
+      if (this.stampRequestKey === key) this.parquetGeneratedAt.set(at);
     });
   }
 
+  /** Clave de la ultima consulta de hora de actualizacion (descarta respuestas viejas). */
+  private stampRequestKey = '';
+
   private formatParquetStamp(iso: string | null): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleString('es-CO', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return VistasService.formatStamp(iso);
   }
 
   private loadMeta(): void {
@@ -1571,10 +1567,11 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
           });
         }
         
-        this.startRefresh();
+        // Apertura de la vista: leer el parquet existente, sin forzar generacion
+        this.startRefresh(false);
       },
       error: () => {
-        this.startRefresh();
+        this.startRefresh(false);
       },
     });
   }
@@ -1614,7 +1611,13 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   /** Punto de entrada - equivale a "Actualizar todo" o clic derecho -> Actualizar en Excel */
-  startRefresh(): void {
+  /**
+   * @param force true = el usuario pidio "Actualizar": se invalida el parquet y se
+   *   regenera en Graph-Fabric. false = apertura normal de la vista: se lee el
+   *   parquet que ya existe, SIN disparar una generacion. Antes TODA apertura
+   *   forzaba la regeneracion, que era una de las causas del represamiento.
+   */
+  startRefresh(force = true): void {
     const p = this.progress();
     if (p.status === 'queuing' || p.status === 'processing' || p.status === 'downloading') {
       return; // Ya esta en curso
@@ -1709,8 +1712,8 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     }
 
     // Lanzar export: el backend maneja R2 warm internamente.
-    // force_refresh=true le dice al backend que invalide el parquet y genere uno nuevo
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, true);
+    // force_refresh=true (solo con "Actualizar") invalida el parquet y genera uno nuevo
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, force);
   }
 
   /**
@@ -1846,6 +1849,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       },
       error: (err) => {
         const msg = err?.error?.message ?? 'No se pudo conectar con el servidor.';
+        // status 0 = el navegador ni llego al servidor (red del usuario): no es un
+        // fallo de generacion, asi que no se reporta a TI.
+        if (err?.status) this.reportGenerationError(msg);
         this.setError(msg);
       },
     });
@@ -1863,6 +1869,10 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (this.r2PollTimer) clearInterval(this.r2PollTimer);
 
     this.r2PollTimer = setInterval(() => {
+      if (this.elapsed() >= ViewVistasRefreshComponent.MAX_REFRESH_WAIT_S) {
+        this.onRefreshTimeout();
+        return;
+      }
       this.http.get<{
         success: boolean;
         r2_status: string;
@@ -1925,6 +1935,51 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
     if (this.r2PollTimer) { clearInterval(this.r2PollTimer); this.r2PollTimer = null; }
   }
 
+  /** Tope de espera de una actualizacion (segundos). Igual al de Graph-Fabric. */
+  private static readonly MAX_REFRESH_WAIT_S = 300;
+
+  /**
+   * La actualizacion supero el tope: se deja de esperar, se avisa al usuario y se
+   * reporta a TI. La generacion NO se cancela: sigue en Graph-Fabric y, cuando
+   * termine, la siguiente apertura ya encuentra el parquet nuevo.
+   */
+  private onRefreshTimeout(): void {
+    const elapsed = this.elapsed();
+
+    // La vista que estaba en curso (el usuario pudo cambiar de pestaña mientras tanto)
+    const target = this.sheets().find(s => s.id === this.loadTargetSheetId);
+    const schema = target?.schema || this.schema;
+    const view   = target?.viewName || this.viewName;
+
+    this.clearTimers();
+    this.vistasService.reportRefreshFailure(schema, view, elapsed, 'timeout').subscribe();
+
+    this.progress.set({
+      status: 'error',
+      message: 'No fue posible actualizar la vista ahora.',
+      percent: 0,
+      rows: 0,
+      elapsed,
+      errorDetail:
+        `La actualizacion de "${view}" supera los 5 minutos y sigue en proceso en el servidor. ` +
+        'Intente de nuevo en unos minutos. Ya se aviso al equipo de TI.',
+    });
+
+    // Que no quede bloqueada la cola de cargas
+    this.releaseLoadSlot();
+  }
+
+  /**
+   * Guarda para TI el motivo de un fallo de generacion (error de la consulta a
+   * Fabric, el export que falla, etc.). El detalle llega del servidor tal cual.
+   */
+  private reportGenerationError(detail: string): void {
+    const target = this.sheets().find(s => s.id === this.loadTargetSheetId);
+    this.vistasService
+      .reportRefreshFailure(target?.schema || this.schema, target?.viewName || this.viewName, this.elapsed(), 'error', detail)
+      .subscribe();
+  }
+
   cancelRefresh(): void {
     this.clearTimers();
     if (this.progress().status !== 'ready') {
@@ -1939,7 +1994,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   // -Polling del job -
   private startPolling(jobId: string): void {
-    this.pollTimer = setInterval(() => this.checkStatus(jobId), 2500);
+    this.pollTimer = setInterval(() => {
+      // Tope de espera: pasados 5 min se corta la espera, no la generacion
+      if (this.elapsed() >= ViewVistasRefreshComponent.MAX_REFRESH_WAIT_S) {
+        this.onRefreshTimeout();
+        return;
+      }
+      this.checkStatus(jobId);
+    }, 2500);
   }
 
   private checkStatus(jobId: string): void {
@@ -1960,7 +2022,9 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
         if (status === 'failed') {
           clearInterval(this.pollTimer!);
           this.pollTimer = null;
-          this.setError(String(s['error'] ?? s['message'] ?? 'El export fallo en el servidor.'));
+          const motivo = String(s['error'] ?? s['message'] ?? 'El export fallo en el servidor.');
+          this.reportGenerationError(motivo);
+          this.setError(motivo);
           return;
         }
 
@@ -2130,6 +2194,14 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       // Guardar de una en la hoja destino: aunque el usuario se vaya a otra
       // pestaña, al volver los datos ya estan ahi.
       this.saveSheetData(targetId, data, this.columnDefs);
+
+      // Hora en que Graph-Fabric TERMINO de generar el parquet de esta vista.
+      // `fresh` salta la cache de unos segundos del backend: acabamos de generar
+      // y no debe mostrarse la hora de la generacion anterior.
+      const loadedSheet = this.sheets().find(s => s.id === targetId);
+      if (targetIsActive() && loadedSheet && (loadedSheet.kind ?? 'view') === 'view') {
+        this.loadParquetStamp(loadedSheet.schema, loadedSheet.viewName, true);
+      }
 
       // Recalcular las tablas dinamicas que salen de esta hoja: al refrescar o al
       // restaurar un workbook sus filas estan vacias u obsoletas. Va antes del

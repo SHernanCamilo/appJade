@@ -11,6 +11,7 @@
       <ng-container *ngIf="usarPaginacionInfinita">
         {{ totalLabel }} · Página {{ paginaActual }}
       </ng-container>
+      <span *ngIf="parquetStamp"> · Actualizado {{ parquetStamp }}</span>
       <span class="heavy-view-badge" *ngIf="isHeavyView"> · Vista con alto volumen</span>
     </div>
   </div>

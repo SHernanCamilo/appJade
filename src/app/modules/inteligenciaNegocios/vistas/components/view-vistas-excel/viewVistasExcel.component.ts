@@ -172,11 +172,24 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
     return m.total === -1 ? m.has_next : this.paginaActual < this.totalPaginas();
   });
 
+  /** Hora en que Graph-Fabric terminó de generar el parquet de esta vista. */
+  readonly parquetGeneratedAt = signal<string | null>(null);
+
+  private readonly stampLabel = computed(() => {
+    const s = VistasService.formatStamp(this.parquetGeneratedAt());
+    return s ? `Actualizado ${s}` : '';
+  });
+
   // ── ExcelSheetConfig ──
   readonly excelConfig = computed<ExcelSheetConfig>(() => ({
     title: {
       documentName: this.vista?.nombre || 'Vista',
-      subtitle: `${this.schema} · ${this.totalLabel()}  ${this.paginaActual > 1 ? '· Pág. ' + this.paginaActual : ''}`,
+      subtitle: [
+        this.schema,
+        this.stampLabel(),
+        this.totalLabel(),
+        this.paginaActual > 1 ? 'Pág. ' + this.paginaActual : '',
+      ].filter(Boolean).join(' · '),
       saveState: 'saved',
       secondaryActions: [{ label: 'Cerrar', icon: 'pi pi-times', action: 'close' }],
     },
@@ -247,6 +260,10 @@ export class ViewVistasExcelComponent implements OnInit, OnDestroy {
           this.isLoading.set(false);
           return;
         }
+
+        // Hora de la ultima generacion del parquet (no bloquea la carga).
+        this.vistasService.getParquetStamp(this.schema, this.viewName)
+          .subscribe(at => this.parquetGeneratedAt.set(at));
 
         // Metadatos de columnas: es la unica forma fiable de saber cuales son
         // fechas y asignarles el filtro de calendario. No bloquea la carga.

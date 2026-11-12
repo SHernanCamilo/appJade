@@ -30,10 +30,8 @@
       <div class="cp-actions-group cp-actions-group--admin">
         <button pButton label="Rebalancear" icon="pi pi-sliders-h" class="p-button-outlined p-button-help p-button-sm"
           [loading]="rebalancing()" (click)="rebalance()" pTooltip="Optimizar scheduler: desactiva pequenas, sube intervalos de historicas"></button>
-        <button pButton label="Importar" icon="pi pi-cloud-download" class="p-button-outlined p-button-info p-button-sm"
-          [loading]="importing()" (click)="importFromGraph()" pTooltip="Importar vistas desde Graph-Fabric"></button>
         <button pButton label="Sincronizar" icon="pi pi-sync" class="p-button-outlined p-button-sm"
-          [loading]="syncing()" (click)="syncAll()" pTooltip="Reenviar configs a Graph-Fabric"></button>
+          [loading]="syncing()" (click)="syncAll()" pTooltip="Dejar el scheduler de Graph-Fabric igual a esta tabla (desactiva lo no configurado)"></button>
         <button pButton label="Nueva" icon="pi pi-plus" class="p-button-success p-button-sm"
           (click)="openNew()"></button>
       </div>
@@ -47,10 +45,7 @@
         {{ monitorBar().freshPct }}%
         <small>al día</small>
       </div>
-      <span class="cp-health__detail">{{ kpiOk() | number }} frescas de {{ configs().length | number }}</span>
-      <span class="cp-health__sla" *ngIf="kpiOverdue() > 0" pTooltip="Vistas muy atrasadas o que nunca se han generado">
-        <i class="pi pi-shield"></i> {{ kpiOverdue() | number }} en riesgo de SLA
-      </span>
+      <span class="cp-health__detail">{{ kpiOk() | number }} ejecutadas de {{ configs().length | number }}</span>
     </div>
     <div class="cp-health__bar" role="img" aria-label="Distribucion de estados">
       <span *ngFor="let part of monitorBar().parts" [style.width.%]="part.pct" [style.background]="part.color"
@@ -63,14 +58,14 @@
     </div>
   </section>
 
-  <!-- KPI Cards (clickables para filtrar) -->
+  <!-- KPIs: cada vista cuenta en UNA sola tarjeta (suman el total). Clic para filtrar la tabla. -->
   <section class="cp-kpis">
     <button class="cp-kpi cp-kpi--total" [class.cp-kpi--active]="statusFilter() === 'all'"
       (click)="setStatusFilter('all')">
       <div class="cp-kpi__icon"><i class="pi pi-list"></i></div>
       <div class="cp-kpi__body">
-        <span class="cp-kpi__value">{{ kpiTotal() | number }}</span>
-        <span class="cp-kpi__label">Total vistas</span>
+        <span class="cp-kpi__value">{{ configs().length | number }}</span>
+        <span class="cp-kpi__label">Vistas configuradas</span>
       </div>
     </button>
 
@@ -79,13 +74,25 @@
       <div class="cp-kpi__icon"><i class="pi pi-check-circle"></i></div>
       <div class="cp-kpi__body">
         <span class="cp-kpi__value">{{ kpiOk() | number }}</span>
-        <span class="cp-kpi__label">Frescas</span>
-        <span class="cp-kpi__share">{{ shareOf(kpiOk()) }}% del total</span>
+        <span class="cp-kpi__label">Ejecutadas</span>
+        <span class="cp-kpi__share">{{ shareOf(kpiOk()) }}% al día</span>
+      </div>
+    </button>
+
+    <button class="cp-kpi cp-kpi--pending" [class.cp-kpi--active]="statusFilter() === 'pending'"
+      [class.cp-kpi--hot]="kpiPending() > 0" [class.cp-kpi--quiet]="kpiPending() === 0"
+      pTooltip="Sin parquet todavía o generándose ahora" tooltipPosition="top"
+      (click)="setStatusFilter('pending')">
+      <div class="cp-kpi__icon"><i class="pi pi-hourglass"></i></div>
+      <div class="cp-kpi__body">
+        <span class="cp-kpi__value">{{ kpiPending() | number }}</span>
+        <span class="cp-kpi__label">En cola</span>
       </div>
     </button>
 
     <button class="cp-kpi cp-kpi--stale" [class.cp-kpi--active]="statusFilter() === 'stale'"
       [class.cp-kpi--hot]="kpiStale() > 0" [class.cp-kpi--quiet]="kpiStale() === 0"
+      pTooltip="Tienen parquet, pero ya pasó su intervalo configurado" tooltipPosition="top"
       (click)="setStatusFilter('stale')">
       <div class="cp-kpi__icon"><i class="pi pi-clock"></i></div>
       <div class="cp-kpi__body">
@@ -95,64 +102,37 @@
       </div>
     </button>
 
-    <button class="cp-kpi cp-kpi--sla" [class.cp-kpi--hot]="kpiOverdue() > 0" [class.cp-kpi--quiet]="kpiOverdue() === 0"
-      pTooltip="Vistas muy atrasadas o que nunca se han generado" tooltipPosition="top">
-      <div class="cp-kpi__icon"><i class="pi pi-shield"></i></div>
-      <div class="cp-kpi__body">
-        <span class="cp-kpi__value">{{ kpiOverdue() | number }}</span>
-        <span class="cp-kpi__label">Riesgo de SLA</span>
-        <span class="cp-kpi__share" *ngIf="kpiOverdue() > 0">requiere drenar</span>
-      </div>
-    </button>
-
-    <button class="cp-kpi cp-kpi--generating" [class.cp-kpi--hot]="kpiGenerating() > 0" [class.cp-kpi--quiet]="kpiGenerating() === 0">
-      <div class="cp-kpi__icon"><i class="pi" [class.pi-spin]="kpiGenerating() > 0" [class.pi-spinner]="kpiGenerating() > 0" [class.pi-sync]="kpiGenerating() === 0"></i></div>
-      <div class="cp-kpi__body">
-        <span class="cp-kpi__value">{{ kpiGenerating() | number }}</span>
-        <span class="cp-kpi__label">Generando</span>
-      </div>
-    </button>
-
-    <button class="cp-kpi cp-kpi--pending" [class.cp-kpi--active]="statusFilter() === 'pending'"
-      [class.cp-kpi--hot]="kpiPending() > 0" [class.cp-kpi--quiet]="kpiPending() === 0"
-      (click)="setStatusFilter('pending')">
-      <div class="cp-kpi__icon"><i class="pi pi-hourglass"></i></div>
-      <div class="cp-kpi__body">
-        <span class="cp-kpi__value">{{ kpiPending() | number }}</span>
-        <span class="cp-kpi__label">En cola</span>
-      </div>
-    </button>
-
-    <button class="cp-kpi cp-kpi--error" [class.cp-kpi--active]="statusFilter() === 'error'"
-      [class.cp-kpi--hot]="kpiError() > 0" [class.cp-kpi--quiet]="kpiError() === 0"
-      (click)="setStatusFilter('error')">
+    <!-- Solo aparece si hay vistas fallando: un fallo no debe quedar escondido -->
+    <button class="cp-kpi cp-kpi--error cp-kpi--hot" *ngIf="kpiError() > 0"
+      [class.cp-kpi--active]="statusFilter() === 'error'" (click)="setStatusFilter('error')">
       <div class="cp-kpi__icon"><i class="pi pi-exclamation-triangle"></i></div>
       <div class="cp-kpi__body">
         <span class="cp-kpi__value">{{ kpiError() | number }}</span>
         <span class="cp-kpi__label">Con error</span>
+        <span class="cp-kpi__share">ver motivo en la tabla</span>
       </div>
     </button>
+  </section>
 
-    <!-- Indicador de salud del pipeline: vistas muy atrasadas o nunca generadas -->
-    <button class="cp-kpi cp-kpi--sla" pTooltip="Vistas muy atrasadas o que nunca se han generado"
-      tooltipPosition="top">
-      <div class="cp-kpi__icon"><i class="pi pi-shield"></i></div>
-      <div class="cp-kpi__body">
-        <span class="cp-kpi__value">{{ kpiOverdue() | number }}</span>
-        <span class="cp-kpi__label">En riesgo de SLA</span>
-      </div>
-    </button>
-
-    <!-- Conflictos: parquet habilitado pero vista inactiva en bi_vistas -->
-    <button class="cp-kpi" [class.cp-kpi--error]="kpiConflicto() > 0" [class.cp-kpi--ok]="kpiConflicto() === 0"
-      pTooltip="Parquets habilitados cuya vista está marcada como INACTIVA en bi_vistas. Deberían desactivarse."
-      tooltipPosition="top">
-      <div class="cp-kpi__icon"><i class="pi pi-ban"></i></div>
-      <div class="cp-kpi__body">
-        <span class="cp-kpi__value">{{ kpiConflicto() | number }}</span>
-        <span class="cp-kpi__label">Conflictos vista/parquet</span>
-      </div>
-    </button>
+  <!-- Fallos y demoras recientes de "Actualizar", con su motivo -->
+  <section class="cp-incidents" *ngIf="incidents().length > 0">
+    <div class="cp-incidents__head">
+      <h3><i class="pi pi-exclamation-circle"></i> Fallos y demoras recientes (24 h)</h3>
+      <span class="cp-incidents__meta">{{ incidents().length }} registrados</span>
+    </div>
+    <div class="cp-incidents__row" *ngFor="let i of incidents()">
+      <span class="cp-incidents__time">{{ formatDateTime(i.created_at) }}</span>
+      <code class="cp-incidents__view">{{ i.schema_name }}.{{ i.view_name }}</code>
+      <span class="cp-incidents__tag"
+        [class.cp-incidents__tag--timeout]="i.reason === 'timeout'"
+        [class.cp-incidents__tag--error]="i.reason === 'error'">
+        {{ i.reason === 'timeout' ? 'Superó 5 min' : 'Falló la consulta' }}
+      </span>
+      <span class="cp-incidents__detail" [title]="i.detail || ''">
+        {{ i.detail || (i.reason === 'timeout' ? ('Tardó ' + formatElapsed(i.elapsed_s) + ' y sigue en proceso') : 'Sin detalle') }}
+      </span>
+      <span class="cp-incidents__who">{{ i.user_name || (i.source === 'scheduler' ? 'Automático' : '') }}</span>
+    </div>
   </section>
 
   <!-- Panel de graficos + carriles -->
@@ -401,7 +381,7 @@
       <tr>
         <td colspan="9" class="cp-empty">
           <i class="pi pi-inbox"></i>
-          <p>No hay vistas que coincidan. Use "Importar" para traer las vistas de Graph-Fabric.</p>
+          <p>No hay vistas configuradas que coincidan. Use "Nueva" para configurar una.</p>
         </td>
       </tr>
     </ng-template>

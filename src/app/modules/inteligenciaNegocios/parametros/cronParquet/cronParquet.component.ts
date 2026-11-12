@@ -87,6 +87,22 @@ interface ParquetHistoryEntry {
   captured_at: string;
 }
 
+/** Fallo o demora de "Actualizar" guardado por el backend (con su motivo). */
+interface ParquetIncident {
+  id: number;
+  schema_name: string;
+  view_name: string;
+  source: 'user_refresh' | 'scheduler';
+  /** timeout = superó 5 min · error = falló la consulta */
+  reason: 'timeout' | 'error';
+  user_name: string | null;
+  elapsed_s: number;
+  stage: string | null;
+  status: 'open' | 'resolved';
+  detail: string | null;
+  created_at: string;
+}
+
 type LaneKey = 'sprint' | 'standard' | 'heavy' | 'marathon' | 'nueva';
 
 /** Una vista generandose AHORA, segun /parquet-monitor/live (dato real de Graph-Fabric). */
@@ -164,7 +180,6 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   readonly dashboard   = signal<DashboardData | null>(null);
   readonly loading     = signal(true);
   readonly syncing     = signal(false);
-  readonly importing   = signal(false);
   readonly runningCron = signal(false);
   readonly rebalancing = signal(false);
   readonly showDialog  = signal(false);
@@ -210,11 +225,10 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   // Chart data (donut de estados)
   readonly statusChartData = computed(() => {
     const slices: Array<{ label: string; value: number; color: string }> = [
-      { label: 'ok', value: this.kpiOk(), color: '#22c55e' },
-      { label: 'stale', value: this.kpiStale(), color: '#ef4444' },
-      { label: 'pending', value: this.kpiPending(), color: '#f59e0b' },
-      { label: 'generating', value: this.kpiGenerating(), color: '#3b82f6' },
-      { label: 'error', value: this.kpiError(), color: '#dc2626' },
+      { label: 'Ejecutadas', value: this.kpiOk(), color: '#22c55e' },
+      { label: 'Desactualizadas', value: this.kpiStale(), color: '#ef4444' },
+      { label: 'En cola', value: this.kpiPending(), color: '#f59e0b' },
+      { label: 'Con error', value: this.kpiError(), color: '#dc2626' },
     ].filter(s => s.value > 0);
     return {
       labels: slices.map(s => s.label),
@@ -239,21 +253,22 @@ export class CronParquetComponent implements OnInit, OnDestroy {
   // El resumen del scheduler (dashboard.stats.by_status) usa otra fuente y puede
   // llegar vacio: por eso las tarjetas se quedaban en 0 con filas en "ok".
   readonly kpiTotal    = computed(() => this.dashboard()?.stats?.total_active ?? this.configs().length);
-  readonly kpiOk       = computed(() => this.countWhere(st => (st?.status ?? '').toLowerCase() === 'ok' && !this.isStale(st)));
-  readonly kpiStale    = computed(() => this.countWhere(st => this.isStale(st)));
-  readonly kpiPending  = computed(() => this.countWhere(st => this.isPending(st) && !this.isGenerating(st) && !this.isError(st)));
-  readonly kpiError    = computed(() => this.countWhere(st => this.isError(st)));
-  readonly kpiGenerating = computed(() => this.countWhere(st => this.isGenerating(st)));
+  // Cada vista cae en UNA sola categoria (ver bucketOf), asi que las cuatro suman
+  // exactamente el total de vistas configuradas. Antes una vista nunca generada
+  // contaba como "desactualizada" y tambien como "en cola" (420 + 420 de 420).
+  readonly kpiOk       = computed(() => this.countWhere(st => this.bucketOf(st) === 'ok'));
+  readonly kpiStale    = computed(() => this.countWhere(st => this.bucketOf(st) === 'stale'));
+  readonly kpiPending  = computed(() => this.countWhere(st => this.bucketOf(st) === 'queue'));
+  readonly kpiError    = computed(() => this.countWhere(st => this.bucketOf(st) === 'error'));
   readonly kpiEfficiency = computed(() => this.dashboard()?.stats?.efficiency_pct ?? 0);
   readonly kpiDue      = computed(() => this.dashboard()?.due_count ?? 0);
 
   /** Barra de salud: un solo vistazo de cuánto está al día frente a lo que hay que atender. */
   readonly monitorBar = computed(() => {
     const parts = [
-      { key: 'ok', label: 'Frescas', n: this.kpiOk(), color: '#16a34a' },
+      { key: 'ok', label: 'Ejecutadas', n: this.kpiOk(), color: '#16a34a' },
       { key: 'stale', label: 'Desactualizadas', n: this.kpiStale(), color: '#dc2626' },
       { key: 'pending', label: 'En cola', n: this.kpiPending(), color: '#d97706' },
-      { key: 'generating', label: 'Generando', n: this.kpiGenerating(), color: '#2563eb' },
       { key: 'error', label: 'Con error', n: this.kpiError(), color: '#991b1b' },
     ];
     const sum = parts.reduce((acc, p) => acc + p.n, 0) || 1;
@@ -344,9 +359,6 @@ export class CronParquetComponent implements OnInit, OnDestroy {
       .sort((a, b) => b.elapsedS - a.elapsedS);
   });
 
-  /** Vistas en riesgo de SLA (muy atrasadas o nunca generadas). */
-  readonly kpiOverdue = computed(() => this.liveSummary()?.overdue ?? 0);
-
   /** Vistas atascadas segun Graph-Fabric. */
   readonly kpiStuck = computed(() => this.liveSummary()?.stuck ?? 0);
 
@@ -382,6 +394,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadStatus();
     this.loadDashboard();
     this.loadLive();
+    this.loadIncidents();
 
     // Reloj de 1s: recalcula "En proceso" y el "hace X min" de parquet_cache.
     this.clockTimer = setInterval(() => {
@@ -410,6 +423,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
         this.loadStatus();
         this.loadDashboard();
         this.loadLive();   // panel "Generando ahora" + riesgo de SLA
+        this.loadIncidents();
       }, 15000);
     }
   }
@@ -482,6 +496,18 @@ export class CronParquetComponent implements OnInit, OnDestroy {
    * Estado en vivo desde Graph-Fabric: panel "Generando ahora" + resumen de
    * salud (summary.overdue = vistas en riesgo de SLA).
    */
+  /** Fallos y demoras de "Actualizar" de las ultimas 24 h, con su motivo. */
+  readonly incidents = signal<ParquetIncident[]>([]);
+
+  loadIncidents(): void {
+    this.http.get<{ success: boolean; data: ParquetIncident[] }>(`${this.monitorUrl}/incidents`, { params: { hours: 24 } })
+      .subscribe({
+        next: res => this.incidents.set(res.data ?? []),
+        // Sin esta lista el monitor sigue siendo util: no se muestra error
+        error: () => this.incidents.set([]),
+      });
+  }
+
   loadLive(): void {
     this.http.get<{ success: boolean; summary: LiveSummary; generating_now: GeneratingNow[]; message?: string }>(
       `${this.monitorUrl}/live`
@@ -502,6 +528,7 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     this.loadStatus();
     this.loadDashboard();
     this.loadLive();
+    this.loadIncidents();
   }
 
   // ─── Filtro ────────────────────────────────────────────────────────────────
@@ -514,10 +541,11 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     if (sf !== 'all') {
       list = list.filter(c => {
         const st = this.getStatusForView(c.schema_name, c.view_name);
-        if (sf === 'stale')   return this.isStale(st);
-        if (sf === 'error')   return this.isError(st);
-        if (sf === 'ok')      return st?.status === 'ok' && !this.isStale(st);
-        if (sf === 'pending') return this.isPending(st);
+        // Mismo criterio que las tarjetas: filtrar y contar nunca se contradicen
+        if (sf === 'stale')   return this.bucketOf(st) === 'stale';
+        if (sf === 'error')   return this.bucketOf(st) === 'error';
+        if (sf === 'ok')      return this.bucketOf(st) === 'ok';
+        if (sf === 'pending') return this.bucketOf(st) === 'queue';
         return true;
       });
     }
@@ -695,7 +723,11 @@ export class CronParquetComponent implements OnInit, OnDestroy {
       enabled: !config.enabled,
     }).subscribe({
       next: () => this.loadConfigs(),
-      error: () => this.msg.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cambiar el estado' }),
+      // El backend explica el motivo (p. ej. "la vista esta inactiva en la plataforma")
+      error: err => this.msg.add({
+        severity: 'error', summary: 'No se pudo cambiar el estado',
+        detail: err?.error?.message ?? 'Intente de nuevo.', life: 8000,
+      }),
     });
   }
 
@@ -806,39 +838,6 @@ export class CronParquetComponent implements OnInit, OnDestroy {
           error: err => {
             this.rebalancing.set(false);
             this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo rebalancear' });
-          },
-        });
-      },
-    });
-  }
-
-  // ─── Import from Graph ──────────────────────────────────────────────────
-
-  importFromGraph(): void {
-    this.confirm.confirm({
-      message: 'Importar todas las vistas existentes en Graph-Fabric? Se asignaran intervalos por defecto segun el schema. Las ya configuradas no se sobreescriben.',
-      header: 'Importar desde Graph-Fabric',
-      icon: 'pi pi-cloud-download',
-      accept: () => {
-        this.importing.set(true);
-        this.http.post<{ success: boolean; imported: number; skipped: number; total: number; message: string }>(
-          `${this.baseUrl}/import-from-graph`, {}
-        ).subscribe({
-          next: res => {
-            this.importing.set(false);
-            this.msg.add({
-              severity: 'success',
-              summary: 'Importacion completada',
-              detail: res.message,
-              life: 8000,
-            });
-            this.loadConfigs();
-            this.loadStatus();
-            this.loadDashboard();
-          },
-          error: err => {
-            this.importing.set(false);
-            this.msg.add({ severity: 'error', summary: 'Error', detail: err?.error?.message ?? 'No se pudo importar' });
           },
         });
       },
@@ -1148,6 +1147,20 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     );
   }
 
+  /**
+   * Categoria UNICA de una vista, en este orden de prioridad:
+   *   error → fallo la ultima generacion
+   *   queue → todavia no tiene parquet o se esta generando
+   *   stale → tiene parquet pero ya paso su intervalo configurado
+   *   ok    → ejecutada y al dia
+   */
+  bucketOf(st?: ParquetStatus): 'ok' | 'stale' | 'queue' | 'error' {
+    if (this.isError(st)) return 'error';
+    if (this.isPending(st) || this.isGenerating(st)) return 'queue';
+    if (this.isStale(st)) return 'stale';
+    return 'ok';
+  }
+
   /** ¿La vista está en error? Reconoce variantes de Graph y presencia de mensaje de error. */
   isError(st?: ParquetStatus): boolean {
     if (!st) return false;
@@ -1252,9 +1265,4 @@ export class CronParquetComponent implements OnInit, OnDestroy {
     }
     return null;
   }
-
-  /** Total de configs con conflicto (habilitadas y vista inactiva). Usado en KPI. */
-  readonly kpiConflicto = computed(() =>
-    this.configs().filter(c => c.enabled && c.bi_vista_estado === 'inactivo').length
-  );
 }
