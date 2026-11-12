@@ -1711,9 +1711,18 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
       return;
     }
 
-    // Lanzar export: el backend maneja R2 warm internamente.
-    // force_refresh=true (solo con "Actualizar") invalida el parquet y genera uno nuevo
-    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, force);
+    if (force) {
+      // "Actualizar": primero se pide a Graph-Fabric que GENERE el parquet desde
+      // Fabric, se espera (maximo 5 min) y solo entonces se cargan los datos.
+      //
+      // Antes se mandaba `force_refresh` dentro de export/start, pero Graph-Fabric
+      // no tiene ese campo en el export (solo `ensure_fresh`): lo ignoraba, asi que
+      // "Actualizar" solo releia el parquet que ya existia.
+      this.generateThenExport();
+    } else {
+      // Apertura normal: leer el parquet existente, sin disparar generacion
+      this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, false);
+    }
   }
 
   /**
@@ -1937,6 +1946,114 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
 
   /** Tope de espera de una actualizacion (segundos). Igual al de Graph-Fabric. */
   private static readonly MAX_REFRESH_WAIT_S = 300;
+
+  /** Timer del sondeo mientras Graph-Fabric genera el parquet (boton Actualizar). */
+  private generatePollTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Flujo del boton "Actualizar":
+   *   1. Pide a Graph-Fabric que genere el parquet (Graph consulta Fabric).
+   *   2. Sondea cada ~5 s hasta que termine, con tope de 5 min.
+   *   3. Con el parquet ya fresco, carga los datos en la hoja.
+   *
+   * Si pasa el tope, se avisa al usuario y se reporta; la generacion NO se cancela.
+   */
+  private generateThenExport(): void {
+    const target = this.sheets().find(s => s.id === this.loadTargetSheetId);
+    const schema = target?.schema || this.schema;
+    const view   = target?.viewName || this.viewName;
+
+    this.progress.update(p => ({
+      ...p, status: 'queuing', percent: 3,
+      message: 'Pidiendo a Graph-Fabric que genere el parquet desde Fabric...',
+    }));
+
+    this.vistasService.forceGenerate(schema, view).subscribe({
+      next: res => {
+        const estado = (res.status ?? 'generating').toLowerCase();
+
+        if (estado === 'too_big') {
+          this.releaseLoadSlot();
+          this.clearTimers();
+          this.progress.set({
+            status: 'error', percent: 0, rows: 0, elapsed: this.elapsed(),
+            message: 'La vista es demasiado grande para generarla aqui.',
+            errorDetail: res.message ?? 'Supera el limite de filas. Use un filtro de fechas o JadeOne Desktop.',
+          });
+          return;
+        }
+
+        // Ya estaba al dia: nada que esperar
+        if (estado === 'ready') {
+          this.proceedAfterGenerate(schema, view);
+          return;
+        }
+
+        this.progress.update(p => ({
+          ...p, status: 'processing', percent: 10,
+          message: res.estimated_s
+            ? `Graph-Fabric esta generando el parquet (~${res.estimated_s}s estimados)...`
+            : 'Graph-Fabric esta generando el parquet...',
+        }));
+
+        this.pollGeneration(schema, view, Math.max(2, res.poll_interval_s ?? 5) * 1000);
+      },
+      error: err => {
+        // status 0 = el navegador no llego al servidor (red del usuario): no es un fallo de generacion
+        const msg = err?.error?.message ?? 'No se pudo pedir la actualizacion al servidor.';
+        if (err?.status) this.reportGenerationError(msg);
+        this.setError(msg);
+      },
+    });
+  }
+
+  /** Sondea hasta que Graph-Fabric termina de generar, o se cumple el tope de 5 min. */
+  private pollGeneration(schema: string, view: string, everyMs: number): void {
+    const startedAt = Date.now();
+    let sawGenerating = false;
+
+    this.generatePollTimer = setInterval(() => {
+      if (this.elapsed() >= ViewVistasRefreshComponent.MAX_REFRESH_WAIT_S) {
+        this.onRefreshTimeout();
+        return;
+      }
+
+      this.vistasService.forceStatus(schema, view).subscribe(st => {
+        // Corte puntual de red: se sigue esperando; el tope de 5 min corta igual
+        if (!st || !this.generatePollTimer) return;
+
+        if (st.generating) {
+          sawGenerating = true;
+          this.progress.update(p => ({
+            ...p, status: 'processing', elapsed: this.elapsed(),
+            percent: Math.min(55, 10 + Math.round((this.elapsed() / ViewVistasRefreshComponent.MAX_REFRESH_WAIT_S) * 45)),
+            message: st.estimated_s
+              ? `Graph-Fabric esta generando el parquet (~${st.estimated_s}s estimados)...`
+              : 'Graph-Fabric esta generando el parquet...',
+          }));
+          return;
+        }
+
+        // generating=false: ya termino. Si nunca se vio "generating", se da un margen
+        // de 10 s por si Graph todavia no habia registrado el inicio.
+        if (sawGenerating || Date.now() - startedAt >= 10_000) {
+          this.proceedAfterGenerate(schema, view);
+        }
+      });
+    }, everyMs);
+  }
+
+  /** Parquet ya generado: se actualiza la hora y se cargan los datos. */
+  private proceedAfterGenerate(schema: string, view: string): void {
+    if (this.generatePollTimer) { clearInterval(this.generatePollTimer); this.generatePollTimer = null; }
+
+    this.progress.update(p => ({
+      ...p, status: 'queuing', percent: 58, elapsed: this.elapsed(),
+      message: 'Parquet generado. Descargando los datos...',
+    }));
+    this.loadParquetStamp(schema, view, true);
+    this.doExport(ViewVistasRefreshComponent.MAX_EXPORT_ROWS, {}, false);
+  }
 
   /**
    * La actualizacion supero el tope: se deja de esperar, se avisa al usuario y se
@@ -6311,6 +6428,7 @@ readonly excelConfig = computed<ExcelSheetConfig>(() => {
   }
 
   private clearTimers(): void {
+    if (this.generatePollTimer) { clearInterval(this.generatePollTimer); this.generatePollTimer = null; }
     if (this.pollTimer)    { clearInterval(this.pollTimer);    this.pollTimer    = null; }
     if (this.elapsedTimer) { clearInterval(this.elapsedTimer); this.elapsedTimer = null; }
     this.stopR2Polling();

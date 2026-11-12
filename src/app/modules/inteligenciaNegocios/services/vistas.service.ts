@@ -285,6 +285,35 @@ export class VistasService {
   }
 
   /**
+   * Pide a Graph-Fabric que GENERE el parquet de la vista consultando Fabric
+   * (botón "Actualizar"). Responde enseguida; la generación sigue en segundo
+   * plano y se consulta con forceStatus().
+   *
+   * Estados: generating | ready | ready_stale | too_big
+   */
+  forceGenerate(schema: string, view: string): Observable<{
+    success: boolean; status?: string; poll_interval_s?: number; estimated_s?: number; message?: string;
+  }> {
+    return this.http.post<{
+      success: boolean; status?: string; poll_interval_s?: number; estimated_s?: number; message?: string;
+    }>(`${this.baseUrl}/parquet-monitor/force`, { schema_name: schema, view });
+  }
+
+  /**
+   * ¿Ya terminó de generarse? `generating` es true mientras Graph-Fabric sigue
+   * consultando Fabric. null si no se pudo consultar (un corte puntual de red no
+   * debe abortar la espera).
+   */
+  forceStatus(schema: string, view: string): Observable<{
+    status?: string; generating?: boolean; estimated_s?: number; row_count?: number | null; message?: string;
+  } | null> {
+    return this.http
+      .get<{ status?: string; generating?: boolean; estimated_s?: number; row_count?: number | null; message?: string }>(
+        `${this.baseUrl}/parquet-monitor/force/status`, { params: { schema, view } })
+      .pipe(catchError(() => of(null)));
+  }
+
+  /**
    * Guarda y avisa a TI que "Actualizar" no se completó, con el motivo:
    *   - 'timeout': superó el tope de espera (5 min). La generación NO se cancela,
    *     sigue en Graph-Fabric.
