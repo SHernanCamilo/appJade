@@ -160,7 +160,7 @@ export class TeamsDestinosComponent implements OnInit {
     }
 
     this.form.nombre = 'Proyecto JADE - ONE';
-    this.form.modo = 'detalle';
+    this.form.modo = 'resumen';
     const grupo = this.grupos.find((item) => item.nombre.toLowerCase().includes('desarrollo'));
     this.form.grupos = grupo ? [grupo.nombre] : [];
   }
