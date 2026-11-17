@@ -17,15 +17,26 @@
           Tickets abiertos de Nivel 1 Nacional, agrupados por el último grupo técnico.
         </p>
       </div>
-      <button
-        pButton
-        type="button"
-        label="Actualizar"
-        icon="pi pi-refresh"
-        class="p-button-primary btn-refresh"
-        [loading]="isLoading"
-        (click)="cargar(true)">
-      </button>
+      <div class="header-actions">
+        <button
+          *hasPermission="'mesa-glpi-tablero-notificar'"
+          pButton
+          type="button"
+          label="Notificaciones Teams"
+          icon="pi pi-bell"
+          class="p-button-outlined"
+          routerLink="/mesaServicio/tableros/tic/notificaciones">
+        </button>
+        <button
+          pButton
+          type="button"
+          label="Actualizar"
+          icon="pi pi-refresh"
+          class="p-button-primary btn-refresh"
+          [loading]="isLoading"
+          (click)="cargar(true)">
+        </button>
+      </div>
     </div>
   </div>
 
@@ -47,7 +58,7 @@
   </div>
 
   <div class="kpi-row" *ngIf="isLoading && !tablero">
-    <p-skeleton *ngFor="let i of [1,2,3,4,5]" height="5.6rem" borderRadius="16px"></p-skeleton>
+    <p-skeleton *ngFor="let i of [1,2,3,4,5,6]" height="5.6rem" borderRadius="16px"></p-skeleton>
   </div>
 
   <div class="board">

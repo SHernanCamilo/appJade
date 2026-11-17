@@ -14,9 +14,11 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../auth/auth.service';
 import { EmpresaService } from '../../../organizacion/empresa/services/empresa.service';
 import { SinDatoDirective } from './sin-dato.directive';
+import { ColombiaGeografiaService, LugarGeo } from './services/colombia-geografia.service';
 import { TrasladoAsistencialService } from './services/traslado-asistencial.service';
 import { TrasladoAsistencialExportService } from './services/traslado-asistencial-export.service';
 import { TrasladoAsistencialPdfService } from './services/traslado-asistencial-pdf.service';
+import { TrasladoConsentimientoPdfService } from './services/traslado-consentimiento-pdf.service';
 import { FormParametrosService } from '../parametros/services/form-parametros.service';
 import { handleFabricError } from '../../helpers/fabric-error.helper';
 import {
@@ -98,9 +100,18 @@ export class TrasladoAsistencialComponent implements OnInit {
   isConfirming = false;
   isExporting = false;
   isExportingPdf = false;
+  isExportingConsentimiento = false;
   isLoadingRegistros = false;
   isBuscandoPaciente = false;
   isBuscandoProfesional = false;
+  departamentos: LugarGeo[] = [];
+  departamentosOpciones: LugarGeo[] = [];
+  municipiosOrigen: LugarGeo[] = [];
+  municipiosDestino: LugarGeo[] = [];
+  geoLista = false;
+  geoError = false;
+  private geoAvisoMostrado = false;
+  private readonly geoCarga = { origen: 0, destino: 0 };
   /** true = el usuario puede editar DATOS DE LA PERSONA (Fabric no halló o falló). */
   personaManual = false;
   profesionalManual = false;
@@ -115,9 +126,11 @@ export class TrasladoAsistencialComponent implements OnInit {
 
   constructor(
     private readonly empresaService: EmpresaService,
+    private readonly geografia: ColombiaGeografiaService,
     private readonly trasladoService: TrasladoAsistencialService,
     private readonly exportService: TrasladoAsistencialExportService,
     private readonly pdfService: TrasladoAsistencialPdfService,
+    private readonly consentimientoPdf: TrasladoConsentimientoPdfService,
     private readonly formParametros: FormParametrosService,
     private readonly authService: AuthService,
     private readonly messageService: MessageService,
@@ -130,6 +143,7 @@ export class TrasladoAsistencialComponent implements OnInit {
   ngOnInit(): void {
     this.cargarRegistros();
     this.cargarParametros();
+    void this.cargarDepartamentos();
   }
 
   get tituloFormulario(): string {
@@ -180,7 +194,12 @@ export class TrasladoAsistencialComponent implements OnInit {
   }
 
   get destacarDocumentoPaciente(): boolean {
-    return this.tipo === 'primario' && !this.esConfirmado && !this.ultimaBusquedaEstado;
+    return this.exigeDocumentoPaciente && !this.esConfirmado && !this.ultimaBusquedaEstado;
+  }
+
+  /** Hojas de la Resolución 2284: el documento se consulta antes de diligenciar a la persona. */
+  private get exigeDocumentoPaciente(): boolean {
+    return this.tipo === 'primario' || this.tipo === 'secundario';
   }
 
   auxiliarCampoBloqueado(): boolean {
@@ -203,12 +222,12 @@ export class TrasladoAsistencialComponent implements OnInit {
     return true;
   }
 
-  /** En primario: el documento siempre es editable; si hay paciente, nombres y tipo de documento quedan fijos. */
+  /** En las hojas 2284 el documento siempre es editable; si hay paciente, nombres y tipo de documento quedan fijos. */
   personaCampoBloqueado(key: string): boolean {
     if (this.esConfirmado) {
       return true;
     }
-    if (this.tipo !== 'primario') {
+    if (!this.exigeDocumentoPaciente) {
       return false;
     }
     if (key === 'numeroIdentificacion') {
@@ -331,8 +350,9 @@ export class TrasladoAsistencialComponent implements OnInit {
     this.reiniciarEstadoPacienteFabric();
     this.reiniciarEstadoProfesionalFabric();
     this.aplicarDiligenciadorComoAuxiliar();
+    this.reiniciarListasMunicipio();
     void this.cargarLogoMedilaser();
-    if (tipo === 'primario') {
+    if (tipo === 'primario' || tipo === 'secundario') {
       setTimeout(() => this.docPacienteInput?.nativeElement.focus(), 0);
     }
   }
@@ -370,12 +390,29 @@ export class TrasladoAsistencialComponent implements OnInit {
     return lista.includes(valor);
   }
 
+  validarTiemposEscena(): void {
+    const despacho = this.minutosHora(this.form.horaDespacho);
+    const llegada = this.minutosHora(this.form.horaLlegadaEscena);
+    const salida = this.minutosHora(this.form.horaSalidaEscena);
+
+    if (despacho != null && llegada != null && llegada < despacho) {
+      this.form.horaLlegadaEscena = '';
+      this.avisarTiempo('La hora de llegada al lugar de la escena no puede ser menor a la hora del despacho.');
+    }
+
+    const llegadaVigente = this.minutosHora(this.form.horaLlegadaEscena);
+    if (llegadaVigente != null && salida != null && salida < llegadaVigente) {
+      this.form.horaSalidaEscena = '';
+      this.avisarTiempo('La hora de salida del lugar de la escena no puede ser menor a la hora de llegada.');
+    }
+  }
+
   setGlasgow(campo: keyof GlasgowTraslado, valor: number): void {
     this.form.glasgow[campo] = this.form.glasgow[campo] === valor ? null : valor;
   }
 
   async buscarPacienteFabric(): Promise<void> {
-    if (this.tipo !== 'primario' || this.esConfirmado || this.isBuscandoPaciente) {
+    if (!this.exigeDocumentoPaciente || this.esConfirmado || this.isBuscandoPaciente) {
       return;
     }
 
@@ -534,7 +571,7 @@ export class TrasladoAsistencialComponent implements OnInit {
 
     const tipoRaw = this.pickValue(row, ['TipoIdentificacion', 'TipoDocumento', 'TipoId', 'Tipo_Identificacion']);
     const tipo = this.mapTipoIdentificacion(tipoRaw);
-    this.form.tipoIdentificacion = tipo;
+    this.form.tipoIdentificacion = this.tipo === 'secundario' && tipo === 'ms' ? 'msi' : tipo;
     this.form.tipoIdentificacionOtro = tipo === 'otro' ? tipoRaw : '';
 
     this.form.sexo = this.mapSexo(this.pickValue(row, ['Sexo', 'Genero', 'SexoBiologico', 'Sexo_Biologico']));
@@ -896,6 +933,7 @@ export class TrasladoAsistencialComponent implements OnInit {
     this.reiniciarEstadoPacienteFabric();
     this.reiniciarEstadoProfesionalFabric();
     this.aplicarDiligenciadorComoAuxiliar();
+    this.reiniciarListasMunicipio();
     this.messageService.add({
       severity: 'info',
       summary: 'Formulario limpio',
@@ -908,7 +946,7 @@ export class TrasladoAsistencialComponent implements OnInit {
     if (!this.tipo || this.isSaving || this.esConfirmado) {
       return;
     }
-    if (!this.validarRequeridos()) {
+    if (!this.validarRequeridos() || !this.tiemposEscenaValidos()) {
       return;
     }
 
@@ -943,11 +981,12 @@ export class TrasladoAsistencialComponent implements OnInit {
     if (!this.tipo || this.isConfirming || this.esConfirmado) {
       return;
     }
-    if (!this.validarRequeridos()) {
+    if (!this.validarRequeridos() || !this.tiemposEscenaValidos()) {
       return;
     }
 
     this.isConfirming = true;
+    let confirmado = false;
     try {
       let id = this.registroId;
       if (!id) {
@@ -961,6 +1000,7 @@ export class TrasladoAsistencialComponent implements OnInit {
       );
       this.registroId = confirmed.id;
       this.estadoRegistro = confirmed.estado;
+      confirmado = confirmed.estado === 'confirmado';
       this.messageService.add({
         severity: 'success',
         summary: 'Confirmado',
@@ -976,6 +1016,49 @@ export class TrasladoAsistencialComponent implements OnInit {
       });
     } finally {
       this.isConfirming = false;
+      this.cdr.detectChanges();
+    }
+
+    if (confirmado) {
+      await this.exportarConsentimiento();
+    }
+  }
+
+  async exportarConsentimiento(): Promise<void> {
+    if (!this.tipo || this.isExportingConsentimiento || !this.esConfirmado) {
+      return;
+    }
+
+    this.isExportingConsentimiento = true;
+    this.cdr.detectChanges();
+    try {
+      const logoDataUrl = await this.resolveLogoDataUrl();
+      const filename = await this.consentimientoPdf.exportar({
+        tipo: this.tipo,
+        form: this.form,
+        titulo: 'CONSENTIMIENTO INFORMADO PARA EL TRASLADO DE PACIENTES EN TRANSPORTE ASISTENCIAL Y ATENCIÓN PRE-HOSPITALARIA',
+        codigo: 'F-AU-1171 MD',
+        empresaNombre: this.empresaNombre,
+        logoDataUrl
+      });
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Consentimiento generado',
+        detail: filename,
+        life: 5000
+      });
+    } catch (err) {
+      const detail = err instanceof Error
+        ? err.message
+        : 'El traslado quedó confirmado. No se pudo generar el consentimiento informado.';
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Consentimiento',
+        detail,
+        life: 6000
+      });
+    } finally {
+      this.isExportingConsentimiento = false;
       this.cdr.detectChanges();
     }
   }
@@ -1003,6 +1086,7 @@ export class TrasladoAsistencialComponent implements OnInit {
         this.ultimaBusquedaProfDoc = this.form.profesionalDestino1Cc.trim();
         this.ultimaBusquedaProfEstado = this.ultimaBusquedaProfDoc ? 'found' : null;
         this.profesionalManual = !this.esConfirmado && !this.ultimaBusquedaProfDoc;
+        this.alinearGeografiaGuardada();
         void this.cargarLogoMedilaser();
         this.cdr.detectChanges();
       },
@@ -1015,6 +1099,160 @@ export class TrasladoAsistencialComponent implements OnInit {
         });
       }
     });
+  }
+
+  onDepartamentoChange(lado: 'origen' | 'destino', valor: string | null): void {
+    const nombre = typeof valor === 'string' ? valor : '';
+    if (lado === 'origen') {
+      this.form.origenDepartamento = nombre;
+      this.form.origenMunicipio = '';
+    } else {
+      this.form.destinoDepartamento = nombre;
+      this.form.destinoMunicipio = '';
+    }
+    void this.cargarMunicipios(lado, false);
+  }
+
+  private async cargarDepartamentos(): Promise<void> {
+    try {
+      this.departamentos = await this.geografia.listarDepartamentos();
+      this.departamentosOpciones = this.departamentos;
+      this.geoLista = true;
+      this.alinearGeografiaGuardada();
+    } catch {
+      this.geoError = true;
+      this.avisarGeografia();
+    } finally {
+      this.cdr.detectChanges();
+    }
+  }
+
+  private alinearGeografiaGuardada(): void {
+    if (!this.geoLista) {
+      return;
+    }
+    this.form.origenDepartamento = this.canonDepartamento(this.form.origenDepartamento);
+    this.form.destinoDepartamento = this.canonDepartamento(this.form.destinoDepartamento);
+    this.refrescarOpcionesDepartamento();
+    void this.cargarMunicipios('origen', true);
+    void this.cargarMunicipios('destino', true);
+  }
+
+  private refrescarOpcionesDepartamento(): void {
+    const extras: LugarGeo[] = [];
+    for (const nombre of [this.form.origenDepartamento, this.form.destinoDepartamento]) {
+      const valor = (nombre ?? '').trim();
+      if (!valor) {
+        continue;
+      }
+      const yaExiste = this.departamentos.some(item => item.name === valor)
+        || extras.some(item => item.name === valor);
+      if (!yaExiste) {
+        extras.push({ id: 0, name: valor });
+      }
+    }
+    this.departamentosOpciones = extras.length ? [...this.departamentos, ...extras] : this.departamentos;
+  }
+
+  private canonDepartamento(valor: string): string {
+    const nombre = (valor ?? '').trim();
+    if (!nombre) {
+      return '';
+    }
+    return this.departamentos.find(item => this.igualNombre(item.name, nombre))?.name ?? nombre;
+  }
+
+  private async cargarMunicipios(lado: 'origen' | 'destino', conservar: boolean): Promise<void> {
+    const token = ++this.geoCarga[lado];
+    const departamento = lado === 'origen' ? this.form.origenDepartamento : this.form.destinoDepartamento;
+    const actual = (lado === 'origen' ? this.form.origenMunicipio : this.form.destinoMunicipio) ?? '';
+    const depto = this.departamentos.find(item => item.name === departamento);
+
+    if (!depto) {
+      if (token !== this.geoCarga[lado]) {
+        return;
+      }
+      this.asignarMunicipios(lado, actual.trim() ? [{ id: 0, name: actual.trim() }] : []);
+      this.cdr.detectChanges();
+      return;
+    }
+
+    try {
+      const lista = await this.geografia.listarMunicipios(depto.id);
+      if (token !== this.geoCarga[lado]) {
+        return;
+      }
+      const match = lista.find(item => this.igualNombre(item.name, actual));
+      if (match) {
+        this.asignarNombreMunicipio(lado, match.name);
+        this.asignarMunicipios(lado, lista);
+      } else if (actual.trim() && conservar) {
+        this.asignarMunicipios(lado, [{ id: 0, name: actual.trim() }, ...lista]);
+      } else {
+        if (!conservar) {
+          this.asignarNombreMunicipio(lado, '');
+        }
+        this.asignarMunicipios(lado, lista);
+      }
+    } catch {
+      if (token !== this.geoCarga[lado]) {
+        return;
+      }
+      this.geoError = true;
+      this.avisarGeografia();
+    } finally {
+      if (token === this.geoCarga[lado]) {
+        this.cdr.detectChanges();
+      }
+    }
+  }
+
+  private asignarMunicipios(lado: 'origen' | 'destino', lista: LugarGeo[]): void {
+    if (lado === 'origen') {
+      this.municipiosOrigen = lista;
+    } else {
+      this.municipiosDestino = lista;
+    }
+  }
+
+  private asignarNombreMunicipio(lado: 'origen' | 'destino', nombre: string): void {
+    if (lado === 'origen') {
+      this.form.origenMunicipio = nombre;
+    } else {
+      this.form.destinoMunicipio = nombre;
+    }
+  }
+
+  private reiniciarListasMunicipio(): void {
+    this.geoCarga.origen += 1;
+    this.geoCarga.destino += 1;
+    this.municipiosOrigen = [];
+    this.municipiosDestino = [];
+  }
+
+  private avisarGeografia(): void {
+    if (this.geoAvisoMostrado) {
+      return;
+    }
+    this.geoAvisoMostrado = true;
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Municipios',
+      detail: 'No se pudo cargar el listado. Puede escribir el departamento y el municipio.',
+      life: 6000
+    });
+  }
+
+  private igualNombre(a: string, b: string): boolean {
+    return this.normalizarNombre(a) === this.normalizarNombre(b);
+  }
+
+  private normalizarNombre(valor: string): string {
+    return (valor ?? '')
+      .trim()
+      .toLocaleLowerCase('es')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
   }
 
   private cargarParametros(): void {
@@ -1030,6 +1268,44 @@ export class TrasladoAsistencialComponent implements OnInit {
 
   private paramsActuales(): Map<string, CampoParametro> {
     return this.tipo === 'secundario' ? this.paramsSecundario : this.paramsPrimario;
+  }
+
+  private tiemposEscenaValidos(): boolean {
+    const despacho = this.minutosHora(this.form.horaDespacho);
+    const llegada = this.minutosHora(this.form.horaLlegadaEscena);
+    const salida = this.minutosHora(this.form.horaSalidaEscena);
+
+    if (despacho != null && llegada != null && llegada < despacho) {
+      this.avisarTiempo('La hora de llegada al lugar de la escena no puede ser menor a la hora del despacho.');
+      return false;
+    }
+    if (llegada != null && salida != null && salida < llegada) {
+      this.avisarTiempo('La hora de salida del lugar de la escena no puede ser menor a la hora de llegada.');
+      return false;
+    }
+    return true;
+  }
+
+  private minutosHora(valor: string): number | null {
+    const match = /^(\d{1,2}):(\d{2})/.exec((valor ?? '').trim());
+    if (!match) {
+      return null;
+    }
+    const horas = Number(match[1]);
+    const minutos = Number(match[2]);
+    if (horas > 23 || minutos > 59) {
+      return null;
+    }
+    return horas * 60 + minutos;
+  }
+
+  private avisarTiempo(detail: string): void {
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Tiempos del servicio',
+      detail,
+      life: 5000
+    });
   }
 
   private validarRequeridos(): boolean {

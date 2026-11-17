@@ -35,6 +35,10 @@ export class SidebarService {
   private modulosSubject = new BehaviorSubject<ModuloSidebar[]>([]);
   public modulos$: Observable<ModuloSidebar[]> = this.modulosSubject.asObservable();
 
+  /** True cuando el sidebar ya corresponde al token actual (login o /auth/sidebar-modules). */
+  private modulosListosSubject = new BehaviorSubject<boolean>(false);
+  public modulosListos$: Observable<boolean> = this.modulosListosSubject.asObservable();
+
   constructor() {
     // Cargar módulos desde localStorage al iniciar
     this.cargarModulosDesdeCache();
@@ -67,6 +71,7 @@ export class SidebarService {
     
     if (!modulos || !Array.isArray(modulos)) {
       console.error('❌ Los módulos no son un array válido');
+      this.marcarModulosListos();
       return;
     }
     
@@ -77,6 +82,7 @@ export class SidebarService {
     
     // Guardar en localStorage para persistencia (refresh)
     localStorage.setItem('sidebar_modules', JSON.stringify(modulosConAcceso));
+    this.marcarModulosListos();
   }
 
   /**
@@ -104,6 +110,15 @@ export class SidebarService {
   limpiarCacheLocal(): void {
     localStorage.removeItem('sidebar_modules');
     this.modulosSubject.next([]);
+    this.modulosListosSubject.next(false);
+  }
+
+  /**
+   * El listado ya se puede usar para autorizar rutas.
+   * Se llama al terminar la carga, también si la respuesta viene vacía o falla.
+   */
+  marcarModulosListos(): void {
+    this.modulosListosSubject.next(true);
   }
 
   /**
@@ -201,6 +216,7 @@ export class SidebarService {
   limpiarModulos(): void {
     this.modulosSubject.next([]);
     localStorage.removeItem('sidebar_modules');
+    this.modulosListosSubject.next(false);
   }
 
   /**

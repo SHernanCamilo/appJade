@@ -56,17 +56,6 @@
         </button>
       </div>
 
-      <div class="formato-completo-link">
-        <button type="button" class="link-completo" (click)="seleccionarTipo('primarioCompleto')">
-          <i class="pi pi-file"></i>
-          Ver formulario completo primario
-        </button>
-        <button type="button" class="link-completo" (click)="seleccionarTipo('secundarioCompleto')">
-          <i class="pi pi-file"></i>
-          Ver formulario completo secundario
-        </button>
-      </div>
-
       <div class="registros-panel">
         <div class="registros-header">
           <h3>
@@ -214,6 +203,15 @@
               <i class="pi" [class.pi-spin]="isExportingPdf" [class.pi-spinner]="isExportingPdf" [class.pi-file-pdf]="!isExportingPdf"></i>
               {{ isExportingPdf ? 'Generando...' : 'Exportar PDF' }}
             </button>
+            <button
+              type="button"
+              class="btn-toolbar btn-toolbar-consentimiento"
+              (click)="exportarConsentimiento()"
+              [disabled]="isExportingConsentimiento || !esConfirmado"
+              pTooltip="Descargar consentimiento informado F-AU-1171">
+              <i class="pi" [class.pi-spin]="isExportingConsentimiento" [class.pi-spinner]="isExportingConsentimiento" [class.pi-file]="!isExportingConsentimiento"></i>
+              {{ isExportingConsentimiento ? 'Generando...' : 'Consentimiento' }}
+            </button>
           </div>
         </div>
       </div>
@@ -352,11 +350,11 @@
           <tr *ngIf="algunoVisible('horaDespacho', 'horaLlegadaEscena')">
             <ng-container *ngIf="campoVisible('horaDespacho')">
               <th><span class="req-num" *ngIf="campoRequerido('horaDespacho')">*</span> {{ campoLabel('horaDespacho', 'Hora del despacho') }}:</th>
-              <td><input type="time" class="full" [(ngModel)]="form.horaDespacho"></td>
+              <td><input type="time" class="full" [(ngModel)]="form.horaDespacho" (ngModelChange)="validarTiemposEscena()"></td>
             </ng-container>
             <ng-container *ngIf="campoVisible('horaLlegadaEscena')">
               <th><span class="req-num" *ngIf="campoRequerido('horaLlegadaEscena')">*</span> {{ campoLabel('horaLlegadaEscena', 'Hora de llegada al lugar de la escena') }}:</th>
-              <td><input type="time" class="full" [(ngModel)]="form.horaLlegadaEscena"></td>
+              <td><input type="time" class="full" [min]="form.horaDespacho || null" [(ngModel)]="form.horaLlegadaEscena" (ngModelChange)="validarTiemposEscena()"></td>
             </ng-container>
           </tr>
           <tr *ngIf="algunoVisible('signosInicio.triage', 'horaSalidaEscena')">
@@ -366,7 +364,7 @@
             </ng-container>
             <ng-container *ngIf="campoVisible('horaSalidaEscena')">
               <th><span class="req-num" *ngIf="campoRequerido('horaSalidaEscena')">*</span> {{ campoLabel('horaSalidaEscena', 'Hora de salida del lugar de la escena') }}:</th>
-              <td><input type="time" class="full" [(ngModel)]="form.horaSalidaEscena"></td>
+              <td><input type="time" class="full" [min]="form.horaLlegadaEscena || null" [(ngModel)]="form.horaSalidaEscena" (ngModelChange)="validarTiemposEscena()"></td>
             </ng-container>
           </tr>
         </table>
@@ -653,8 +651,49 @@
             </th>
             <td colspan="5">
               <div class="ob-row">
-                <ng-container *ngIf="campoVisible('origenDepartamento')"><span class="req-num" *ngIf="campoRequerido('origenDepartamento')">*</span> Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
-                <ng-container *ngIf="campoVisible('origenMunicipio')"><span class="req-num" *ngIf="campoRequerido('origenMunicipio')">*</span> Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
+                <ng-container *ngIf="campoVisible('origenDepartamento')">
+                  <span class="req-num" *ngIf="campoRequerido('origenDepartamento')">*</span>
+                  Departamento
+                  <p-dropdown
+                    *ngIf="!geoError"
+                    [options]="departamentosOpciones"
+                    optionLabel="name"
+                    optionValue="name"
+                    [ngModel]="form.origenDepartamento"
+                    (ngModelChange)="onDepartamentoChange('origen', $event)"
+                    [disabled]="esConfirmado || !geoLista"
+                    [filter]="true"
+                    filterBy="name"
+                    [placeholder]="geoLista ? 'Sin dato' : 'Cargando...'"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd geo-dd"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                  </p-dropdown>
+                  <input *ngIf="geoError" type="text" class="short" [(ngModel)]="form.origenDepartamento" [disabled]="esConfirmado">
+                </ng-container>
+                <ng-container *ngIf="campoVisible('origenMunicipio')">
+                  <span class="req-num" *ngIf="campoRequerido('origenMunicipio')">*</span>
+                  Municipio
+                  <p-dropdown
+                    *ngIf="!geoError"
+                    [options]="municipiosOrigen"
+                    optionLabel="name"
+                    optionValue="name"
+                    [(ngModel)]="form.origenMunicipio"
+                    [disabled]="esConfirmado || !form.origenDepartamento"
+                    [filter]="true"
+                    filterBy="name"
+                    placeholder="Sin dato"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd geo-dd"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                  </p-dropdown>
+                  <input *ngIf="geoError" type="text" class="short" [(ngModel)]="form.origenMunicipio" [disabled]="esConfirmado">
+                </ng-container>
                 <ng-container *ngIf="campoVisible('origenLocalidad')"><span class="req-num" *ngIf="campoRequerido('origenLocalidad')">*</span> Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
                 <ng-container *ngIf="campoVisible('origenBarrio')"><span class="req-num" *ngIf="campoRequerido('origenBarrio')">*</span> Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio"></ng-container>
               </div>
@@ -839,31 +878,49 @@
 
         <ng-container *ngIf="seccionVisible('Datos de la persona')">
         <div class="section-bar">DATOS DE LA PERSONA</div>
-        <table class="form-table">
+        <table class="form-table persona-table">
           <tr *ngIf="campoVisible('nombresApellidos')">
             <th><span class="req-num" *ngIf="campoRequerido('nombresApellidos')">*</span> {{ campoLabel('nombresApellidos', 'Nombres y apellidos') }}:</th>
             <td colspan="5">
-              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off">
+              <input type="text" class="full" [(ngModel)]="form.nombresApellidos" autocomplete="off" [disabled]="personaCampoBloqueado('nombresApellidos')">
             </td>
           </tr>
           <tr *ngIf="algunoVisible('tipoIdentificacion', 'numeroIdentificacion')">
             <ng-container *ngIf="campoVisible('tipoIdentificacion')">
               <th><span class="req-num" *ngIf="campoRequerido('tipoIdentificacion')">*</span> {{ campoLabel('tipoIdentificacion', 'Tipo de documento') }}:</th>
               <td colspan="3">
-                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="msi"> MSI</label>
-                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="rc"> RC</label>
-                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ti"> TI</label>
-                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="cc"> CC</label>
-                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ce"> CE</label>
-                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="otro"> Otro</label>
+                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="msi" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> MSI</label>
+                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="rc" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> RC</label>
+                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ti" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> TI</label>
+                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="cc" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> CC</label>
+                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="ce" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> CE</label>
+                <label class="chk"><input type="radio" name="tipoIdSec" [(ngModel)]="form.tipoIdentificacion" value="otro" [disabled]="personaCampoBloqueado('tipoIdentificacion')"> Otro</label>
                 <span class="req-num" *ngIf="campoRequerido('tipoIdentificacionOtro')">*</span>
-                <input *ngIf="campoVisible('tipoIdentificacionOtro')" type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off">
+                <input *ngIf="campoVisible('tipoIdentificacionOtro')" type="text" class="short" [(ngModel)]="form.tipoIdentificacionOtro" placeholder="¿Cuál?" autocomplete="off" [disabled]="personaCampoBloqueado('tipoIdentificacionOtro')">
               </td>
             </ng-container>
             <ng-container *ngIf="campoVisible('numeroIdentificacion')">
-              <th><span class="req-num" *ngIf="campoRequerido('numeroIdentificacion')">*</span> {{ campoLabel('numeroIdentificacion', 'Número') }}:</th>
-              <td>
-                <input type="text" class="full" [(ngModel)]="form.numeroIdentificacion" autocomplete="off">
+              <th [class.campo-primero]="destacarDocumentoPaciente">
+                <span class="req-num">*</span>
+                {{ campoLabel('numeroIdentificacion', 'Número de documento') }}:
+              </th>
+              <td [class.campo-primero-celda]="destacarDocumentoPaciente">
+                <div class="doc-lookup" [class.doc-lookup-inicio]="destacarDocumentoPaciente">
+                  <input
+                    #docPacienteInput
+                    type="text"
+                    class="full"
+                    [(ngModel)]="form.numeroIdentificacion"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    enterkeyhint="search"
+                    placeholder="Digite el documento y pulse Enter"
+                    [disabled]="personaCampoBloqueado('numeroIdentificacion')"
+                    (blur)="buscarPacienteFabric()"
+                    (keydown.enter)="$event.preventDefault(); buscarPacienteFabric()">
+                  <i *ngIf="isBuscandoPaciente" class="pi pi-spin pi-spinner doc-lookup-spin" aria-hidden="true"></i>
+                </div>
+                <div class="doc-lookup-hint" *ngIf="destacarDocumentoPaciente">Primero busque al paciente; el resto se habilita después.</div>
               </td>
             </ng-container>
           </tr>
@@ -871,21 +928,21 @@
             <ng-container *ngIf="campoVisible('edad')">
               <th><span class="req-num" *ngIf="campoRequerido('edad')">*</span> {{ campoLabel('edad', 'Edad') }}:</th>
               <td>
-                <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off">
+                <input type="text" class="tiny" [(ngModel)]="form.edad" autocomplete="off" [disabled]="personaCampoBloqueado('edad')">
                 <ng-container *ngIf="campoVisible('edadUnidad')">
                   <span class="req-num" *ngIf="campoRequerido('edadUnidad')">*</span>
-                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="anos"> Años</label>
-                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="meses"> Meses</label>
-                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="dias"> Días</label>
-                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="horas"> Horas</label>
+                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="anos" [disabled]="personaCampoBloqueado('edadUnidad')"> Años</label>
+                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="meses" [disabled]="personaCampoBloqueado('edadUnidad')"> Meses</label>
+                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="dias" [disabled]="personaCampoBloqueado('edadUnidad')"> Días</label>
+                  <label class="chk"><input type="radio" name="edadUnidadSec" [(ngModel)]="form.edadUnidad" value="horas" [disabled]="personaCampoBloqueado('edadUnidad')"> Horas</label>
                 </ng-container>
               </td>
             </ng-container>
             <ng-container *ngIf="campoVisible('sexo')">
               <th><span class="req-num" *ngIf="campoRequerido('sexo')">*</span> {{ campoLabel('sexo', 'Sexo biológico') }}:</th>
               <td colspan="3">
-                <label class="chk"><input type="radio" name="sexoSec" [(ngModel)]="form.sexo" value="femenino"> Femenino</label>
-                <label class="chk"><input type="radio" name="sexoSec" [(ngModel)]="form.sexo" value="masculino"> Masculino</label>
+                <label class="chk"><input type="radio" name="sexoSec" [(ngModel)]="form.sexo" value="femenino" [disabled]="personaCampoBloqueado('sexo')"> Femenino</label>
+                <label class="chk"><input type="radio" name="sexoSec" [(ngModel)]="form.sexo" value="masculino" [disabled]="personaCampoBloqueado('sexo')"> Masculino</label>
               </td>
             </ng-container>
           </tr>
@@ -893,7 +950,7 @@
             <th><span class="req-num" *ngIf="campoRequerido('gruposServicio')">*</span> {{ campoLabel('gruposServicio', 'Grupo de servicio al cual es trasladada la persona') }}:</th>
             <td colspan="5">
               <label class="chk" *ngFor="let g of gruposServicio">
-                <input type="checkbox" [checked]="estaEnLista(form.gruposServicio, g)" (change)="toggleLista(form.gruposServicio, g)">
+                <input type="checkbox" [checked]="estaEnLista(form.gruposServicio, g)" (change)="toggleLista(form.gruposServicio, g)" [disabled]="personaCampoBloqueado('gruposServicio')">
                 {{ g }}
               </label>
             </td>
@@ -1027,8 +1084,49 @@
             <td colspan="5">
               <div class="ob-row">
                 <ng-container *ngIf="campoVisible('origenReps')"><span class="req-num" *ngIf="campoRequerido('origenReps')">*</span> Código REPS <input type="text" class="short" [(ngModel)]="form.origenReps"></ng-container>
-                <ng-container *ngIf="campoVisible('origenDepartamento')"><span class="req-num" *ngIf="campoRequerido('origenDepartamento')">*</span> Departamento <input type="text" class="short" [(ngModel)]="form.origenDepartamento"></ng-container>
-                <ng-container *ngIf="campoVisible('origenMunicipio')"><span class="req-num" *ngIf="campoRequerido('origenMunicipio')">*</span> Municipio <input type="text" class="short" [(ngModel)]="form.origenMunicipio"></ng-container>
+                <ng-container *ngIf="campoVisible('origenDepartamento')">
+                  <span class="req-num" *ngIf="campoRequerido('origenDepartamento')">*</span>
+                  Departamento
+                  <p-dropdown
+                    *ngIf="!geoError"
+                    [options]="departamentosOpciones"
+                    optionLabel="name"
+                    optionValue="name"
+                    [ngModel]="form.origenDepartamento"
+                    (ngModelChange)="onDepartamentoChange('origen', $event)"
+                    [disabled]="esConfirmado || !geoLista"
+                    [filter]="true"
+                    filterBy="name"
+                    [placeholder]="geoLista ? 'Sin dato' : 'Cargando...'"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd geo-dd"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                  </p-dropdown>
+                  <input *ngIf="geoError" type="text" class="short" [(ngModel)]="form.origenDepartamento" [disabled]="esConfirmado">
+                </ng-container>
+                <ng-container *ngIf="campoVisible('origenMunicipio')">
+                  <span class="req-num" *ngIf="campoRequerido('origenMunicipio')">*</span>
+                  Municipio
+                  <p-dropdown
+                    *ngIf="!geoError"
+                    [options]="municipiosOrigen"
+                    optionLabel="name"
+                    optionValue="name"
+                    [(ngModel)]="form.origenMunicipio"
+                    [disabled]="esConfirmado || !form.origenDepartamento"
+                    [filter]="true"
+                    filterBy="name"
+                    placeholder="Sin dato"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd geo-dd"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                  </p-dropdown>
+                  <input *ngIf="geoError" type="text" class="short" [(ngModel)]="form.origenMunicipio" [disabled]="esConfirmado">
+                </ng-container>
                 <ng-container *ngIf="campoVisible('origenLocalidad')"><span class="req-num" *ngIf="campoRequerido('origenLocalidad')">*</span> Localidad <input type="text" class="short" [(ngModel)]="form.origenLocalidad"></ng-container>
                 <ng-container *ngIf="campoVisible('origenBarrio')"><span class="req-num" *ngIf="campoRequerido('origenBarrio')">*</span> Barrio <input type="text" class="short" [(ngModel)]="form.origenBarrio"></ng-container>
               </div>
@@ -1065,8 +1163,49 @@
                   </p-dropdown>
                   <input *ngIf="!tieneOpciones('destino1Reps')" type="text" class="short" [(ngModel)]="form.destino1Reps">
                 </ng-container>
-                <ng-container *ngIf="campoVisible('destinoDepartamento')"><span class="req-num" *ngIf="campoRequerido('destinoDepartamento')">*</span> Departamento <input type="text" class="short" [(ngModel)]="form.destinoDepartamento"></ng-container>
-                <ng-container *ngIf="campoVisible('destinoMunicipio')"><span class="req-num" *ngIf="campoRequerido('destinoMunicipio')">*</span> Municipio <input type="text" class="short" [(ngModel)]="form.destinoMunicipio"></ng-container>
+                <ng-container *ngIf="campoVisible('destinoDepartamento')">
+                  <span class="req-num" *ngIf="campoRequerido('destinoDepartamento')">*</span>
+                  Departamento
+                  <p-dropdown
+                    *ngIf="!geoError"
+                    [options]="departamentosOpciones"
+                    optionLabel="name"
+                    optionValue="name"
+                    [ngModel]="form.destinoDepartamento"
+                    (ngModelChange)="onDepartamentoChange('destino', $event)"
+                    [disabled]="esConfirmado || !geoLista"
+                    [filter]="true"
+                    filterBy="name"
+                    [placeholder]="geoLista ? 'Sin dato' : 'Cargando...'"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd geo-dd"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                  </p-dropdown>
+                  <input *ngIf="geoError" type="text" class="short" [(ngModel)]="form.destinoDepartamento" [disabled]="esConfirmado">
+                </ng-container>
+                <ng-container *ngIf="campoVisible('destinoMunicipio')">
+                  <span class="req-num" *ngIf="campoRequerido('destinoMunicipio')">*</span>
+                  Municipio
+                  <p-dropdown
+                    *ngIf="!geoError"
+                    [options]="municipiosDestino"
+                    optionLabel="name"
+                    optionValue="name"
+                    [(ngModel)]="form.destinoMunicipio"
+                    [disabled]="esConfirmado || !form.destinoDepartamento"
+                    [filter]="true"
+                    filterBy="name"
+                    placeholder="Sin dato"
+                    appendTo="body"
+                    [showClear]="true"
+                    styleClass="catalogo-dd geo-dd"
+                    panelStyleClass="catalogo-dd-panel">
+                    <ng-template pTemplate="filtericon"></ng-template>
+                  </p-dropdown>
+                  <input *ngIf="geoError" type="text" class="short" [(ngModel)]="form.destinoMunicipio" [disabled]="esConfirmado">
+                </ng-container>
                 <ng-container *ngIf="campoVisible('destinoLocalidad')"><span class="req-num" *ngIf="campoRequerido('destinoLocalidad')">*</span> Localidad <input type="text" class="short" [(ngModel)]="form.destinoLocalidad"></ng-container>
                 <ng-container *ngIf="campoVisible('destinoBarrio')"><span class="req-num" *ngIf="campoRequerido('destinoBarrio')">*</span> Barrio <input type="text" class="short" [(ngModel)]="form.destinoBarrio"></ng-container>
               </div>

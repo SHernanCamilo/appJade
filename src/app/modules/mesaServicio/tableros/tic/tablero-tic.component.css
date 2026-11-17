@@ -27,6 +27,13 @@
   gap: 1rem;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .page-title {
   font-size: 1.35rem;
   font-weight: 700;
@@ -49,7 +56,7 @@
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.75rem;
   margin-bottom: 0.9rem;
 }
@@ -72,6 +79,7 @@
 .kpi-green { --tone: #16a34a; }
 .kpi-teal { --tone: #0d9488; }
 .kpi-red { --tone: #dc2626; }
+.kpi-amber { --tone: #d97706; }
 .kpi-purple { --tone: #7c3aed; }
 
 .kpi-icon {

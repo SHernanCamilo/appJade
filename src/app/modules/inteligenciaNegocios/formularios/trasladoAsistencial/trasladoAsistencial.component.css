@@ -235,6 +235,17 @@
   border-color: #a93226;
 }
 
+.traslado-page .btn-toolbar-consentimiento {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.traslado-page .btn-toolbar-consentimiento:hover:not(:disabled) {
+  background: #1e40af;
+  border-color: #1e40af;
+}
+
 /* Selector */
 .traslado-page .tipo-selector {
   background: white;
@@ -254,33 +265,6 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.25rem;
-}
-
-.traslado-page .formato-completo-link {
-  margin-top: 1rem;
-  text-align: center;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem 1.25rem;
-}
-
-.traslado-page .link-completo {
-  background: none;
-  border: none;
-  color: #1d4ed8;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.5rem;
-}
-
-.traslado-page .link-completo:hover {
-  text-decoration: underline;
-  color: #1e40af;
 }
 
 .traslado-page .req-num {
@@ -720,6 +704,21 @@
   max-width: 14rem;
 }
 
+.traslado-page .catalogo-dd.geo-dd.p-dropdown,
+.traslado-page .p-dropdown.catalogo-dd.geo-dd {
+  display: inline-flex;
+  width: 12.5rem;
+  min-width: 9.5rem;
+  max-width: 16rem;
+  vertical-align: middle;
+  margin: 0 0.55rem 0.15rem 0.2rem;
+}
+
+.traslado-page .geo-dd .p-dropdown-label.p-placeholder {
+  color: #6b7280;
+  font-style: italic;
+}
+
 .catalogo-dd-panel .p-dropdown-filter-icon,
 .catalogo-dd-panel .p-dropdown-filter-container .p-icon,
 .catalogo-dd-panel .p-dropdown-filter-container .p-iconwrapper,
@@ -1128,11 +1127,6 @@
   .traslado-page .trip-doc,
   .traslado-page .trip-doc-tipo {
     flex-wrap: wrap;
-  }
-
-  .traslado-page .link-completo {
-    min-height: 44px;
-    padding: 0.55rem 0.75rem;
   }
 
   .traslado-page .hint-primero {

@@ -11,6 +11,7 @@ import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { HasPermissionDirective } from '../../../../core/directives/has-permission.directive';
 
 import { GlpiTicketsTicService } from '../../parametrizadorGLPI/services/glpi-tickets-tic.service';
 import {
@@ -21,12 +22,14 @@ import {
   GlpiTicketTic
 } from '../../parametrizadorGLPI/interfaces/glpi-tickets-tic.interface';
 
+type FiltroEstado = GlpiTicketAlerta | 'sin_asignar';
+
 interface KpiCard {
-  id: 'abiertos' | GlpiTicketAlerta;
+  id: 'abiertos' | FiltroEstado;
   label: string;
   value: number;
   icon: string;
-  tone: 'blue' | 'green' | 'teal' | 'red' | 'purple';
+  tone: 'blue' | 'green' | 'teal' | 'red' | 'amber' | 'purple';
 }
 
 interface EntidadPanel {
@@ -56,7 +59,8 @@ interface RendimientoPanel {
     MultiSelectModule,
     TagModule,
     SkeletonModule,
-    ToastModule
+    ToastModule,
+    HasPermissionDirective
   ],
   providers: [MessageService],
   templateUrl: './tablero-tic.component.html',
@@ -67,17 +71,18 @@ export class TableroTicComponent implements OnInit, OnDestroy {
   isLoading = false;
   busqueda = '';
   entidadesSeleccionadas: string[] | null = null;
-  alertaSeleccionada: GlpiTicketAlerta | null = null;
+  alertaSeleccionada: FiltroEstado | null = null;
   nivelSeleccionado: number | null = null;
   grupoSeleccionado: string | null = null;
   private refresco: ReturnType<typeof setInterval> | null = null;
 
   readonly nivelProveedor = 4;
 
-  readonly opcionesAlerta: { label: string; value: GlpiTicketAlerta }[] = [
+  readonly opcionesAlerta: { label: string; value: FiltroEstado }[] = [
     { label: 'Vencidos', value: 'vencido' },
     { label: 'Por vencer (2h)', value: 'por_vencer' },
     { label: 'En tiempo', value: 'en_tiempo' },
+    { label: 'Sin asignar', value: 'sin_asignar' },
     { label: 'Sin ANS', value: 'sin_ans' }
   ];
 
@@ -109,6 +114,7 @@ export class TableroTicComponent implements OnInit, OnDestroy {
       vencidos: tickets.filter((t) => t.alerta === 'vencido').length,
       por_vencer: tickets.filter((t) => t.alerta === 'por_vencer').length,
       en_tiempo: tickets.filter((t) => t.alerta === 'en_tiempo').length,
+      sin_asignar: tickets.filter((t) => this.esSinAsignar(t)).length,
       sin_ans: tickets.filter((t) => t.alerta === 'sin_ans').length
     };
   }
@@ -142,6 +148,7 @@ export class TableroTicComponent implements OnInit, OnDestroy {
       { id: 'en_tiempo', label: 'En tiempo', value: resumen.en_tiempo, icon: 'pi-check', tone: 'green' },
       { id: 'por_vencer', label: 'Por vencer', value: resumen.por_vencer, icon: 'pi-chart-line', tone: 'teal' },
       { id: 'vencido', label: 'Vencidos', value: resumen.vencidos, icon: 'pi-times-circle', tone: 'red' },
+      { id: 'sin_asignar', label: 'Sin asignar', value: resumen.sin_asignar, icon: 'pi-user-minus', tone: 'amber' },
       { id: 'sin_ans', label: 'Sin ANS', value: resumen.sin_ans, icon: 'pi-clock', tone: 'purple' }
     ];
   }
@@ -224,7 +231,7 @@ export class TableroTicComponent implements OnInit, OnDestroy {
     });
   }
 
-  filtrarAlerta(alerta: GlpiTicketAlerta | null): void {
+  filtrarAlerta(alerta: FiltroEstado | null): void {
     this.alertaSeleccionada = this.alertaSeleccionada === alerta ? null : alerta;
   }
 
@@ -359,6 +366,11 @@ export class TableroTicComponent implements OnInit, OnDestroy {
     return 'Sin ANS';
   }
 
+  private esSinAsignar(ticket: GlpiTicketTic): boolean {
+    const tecnico = (ticket.tecnico ?? '').trim().toLowerCase();
+    return tecnico === '' || tecnico === 'sin asignar';
+  }
+
   private ticketsContexto(opciones: {
     alerta: boolean;
     nivel: boolean;
@@ -371,7 +383,15 @@ export class TableroTicComponent implements OnInit, OnDestroy {
     const aplicarGrupo = opciones.grupo !== false;
 
     return tickets.filter((ticket) => {
-      if (opciones.alerta && this.alertaSeleccionada && ticket.alerta !== this.alertaSeleccionada) {
+      if (opciones.alerta && this.alertaSeleccionada === 'sin_asignar' && !this.esSinAsignar(ticket)) {
+        return false;
+      }
+      if (
+        opciones.alerta
+        && this.alertaSeleccionada
+        && this.alertaSeleccionada !== 'sin_asignar'
+        && ticket.alerta !== this.alertaSeleccionada
+      ) {
         return false;
       }
       if (opciones.nivel && this.nivelSeleccionado && ticket.nivel !== this.nivelSeleccionado) {

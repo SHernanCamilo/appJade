@@ -1,7 +1,17 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, ActivatedRouteSnapshot } from '@angular/router';
+import { filter, map, take } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import { SidebarService } from '../../complements/shared/sidebar/sidebar.service';
 import { MessageService } from 'primeng/api';
+
+/** Espera el sidebar del token actual. En recarga y al personificar la lista llega por HTTP. */
+function cuandoModulosListos(sidebarService: SidebarService): Observable<boolean> {
+  return sidebarService.modulosListos$.pipe(
+    filter((listos) => listos),
+    take(1)
+  );
+}
 
 /**
  * Guard que verifica si el usuario tiene acceso a un módulo específico
@@ -28,32 +38,32 @@ export const moduleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
     return true;
   }
 
-  // Verificar si el usuario tiene acceso al módulo
-  const tieneAcceso = sidebarService.tieneAccesoModulo(moduleCode);
+  return cuandoModulosListos(sidebarService).pipe(
+    map(() => {
+      const tieneAcceso = sidebarService.tieneAccesoModulo(moduleCode);
 
-  if (!tieneAcceso) {
-    console.warn(`🚫 Acceso denegado al módulo: ${moduleCode}`);
-    
-    // Mostrar toast de error
-    messageService.add({
-      severity: 'error',
-      summary: 'Acceso Denegado',
-      detail: 'No tienes permisos para acceder a esta sección',
-      life: 5000
-    });
-    
-    // Redirigir al dashboard
-    router.navigate(['/dashboard'], {
-      queryParams: { 
-        accessDenied: true,
-        module: moduleCode 
+      if (!tieneAcceso) {
+        console.warn(`🚫 Acceso denegado al módulo: ${moduleCode}`);
+
+        messageService.add({
+          severity: 'error',
+          summary: 'Acceso Denegado',
+          detail: 'No tienes permisos para acceder a esta sección',
+          life: 5000
+        });
+
+        router.navigate(['/dashboard'], {
+          queryParams: {
+            accessDenied: true,
+            module: moduleCode
+          }
+        });
+        return false;
       }
-    });
-    return false;
-  }
 
-  // console.log(`✅ Acceso permitido al módulo: ${moduleCode}`);
-  return true;
+      return true;
+    })
+  );
 };
 
 /**
@@ -78,27 +88,29 @@ export const anyModuleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => 
     return true;
   }
 
-  // Verificar si tiene acceso a al menos uno de los módulos
-  const tieneAcceso = moduleCodes.some(code => sidebarService.tieneAccesoModulo(code));
+  return cuandoModulosListos(sidebarService).pipe(
+    map(() => {
+      const tieneAcceso = moduleCodes.some(code => sidebarService.tieneAccesoModulo(code));
 
-  if (!tieneAcceso) {
-    console.warn(`🚫 Acceso denegado. Se requiere uno de: ${moduleCodes.join(', ')}`);
-    
-    // Mostrar toast de error
-    messageService.add({
-      severity: 'warn',
-      summary: 'Acceso Restringido',
-      detail: 'No tienes permisos para acceder a esta funcionalidad',
-      life: 5000
-    });
-    
-    router.navigate(['/dashboard'], {
-      queryParams: { accessDenied: true }
-    });
-    return false;
-  }
+      if (!tieneAcceso) {
+        console.warn(`🚫 Acceso denegado. Se requiere uno de: ${moduleCodes.join(', ')}`);
 
-  return true;
+        messageService.add({
+          severity: 'warn',
+          summary: 'Acceso Restringido',
+          detail: 'No tienes permisos para acceder a esta funcionalidad',
+          life: 5000
+        });
+
+        router.navigate(['/dashboard'], {
+          queryParams: { accessDenied: true }
+        });
+        return false;
+      }
+
+      return true;
+    })
+  );
 };
 
 /**
@@ -122,25 +134,27 @@ export const allModulesGuard: CanActivateFn = (route: ActivatedRouteSnapshot) =>
     return true;
   }
 
-  // Verificar si tiene acceso a TODOS los módulos
-  const tieneAcceso = moduleCodes.every(code => sidebarService.tieneAccesoModulo(code));
+  return cuandoModulosListos(sidebarService).pipe(
+    map(() => {
+      const tieneAcceso = moduleCodes.every(code => sidebarService.tieneAccesoModulo(code));
 
-  if (!tieneAcceso) {
-    console.warn(`🚫 Acceso denegado. Se requieren todos: ${moduleCodes.join(', ')}`);
-    
-    // Mostrar toast de error
-    messageService.add({
-      severity: 'error',
-      summary: 'Permisos Insuficientes',
-      detail: 'Necesitas permisos adicionales para acceder a esta área',
-      life: 5000
-    });
-    
-    router.navigate(['/dashboard'], {
-      queryParams: { accessDenied: true }
-    });
-    return false;
-  }
+      if (!tieneAcceso) {
+        console.warn(`🚫 Acceso denegado. Se requieren todos: ${moduleCodes.join(', ')}`);
 
-  return true;
+        messageService.add({
+          severity: 'error',
+          summary: 'Permisos Insuficientes',
+          detail: 'Necesitas permisos adicionales para acceder a esta área',
+          life: 5000
+        });
+
+        router.navigate(['/dashboard'], {
+          queryParams: { accessDenied: true }
+        });
+        return false;
+      }
+
+      return true;
+    })
+  );
 };

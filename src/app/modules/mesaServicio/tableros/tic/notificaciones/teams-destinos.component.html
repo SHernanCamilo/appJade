@@ -1,0 +1,251 @@
+<div class="page-container">
+  <p-toast></p-toast>
+
+  <div class="page-header">
+    <button class="btn-back" type="button" routerLink="/mesaServicio/tableros/tic">
+      <i class="pi pi-arrow-left"></i>
+      Volver al tablero
+    </button>
+    <div class="header-main">
+      <div>
+        <h1 class="page-title">Notificaciones Teams</h1>
+        <p class="page-subtitle">
+          Cada destino es un canal. Puede recibir solo los casos de un grupo o el resumen de todos.
+        </p>
+      </div>
+      <button
+        pButton
+        type="button"
+        label="Nuevo destino"
+        icon="pi pi-plus"
+        class="p-button-primary btn-refresh"
+        (click)="nuevo()">
+      </button>
+    </div>
+  </div>
+
+  <div class="ejemplos">
+    <button type="button" class="ejemplo" (click)="usarEjemplo('nacional')">
+      <strong>TIC NACIONAL</strong>
+      <span>Resumen de todos los grupos: sin asignar, en tiempo, por vencer y vencidos.</span>
+    </button>
+    <button type="button" class="ejemplo" (click)="usarEjemplo('desarrollo')">
+      <strong>Proyecto JADE - ONE</strong>
+      <span>Chat de desarrollo. Solo los casos de ese grupo.</span>
+    </button>
+  </div>
+
+  <div class="layout" [class.solo]="!editando">
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Destinos</span>
+        <span class="req-badge">{{ destinos.length }}</span>
+      </div>
+
+      <p class="vacio" *ngIf="!cargando && !destinos.length">
+        Aún no hay canales. Crea TIC NACIONAL o el grupo de desarrollo.
+      </p>
+
+      <article class="destino" *ngFor="let destino of destinos">
+        <div class="destino-top">
+          <div>
+            <h2>{{ destino.nombre }}</h2>
+            <p>{{ etiquetaModo(destino.modo) }} · {{ alcance(destino) }}</p>
+          </div>
+          <span class="estado" [class.inactivo]="!destino.activo">
+            {{ destino.activo ? 'Activo' : 'Inactivo' }}
+          </span>
+        </div>
+        <p class="meta">{{ conexion(destino) }} · {{ textoPrograma(destino) }}</p>
+        <p class="meta" *ngIf="destino.scheduled_task_id">
+          <a [routerLink]="['/organizacion/servicios/task-scheduler/edit', destino.scheduled_task_id]">Ver en el programador</a>
+        </p>
+        <p class="meta" *ngIf="destino.ultima_notificacion_at">
+          Último envío {{ destino.ultima_notificacion_at | date:'dd/MM/yyyy HH:mm' }}
+          <span *ngIf="destino.ultimo_estado">· {{ destino.ultimo_estado }}</span>
+        </p>
+        <p class="error" *ngIf="destino.ultimo_error">{{ destino.ultimo_error }}</p>
+        <div class="destino-actions">
+          <button type="button" (click)="editar(destino)">Editar</button>
+          <button type="button" [disabled]="enviandoId === destino.id" (click)="probar(destino)">
+            {{ enviandoId === destino.id ? 'Enviando…' : 'Enviar ahora' }}
+          </button>
+          <button type="button" class="peligro" (click)="eliminar(destino)">Eliminar</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" *ngIf="editando">
+      <div class="panel-head">
+        <span class="panel-title">{{ form.id ? 'Editar destino' : 'Nuevo destino' }}</span>
+      </div>
+
+      <form class="formulario" (ngSubmit)="guardar()">
+        <label>
+          Nombre en Teams
+          <input type="text" [(ngModel)]="form.nombre" name="nombre" maxlength="120" placeholder="TIC NACIONAL">
+        </label>
+
+        <label>
+          Qué notifica
+          <p-dropdown
+            [options]="opcionesModo"
+            [(ngModel)]="form.modo"
+            name="modo"
+            appendTo="body"
+            [style]="{ width: '100%' }">
+          </p-dropdown>
+        </label>
+
+        <p class="ayuda" *ngIf="form.modo === 'resumen'">
+          Sin grupos, informa todos. Con grupos, solo esos. En cada uno cuenta sin asignar, en tiempo, por vencer y vencidos.
+        </p>
+        <p class="ayuda" *ngIf="form.modo === 'detalle'">
+          Elige el grupo, por ejemplo desarrollo. El canal recibe la lista de esos casos.
+        </p>
+
+        <label>
+          Grupos técnicos
+          <p-multiSelect
+            [options]="opcionesGrupo"
+            [(ngModel)]="form.grupos"
+            name="grupos"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Todos los grupos"
+            [filter]="true"
+            filterBy="label"
+            appendTo="body"
+            [maxSelectedLabels]="2"
+            selectedItemsLabel="{0} grupos"
+            [style]="{ width: '100%' }">
+          </p-multiSelect>
+        </label>
+
+        <div class="fila">
+          <label>
+            Programación
+            <select [(ngModel)]="form.programacion" name="programacion">
+              <option value="intervalo">Cada cierto tiempo</option>
+              <option value="hora">A una hora</option>
+            </select>
+          </label>
+          <label *ngIf="form.programacion === 'intervalo'">
+            Cada cuánto
+            <select [(ngModel)]="form.intervalo_minutos" name="intervalo">
+              <option [ngValue]="5">Cada 5 minutos</option>
+              <option [ngValue]="15">Cada 15 minutos</option>
+              <option [ngValue]="30">Cada 30 minutos</option>
+              <option [ngValue]="60">Cada hora</option>
+            </select>
+          </label>
+          <label *ngIf="form.programacion === 'hora'">
+            Hora
+            <input type="time" [(ngModel)]="form.hora" name="hora">
+          </label>
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="form.activo" name="activo">
+            Activo
+          </label>
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="form.omitir_si_vacio" name="omitir">
+            No enviar si no hay casos
+          </label>
+        </div>
+        <p class="ayuda">La cita queda en el programador de tareas y la ejecuta su worker.</p>
+
+        <label>
+          Webhook del canal
+          <input
+            type="url"
+            [(ngModel)]="form.webhook_url"
+            name="webhook"
+            placeholder="https://..."
+            autocomplete="off">
+        </label>
+        <p class="ayuda">Opcional. Si pegas un enlace de chat de Teams, se guarda como chat. Si pegas un webhook https, el envío usa esa URL.</p>
+        <div class="canal-head">
+          <span>Chat de Teams</span>
+          <button type="button" class="btn-texto" (click)="buscarChats()" [disabled]="buscandoChats">
+            {{ buscandoChats ? 'Buscando…' : 'Buscar chats' }}
+          </button>
+        </div>
+
+        <label>
+          Chat
+          <p-dropdown
+            [options]="opcionesChat"
+            [(ngModel)]="form.chat_id"
+            name="chat"
+            placeholder="Selecciona un chat"
+            [filter]="true"
+            filterBy="label"
+            [showClear]="true"
+            [disabled]="buscandoChats"
+            appendTo="body"
+            (onChange)="alElegirChat($event)"
+            [style]="{ width: '100%' }">
+          </p-dropdown>
+        </label>
+        <p class="ayuda">
+          Lista los chats donde está notificaciones.apps. Proyecto JADE - ONE aparece cuando esa cuenta es miembro del chat.
+        </p>
+        <label class="check" *ngIf="form.tiene_webhook">
+          <input type="checkbox" [(ngModel)]="form.quitar_webhook" name="quitarWebhook">
+          Quitar el webhook guardado
+        </label>
+        <p class="ayuda" *ngIf="form.tiene_webhook && !form.webhook_url">Ya hay un webhook guardado. Pega uno nuevo solo si quieres reemplazarlo.</p>
+
+        <div class="canal-head">
+          <span>O elige el canal con Microsoft Graph</span>
+          <button type="button" class="btn-texto" (click)="buscarEquipos()" [disabled]="buscandoEquipos">
+            {{ buscandoEquipos ? 'Buscando…' : 'Buscar equipos' }}
+          </button>
+        </div>
+
+        <label>
+          Equipo
+          <p-dropdown
+            [options]="opcionesEquipo"
+            [(ngModel)]="form.team_id"
+            name="equipo"
+            placeholder="Selecciona un equipo"
+            [filter]="true"
+            filterBy="label"
+            [showClear]="true"
+            appendTo="body"
+            (onChange)="alElegirEquipo($event)"
+            [style]="{ width: '100%' }">
+          </p-dropdown>
+        </label>
+
+        <label>
+          Canal
+          <p-dropdown
+            [options]="opcionesCanal"
+            [(ngModel)]="form.channel_id"
+            name="canal"
+            placeholder="Selecciona un canal"
+            [filter]="true"
+            filterBy="label"
+            [showClear]="true"
+            [disabled]="!form.team_id || buscandoCanales"
+            appendTo="body"
+            (onChange)="alElegirCanal($event)"
+            [style]="{ width: '100%' }">
+          </p-dropdown>
+        </label>
+
+        <div class="form-actions">
+          <button pButton type="button" label="Vista previa" class="p-button-outlined" (click)="vistaPrevia()"></button>
+          <button pButton type="button" label="Cancelar" class="p-button-text" (click)="cancelar()"></button>
+          <button pButton type="submit" label="Guardar" class="p-button-primary btn-refresh" [loading]="guardando"></button>
+        </div>
+      </form>
+
+      <pre class="vista" *ngIf="vista">{{ vista.titulo }}
+
+{{ vista.texto }}</pre>
+    </section>
+  </div>
+</div>

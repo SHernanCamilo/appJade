@@ -1,0 +1,278 @@
+.page-container {
+  min-height: 100%;
+  color: #1e293b;
+}
+
+.page-header {
+  margin-bottom: 1rem;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0 0.35rem;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.2rem 0 0;
+  max-width: 40rem;
+}
+
+::ng-deep .btn-refresh.p-button {
+  background: #4f63d2 !important;
+  border-color: #4f63d2 !important;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.ejemplos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.ejemplo {
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e8edf3;
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ejemplo strong {
+  color: #0f172a;
+}
+
+.ejemplo span {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.ejemplo:hover {
+  border-color: #4f63d2;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.layout.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e8edf3;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding-bottom: 0.6rem;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem 0.35rem;
+}
+
+.panel-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.req-badge {
+  background: #eef2ff;
+  color: #4f63d2;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.vacio,
+.ayuda,
+.meta {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.vacio,
+.ayuda {
+  margin: 0.4rem 1rem 0.8rem;
+}
+
+.destino {
+  margin: 0.7rem 1rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.destino-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.destino h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.destino p {
+  margin: 0.15rem 0 0;
+}
+
+.estado {
+  background: #ecfdf3;
+  color: #15803d;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  height: fit-content;
+}
+
+.estado.inactivo {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.error {
+  color: #b91c1c;
+  font-size: 0.78rem;
+  margin: 0.35rem 0 0;
+}
+
+.destino-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.destino-actions button,
+.btn-texto {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.destino-actions .peligro {
+  color: #b91c1c;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.4rem 1rem 1rem;
+}
+
+.formulario label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.formulario input[type="text"],
+.formulario input[type="url"],
+.formulario input[type="number"],
+.formulario input[type="time"],
+.formulario select {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1rem;
+  align-items: end;
+}
+
+.check {
+  flex-direction: row !important;
+  align-items: center;
+  font-weight: 600 !important;
+}
+
+.canal-head,
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.canal-head span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.vista {
+  margin: 0 1rem 1rem;
+  padding: 0.8rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  font-size: 0.78rem;
+  color: #0f172a;
+}
+
+@media (max-width: 980px) {
+  .ejemplos,
+  .layout,
+  .header-main {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .header-main {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

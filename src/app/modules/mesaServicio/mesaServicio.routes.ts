@@ -1,6 +1,18 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanActivateFn, Router, Routes } from '@angular/router';
 import { MesaServicioComponent } from './mesaServicio.component';
 import { moduleGuard } from '../../core/guards/module.guard';
+import { PermissionService } from '../../core/services/permission.service';
+
+const puedeNotificarTeams: CanActivateFn = () => {
+  const permisos = inject(PermissionService);
+  const router = inject(Router);
+  if (permisos.hasPermission('mesa-glpi-tablero-notificar')) {
+    return true;
+  }
+
+  return router.createUrlTree(['/mesaServicio/tableros/tic']);
+};
 
 const plantillasGuard = {
   canActivate: [moduleGuard],
@@ -80,6 +92,19 @@ export const MESA_SERVICIO_ROUTES: Routes = [
         }
       }
     ]
+  },
+  {
+    path: 'tableros/tic/notificaciones',
+    loadComponent: () =>
+      import('./tableros/tic/notificaciones/teams-destinos.component').then(
+        (m) => m.TeamsDestinosComponent
+      ),
+    canActivate: [moduleGuard, puedeNotificarTeams],
+    data: {
+      ...tableroTicGuard.data,
+      pageTitle: 'Notificaciones Teams',
+      pageSubtitle: 'Avisos del tablero TIC a canales de Teams'
+    }
   },
   {
     path: 'tableros/tic',

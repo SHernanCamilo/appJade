@@ -109,13 +109,18 @@ export class AuthService {
     this.sidebarService.limpiarCacheLocal();
     this.http.get<any>(`${this.apiUrl}/sidebar-modules`).subscribe({
       next: (response) => {
-        if (response.data || response.sidebar) {
-          const modulos = response.data || response.sidebar;
+        const modulos = response?.data || response?.sidebar;
+        if (Array.isArray(modulos)) {
           this.sidebarService.cargarModulosDesdeLogin(modulos);
+          return;
         }
+        this.sidebarService.marcarModulosListos();
       },
       error: (error) => {
         console.error('❌ Error cargando módulos del sidebar:', error);
+        if (error?.status !== 401) {
+          this.sidebarService.marcarModulosListos();
+        }
       }
     });
   }
@@ -182,15 +187,20 @@ export class AuthService {
         this.loadSidebarModules();
       } catch (e) {
         console.error('Error parsing user data:', e);
+        this.sidebarService.marcarModulosListos();
       }
     } else {
-      // Si no hay usuario en localStorage, obtenerlo del backend
+      // Si no hay usuario en localStorage, obtenerlo del backend.
+      // Personificar borra "user" antes de recargar: aquí se reconstruye la sesión del token actual.
       this.me().subscribe({
         next: () => {
           this.loadSidebarModules();
         },
         error: (error) => {
           console.error('❌ Error obteniendo usuario:', error);
+          if (error?.status !== 401) {
+            this.sidebarService.marcarModulosListos();
+          }
         }
       });
     }
