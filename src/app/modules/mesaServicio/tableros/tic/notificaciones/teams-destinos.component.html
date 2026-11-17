@@ -10,7 +10,7 @@
       <div>
         <h1 class="page-title">Notificaciones Teams</h1>
         <p class="page-subtitle">
-          Cada destino es un canal. Puede recibir solo los casos de un grupo o el resumen de todos.
+          Cada destino es un canal. El aviso sale en tabla: totales, enlace al tablero y el conteo por grupo.
         </p>
       </div>
       <button
@@ -101,7 +101,7 @@
           Sin grupos, informa todos. Con grupos, solo esos. En cada uno cuenta sin asignar, en tiempo, por vencer y vencidos.
         </p>
         <p class="ayuda" *ngIf="form.modo === 'detalle'">
-          Elige el grupo, por ejemplo desarrollo. El canal recibe la lista de esos casos.
+          Elige el grupo, por ejemplo desarrollo. El canal recibe la tabla de ese grupo: en tiempo, por vencer y vencidos.
         </p>
 
         <label>
