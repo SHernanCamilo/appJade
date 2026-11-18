@@ -169,7 +169,7 @@ export const INVENTARIO_ROUTES: Routes = [
       },
       {
         path: 'inventario/:id',
-        loadComponent: () => import('./ropaHospitalaria/inventario/tomar-inventario/tomar-inventario.component').then(m => m.TomarInventarioComponent),
+        loadComponent: () => import('./ropaHospitalaria/inventario/tomar-inventario.component').then(m => m.TomarInventarioComponent),
         canActivate: [moduleGuard],
         data: {
           moduleCode: 'INV-ROPA-TOMA',
