@@ -1,0 +1,257 @@
+<div class="page-container">
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-file-earmark-bar-graph me-2"></i>
+          Reporte inventario
+        </h1>
+        <p class="page-subtitle-modern">
+          {{ consultaGeneral
+            ? 'Inventarios cerrados de la sede, de todos los usuarios. Sin periodo no hay filas.'
+            : 'Los inventarios que usted cerró. Sin periodo no hay filas.' }}
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="btn-action btn-action-outline" (click)="copiar()" [disabled]="filasVisibles.length === 0">Copiar</button>
+        <button type="button" class="btn-action btn-action-outline" (click)="excel()" [disabled]="filasVisibles.length === 0">Excel</button>
+        <button type="button" class="btn-action btn-action-primary" (click)="csv()" [disabled]="filasVisibles.length === 0">CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+<div class="rp-wrap">
+
+  <section class="rp-card">
+    <h3>Realizar consulta</h3>
+    <div class="rp-filtros">
+      <label class="rp-campo">
+        Empresa
+        <p-dropdown
+          [options]="empresas"
+          [ngModel]="empresaId"
+          (ngModelChange)="alElegirEmpresa($event)"
+          optionLabel="nombre"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="nombre"
+          [showClear]="debeElegirEmpresa"
+          [disabled]="!debeElegirEmpresa"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="rp-campo">
+        Sucursal
+        <p-dropdown
+          [options]="sucursales"
+          [ngModel]="sucursalId"
+          (ngModelChange)="alElegirSucursal($event)"
+          optionLabel="nombre"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="nombre"
+          [showClear]="true"
+          [disabled]="!empresaId"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="rp-campo">
+        Sede
+        <p-dropdown
+          [options]="sedes"
+          [ngModel]="sedeId"
+          (ngModelChange)="alElegirSede($event)"
+          optionLabel="nombre"
+          optionValue="id"
+          [placeholder]="sedes.length ? 'Seleccionar' : 'Sin sede'"
+          [filter]="true"
+          filterBy="nombre"
+          [showClear]="sedes.length > 0"
+          [disabled]="!sucursalId || !sedes.length"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="rp-campo">
+        Unidad funcional
+        <p-dropdown
+          [options]="unidadesSede"
+          [ngModel]="unidadId"
+          (ngModelChange)="alElegirUnidad($event)"
+          optionLabel="etiqueta"
+          optionValue="id"
+          placeholder="Todas"
+          [filter]="true"
+          filterBy="etiqueta"
+          [showClear]="true"
+          [disabled]="!sucursalId || (sedes.length > 0 && !sedeId)"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="rp-campo">
+        Periodo
+        <input class="rp-input" type="month" [(ngModel)]="periodo" (ngModelChange)="consultar()" />
+      </label>
+    </div>
+  </section>
+
+  <section class="rp-tablero" *ngIf="resumen as r">
+    <div class="rp-kpis">
+      <article class="rp-kpi">
+        <header>Cobertura</header>
+        <strong>{{ porcentaje(r.cobertura) }}%</strong>
+        <p>Encontrado frente al fijo</p>
+        <div class="rp-barra-cobertura"><span [style.width.%]="r.cobertura > 100 ? 100 : r.cobertura"></span></div>
+      </article>
+      <article class="rp-kpi">
+        <header>Fijo</header>
+        <strong>{{ dosDecimales(r.fijo) }}</strong>
+        <p>Dotación teórica del periodo</p>
+      </article>
+      <article class="rp-kpi">
+        <header>Encontrado</header>
+        <strong>{{ formato(r.encontrado) }}</strong>
+        <p>Prendas contadas</p>
+      </article>
+      <article class="rp-kpi rp-kpi--falta">
+        <header>Faltante</header>
+        <strong>{{ formato(r.faltante) }}</strong>
+        <p>Por debajo del fijo</p>
+      </article>
+      <article class="rp-kpi rp-kpi--sobra">
+        <header>Sobrante</header>
+        <strong>{{ formato(r.sobrante) }}</strong>
+        <p>Por encima del fijo</p>
+      </article>
+    </div>
+
+    <div class="rp-dash-mid" *ngIf="graficaFijo && graficaFaltante">
+      <article class="rp-card">
+        <h3>Fijo y encontrado</h3>
+        <div class="rp-lienzo">
+          <p-chart type="bar" [data]="graficaFijo" [options]="opcionesFijo" height="280px"></p-chart>
+        </div>
+      </article>
+      <article class="rp-card">
+        <h3>Faltante por prenda</h3>
+        <div class="rp-lienzo">
+          <p-chart type="bar" [data]="graficaFaltante" [options]="opcionesFaltante" height="280px"></p-chart>
+        </div>
+      </article>
+    </div>
+
+    <div class="rp-dash-low">
+      <article class="rp-card">
+        <h3>Mayor faltante</h3>
+        <div class="rp-lienzo rp-lienzo--dona" *ngIf="graficaDona">
+          <p-chart type="doughnut" [data]="graficaDona" [options]="opcionesDona" height="220px"></p-chart>
+        </div>
+      </article>
+      <div class="rp-stats">
+        <article class="rp-stat">
+          <span>Prenda con más faltante</span>
+          <strong>{{ r.mayorFaltante?.nombre || 'Sin faltante' }}</strong>
+          <p>{{ r.mayorFaltante ? formato(r.mayorFaltante.valor) + ' por debajo del fijo' : 'Todo el conteo cubre el fijo' }}</p>
+        </article>
+        <article class="rp-stat">
+          <span>Prenda con más sobrante</span>
+          <strong>{{ r.mayorSobrante?.nombre || 'Sin sobrante' }}</strong>
+          <p>{{ r.mayorSobrante ? formato(r.mayorSobrante.valor) + ' por encima del fijo' : 'Ninguna prenda sobra' }}</p>
+        </article>
+        <article class="rp-stat">
+          <span>Unidades contadas</span>
+          <strong>{{ r.unidades }}</strong>
+          <p>En el periodo consultado</p>
+        </article>
+        <article class="rp-stat">
+          <span>Prendas contadas</span>
+          <strong>{{ r.prendas }}</strong>
+          <p>Con inventario cerrado</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="rp-card">
+    <div class="rp-barra">
+      <h3>Reporte de inventario</h3>
+      <div class="rp-herramientas">
+        <input class="rp-input rp-buscar" type="search" [(ngModel)]="busqueda" placeholder="Buscar" />
+      </div>
+    </div>
+
+    <p class="rp-nota" *ngIf="error">{{ error }}</p>
+    <p class="rp-nota" *ngIf="cargando">Consultando…</p>
+    <p class="rp-nota" *ngIf="!cargando && !consultado">Seleccione sucursal, sede y periodo.</p>
+
+    <div class="rp-tabla-wrap" *ngIf="consultado && !cargando">
+      <table class="rp-tabla">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Periodo</th>
+            <th>Sucursal</th>
+            <th>Sede</th>
+            <th>Unid. funcional</th>
+            <th *ngIf="consultaGeneral">Usuario</th>
+            <th>Prenda</th>
+            <th class="rp-num">Camas</th>
+            <th class="rp-num">Cama médico</th>
+            <th class="rp-num">Personal</th>
+            <th class="rp-num">Constante</th>
+            <th class="rp-num">Fijo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let fila of filasVisibles; let i = index">
+            <tr>
+              <td>
+                <button type="button" class="rp-mas" (click)="alternar(i)" [attr.aria-expanded]="abierta === i">
+                  <i class="pi" [ngClass]="abierta === i ? 'pi-minus-circle' : 'pi-plus-circle'"></i>
+                </button>
+              </td>
+              <td>{{ fila.periodo }}</td>
+              <td>{{ fila.sucursal }}</td>
+              <td>{{ fila.sede }}</td>
+              <td>{{ fila.unidad }}</td>
+              <td *ngIf="consultaGeneral">{{ fila.usuario || '—' }}</td>
+              <td>{{ fila.prenda }}</td>
+              <td class="rp-num">{{ fila.camas }}</td>
+              <td class="rp-num">{{ fila.camas_medico }}</td>
+              <td class="rp-num">{{ fila.personal }}</td>
+              <td class="rp-num">{{ dosDecimales(fila.constante) }}</td>
+              <td class="rp-num">{{ dosDecimales(fila.fijo) }}</td>
+            </tr>
+            <tr *ngIf="abierta === i" class="rp-detalle">
+              <td [attr.colspan]="consultaGeneral ? 12 : 11">
+                <span>Cant. encontrada <strong>{{ fila.cantidad }}</strong></span>
+                <span>Faltante <strong [class.rp-sobra]="fila.faltante.startsWith('+')">{{ fila.faltante }}</strong></span>
+              </td>
+            </tr>
+          </ng-container>
+          <tr *ngIf="filasVisibles.length === 0">
+            <td [attr.colspan]="consultaGeneral ? 12 : 11" class="rp-vacio">
+              {{ consultaGeneral ? 'No hay inventarios cerrados en ese periodo.' : 'No hay inventarios suyos cerrados en ese periodo.' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+  </div>
+</div>

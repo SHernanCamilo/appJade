@@ -1,0 +1,229 @@
+<div class="page-container">
+  <p-toast position="top-right"></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-clipboard-check me-2"></i>
+          {{ soloLectura && documento ? 'Inventario ' + documento.consecutivo : 'Nuevo inventario' }}
+        </h1>
+        <p class="page-subtitle-modern">{{ subtitulo }}</p>
+      </div>
+
+      <div class="header-actions">
+        <button *ngIf="documento" type="button" class="btn-action btn-action-outline" (click)="imprimir()">
+          <i class="pi pi-print"></i>
+          Imprimir
+        </button>
+        <a *ngIf="soloLectura" class="btn-action btn-action-outline" routerLink="/inventario/ropaHospitalaria/inventario">Nueva toma</a>
+        <button *ngIf="documento && !soloLectura" type="button" class="btn-action btn-action-outline" (click)="limpiar()">
+          <i class="pi pi-eraser"></i>
+          Limpiar
+        </button>
+        <button *ngIf="documento && !soloLectura" type="button" class="btn-action btn-action-primary" [disabled]="!puedeGuardar" (click)="guardar()">
+          <i class="pi pi-save"></i>
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+<div class="ri-wrap" *ngIf="documento">
+
+  <section class="ri-card">
+    <h3>Unidad funcional</h3>
+    <div class="ri-grid ri-grid--5">
+      <label class="ri-campo">
+        Empresa
+        <p-dropdown
+          [options]="empresas"
+          [ngModel]="empresaId"
+          (ngModelChange)="alElegirEmpresa($event)"
+          optionLabel="nombre"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="nombre"
+          [showClear]="debeElegirEmpresa && !soloLectura"
+          [disabled]="soloLectura || !debeElegirEmpresa"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="ri-campo">
+        Sucursal
+        <p-dropdown
+          [options]="sucursales"
+          [ngModel]="sucursalId"
+          (ngModelChange)="alElegirSucursal($event)"
+          optionLabel="nombre"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="nombre"
+          [showClear]="!soloLectura"
+          [disabled]="soloLectura || !empresaId"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="ri-campo">
+        Sede
+        <p-dropdown
+          [options]="sedes"
+          [ngModel]="sedeId"
+          (ngModelChange)="alElegirSede($event)"
+          optionLabel="nombre"
+          optionValue="id"
+          [placeholder]="sedes.length ? 'Seleccionar' : 'Sin sede'"
+          [filter]="true"
+          filterBy="nombre"
+          [showClear]="!soloLectura && sedes.length > 0"
+          [disabled]="soloLectura || !sucursalId || !sedes.length"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="ri-campo">
+        Unidad funcional
+        <p-dropdown
+          [options]="unidadesDropdown"
+          [ngModel]="unidadId"
+          (ngModelChange)="alElegirUnidad($event)"
+          optionLabel="etiqueta"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="etiqueta"
+          [showClear]="!soloLectura"
+          [disabled]="soloLectura || !sucursalId || (sedes.length > 0 && !sedeId) || !unidadesDropdown.length"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="ri-campo">
+        Periodo
+        <input class="ri-input" type="month" [(ngModel)]="periodo" (ngModelChange)="alCambiarPeriodo()" [disabled]="soloLectura" />
+      </label>
+    </div>
+    <p class="ri-alerta" *ngIf="yaCerrado && !soloLectura">Esa unidad ya tiene un inventario cerrado en este periodo.</p>
+    <p class="ri-alerta" *ngIf="unidadId && !tieneCupo && !soloLectura">Esta unidad no tiene camas en Parámetros.</p>
+  </section>
+
+  <section class="ri-card ri-no-print" *ngIf="!soloLectura">
+    <h3>Agregar prenda</h3>
+    <div class="ri-grid ri-grid--linea">
+      <label class="ri-campo">
+        Prenda
+        <p-dropdown
+          [options]="prendasDropdown"
+          [ngModel]="prendaId"
+          (ngModelChange)="alElegirPrenda($event)"
+          optionLabel="etiqueta"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="etiqueta"
+          [showClear]="true"
+          [disabled]="!unidadId"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="ri-campo">
+        Camas
+        <input class="ri-input" [value]="camas === null ? '' : camas" placeholder="Camas" disabled />
+      </label>
+      <label class="ri-campo">
+        Constante
+        <input class="ri-input" [value]="constante ?? ''" placeholder="Constante" disabled />
+      </label>
+      <label class="ri-campo">
+        ¿Desea agregar cama extra?
+        <p-dropdown
+          [options]="camaExtraOpciones"
+          [(ngModel)]="camaExtra"
+          optionLabel="etiqueta"
+          optionValue="valor"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+        <input *ngIf="camaExtra === 'si'" class="ri-input" type="number" min="1" max="999" step="1" [(ngModel)]="camaExtraNumero" />
+      </label>
+      <label class="ri-campo">
+        Cantidad
+        <input class="ri-input" type="number" min="0" max="99999" step="1" [(ngModel)]="cantidad" placeholder="Cant." />
+      </label>
+      <button type="button" class="ri-btn ri-btn--add" [disabled]="!puedeAgregar" (click)="agregar()" aria-label="Agregar prenda">
+        <i class="pi pi-plus"></i>
+      </button>
+    </div>
+    <p class="ri-ayuda" *ngIf="prendaId && constante === null">Esta prenda no tiene constante vigente en la unidad.</p>
+    <p class="ri-ayuda">La cama extra se guarda en la línea. El fijo no la suma.</p>
+  </section>
+
+  <section class="ri-card">
+    <h3>Detalle de inventario</h3>
+    <table class="ri-tabla">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Constante</th>
+          <th>Camas</th>
+          <th>Cantidad</th>
+          <th *ngIf="soloLectura">Fijo</th>
+          <th *ngIf="soloLectura">Faltante</th>
+          <th class="ri-no-print" *ngIf="!soloLectura"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let linea of lineas">
+          <td>
+            <span class="ri-nombre">{{ linea.prenda_nombre }}</span>
+            <small>{{ linea.prenda_codigo }}</small>
+          </td>
+          <td>{{ linea.constante }}</td>
+          <td>
+            {{ linea.camas_vista }}
+            <small *ngIf="linea.cama_extra > 0">incluye {{ linea.cama_extra }} extra</small>
+          </td>
+          <td>{{ linea.cantidad }}</td>
+          <td *ngIf="soloLectura">{{ linea.fijo }}</td>
+          <td *ngIf="soloLectura">{{ linea.faltante }}</td>
+          <td class="ri-no-print" *ngIf="!soloLectura">
+            <button type="button" class="ri-btn ri-btn--ghost" (click)="quitar(linea)" aria-label="Quitar prenda">
+              <i class="pi pi-trash"></i>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="lineas.length === 0">
+          <td [attr.colspan]="soloLectura ? 6 : 5" class="ri-vacio">Agregue las prendas contadas.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="ri-card">
+    <h3>Comentario</h3>
+    <textarea class="ri-comentario" maxlength="255" rows="4" [(ngModel)]="comentario" [disabled]="soloLectura" placeholder="Comentario"></textarea>
+  </section>
+
+</div>
+
+<p class="ri-estado" *ngIf="cargando">Abriendo la toma…</p>
+<p class="ri-estado ri-estado--error" *ngIf="!cargando && error">
+  {{ error }}
+  <a routerLink="/inventario/ropaHospitalaria/inventario">Abrir una toma nueva</a>
+</p>
+  </div>
+</div>

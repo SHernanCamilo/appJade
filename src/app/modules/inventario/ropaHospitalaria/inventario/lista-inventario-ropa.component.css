@@ -1,0 +1,22 @@
+.ri-wrap { padding: 1.25rem; max-width: 1200px; margin: 0 auto; }
+.ri-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.ri-titulo { display: flex; align-items: center; gap: 0.55rem; margin: 0; color: #1b3a5c; font-size: 1.35rem; font-weight: 600; }
+.ri-subtitulo { margin: 0.35rem 0 0; color: #6b7280; font-size: 0.875rem; }
+.ri-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: auto; }
+.ri-barra { display: flex; gap: 0.6rem; align-items: flex-end; padding: 0.9rem 1rem; }
+.ri-campo { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: #4b5563; }
+.ri-input, .ri-btn { font: inherit; }
+.ri-input { height: 2.3rem; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 0.7rem; background: #fff; color: #111827; }
+.ri-btn { display: inline-flex; align-items: center; gap: 0.4rem; height: 2.3rem; padding: 0 0.9rem; border-radius: 8px; border: 1px solid transparent; text-decoration: none; cursor: pointer; }
+.ri-btn--primary { background: #1b3a5c; color: #fff; }
+.ri-btn--secondary { background: #fff; border-color: #d1d5db; color: #374151; }
+.ri-tabla { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.ri-tabla th { text-align: left; padding: 0.7rem 0.85rem; color: #6b7280; font-size: 0.75rem; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+.ri-tabla td { padding: 0.7rem 0.85rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.ri-fila-link { cursor: pointer; }
+.ri-fila-link:hover { background: #f8fafc; }
+.ri-nombre { display: block; color: #111827; }
+.ri-tabla small, .ri-vacio { color: #6b7280; }
+.ri-vacio { text-align: center; padding: 1.5rem; }
+.ri-error { margin: 0 1rem 0.8rem; color: #b91c1c; }
+.ri-nota { margin: 0 1rem 0.8rem; color: #6b7280; }

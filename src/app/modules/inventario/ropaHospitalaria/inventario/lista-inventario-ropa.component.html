@@ -1,0 +1,57 @@
+<div class="ri-wrap">
+  <header class="ri-header">
+    <div>
+      <h2 class="ri-titulo"><i class="pi pi-clipboard"></i> Inventario de ropa</h2>
+      <p class="ri-subtitulo">Conteos cerrados. Un inventario guardado no se edita ni se anula.</p>
+    </div>
+    <a class="ri-btn ri-btn--primary" routerLink="/inventario/ropaHospitalaria/inventario/nuevo">
+      <i class="pi pi-plus"></i> Nuevo inventario
+    </a>
+  </header>
+
+  <section class="ri-card">
+    <div class="ri-barra">
+      <label class="ri-campo ri-campo--inline">
+        Periodo
+        <input class="ri-input" type="month" [(ngModel)]="periodo" />
+      </label>
+      <button type="button" class="ri-btn ri-btn--secondary" (click)="buscar()">Buscar</button>
+    </div>
+
+    <p class="ri-error" *ngIf="error">{{ error }}</p>
+    <p class="ri-nota" *ngIf="cargando">Cargando inventarios…</p>
+
+    <table class="ri-tabla" *ngIf="!cargando">
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Toma</th>
+          <th>Periodo</th>
+          <th>Fecha de corte</th>
+          <th>Unidad</th>
+          <th>Sede</th>
+          <th>Prendas</th>
+          <th>Usuario</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let fila of filas" [routerLink]="['/inventario/ropaHospitalaria/inventario', fila.id]" class="ri-fila-link">
+          <td>{{ fila.consecutivo }}</td>
+          <td>{{ fila.consecutivo_toma || '—' }}</td>
+          <td>{{ fila.periodo }}</td>
+          <td>{{ fila.fecha_corte }}</td>
+          <td>
+            <span class="ri-nombre">{{ fila.unidad_nombre }}</span>
+            <small>{{ fila.unidad_codigo }}</small>
+          </td>
+          <td>{{ fila.sede_nombre || fila.sucursal_nombre }}</td>
+          <td>{{ fila.lineas }}</td>
+          <td>{{ fila.usuario }}</td>
+        </tr>
+        <tr *ngIf="filas.length === 0">
+          <td colspan="8" class="ri-vacio">Todavía no hay inventarios cerrados.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>

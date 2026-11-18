@@ -1,0 +1,379 @@
+<div class="page-container">
+  <p-toast position="top-right"></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <div class="page-header-modern">
+    <div class="header-top">
+      <button class="btn-back-modern" routerLink="/inventario">
+        <i class="pi pi-arrow-left"></i>
+        Volver
+      </button>
+    </div>
+
+    <div class="header-main">
+      <div class="header-title-section">
+        <h1 class="page-title-modern">
+          <i class="bi bi-sliders me-2"></i>
+          Par&aacute;metros
+        </h1>
+        <p class="page-subtitle-modern">
+          Prendas, cupos de cada unidad y la constante que el conteo copia al agregar una l&iacute;nea.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button *ngIf="pestana === 'prendas'" type="button" class="btn-action btn-action-primary" (click)="abrirCrearPrenda()">
+          <i class="pi pi-plus"></i>
+          Nuevo
+        </button>
+        <button *ngIf="pestana === 'cupos'" type="button" class="btn-action btn-action-primary" (click)="abrirAgregarUnidad()">
+          <i class="pi pi-plus"></i>
+          Agregar unidad
+        </button>
+        <button *ngIf="pestana === 'constantes'" type="button" class="btn-action btn-action-primary" (click)="abrirCrearConstante()">
+          <i class="pi pi-plus"></i>
+          Nuevo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+<div class="rh-wrap">
+
+  <nav class="rh-tabs">
+    <button type="button" class="rh-tab" [class.rh-tab--activa]="pestana === 'prendas'" (click)="pestana = 'prendas'">
+      Prendas <span class="rh-pill">{{ prendasVisibles.length }}</span>
+    </button>
+    <button type="button" class="rh-tab" [class.rh-tab--activa]="pestana === 'cupos'" (click)="pestana = 'cupos'">
+      Cupos por unidad <span class="rh-pill">{{ unidadesVisibles.length }}</span>
+    </button>
+    <button type="button" class="rh-tab" [class.rh-tab--activa]="pestana === 'constantes'" (click)="pestana = 'constantes'">
+      Constantes <span class="rh-pill">{{ constantesVisibles.length }}</span>
+    </button>
+  </nav>
+
+  <!-- PRENDAS -->
+  <section class="rh-card" *ngIf="pestana === 'prendas'">
+    <div class="rh-barra">
+      <input class="rh-input rh-input--buscar" type="search" [(ngModel)]="filtroPrenda" placeholder="Buscar código o nombre" />
+      <p-dropdown
+        [options]="reglas"
+        [ngModel]="filtroRegla || null"
+        (ngModelChange)="filtroRegla = $event || ''"
+        optionLabel="etiqueta"
+        optionValue="valor"
+        placeholder="Todas las reglas"
+        [filter]="true"
+        filterBy="etiqueta"
+        [showClear]="true"
+        appendTo="body"
+        styleClass="ropa-select">
+      </p-dropdown>
+      <p-dropdown
+        [options]="estadosPrenda"
+        [(ngModel)]="filtroEstadoPrenda"
+        optionLabel="etiqueta"
+        optionValue="valor"
+        placeholder="Estado"
+        appendTo="body"
+        styleClass="ropa-select">
+      </p-dropdown>
+    </div>
+
+    <p-table [value]="prendasVisibles" [loading]="cargandoPrendas" styleClass="rh-tabla" [rowHover]="true" [paginator]="prendasVisibles.length > 15" [rows]="15">
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="codigo">Código <p-sortIcon field="codigo"></p-sortIcon></th>
+          <th pSortableColumn="nombre">Nombre <p-sortIcon field="nombre"></p-sortIcon></th>
+          <th>Regla del fijo</th>
+          <th>Estado</th>
+          <th style="width: 120px; text-align: right">Acciones</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-prenda>
+        <tr [class.rh-fila--inactivo]="prenda.estado !== 1">
+          <td>{{ prenda.codigo || '—' }}</td>
+          <td class="rh-nombre">{{ prenda.nombre }}</td>
+          <td>
+            <p-tag [value]="prenda.regla_nombre" [severity]="severidadRegla(prenda.regla)" [pTooltip]="ayudaRegla(prenda.regla)" tooltipPosition="top"></p-tag>
+          </td>
+          <td>{{ prenda.estado === 1 ? 'Vigente' : 'Inactiva' }}</td>
+          <td class="rh-acciones">
+            <button type="button" class="rh-btn rh-btn--sm rh-btn--ghost" pTooltip="Editar" (click)="abrirEditarPrenda(prenda)">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button type="button" class="rh-btn rh-btn--sm rh-btn--danger-ghost" pTooltip="Dar de baja" [disabled]="prenda.estado !== 1 || prenda.constantes_vigentes > 0" (click)="eliminarPrenda(prenda)">
+              <i class="pi pi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="5"><div class="rh-vacio"><i class="pi pi-inbox"></i> No hay prendas con ese filtro.</div></td></tr>
+      </ng-template>
+    </p-table>
+  </section>
+
+  <!-- CUPOS -->
+  <section class="rh-card" *ngIf="pestana === 'cupos'">
+    <div class="rh-barra">
+      <input class="rh-input rh-input--buscar" type="search" [(ngModel)]="filtroUnidad" placeholder="Buscar unidad" />
+      <p-dropdown
+        [options]="sucursales"
+        [(ngModel)]="filtroSucursal"
+        (ngModelChange)="alCambiarSucursal()"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Todas las sucursales"
+        [filter]="true"
+        filterBy="nombre"
+        [showClear]="true"
+        appendTo="body"
+        styleClass="ropa-select">
+      </p-dropdown>
+      <p-dropdown
+        [options]="sedes"
+        [(ngModel)]="filtroSede"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Todas las sedes"
+        [filter]="true"
+        filterBy="nombre"
+        [showClear]="true"
+        [disabled]="!filtroSucursal"
+        appendTo="body"
+        styleClass="ropa-select">
+      </p-dropdown>
+    </div>
+    <p class="rh-nota">Camas entra al fijo por cama. Camas de médico y personal solo entran si la prenda tiene esa regla y la unidad está marcada.</p>
+
+    <p-table [value]="unidadesVisibles" [loading]="cargandoUnidades" styleClass="rh-tabla" [rowHover]="true" [paginator]="unidadesVisibles.length > 15" [rows]="15">
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="codigo">Código <p-sortIcon field="codigo"></p-sortIcon></th>
+          <th pSortableColumn="nombre">Unidad <p-sortIcon field="nombre"></p-sortIcon></th>
+          <th>Sede</th>
+          <th>Camas</th>
+          <th>Camas médico</th>
+          <th>Personal</th>
+          <th>Estar médico</th>
+          <th>Personal</th>
+          <th style="width: 90px; text-align: right"></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-unidad>
+        <tr>
+          <td>{{ unidad.codigo }}</td>
+          <td>
+            <span class="rh-nombre">{{ unidad.nombre }}</span>
+            <small class="rh-ayuda">{{ unidad.sucursal_nombre }}</small>
+          </td>
+          <td>{{ unidad.sede_nombre || 'Sin sede' }}</td>
+          <td>{{ unidad.tiene_cupo ? unidad.camas : '—' }}</td>
+          <td>{{ unidad.tiene_cupo ? unidad.camas_medico : '—' }}</td>
+          <td>{{ unidad.tiene_cupo ? unidad.personal : '—' }}</td>
+          <td>{{ unidad.tiene_cupo ? (unidad.aplica_estar_medico ? 'Sí' : 'No') : '—' }}</td>
+          <td>{{ unidad.tiene_cupo ? (unidad.aplica_personal ? 'Sí' : 'No') : '—' }}</td>
+          <td class="rh-acciones">
+            <button type="button" class="rh-btn rh-btn--sm rh-btn--ghost" (click)="abrirCupo(unidad)">
+              <i class="pi pi-pencil"></i> Cupo
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="9"><div class="rh-vacio"><i class="pi pi-inbox"></i> No hay unidades parametrizadas con ese filtro.</div></td></tr>
+      </ng-template>
+    </p-table>
+  </section>
+
+  <!-- CONSTANTES -->
+  <section class="rh-card" *ngIf="pestana === 'constantes'">
+    <div class="rh-barra">
+      <input class="rh-input rh-input--buscar" type="search" [(ngModel)]="filtroConstante" placeholder="Buscar prenda, unidad o sede" />
+    </div>
+    <p class="rh-nota">Solo puede haber una constante vigente por prenda y unidad. Al darla de baja, el número ya copiado en un conteo cerrado no cambia.</p>
+
+    <p-table [value]="constantesVisibles" [loading]="cargandoConstantes" styleClass="rh-tabla" [rowHover]="true" [paginator]="constantesVisibles.length > 15" [rows]="15">
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="prenda_nombre">Prenda <p-sortIcon field="prenda_nombre"></p-sortIcon></th>
+          <th pSortableColumn="unidad_nombre">Unidad <p-sortIcon field="unidad_nombre"></p-sortIcon></th>
+          <th>Sede</th>
+          <th>Regla</th>
+          <th pSortableColumn="constante">Constante <p-sortIcon field="constante"></p-sortIcon></th>
+          <th style="width: 120px; text-align: right">Acciones</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-fila>
+        <tr>
+          <td>
+            <span class="rh-nombre">{{ fila.prenda_nombre }}</span>
+            <small class="rh-ayuda">{{ fila.prenda_codigo }}</small>
+          </td>
+          <td>
+            <span class="rh-nombre">{{ fila.unidad_nombre }}</span>
+            <small class="rh-ayuda">{{ fila.unidad_codigo }}</small>
+          </td>
+          <td>{{ fila.sede_nombre || fila.sucursal_nombre || '—' }}</td>
+          <td><p-tag [value]="fila.regla_nombre" [severity]="severidadRegla(fila.regla)"></p-tag></td>
+          <td class="rh-numero">{{ fila.constante | number:'1.2-2' }}</td>
+          <td class="rh-acciones">
+            <button type="button" class="rh-btn rh-btn--sm rh-btn--ghost" pTooltip="Editar" (click)="abrirEditarConstante(fila)">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button type="button" class="rh-btn rh-btn--sm rh-btn--danger-ghost" pTooltip="Dar de baja" (click)="eliminarConstante(fila)">
+              <i class="pi pi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr><td colspan="6"><div class="rh-vacio"><i class="pi pi-inbox"></i> No hay constantes vigentes.</div></td></tr>
+      </ng-template>
+    </p-table>
+  </section>
+
+  <div class="rh-overlay" *ngIf="dialogPrenda || dialogCupo || dialogConstante" (click)="cerrarDialogos()"></div>
+
+  <aside class="rh-dialog" *ngIf="dialogPrenda">
+    <header class="rh-dialog__header">
+      <h3>{{ modoEdicion ? 'Editar prenda' : 'Nueva prenda' }}</h3>
+      <button type="button" class="rh-dialog__cerrar" (click)="cerrarDialogos()"><i class="pi pi-times"></i></button>
+    </header>
+    <div class="rh-dialog__cuerpo">
+      <label class="rh-campo">
+        Código
+        <input class="rh-input" maxlength="30" [(ngModel)]="formPrenda.codigo" placeholder="Ej. 17" />
+      </label>
+      <label class="rh-campo">
+        Nombre <span class="rh-req">*</span>
+        <input class="rh-input" maxlength="150" [(ngModel)]="formPrenda.nombre" />
+      </label>
+      <label class="rh-campo">
+        Regla del fijo <span class="rh-req">*</span>
+        <p-dropdown
+          [options]="reglas"
+          [ngModel]="formPrenda.regla || null"
+          (ngModelChange)="formPrenda.regla = $event || ''"
+          optionLabel="etiqueta"
+          optionValue="valor"
+          placeholder="Seleccionar"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+        <small class="rh-ayuda-info" *ngIf="formPrenda.regla">{{ ayudaRegla(formPrenda.regla) }}</small>
+      </label>
+      <label class="rh-check">
+        <input type="checkbox" [(ngModel)]="formPrenda.vigente" />
+        Vigente
+      </label>
+    </div>
+    <footer class="rh-dialog__footer">
+      <button type="button" class="rh-btn rh-btn--secondary" (click)="cerrarDialogos()">Cancelar</button>
+      <button type="button" class="rh-btn rh-btn--primary" [disabled]="!formPrendaValido || guardando" (click)="guardarPrenda()">
+        <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+        Guardar
+      </button>
+    </footer>
+  </aside>
+
+  <aside class="rh-dialog" *ngIf="dialogCupo">
+    <header class="rh-dialog__header">
+      <h3>{{ cupoNuevo ? 'Agregar unidad' : 'Cupo de ' + unidadEditando?.codigo }}</h3>
+      <button type="button" class="rh-dialog__cerrar" (click)="cerrarDialogos()"><i class="pi pi-times"></i></button>
+    </header>
+    <div class="rh-dialog__cuerpo">
+      <label class="rh-campo" *ngIf="cupoNuevo">
+        Unidad funcional <span class="rh-req">*</span>
+        <p-dropdown
+          [options]="unidadesSinCupo"
+          [ngModel]="unidadEditando?.id ?? null"
+          (ngModelChange)="alElegirUnidadNueva($event)"
+          optionLabel="etiqueta"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="etiqueta"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <p class="rh-nombre" *ngIf="!cupoNuevo">{{ unidadEditando?.nombre }}</p>
+      <label class="rh-campo">Camas <input class="rh-input" type="number" min="0" max="9999" step="1" [(ngModel)]="formCupo.camas" /></label>
+      <label class="rh-campo">Camas de médico <input class="rh-input" type="number" min="0" max="9999" step="1" [(ngModel)]="formCupo.camas_medico" /></label>
+      <label class="rh-campo">Personal <input class="rh-input" type="number" min="0" max="9999" step="1" [(ngModel)]="formCupo.personal" /></label>
+      <label class="rh-check">
+        <input type="checkbox" [(ngModel)]="formCupo.aplica_estar_medico" />
+        Usa la fórmula de estar médico
+      </label>
+      <label class="rh-check">
+        <input type="checkbox" [(ngModel)]="formCupo.aplica_personal" />
+        Usa la fórmula de personal
+      </label>
+      <small class="rh-ayuda">Si la prenda tiene esa regla y la marca está apagada, el fijo se calcula con las camas.</small>
+    </div>
+    <footer class="rh-dialog__footer">
+      <button type="button" class="rh-btn rh-btn--secondary" (click)="cerrarDialogos()">Cancelar</button>
+      <button type="button" class="rh-btn rh-btn--primary" [disabled]="!formCupoValido || guardando || !unidadEditando" (click)="guardarCupo()">
+        <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+        Guardar
+      </button>
+    </footer>
+  </aside>
+
+  <aside class="rh-dialog" *ngIf="dialogConstante">
+    <header class="rh-dialog__header">
+      <h3>{{ modoEdicion ? 'Editar constante' : 'Nueva constante' }}</h3>
+      <button type="button" class="rh-dialog__cerrar" (click)="cerrarDialogos()"><i class="pi pi-times"></i></button>
+    </header>
+    <div class="rh-dialog__cuerpo">
+      <label class="rh-campo">
+        Prenda vigente <span class="rh-req">*</span>
+        <p-dropdown
+          [options]="prendasDropdown"
+          [(ngModel)]="formConstante.id_prenda"
+          optionLabel="etiqueta"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="etiqueta"
+          [showClear]="true"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="rh-campo">
+        Unidad <span class="rh-req">*</span>
+        <p-dropdown
+          [options]="unidadesDropdown"
+          [(ngModel)]="formConstante.id_unidad"
+          optionLabel="etiqueta"
+          optionValue="id"
+          placeholder="Seleccionar"
+          [filter]="true"
+          filterBy="etiqueta"
+          [showClear]="true"
+          appendTo="body"
+          styleClass="ropa-select">
+        </p-dropdown>
+      </label>
+      <label class="rh-campo">
+        Constante <span class="rh-req">*</span>
+        <input class="rh-input" type="number" min="0" max="9999.99" step="0.01" [(ngModel)]="formConstante.constante" />
+        <small class="rh-ayuda">Cantidad teórica por cama, por cama de médico o por persona, según la regla de la prenda.</small>
+      </label>
+    </div>
+    <footer class="rh-dialog__footer">
+      <button type="button" class="rh-btn rh-btn--secondary" (click)="cerrarDialogos()">Cancelar</button>
+      <button type="button" class="rh-btn rh-btn--primary" [disabled]="!formConstanteValido || guardando" (click)="guardarConstante()">
+        <i class="pi" [ngClass]="guardando ? 'pi-spin pi-spinner' : 'pi-save'"></i>
+        Guardar
+      </button>
+    </footer>
+  </aside>
+
+</div>
+  </div>
+</div>

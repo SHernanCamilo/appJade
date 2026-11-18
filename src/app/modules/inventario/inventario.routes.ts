@@ -128,6 +128,57 @@ export const INVENTARIO_ROUTES: Routes = [
       }
     ]
   },
+  {
+    path: 'ropaHospitalaria',
+    children: [
+      { path: '', redirectTo: 'parametros', pathMatch: 'full' },
+      {
+        path: 'parametros',
+        loadComponent: () => import('./ropaHospitalaria/parametros/parametros-ropa.component').then(m => m.ParametrosRopaComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ROPA-PARAM',
+          pageTitle: 'Parámetros de ropa hospitalaria',
+          pageSubtitle: 'Prendas, cupos por unidad y constantes'
+        }
+      },
+      {
+        path: 'inventario',
+        loadComponent: () => import('./ropaHospitalaria/inventario/tomar-inventario.component').then(m => m.TomarInventarioComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ROPA-TOMA',
+          pageTitle: 'Nuevo inventario',
+          pageSubtitle: 'Toma del conteo físico'
+        }
+      },
+      {
+        path: 'inventario/nuevo',
+        redirectTo: 'inventario',
+        pathMatch: 'full'
+      },
+      {
+        path: 'reporte',
+        loadComponent: () => import('./ropaHospitalaria/reporte/reporte-propio.component').then(m => m.ReportePropioComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ROPA-REP',
+          pageTitle: 'Reportes',
+          pageSubtitle: 'Inventarios de ropa que usted cerró'
+        }
+      },
+      {
+        path: 'inventario/:id',
+        loadComponent: () => import('./ropaHospitalaria/inventario/tomar-inventario/tomar-inventario.component').then(m => m.TomarInventarioComponent),
+        canActivate: [moduleGuard],
+        data: {
+          moduleCode: 'INV-ROPA-TOMA',
+          pageTitle: 'Inventario de ropa',
+          pageSubtitle: 'Conteo físico'
+        }
+      }
+    ]
+  },
   // Compatibilidad con los enlaces previos
   { path: 'activosFijos/tomaInventario', redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' },
   { path: 'activosFijos/trazabilidad',   redirectTo: 'activosFijos/controlActivo', pathMatch: 'full' }
